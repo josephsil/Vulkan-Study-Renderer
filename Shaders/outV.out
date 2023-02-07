@@ -1,0 +1,55 @@
+; SPIR-V
+; Version: 1.0
+; Generator: Google spiregg; 0
+; Bound: 36
+; Schema: 0
+               OpCapability Shader
+               OpMemoryModel Logical GLSL450
+               OpEntryPoint Vertex %Vert "Vert" %gl_VertexIndex %gl_Position %out_var_COLOR0
+               OpSource HLSL 650
+               OpName %positions "positions"
+               OpName %out_var_COLOR0 "out.var.COLOR0"
+               OpName %Vert "Vert"
+               OpDecorate %gl_VertexIndex BuiltIn VertexIndex
+               OpDecorate %gl_Position BuiltIn Position
+               OpDecorate %out_var_COLOR0 Location 0
+      %float = OpTypeFloat 32
+    %float_0 = OpConstant %float 0
+ %float_n0_5 = OpConstant %float -0.5
+  %float_0_5 = OpConstant %float 0.5
+    %v4float = OpTypeVector %float 4
+    %v3float = OpTypeVector %float 3
+    %float_1 = OpConstant %float 1
+       %uint = OpTypeInt 32 0
+     %uint_3 = OpConstant %uint 3
+    %v2float = OpTypeVector %float 2
+%_arr_v2float_uint_3 = OpTypeArray %v2float %uint_3
+%_ptr_Input_uint = OpTypePointer Input %uint
+%_ptr_Output_v4float = OpTypePointer Output %v4float
+%_ptr_Output_v3float = OpTypePointer Output %v3float
+       %void = OpTypeVoid
+         %21 = OpTypeFunction %void
+%gl_VertexIndex = OpVariable %_ptr_Input_uint Input
+%gl_Position = OpVariable %_ptr_Output_v4float Output
+%out_var_COLOR0 = OpVariable %_ptr_Output_v3float Output
+%_ptr_Function__arr_v2float_uint_3 = OpTypePointer Function %_arr_v2float_uint_3
+%_ptr_Function_v2float = OpTypePointer Function %v2float
+         %24 = OpConstantComposite %v2float %float_0 %float_n0_5
+         %25 = OpConstantComposite %v2float %float_0_5 %float_0_5
+         %26 = OpConstantComposite %v2float %float_n0_5 %float_0_5
+         %27 = OpConstantComposite %_arr_v2float_uint_3 %24 %25 %26
+         %28 = OpConstantNull %v3float
+       %Vert = OpFunction %void None %21
+         %29 = OpLabel
+  %positions = OpVariable %_ptr_Function__arr_v2float_uint_3 Function
+               OpStore %positions %27
+         %30 = OpLoad %uint %gl_VertexIndex
+         %31 = OpAccessChain %_ptr_Function_v2float %positions %30
+         %32 = OpLoad %v2float %31
+         %33 = OpCompositeExtract %float %32 0
+         %34 = OpCompositeExtract %float %32 1
+         %35 = OpCompositeConstruct %v4float %33 %34 %float_0 %float_1
+               OpStore %gl_Position %35
+               OpStore %out_var_COLOR0 %28
+               OpReturn
+               OpFunctionEnd
