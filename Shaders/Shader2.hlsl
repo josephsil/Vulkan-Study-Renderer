@@ -4,6 +4,16 @@ struct VSInput
 	[[vk::location(1)]] float3 Color : COLOR0;
 };
 
+
+struct UBO
+{
+	half4x4 model;
+	half4x4 view;
+	half4x4 proj;
+};
+
+cbuffer ubo : register(b0, space0) { UBO ubo; }
+
 struct VSOutput
 {
 	[[vk::location(0)]] float4 Pos : SV_POSITION;
@@ -21,7 +31,7 @@ VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
 {
 
 	VSOutput output = (VSOutput)0;
-	output.Pos = float4(input.Position.xy, 0.0, 1.0);
+	output.Pos = mul(mul(mul(ubo.proj, ubo.view), ubo.model), half4(input.Position.xy, 0.0, 1.0));
 	output.Color = input.Color;
 	return output;
 }
@@ -43,6 +53,6 @@ FSOutput Frag(VSOutput input)
 {
 	FSOutput output;
 
-	output.Color = float4(input.Color.g, input.Color.r, 0.0, 1.0);
+	output.Color = float4(input.Color.r, input.Color.g, 0.0, 1.0);
 	return output;
 }

@@ -17,6 +17,13 @@
 
 #include <fstream>
 
+#define GLM_FORCE_RADIANS	
+#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
+#include <chrono>
+
 #include "ShaderLoading.cpp"
 
 
@@ -69,6 +76,7 @@ public:
 			attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
 			attributeDescriptions[0].offset = offsetof(Vertex, pos);
 
+
 			attributeDescriptions[1].binding = 0;
 			attributeDescriptions[1].location = 1;
 			attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
@@ -120,6 +128,8 @@ private:
 	std::vector<VkImageView> swapChainImageViews;
 
 	VkRenderPass renderPass;
+
+	VkDescriptorSetLayout descriptorSetLayout;
 	VkPipelineLayout pipelineLayout;
 
 	VkPipeline graphicsPipeline_1;
@@ -156,11 +166,16 @@ private:
 		VkDeviceMemory vertMemory;
 		VkDeviceMemory indexMemory;
 		VkDevice device;
+		std::vector<Vertex> vertices;
+		std::vector<uint32_t> indices;
 		//TODO JS: Should meshdata own a device?
 
+		//TODO JS: Remove verts and indices fro mthis construct when we load meshes from disk
 		MeshData(HelloTriangleApplication* app, VkDevice &device, std::vector<HelloTriangleApplication::Vertex> vertices, std::vector<uint32_t> indices)
 		{
 			device = app->device;
+			this->vertices = vertices;
+			this->indices = indices;
 			vertBuffer  = meshDataCreateVertexBuffer(vertices, vertMemory,  app);
 			indexBuffer = meshDataCreateIndexBuffer(indices,   indexMemory, app);
 		}
@@ -190,7 +205,7 @@ private:
 				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
 
 			//Bind to memory buffer
-
+			// TODO JS - Use amd memory allocator
 			void* data;
 			vkMapMemory(app->device, stagingBufferMemory, 0, bufferSize, 0, &data);
 			memcpy(data, mesh.data(), (size_t)bufferSize);
@@ -221,7 +236,7 @@ private:
 				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
 
 			//Bind to memory buffer
-
+			// TODO JS - Use amd memory allocator
 			void* data;
 			vkMapMemory(app->device, stagingBufferMemory, 0, bufferSize, 0, &data);
 			memcpy(data, mesh.data(), (size_t)bufferSize);
@@ -260,6 +275,13 @@ private:
 	std::vector<VkSemaphore> imageAvailableSemaphores;
 	std::vector<VkSemaphore> renderFinishedSemaphores;
 	std::vector<VkFence> inFlightFences;
+
+	struct UniformBufferObject {
+		glm::vec2 foo;
+		alignas(16) glm::mat4 model;
+		alignas(16) glm::mat4 view;
+		alignas(16) glm::mat4 proj;
+	};
 
 
 	const int MAX_FRAMES_IN_FLIGHT = 2;
@@ -307,36 +329,177 @@ private:
 
 	void initVulkan()
 	{
+		
 		createInstance();
 		setupDebugMessenger();
 		createSurface();
 		pickPhysicalDevice();
 		createLogicalDevice();
+
 		shaderLoader = new ShaderLoader(device);
 		compileShaders();
+		
 		createSwapChain();
 		createImageViews();
 		createRenderPass();
+		
 		//TODO JS: Sped through these parts below
-		graphicsPipeline_1 = createGraphicsPipeline("triangle", renderPass, nullptr);
-		graphicsPipeline_2 = createGraphicsPipeline("triangle_alt", renderPass, nullptr);
+		createDescriptorSetLayout();
+		createUniformBuffers();
+		createDescriptorPool();
+		createDescriptorSets();
+		
 		createFramebuffers();
 		createTransferCommandPool();
 		createCommandPool();
+
+		graphicsPipeline_1 = createGraphicsPipeline("triangle", renderPass, nullptr);
+		graphicsPipeline_2 = createGraphicsPipeline("triangle_alt", renderPass, nullptr);
+
 		placeholderMesh = MeshData(this, device, trivertices, triindices);
+
+	
 
 		createCommandBuffers();
 		createSyncObjects();
 	}
 
+	VkBuffer indexBuffer;
+	VkDeviceMemory indexBufferMemory;
+
+	VkDescriptorPool descriptorPool;
+	std::vector<VkDescriptorSet> descriptorSets;
+
+	//TODO JS: Move the uniform buffer data and fns and ? This belongs to like, a "material" 
+	std::vector<VkBuffer> uniformBuffers;
+	std::vector<VkDeviceMemory> d;
+	std::vector<void*> uniformBuffersMapped;
+
+	void createDescriptorPool() {
+
+		VkDescriptorPoolSize poolSize{};
+		poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		poolSize.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+
+		VkDescriptorPoolCreateInfo poolInfo{};
+		poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+		poolInfo.poolSizeCount = 1;
+		poolInfo.pPoolSizes = &poolSize;
+
+		poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+
+		if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
+			throw std::runtime_error("failed to create descriptor pool!");
+		}
+
+	}
+
+	void createDescriptorSets() {
+
+		std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, descriptorSetLayout);
+		VkDescriptorSetAllocateInfo allocInfo{};
+		allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+		allocInfo.descriptorPool = descriptorPool;
+		allocInfo.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+		allocInfo.pSetLayouts = layouts.data();
+
+		descriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
+		if (vkAllocateDescriptorSets(device, &allocInfo, descriptorSets.data()) != VK_SUCCESS) {
+			throw std::runtime_error("failed to allocate descriptor sets!");
+		}
+		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+			VkDescriptorBufferInfo bufferInfo{};
+			bufferInfo.buffer = uniformBuffers[i];
+			bufferInfo.offset = 0;
+			bufferInfo.range = sizeof(UniformBufferObject);
+
+			VkWriteDescriptorSet descriptorWrite{};
+			descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			descriptorWrite.dstSet = descriptorSets[i];
+
+			//corresponds to b0 in shader 
+			descriptorWrite.dstBinding = 0;
+			descriptorWrite.dstArrayElement = 0;
+
+			descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+			descriptorWrite.descriptorCount = 1;
+
+			descriptorWrite.pBufferInfo = &bufferInfo;
+			descriptorWrite.pImageInfo = nullptr; // Optional
+			descriptorWrite.pTexelBufferView = nullptr; // Optional
+
+			vkUpdateDescriptorSets(device, 1, &descriptorWrite, 0, nullptr);
+		}
+
+		
+
+	}
+
+	
+
+	void createUniformBuffers()
+		{
+		VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+
+		uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+		d.resize(MAX_FRAMES_IN_FLIGHT);
+		uniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
+
+		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+			createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers[i], d[i]);
+
+			vkMapMemory(device, d[i], 0, bufferSize, 0, &uniformBuffersMapped[i]);
+		}
+	}
+
+
+	//TODO JS: Push constants
+	void updateUniformBuffer(uint32_t currentImage) {
+		static auto startTime = std::chrono::high_resolution_clock::now();
+
+		auto currentTime = std::chrono::high_resolution_clock::now();
+		float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+
+		UniformBufferObject ubo{};
+		ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+
+		ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+
+		ubo.proj = glm::perspective(glm::radians(70.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 10.0f);
+
+		ubo.proj[1][1] *= -1;
+
+		memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo)); // TODO JS: MEmory allocator
+
+	}
+
+
+	void createDescriptorSetLayout() {
+		VkDescriptorSetLayoutBinding uboLayoutBinding{};
+		uboLayoutBinding.binding = 0; //b0
+		uboLayoutBinding.descriptorCount = 1;
+		uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+		uboLayoutBinding.pImmutableSamplers = nullptr; // Optional
+
+		VkDescriptorSetLayoutCreateInfo layoutInfo{};
+		layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+		layoutInfo.bindingCount = 1;
+		layoutInfo.pBindings = &uboLayoutBinding;
+
+		if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS) {
+			throw std::runtime_error("failed to create descriptor set layout!");
+
+		}
+	}
+
 
 	void compileShaders()
 	{
-		//TODO JS: move running shaderloader earlier -- retrieve shaders from map here
 		shaderLoader = new ShaderLoader(device);
 
-		shaderLoader->AddShader("triangle", L"./Shaders/shader1.hlsl");
-		shaderLoader->AddShader("triangle_alt", L"./Shaders/shader2.hlsl");
+		shaderLoader->AddShader("triangle", L"./Shaders/Shader1.hlsl");
+		shaderLoader->AddShader("triangle_alt", L"./Shaders/shader1.hlsl");
 
 		
 	}
@@ -515,7 +678,10 @@ because we won't come close to hitting any of these limits for now.*/
 
 		vkCmdBindIndexBuffer(commandBuffer, mesh.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
-		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(triindices.size()), 1, 0, 0, 0);
+		//Bind descriptor sets - TODO JS:  desctriptorsets should come from elsewhere?
+		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
+
+		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(mesh.indices.size()), 1, 0, 0, 0);
 
 		vkCmdEndRenderPass(commandBuffer);
 
@@ -640,7 +806,7 @@ because we won't come close to hitting any of these limits for now.*/
 		VkPipeline newGraphicsPipeline; //This guy is getting initialized and returned 
 		auto shaders = shaderLoader->compiledShaders[shaderName];
 
-		VkPipelineShaderStageCreateInfo shaderStages[] = { shaders[0],shaders[1]};
+			VkPipelineShaderStageCreateInfo shaderStages[] = { shaders[0],shaders[1]};
 
 
 		auto bindingDescription = Vertex::getBindingDescription();
@@ -671,7 +837,7 @@ because we won't come close to hitting any of these limits for now.*/
 		rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
 		rasterizer.lineWidth = 1.0f;
 		rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-		rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
+		rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 		rasterizer.depthBiasEnable = VK_FALSE;
 
 		VkPipelineMultisampleStateCreateInfo multisampling{};
@@ -716,10 +882,8 @@ because we won't come close to hitting any of these limits for now.*/
 
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-		pipelineLayoutInfo.setLayoutCount = 0; // Optional
-		pipelineLayoutInfo.pSetLayouts = nullptr; // Optional
-		pipelineLayoutInfo.pushConstantRangeCount = 0; // Optional
-		pipelineLayoutInfo.pPushConstantRanges = nullptr; // Optional
+		pipelineLayoutInfo.setLayoutCount = 1; // Optional
+		pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout; 
 
 			if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create pipeline layout!");
@@ -746,11 +910,11 @@ because we won't come close to hitting any of these limits for now.*/
 		pipelineInfo.subpass = 0;
 
 		pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
-		pipelineInfo.basePipelineIndex = -1; // Optional
+			pipelineInfo.basePipelineIndex = -1; // Optional
 
-		if (vkCreateGraphicsPipelines(device, pipelineCache, 1, &pipelineInfo, nullptr, &newGraphicsPipeline) != VK_SUCCESS) {
+		if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &newGraphicsPipeline) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create graphics pipeline!");
-		}
+		}	
 
 
 
@@ -764,21 +928,7 @@ because we won't come close to hitting any of these limits for now.*/
 			return newGraphicsPipeline;
 
 	}
-	VkShaderModule createShaderModule(const std::vector<char>& code) {
 
-		VkShaderModuleCreateInfo createInfo{};
-		createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-		createInfo.codeSize = code.size();
-		createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
-
-		VkShaderModule shaderModule;
-		if (vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
-			throw std::runtime_error("failed to create shader module!");
-		}
-
-		return shaderModule;
-
-	}
 
 	void createImageViews() {
 
@@ -845,9 +995,8 @@ because we won't come close to hitting any of these limits for now.*/
 			createInfo.pQueueFamilyIndices = queueFamilyIndices;
 		}
 		else {
-			createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
-			createInfo.queueFamilyIndexCount = 0; // Optional
-			createInfo.pQueueFamilyIndices = nullptr; // Optional
+			createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
 		}
 
 		createInfo.preTransform = swapChainSupport.capabilities.currentTransform;
@@ -1271,13 +1420,16 @@ because we won't come close to hitting any of these limits for now.*/
 	
 	void drawFrame() {
 		vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
-		vkResetFences(device, 1, &inFlightFences[currentFrame]);
 
 		uint32_t imageIndex;
 		vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
 
 		vkResetCommandBuffer(commandBuffers[currentFrame], 0);
 
+
+		updateUniformBuffer(currentFrame); // TODO JS: Figure out  
+
+		vkResetFences(device, 1, &inFlightFences[currentFrame]);
 		//TODO JS: properly manage multiple objects with vertex buffer + corresponding pipeline object
 		//VkBuffer vertexBuffers[] = { vertexBuffer };
 		recordCommandBuffer(commandBuffers[currentFrame], imageIndex, _selectedShader == 1 ? graphicsPipeline_1 : graphicsPipeline_2, placeholderMesh);
@@ -1326,7 +1478,21 @@ because we won't come close to hitting any of these limits for now.*/
 
 	void cleanup()
 	{
-		//TODO clenaup swapchain someday
+		//TODO clenaup swapchain 
+
+
+		//TODO JS: might be moving somewhere?
+
+		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+			vkDestroyBuffer(device, uniformBuffers[i], nullptr);
+			vkFreeMemory(device, d[i], nullptr);
+		}
+
+		vkDestroyDescriptorPool(device, descriptorPool, nullptr);
+
+		vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
+
+
 
 
 		placeholderMesh.cleanup();

@@ -17,7 +17,7 @@ public:
 		device_ = device;
 	}
 
-	std::map<const char*, std::vector<VkPipelineShaderStageCreateInfo>> compiledShaders;
+	std::map<const char*, std::vector<VkPipelineShaderStageCreateInfo>>		compiledShaders;
 
 	void AddShader(const char* name, std::wstring shaderPath)
 	{
