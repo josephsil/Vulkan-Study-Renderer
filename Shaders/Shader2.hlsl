@@ -35,7 +35,7 @@ VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
 {
 
 	VSOutput output = (VSOutput)0;
-	output.Pos = mul(mul(mul(ubo.proj, ubo.view), ubo.model), half4(input.Position.xy, 0.0, 1.0));
+	output.Pos = mul(mul(mul(ubo.proj, ubo.view), ubo.model), half4(input.Position.xyz,1.0));
 	output.Color = input.Color;
 	output.Texture_ST = input.Texture_ST;
 	return output;
