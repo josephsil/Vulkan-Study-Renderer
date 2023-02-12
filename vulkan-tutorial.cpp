@@ -274,7 +274,134 @@ private:
 
 
 	};
+
+	//TODO JS: obviously improve 
+	struct TextureData
+	{
+	public:
+		VkImageView textureImageView;
+		VkSampler textureSampler;
+
+		TextureData(HelloTriangleApplication* app, const char* path)
+		{
+			device = app->device;
+			createTextureImage(path, app);
+			createTextureImageView(app);
+			createTextureSampler(app);
+		}
+
+		TextureData()
+		{
+
+		}
+	
+		void cleanup()
+		{
+			vkDestroySampler(device, textureSampler, nullptr);
+			vkDestroyImageView(device, textureImageView, nullptr);
+			vkDestroyImage(device, textureImage, nullptr);
+			vkFreeMemory(device, textureImageMemory, nullptr);
+		}
+	private:
+		VkDevice device;
+
+
+		void createTextureSampler(HelloTriangleApplication* app) {
+			VkPhysicalDeviceProperties properties{};
+			vkGetPhysicalDeviceProperties(app->physicalDevice, &properties);
+
+			VkSamplerCreateInfo samplerInfo{};
+			samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+			samplerInfo.magFilter = VK_FILTER_LINEAR;
+			samplerInfo.minFilter = VK_FILTER_LINEAR;
+			samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+			samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+			samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+			samplerInfo.anisotropyEnable = VK_TRUE;
+			samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
+			samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+			samplerInfo.unnormalizedCoordinates = VK_FALSE;
+			samplerInfo.compareEnable = VK_FALSE;
+			samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+			samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+			samplerInfo.mipLodBias = 0.0f;
+			samplerInfo.minLod = 0.0f;
+			samplerInfo.maxLod = 0.0f;
+
+			if (vkCreateSampler(app->device, &samplerInfo, nullptr, &textureSampler) != VK_SUCCESS) {
+				throw std::runtime_error("failed to create texture sampler!");
+			}
+
+		}
+
+
+
+
+		void createTextureImageView(HelloTriangleApplication* app) {
+			textureImageView = app->createImageView(textureImage, VK_FORMAT_R8G8B8A8_SRGB);
+		}
+
+
+
+		//TODO JS: 
+		/*All of the helper functions that submit commands so far have been set up to execute synchronously by waiting for the queue to become idle.
+		For practical applications it is recommended to combine these operations in a single command bufferand execute them asynchronously for
+		higher throughput, especially the transitionsand copy in the createTextureImage function.
+		Try to experiment with this by creating a setupCommandBuffer that the helper functions record commands into,
+		and add a flushSetupCommands to execute the commands that have been recorded so far.
+		It's best to do this after the texture mapping works to check if the texture resources are still set up correctly.*/
+
+		VkImage textureImage;
+		VkDeviceMemory textureImageMemory;
+
+		void createTextureImage(const char* path, HelloTriangleApplication* app) {
+
+			auto workingTextureBuffer = app->beginSingleTimeCommands();
+			int texWidth, texHeight, texChannels;
+			stbi_uc* pixels = stbi_load(path, &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+			VkDeviceSize imageSize = texWidth * texHeight * 4;
+
+			if (!pixels) {
+				throw std::runtime_error("failed to load texture image!");
+			}
+
+			VkBuffer stagingBuffer;
+			VkDeviceMemory stagingBufferMemory;
+
+			app->createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+
+			void* data;
+			vkMapMemory(app->device, stagingBufferMemory, 0, imageSize, 0, &data);
+			memcpy(data, pixels, static_cast<size_t>(imageSize));
+			vkUnmapMemory(app->device, stagingBufferMemory);
+
+			stbi_image_free(pixels);
+
+			app->createImage(texWidth, texHeight, VK_FORMAT_R8G8B8A8_SRGB,
+				VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
+
+			app->transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, workingTextureBuffer);
+			app->copyBufferToImage(stagingBuffer, textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), workingTextureBuffer);
+
+			app->transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB,
+				VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, workingTextureBuffer); //JS: Prepare image to read in shaders
+
+			app->transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, workingTextureBuffer);
+
+			app->endSingleTimeCommands(workingTextureBuffer);
+			vkDestroyBuffer(app->device, stagingBuffer, nullptr);
+			vkFreeMemory(app->device, stagingBufferMemory, nullptr);
+
+		}
+
+
+
+
+	};
+
 	MeshData placeholderMesh;
+	TextureData placeholderTexture;
 
 	//Mesh and shader (pipeline) combo -- could add other material properties, transform, etc?
 	//struct meshObject
@@ -347,6 +474,7 @@ private:
 		//everything went fine
 	
 	}
+	
 
 	void initVulkan()
 	{
@@ -376,55 +504,18 @@ private:
 
 		graphicsPipeline_1 = createGraphicsPipeline("triangle", renderPass, nullptr);
 		graphicsPipeline_2 = createGraphicsPipeline("triangle_alt", renderPass, nullptr);
-		createTextureImage();				//TODO JS: Load more like MeshData?
-		createTextureImageView();
-		createTextureSampler();
+		placeholderTexture = TextureData(this, "textures/testTexture.jpg");
+		//createTextureImage();				//TODO JS: Load more like MeshData?
+		//createTextureImageView();
+		//createTextureSampler();
 
 		placeholderMesh = MeshData(this, device, trivertices, triindices);
 
 		createUniformBuffers();
 		createDescriptorPool();
-		createDescriptorSets();
+		createDescriptorSets(placeholderTexture);
 		createCommandBuffers();
 		createSyncObjects();
-	}
-
-	VkImageView textureImageView;
-	VkSampler textureSampler;
-
-	void createTextureSampler() {
-		VkPhysicalDeviceProperties properties{};
-		vkGetPhysicalDeviceProperties(physicalDevice, &properties);
-
-		VkSamplerCreateInfo samplerInfo{};
-		samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-		samplerInfo.magFilter = VK_FILTER_LINEAR;
-		samplerInfo.minFilter = VK_FILTER_LINEAR;
-		samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		samplerInfo.anisotropyEnable = VK_TRUE;
-		samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
-		samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-		samplerInfo.unnormalizedCoordinates = VK_FALSE;
-		samplerInfo.compareEnable = VK_FALSE;
-		samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
-		samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-		samplerInfo.mipLodBias = 0.0f;
-		samplerInfo.minLod = 0.0f;
-		samplerInfo.maxLod = 0.0f;
-
-		if (vkCreateSampler(device, &samplerInfo, nullptr, &textureSampler) != VK_SUCCESS) {
-			throw std::runtime_error("failed to create texture sampler!");
-		}
-
-	}
-
-
-
-
-	void createTextureImageView() {
-		textureImageView = createImageView(textureImage, VK_FORMAT_R8G8B8A8_SRGB);
 	}
 
 	VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT) {
@@ -445,92 +536,6 @@ private:
 		}
 
 		return imageView;
-	}
-
-	//TODO JS: 
-	/*All of the helper functions that submit commands so far have been set up to execute synchronously by waiting for the queue to become idle.
-	For practical applications it is recommended to combine these operations in a single command bufferand execute them asynchronously for
-	higher throughput, especially the transitionsand copy in the createTextureImage function.
-	Try to experiment with this by creating a setupCommandBuffer that the helper functions record commands into,
-	and add a flushSetupCommands to execute the commands that have been recorded so far.
-	It's best to do this after the texture mapping works to check if the texture resources are still set up correctly.*/
-
-	VkImage textureImage;
-	VkDeviceMemory textureImageMemory;
-
-	void createTextureImage() {
-
-		auto workingTextureBuffer = beginSingleTimeCommands();
-		int texWidth, texHeight, texChannels;
-		stbi_uc* pixels = stbi_load("textures/testTexture.jpg", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
-		VkDeviceSize imageSize = texWidth * texHeight * 4;
-
-		if (!pixels) {
-			throw std::runtime_error("failed to load texture image!");
-		}
-
-		VkBuffer stagingBuffer;
-		VkDeviceMemory stagingBufferMemory;
-
-		createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
-
-		void* data;
-		vkMapMemory(device, stagingBufferMemory, 0, imageSize, 0, &data);
-		memcpy(data, pixels, static_cast<size_t>(imageSize));
-		vkUnmapMemory(device, stagingBufferMemory);
-
-		stbi_image_free(pixels);
-
-		createImage(texWidth, texHeight, VK_FORMAT_R8G8B8A8_SRGB, 
-			VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, 
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
-
-		transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, workingTextureBuffer);
-		copyBufferToImage(stagingBuffer, textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), workingTextureBuffer);
-
-		transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, 
-			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, workingTextureBuffer); //JS: Prepare image to read in shaders
-
-		transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, workingTextureBuffer);
-
-		endSingleTimeCommands(workingTextureBuffer);
-		vkDestroyBuffer(device, stagingBuffer, nullptr);
-		vkFreeMemory(device, stagingBufferMemory, nullptr);
-
-	}
-	void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory) {
-		VkImageCreateInfo imageInfo{};
-		imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-		imageInfo.imageType = VK_IMAGE_TYPE_2D;
-		imageInfo.extent.width = width;
-		imageInfo.extent.height = height;
-		imageInfo.extent.depth = 1;
-		imageInfo.mipLevels = 1;
-		imageInfo.arrayLayers = 1;
-		imageInfo.format = format;
-		imageInfo.tiling = tiling;
-		imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		imageInfo.usage = usage;
-		imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-		imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-		if (vkCreateImage(device, &imageInfo, nullptr, &image) != VK_SUCCESS) {
-			throw std::runtime_error("failed to create image!");
-		}
-
-		VkMemoryRequirements memRequirements;
-		vkGetImageMemoryRequirements(device, image, &memRequirements);
-
-		VkMemoryAllocateInfo allocInfo{};
-		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-		allocInfo.allocationSize = memRequirements.size;
-		allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
-
-		if (vkAllocateMemory(device, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS) {
-			throw std::runtime_error("failed to allocate image memory!");
-		}
-
-		vkBindImageMemory(device, image, imageMemory, 0);
 	}
 
 	void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, VkCommandBuffer workingBuffer = nullptr) {
@@ -593,7 +598,7 @@ private:
 		);
 
 		if (endNow)
-		endSingleTimeCommands(workingBuffer);
+			endSingleTimeCommands(workingBuffer);
 	}
 
 	void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, VkCommandBuffer workingBuffer = nullptr) {
@@ -632,10 +637,8 @@ private:
 		);
 
 		if (endNow)
-		endSingleTimeCommands(workingBuffer);
+			endSingleTimeCommands(workingBuffer);
 	}
-
-
 	// TODO JS : Descriptor sets more related to shaders?
 
 	VkDescriptorPool descriptorPool;
@@ -668,7 +671,7 @@ private:
 
 	}
 
-	void createDescriptorSets() {
+	void createDescriptorSets(TextureData tex) {
 
 		std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, descriptorSetLayout);
 		VkDescriptorSetAllocateInfo allocInfo{};
@@ -689,8 +692,8 @@ private:
 
 			VkDescriptorImageInfo imageInfo{};
 			imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-			imageInfo.imageView = textureImageView;
-			imageInfo.sampler = textureSampler;
+			imageInfo.imageView = tex.textureImageView;
+			imageInfo.sampler = tex.textureSampler;
 
 			std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
 
@@ -1058,6 +1061,42 @@ because we won't come close to hitting any of these limits for now.*/
 				throw std::runtime_error("failed to create framebuffer!");
 			}
 		}
+	}
+
+
+	void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory) {
+		VkImageCreateInfo imageInfo{};
+		imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+		imageInfo.imageType = VK_IMAGE_TYPE_2D;
+		imageInfo.extent.width = width;
+		imageInfo.extent.height = height;
+		imageInfo.extent.depth = 1;
+		imageInfo.mipLevels = 1;
+		imageInfo.arrayLayers = 1;
+		imageInfo.format = format;
+		imageInfo.tiling = tiling;
+		imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		imageInfo.usage = usage;
+		imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+		imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+		if (vkCreateImage(device, &imageInfo, nullptr, &image) != VK_SUCCESS) {
+			throw std::runtime_error("failed to create image!");
+		}
+
+		VkMemoryRequirements memRequirements;
+		vkGetImageMemoryRequirements(device, image, &memRequirements);
+
+		VkMemoryAllocateInfo allocInfo{};
+		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		allocInfo.allocationSize = memRequirements.size;
+		allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
+
+		if (vkAllocateMemory(device, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS) {
+			throw std::runtime_error("failed to allocate image memory!");
+		}
+
+		vkBindImageMemory(device, image, imageMemory, 0);
 	}
 
 	void createDepthResources() {
@@ -1830,11 +1869,8 @@ because we won't come close to hitting any of these limits for now.*/
 	void cleanup()
 	{
 		//TODO clenaup swapchain
-
-		vkDestroySampler(device, textureSampler, nullptr);
-		vkDestroyImageView(device, textureImageView, nullptr);
-		vkDestroyImage(device, textureImage, nullptr);
-		vkFreeMemory(device, textureImageMemory, nullptr);
+		placeholderTexture.cleanup();
+		
 
 
 		//TODO JS: might be moving somewhere?
