@@ -11,7 +11,10 @@
 #include <SDL2/SDL_vulkan.h>
 
 #include "meshData.h"
+#include "SceneObjectData.h"
 #include "Vertex.h"
+
+
 
 #pragma region utilmessengerexts
     VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
@@ -212,6 +215,8 @@ void HelloTriangleApplication::initWindow()
 //TODO JS: Real meshes should be kept by some kind of scene manager 
 MeshData _placeholderMesh;
 
+Scene scene;
+
 void HelloTriangleApplication::initVulkan()
 {
     createInstance();
@@ -246,6 +251,30 @@ void HelloTriangleApplication::initVulkan()
     _placeholderMesh = MeshData::MeshData(this, trivertices, triindices);
     placeholderMesh = &_placeholderMesh; //TODO JS: I dont understand lifetime stuff here
 
+    scene = Scene();
+
+    glm::vec3 EulerAngles(0, 0, 0);
+    auto MyQuaternion = glm::quat(EulerAngles);
+
+    sceneObjects.push_back(
+        scene.AddObject(
+            placeholderMesh,
+            glm::vec4(0,0,0,1),
+            MyQuaternion));
+
+    sceneObjects.push_back(
+        scene.AddObject(
+            placeholderMesh,
+            glm::vec4(0,0,1,1),
+            MyQuaternion));
+
+    sceneObjects.push_back(
+           scene.AddObject(
+               placeholderMesh,
+               glm::vec4(0,0,1,1),
+               MyQuaternion));
+
+    
     createUniformBuffers();
     createDescriptorPool();
     createDescriptorSets(placeholderTexture);
@@ -477,7 +506,8 @@ void HelloTriangleApplication::createUniformBuffers()
     }
 }
 
-void HelloTriangleApplication::updateUniformBuffer(uint32_t currentImage)
+//TODO: Separate the per model xforms from the camera xform
+void HelloTriangleApplication::updateUniformBuffer(uint32_t currentImage, glm::mat4 model)
 {
     static auto startTime = std::chrono::high_resolution_clock::now();
 
@@ -485,8 +515,8 @@ void HelloTriangleApplication::updateUniformBuffer(uint32_t currentImage)
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
     UniformBufferObject ubo{};
-    ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 
+    ubo.model = model;
     ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 
     ubo.proj = glm::perspective(glm::radians(70.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f,
@@ -1571,13 +1601,41 @@ void HelloTriangleApplication::mainLoop()
             }
         }
 
+        //Temp placeholder for like, object loop
+        UpdateRotations();
+        scene.Update();
+
         drawFrame();
     }
     vkDeviceWaitIdle(device);
 }
 
+//Placeholder "gameplay" function
+void HelloTriangleApplication::UpdateRotations()
+{
+    //<Rotation update
+    glm::vec3 EulerAngles(0, 0, 0.001);
+    auto MyQuaternion = glm::quat(EulerAngles);
+
+    // Conversion from axis-angle
+    // In GLM the angle must be in degrees here, so convert it.
+
+    for (int i = 0; i < scene.rotations.size(); i++)
+    {
+        scene.rotations[i] *= MyQuaternion; 
+    }
+
+    scene.Update();
+}
+
 void HelloTriangleApplication::drawFrame()
 {
+
+ 
+
+    //Rotation update >
+
+    
     vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
 
     uint32_t imageIndex;
@@ -1587,13 +1645,16 @@ void HelloTriangleApplication::drawFrame()
     vkResetCommandBuffer(commandBuffers[currentFrame], 0);
 
 
-    updateUniformBuffer(currentFrame); // TODO JS: Figure out  
+    //TODO: draw multiple objects
+    updateUniformBuffer(currentFrame, scene.matrices[1]); // TODO JS: Figure out  
 
     vkResetFences(device, 1, &inFlightFences[currentFrame]);
     //TODO JS: properly manage multiple objects with vertex buffer + corresponding pipeline object
     //VkBuffer vertexBuffers[] = { vertexBuffer };
+    
+    //TODO: draw multiple objects
     recordCommandBuffer(commandBuffers[currentFrame], imageIndex,
-                        _selectedShader == 0 ? graphicsPipeline_1 : graphicsPipeline_2, placeholderMesh);
+                        _selectedShader == 0 ? graphicsPipeline_1 : graphicsPipeline_2, scene.meshes[1]);
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;

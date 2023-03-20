@@ -7,9 +7,8 @@
 #include <vector>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-
+#include "Vertex.h"
 #include <vulkan/vulkan.h>
-struct Vertex;
 class HelloTriangleApplication;
 //TODO JS: multiple objects
     //TODO: Fn which loads mesh from disk and returns this struct

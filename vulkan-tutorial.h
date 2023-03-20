@@ -21,6 +21,7 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include<glm/gtc/quaternion.hpp>
 
 //TODO JS: use
 #include "vk_mem_alloc.h"
@@ -51,6 +52,7 @@ struct Vertex;  //Forward Declaration
         HelloTriangleApplication();
 
     private:
+        std::vector<int> sceneObjects;
         struct TextureData;
         struct SDL_Window* _window{nullptr};
         VkInstance instance;
@@ -224,7 +226,7 @@ struct Vertex;  //Forward Declaration
 
 
         //TODO JS: Push constants
-        void updateUniformBuffer(uint32_t currentImage);
+        void updateUniformBuffer(uint32_t currentImage, glm::mat4 model);
 
 
         void createDescriptorSetLayout();
@@ -344,6 +346,8 @@ struct Vertex;  //Forward Declaration
         int _selectedShader{0};
 
         void mainLoop();
+
+       void UpdateRotations();
 
         void drawFrame();
 
