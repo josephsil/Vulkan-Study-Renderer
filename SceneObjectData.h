@@ -1,7 +1,6 @@
 #pragma once
 #include <vector>
 #include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
 #include<glm/gtc/quaternion.hpp>
 
 //Objects have like, transformation info, ref to their mesh, ref to their material
@@ -25,5 +24,4 @@ class Scene
     //Returns the index to the object in the vectors
     int AddObject(MeshData* mesh, glm::vec3 position, glm::quat rotation);
 
-    
 };

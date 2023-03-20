@@ -1,20 +1,11 @@
 #pragma once
 
 
-#include <array>
-#include <iostream>
-#include <stdexcept>
-#include <cstdlib>
-#include <map>
-#include <set>
 #include <vector>
 #include <optional>
 
 #include <cstdint> // Necessary for uint32_t
-#include <limits> // Necessary for std::numeric_limits
-#include <algorithm> // Necessary for std::clamp
 
-#include <fstream>
 
 #define GLM_FORCE_RADIANS	
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
@@ -27,7 +18,7 @@
 #include "vk_mem_alloc.h"
 #include <tiny_obj_loader.h>
 
-#include "stb_image.h"
+
 
 #include <chrono>
 // My stuff 

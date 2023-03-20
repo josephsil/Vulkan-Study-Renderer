@@ -5,8 +5,6 @@
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <vector>
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
 #include "Vertex.h"
 #include <vulkan/vulkan.h>
 class HelloTriangleApplication;
@@ -14,7 +12,6 @@ class HelloTriangleApplication;
     //TODO: Fn which loads mesh from disk and returns this struct
 
     //So this like, takes in a reference to the app and assigns itself to the relevant buffers/etc. Pretty gross?
-    //TODO: less copying vk stuff(? am I?) 
     struct MeshData
     {
         

@@ -5,11 +5,10 @@
 
 #include "SceneObjectData.h"
 #include "MeshData.h"
-
+#include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/quaternion.hpp>
-    // std::vector<MeshData> meshes;
-    // std::vector<glm::vec4> translates;
-    // std::vector<glm::quat> rotations;
+
+
     //No scale for now
     Scene::Scene()
     {

@@ -4,16 +4,25 @@
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "vulkan-tutorial.h"
-
+#include<glm/gtc/quaternion.hpp>
 #undef main
 #define SDL_MAIN_HANDLED 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_vulkan.h>
 
+
+#include <array>
+#include <iostream>
+#include <stdexcept>
+#include <cstdlib>
+#include <map>
+#include <set>
+
 #include "meshData.h"
 #include "SceneObjectData.h"
 #include "Vertex.h"
 
+#include "stb_image.h"
 
 
 #pragma region utilmessengerexts
@@ -248,6 +257,7 @@ void HelloTriangleApplication::initVulkan()
     //createTextureImageView();
     //createTextureSampler();
 
+    //TODO: Scene loads mesh instead? 
     _placeholderMesh = MeshData::MeshData(this, trivertices, triindices);
     placeholderMesh = &_placeholderMesh; //TODO JS: I dont understand lifetime stuff here
 
