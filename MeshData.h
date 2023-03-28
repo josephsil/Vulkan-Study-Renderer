@@ -9,15 +9,11 @@
 #pragma region forward declarations
 struct VkPipelineShaderStageCreateInfo;
 struct VkPipelineShaderStageCreateInfo;
-struct VkDevice_T;
-struct VkShaderModule_T;
-struct VkBuffer_T;
-struct VkDeviceMemory_T;
-struct VkPhysicalDevice_T;
-typedef  VkDevice_T* VkDevice;
-typedef  VkShaderModule_T* VkShaderModule;
-typedef  VkBuffer_T* VkBuffer;
-typedef  VkDeviceMemory_T* VkDeviceMemory;
+typedef struct VkPhysicalDevice_T* VkPhysicalDevice;
+typedef struct VkDevice_T* VkDevice;
+typedef struct VkShaderModule_T* VkShaderModule;
+typedef struct VkBuffer_T* VkBuffer;
+typedef struct VkDeviceMemory_T* VkDeviceMemory;
 #pragma endregion
 
 class HelloTriangleApplication;
@@ -36,7 +32,7 @@ class HelloTriangleApplication;
         std::vector<Vertex> vertices;
         std::vector<uint32_t> indices;
         //TODO JS: Should meshdata own a device?
-        VkPhysicalDevice_T* physicalDevice; //Device pointers
+        VkPhysicalDevice physicalDevice; //Device pointers
         VkDevice device; //Device pointers
 
         //TODO JS: Remove verts and indices fro mthis construct when we load meshes from disk

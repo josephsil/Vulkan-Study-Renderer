@@ -6,10 +6,8 @@
 
 #pragma region forward declarations 
 struct VkPipelineShaderStageCreateInfo;
-struct VkDevice_T;
-struct VkShaderModule_T;
-typedef  VkDevice_T* VkDevice;
-typedef  VkShaderModule_T* VkShaderModule;
+typedef struct VkDevice_T* VkDevice;
+typedef struct VkShaderModule_T* VkShaderModule;
 #pragma endregion
 
 struct ShaderLoader {
