@@ -6,7 +6,7 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <vector>
 #include "Vertex.h"
-#include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 class HelloTriangleApplication;
 //TODO JS: multiple objects
     //TODO: Fn which loads mesh from disk and returns this struct
