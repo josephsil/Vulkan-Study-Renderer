@@ -1,17 +1,18 @@
 #pragma once
-
-#include <Windows.h>
 #include <string>
-#include <iostream>
 #include <vector>
-#include "dxcapi.h"
 #include <map>
 
-#include <d3dcompiler.h>
-#include <atlbase.h>
-#include <vulkan/vulkan.h>
 
-class ShaderLoader {
+#pragma region forward declarations 
+struct VkPipelineShaderStageCreateInfo;
+struct VkDevice_T;
+struct VkShaderModule_T;
+typedef  VkDevice_T* VkDevice;
+typedef  VkShaderModule_T* VkShaderModule;
+#pragma endregion
+
+struct ShaderLoader {
 
 public:
 	ShaderLoader(VkDevice device);
@@ -20,6 +21,6 @@ public:
 
 	void AddShader(const char* name, std::wstring shaderPath);
 private:
-	VkDevice device_;
 	VkShaderModule shaderLoad(std::wstring shaderFilename, bool is_frag);
+	VkDevice device_;
 };

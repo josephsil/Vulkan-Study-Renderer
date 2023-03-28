@@ -1,3 +1,5 @@
+#ifndef VERTEX_H
+#define VERTEX_H
 #pragma once
 
 #define GLM_FORCE_RADIANS	
@@ -5,9 +7,10 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 
-
-#include <vulkan/vulkan.h>
-
+#pragma region Forward Declarations 
+struct VkVertexInputBindingDescription;
+struct VkVertexInputAttributeDescription;
+#pragma endregion 
 struct Vertex
 {
     glm::vec3 pos;
@@ -18,3 +21,5 @@ struct Vertex
 
     static std::array<VkVertexInputAttributeDescription, 3> getAttributeDescriptions();
 };
+
+#endif 

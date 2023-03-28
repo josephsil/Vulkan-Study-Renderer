@@ -1,5 +1,10 @@
 #include "ShaderLoading.h"
-
+#include "Vulkan_Includes.h"
+#include <Windows.h>
+#include "dxcapi.h"
+#include <d3dcompiler.h>
+#include <atlbase.h>
+#include <iostream>
 ShaderLoader::ShaderLoader(VkDevice device)
 {
 	device_ = device;
