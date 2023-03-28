@@ -5,8 +5,18 @@
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <vector>
-#include "Vertex.h"
-#include <vulkan/vulkan_core.h>
+#include "vertex.h"
+
+#pragma region forward declarations
+struct VkPipelineShaderStageCreateInfo;
+struct VkPipelineShaderStageCreateInfo;
+typedef struct VkPhysicalDevice_T* VkPhysicalDevice;
+typedef struct VkDevice_T* VkDevice;
+typedef struct VkShaderModule_T* VkShaderModule;
+typedef struct VkBuffer_T* VkBuffer;
+typedef struct VkDeviceMemory_T* VkDeviceMemory;
+#pragma endregion
+
 class HelloTriangleApplication;
 //TODO JS: multiple objects
     //TODO: Fn which loads mesh from disk and returns this struct

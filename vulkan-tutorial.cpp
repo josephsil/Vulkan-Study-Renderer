@@ -15,15 +15,15 @@
 #include <iostream>
 #include <stdexcept>
 #include <cstdlib>
+#include <fstream>
 #include <map>
 #include <set>
 
 #include "meshData.h"
 #include "SceneObjectData.h"
 #include "Vertex.h"
-
 #include "stb_image.h"
-
+#include "ShaderLoading.h"
 
 #pragma region utilmessengerexts
     VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
@@ -99,6 +99,7 @@ HelloTriangleApplication::HelloTriangleApplication()
     };
 }
 
+#pragma region textureData
 HelloTriangleApplication::TextureData::TextureData(HelloTriangleApplication* app, const char* path)
 {
     appref = app;
@@ -201,6 +202,9 @@ void HelloTriangleApplication::TextureData::createTextureImage(const char* path)
     vkFreeMemory(appref->device, stagingBufferMemory, nullptr);
 }
 
+#pragma endregion
+
+
 void HelloTriangleApplication::initWindow()
 {
     // We initialize SDL and create a window with it. 
@@ -292,6 +296,7 @@ void HelloTriangleApplication::initVulkan()
     createSyncObjects();
 }
 
+#pragma region images 
 VkImageView HelloTriangleApplication::createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags)
 {
     VkImageViewCreateInfo viewInfo{};
@@ -383,7 +388,6 @@ void HelloTriangleApplication::transitionImageLayout(VkImage image, VkFormat for
         endSingleTimeCommands(workingBuffer);
 }
 
-
 void HelloTriangleApplication::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height,
     VkCommandBuffer workingBuffer)
 {
@@ -424,7 +428,9 @@ void HelloTriangleApplication::copyBufferToImage(VkBuffer buffer, VkImage image,
     if (endNow)
         endSingleTimeCommands(workingBuffer);
 }
+#pragma endregion
 
+#pragma region descriptor sets and pools
 void HelloTriangleApplication::createDescriptorPool()
 {
     std::array<VkDescriptorPoolSize, 2> poolSizes{};
@@ -498,6 +504,7 @@ void HelloTriangleApplication::createDescriptorSets(TextureData tex)
     }
 }
 
+//TODO JS: Better understand what needs to be done at startup
 void HelloTriangleApplication::createUniformBuffers()
 {
     VkDeviceSize bufferSize = sizeof(UniformBufferObject);
@@ -516,27 +523,8 @@ void HelloTriangleApplication::createUniformBuffers()
     }
 }
 
-//TODO: Separate the per model xforms from the camera xform
-void HelloTriangleApplication::updateUniformBuffer(uint32_t currentImage, glm::mat4 model)
-{
-    static auto startTime = std::chrono::high_resolution_clock::now();
 
-    auto currentTime = std::chrono::high_resolution_clock::now();
-    float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-
-    UniformBufferObject ubo{};
-
-    ubo.model = model;
-    ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-
-    ubo.proj = glm::perspective(glm::radians(70.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f,
-                                10.0f);
-
-    ubo.proj[1][1] *= -1;
-
-    memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo)); // TODO JS: MEmory allocator
-}
-
+//TODO JS: Better understand what needs to be done at startup
 void HelloTriangleApplication::createDescriptorSetLayout()
 {
     VkDescriptorSetLayoutBinding uboLayoutBinding{};
@@ -567,15 +555,10 @@ void HelloTriangleApplication::createDescriptorSetLayout()
         throw std::runtime_error("failed to create descriptor set layout!");
     }
 }
+#pragma endregion 
 
-void HelloTriangleApplication::compileShaders()
-{
-    shaderLoader = new ShaderLoader(device);
-
-    shaderLoader->AddShader("triangle", L"./Shaders/Shader1.hlsl");
-    shaderLoader->AddShader("triangle_alt", L"./Shaders/shader2.hlsl");
-}
-
+//TODO JS: ??
+#pragma region buffer creation and tools 
 void HelloTriangleApplication::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
     VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory)
 {
@@ -617,6 +600,11 @@ void HelloTriangleApplication::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer
     endSingleTimeCommands(commandBuffer);
 }
 
+
+
+#pragma endregion
+
+#pragma region Begin/End commands
 VkCommandBuffer HelloTriangleApplication::beginSingleTimeCommands()
 {
     VkCommandBufferAllocateInfo allocInfo{};
@@ -652,6 +640,9 @@ void HelloTriangleApplication::endSingleTimeCommands(VkCommandBuffer commandBuff
     vkFreeCommandBuffers(device, transferCommandPool, 1, &commandBuffer);
 }
 
+#pragma endregion
+
+#pragma region utility
 uint32_t HelloTriangleApplication::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties)
 {
     VkPhysicalDeviceMemoryProperties memProperties;
@@ -667,6 +658,17 @@ uint32_t HelloTriangleApplication::findMemoryType(uint32_t typeFilter, VkMemoryP
 
     throw std::runtime_error("failed to find suitable memory type!");
 }
+
+void HelloTriangleApplication::compileShaders()
+{
+    shaderLoader = new ShaderLoader(device);
+
+    shaderLoader->AddShader("triangle", L"./Shaders/Shader1.hlsl");
+    shaderLoader->AddShader("triangle_alt", L"./Shaders/shader2.hlsl");
+}
+
+
+#pragma endregion 
 
 void HelloTriangleApplication::createSyncObjects()
 {
@@ -691,6 +693,30 @@ void HelloTriangleApplication::createSyncObjects()
     }
 }
 
+//TODO JS: is there a better way to structur ethis?
+#pragma region prepare and submit draw call 
+//TODO: Separate the per model xforms from the camera xform
+void HelloTriangleApplication::updateUniformBuffer(uint32_t currentImage, glm::mat4 model)
+{
+    static auto startTime = std::chrono::high_resolution_clock::now();
+
+    auto currentTime = std::chrono::high_resolution_clock::now();
+    float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+
+    UniformBufferObject ubo{};
+
+    ubo.model = model;
+    ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+
+    ubo.proj = glm::perspective(glm::radians(70.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f,
+                                10.0f);
+
+    ubo.proj[1][1] *= -1;
+
+    memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo)); // TODO JS: MEmory allocator
+}
+
+//TODO is this doing extra work?
 void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex,
     VkPipeline graphicsPipeline, MeshData* _mesh)
 {
@@ -761,7 +787,9 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
         throw std::runtime_error("failed to record command buffer!");
     }
 }
+#pragma endregion
 
+#pragma region Command Pools/Queues 
 void HelloTriangleApplication::createCommandPool()
 {
     QueueFamilyIndices queueFamilyIndices = findQueueFamilies(physicalDevice);
@@ -792,6 +820,73 @@ void HelloTriangleApplication::createTransferCommandPool()
     }
 }
 
+bool HelloTriangleApplication::QueueFamilyIndices::isComplete()
+{
+    return graphicsFamily.has_value() && presentFamily.has_value() && transferFamily.has_value();
+}
+
+HelloTriangleApplication::QueueFamilyIndices HelloTriangleApplication::findQueueFamilies(VkPhysicalDevice device)
+{
+    QueueFamilyIndices indices;
+
+    uint32_t queueFamilyCount = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
+
+    std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+    vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
+
+
+    int i = 0;
+    bool foundGraphicsAndPresent = false;
+    bool foundTransfer = false;
+    for (const auto& queueFamily : queueFamilies)
+    {
+        VkBool32 presentSupport = false;
+        vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &presentSupport);
+
+        if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT)
+        {
+            if (!foundGraphicsAndPresent)indices.graphicsFamily = i;
+        }
+
+        if (presentSupport)
+        {
+            if (!foundGraphicsAndPresent)indices.presentFamily = i;
+        }
+
+
+        if (queueFamily.queueFlags & VK_QUEUE_TRANSFER_BIT)
+        {
+            if (!foundTransfer)
+            {
+                indices.transferFamily = i;
+                foundTransfer = true;
+            }
+            else
+            {
+                if (i != indices.graphicsFamily)
+                {
+                    indices.transferFamily = i;
+                    if (foundGraphicsAndPresent) break;
+                }
+            }
+        }
+
+        if (indices.graphicsFamily == indices.presentFamily)
+        {
+            foundGraphicsAndPresent = true;
+
+            //Break on the first queuefamily that supports both 
+        }
+
+        i++;
+    }
+
+
+    return indices;
+}
+#pragma endregion
+
 void HelloTriangleApplication::createCommandBuffers()
 {
     commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
@@ -799,7 +894,6 @@ void HelloTriangleApplication::createCommandBuffers()
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     allocInfo.commandPool = commandPool;
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandBufferCount = 1;
     allocInfo.commandBufferCount = (uint32_t)commandBuffers.size();
 
     if (vkAllocateCommandBuffers(device, &allocInfo, commandBuffers.data()) != VK_SUCCESS)
@@ -874,6 +968,15 @@ void HelloTriangleApplication::createImage(uint32_t width, uint32_t height, VkFo
     vkBindImageMemory(device, image, imageMemory, 0);
 }
 
+
+//TODO JS: What's this for
+bool HelloTriangleApplication::hasStencilComponent(VkFormat format)
+{
+    return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
+}
+
+#pragma region depth 
+
 void HelloTriangleApplication::createDepthResources()
 {
     VkFormat depthFormat = findDepthFormat();
@@ -893,10 +996,6 @@ VkFormat HelloTriangleApplication::findDepthFormat()
     );
 }
 
-bool HelloTriangleApplication::hasStencilComponent(VkFormat format)
-{
-    return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
-}
 
 VkFormat HelloTriangleApplication::findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling,
     VkFormatFeatureFlags features)
@@ -920,6 +1019,7 @@ VkFormat HelloTriangleApplication::findSupportedFormat(const std::vector<VkForma
     throw std::runtime_error("failed to find supported format!");
 }
 
+#pragma endregion
 void HelloTriangleApplication::createRenderPass()
 {
     VkAttachmentDescription colorAttachment{};
@@ -982,6 +1082,9 @@ void HelloTriangleApplication::createRenderPass()
     }
 }
 
+//TODO JS: Reduce graphics pipeline creation
+//TODO JS: Understand what we need per object
+//TODO JS: Understand when we can generate this
 VkPipeline HelloTriangleApplication::createGraphicsPipeline(const char* shaderName, VkRenderPass renderPass,
     VkPipelineCache pipelineCache)
 {
@@ -1137,6 +1240,7 @@ void HelloTriangleApplication::createImageViews()
     }
 }
 
+#pragma region swapchain setup
 void HelloTriangleApplication::createSwapChain()
 {
     SwapChainSupportDetails swapChainSupport = querySwapChainSupport(physicalDevice);
@@ -1199,108 +1303,6 @@ void HelloTriangleApplication::createSwapChain()
 
     swapChainImageFormat = surfaceFormat.format;
     swapChainExtent = extent;
-}
-
-void HelloTriangleApplication::createSurface()
-{
-    if (!SDL_Vulkan_CreateSurface(_window, instance, &surface))
-    {
-        throw std::runtime_error("failed to create window surface!");
-    }
-}
-
-void HelloTriangleApplication::createLogicalDevice()
-{
-    //Structs for device 
-    QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
-
-
-    std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-    std::set<uint32_t> uniqueQueueFamilies = {
-        indices.graphicsFamily.value(), indices.presentFamily.value(), indices.transferFamily.value()
-    };
-
-    float queuePriority = 1.0f;
-    for (uint32_t queueFamily : uniqueQueueFamilies)
-    {
-        VkDeviceQueueCreateInfo queueCreateInfo{};
-        queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-        queueCreateInfo.queueFamilyIndex = queueFamily;
-        queueCreateInfo.queueCount = 1;
-        queueCreateInfo.pQueuePriorities = &queuePriority;
-        queueCreateInfos.push_back(queueCreateInfo);
-    }
-
-    //Features we're using in this logical device -- empty for now
-    VkPhysicalDeviceFeatures deviceFeatures{};
-    deviceFeatures.samplerAnisotropy = VK_TRUE;
-
-    //Create device 
-    VkDeviceCreateInfo createInfo{};
-    createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-
-    createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
-    createInfo.pQueueCreateInfos = queueCreateInfos.data();
-
-    createInfo.pEnabledFeatures = &deviceFeatures;
-
-    //Enable deviceExtensions
-    createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
-    createInfo.ppEnabledExtensionNames = deviceExtensions.data();
-
-    //Device specific validation layers are deprecated, but set here to ensure legacy support
-    if (enableValidationLayers)
-    {
-        createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
-        createInfo.ppEnabledLayerNames = validationLayers.data();
-    }
-    else
-    {
-        createInfo.enabledLayerCount = 0;
-    }
-
-    if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &device) != VK_SUCCESS)
-    {
-        throw std::runtime_error("failed to create logical device!");
-    }
-
-
-    vkGetDeviceQueue(device, indices.graphicsFamily.value(), 0, &graphicsQueue);
-    vkGetDeviceQueue(device, indices.presentFamily.value(), 0, &presentQueue);
-    vkGetDeviceQueue(device, indices.transferFamily.value(), 0, &transferQueue);
-    std::cout << "graphics = " << indices.graphicsFamily.value() << "present = " << indices.presentFamily.value() <<
-        "transfer = " << indices.transferFamily.value() << "\n";
-}
-
-void HelloTriangleApplication::pickPhysicalDevice()
-{
-    uint32_t deviceCount = 0;
-
-    //Query number of devices
-    vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
-
-    if (deviceCount == 0)
-    {
-        throw std::runtime_error("failed to find GPUs with Vulkan support!");
-    }
-
-    std::vector<VkPhysicalDevice> devices(deviceCount);
-    vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
-
-    //Select first suitable device, error if none are suitable
-    for (const auto& physicaldevice : devices)
-    {
-        if (isDeviceSuitable(physicaldevice))
-        {
-            physicalDevice = physicaldevice;
-            break;
-        }
-    }
-
-    if (physicalDevice == VK_NULL_HANDLE)
-    {
-        throw std::runtime_error("failed to find a suitable GPU!");
-    }
 }
 
 HelloTriangleApplication::SwapChainSupportDetails HelloTriangleApplication::querySwapChainSupport(
@@ -1386,6 +1388,111 @@ VkExtent2D HelloTriangleApplication::chooseSwapExtent(const VkSurfaceCapabilitie
     }
 }
 
+#pragma endregion
+
+void HelloTriangleApplication::createSurface()
+{
+    if (!SDL_Vulkan_CreateSurface(_window, instance, &surface))
+    {
+        throw std::runtime_error("failed to create window surface!");
+    }
+}
+
+void HelloTriangleApplication::createLogicalDevice()
+{
+    //Structs for device 
+    QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
+
+
+    std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
+    std::set<uint32_t> uniqueQueueFamilies = {
+        indices.graphicsFamily.value(), indices.presentFamily.value(), indices.transferFamily.value()
+    };
+
+    float queuePriority = 1.0f;
+    for (uint32_t queueFamily : uniqueQueueFamilies)
+    {
+        VkDeviceQueueCreateInfo queueCreateInfo{};
+        queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+        queueCreateInfo.queueFamilyIndex = queueFamily;
+        queueCreateInfo.queueCount = 1;
+        queueCreateInfo.pQueuePriorities = &queuePriority;
+        queueCreateInfos.push_back(queueCreateInfo);
+    }
+
+    //Features we're using in this logical device -- empty for now
+    VkPhysicalDeviceFeatures deviceFeatures{};
+    deviceFeatures.samplerAnisotropy = VK_TRUE;
+
+    //Create device 
+    VkDeviceCreateInfo createInfo{};
+    createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+
+    createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
+    createInfo.pQueueCreateInfos = queueCreateInfos.data();
+
+    createInfo.pEnabledFeatures = &deviceFeatures;
+
+    //Enable deviceExtensions
+    createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
+    createInfo.ppEnabledExtensionNames = deviceExtensions.data();
+
+    //Device specific validation layers are deprecated, but set here to ensure legacy support
+    if (enableValidationLayers)
+    {
+        createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
+        createInfo.ppEnabledLayerNames = validationLayers.data();
+    }
+    else
+    {
+        createInfo.enabledLayerCount = 0;
+    }
+
+    if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &device) != VK_SUCCESS)
+    {
+        throw std::runtime_error("failed to create logical device!");
+    }
+
+
+    vkGetDeviceQueue(device, indices.graphicsFamily.value(), 0, &graphicsQueue);
+    vkGetDeviceQueue(device, indices.presentFamily.value(), 0, &presentQueue);
+    vkGetDeviceQueue(device, indices.transferFamily.value(), 0, &transferQueue);
+    std::cout << "graphics = " << indices.graphicsFamily.value() << "present = " << indices.presentFamily.value() <<
+        "transfer = " << indices.transferFamily.value() << "\n";
+}
+
+#pragma region Physical Device Setup
+void HelloTriangleApplication::pickPhysicalDevice()
+{
+    uint32_t deviceCount = 0;
+
+    //Query number of devices
+    vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
+
+    if (deviceCount == 0)
+    {
+        throw std::runtime_error("failed to find GPUs with Vulkan support!");
+    }
+
+    std::vector<VkPhysicalDevice> devices(deviceCount);
+    vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
+
+    //Select first suitable device, error if none are suitable
+    for (const auto& physicaldevice : devices)
+    {
+        if (isDeviceSuitable(physicaldevice))
+        {
+            physicalDevice = physicaldevice;
+            break;
+        }
+    }
+
+    if (physicalDevice == VK_NULL_HANDLE)
+    {
+        throw std::runtime_error("failed to find a suitable GPU!");
+    }
+}
+
 bool HelloTriangleApplication::isDeviceSuitable(VkPhysicalDevice physicaldevice)
 {
     //Device properties
@@ -1416,90 +1523,14 @@ bool HelloTriangleApplication::isDeviceSuitable(VkPhysicalDevice physicaldevice)
     //return true;
 }
 
-bool HelloTriangleApplication::checkDeviceExtensionSupport(VkPhysicalDevice device)
-{
-    uint32_t extensionCount;
-    vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
-
-    std::vector<VkExtensionProperties> availableExtensions(extensionCount);
-    vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
-
-    std::set<std::string> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
-
-    for (const auto& extension : availableExtensions)
-    {
-        requiredExtensions.erase(extension.extensionName);
-    }
-
-    return requiredExtensions.empty();
-}
-
-bool HelloTriangleApplication::QueueFamilyIndices::isComplete()
-{
-    return graphicsFamily.has_value() && presentFamily.has_value() && transferFamily.has_value();
-}
-
-HelloTriangleApplication::QueueFamilyIndices HelloTriangleApplication::findQueueFamilies(VkPhysicalDevice device)
-{
-    QueueFamilyIndices indices;
-
-    uint32_t queueFamilyCount = 0;
-    vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
-
-    std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
-    vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
+#pragma endregion
 
 
-    int i = 0;
-    bool foundGraphicsAndPresent = false;
-    bool foundTransfer = false;
-    for (const auto& queueFamily : queueFamilies)
-    {
-        VkBool32 presentSupport = false;
-        vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &presentSupport);
-
-        if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT)
-        {
-            if (!foundGraphicsAndPresent)indices.graphicsFamily = i;
-        }
-
-        if (presentSupport)
-        {
-            if (!foundGraphicsAndPresent)indices.presentFamily = i;
-        }
 
 
-        if (queueFamily.queueFlags & VK_QUEUE_TRANSFER_BIT)
-        {
-            if (!foundTransfer)
-            {
-                indices.transferFamily = i;
-                foundTransfer = true;
-            }
-            else
-            {
-                if (i != indices.graphicsFamily)
-                {
-                    indices.transferFamily = i;
-                    if (foundGraphicsAndPresent) break;
-                }
-            }
-        }
 
-        if (indices.graphicsFamily == indices.presentFamily)
-        {
-            foundGraphicsAndPresent = true;
-
-            //Break on the first queuefamily that supports both 
-        }
-
-        i++;
-    }
-
-
-    return indices;
-}
-
+//Early setup
+//TODO: Replace with stuff? 
 void HelloTriangleApplication::createInstance()
 {
     if (enableValidationLayers && !checkValidationLayerSupport())
@@ -1587,6 +1618,7 @@ void HelloTriangleApplication::createInstance()
     }
 }
 
+#pragma region perFrameUpdate
 void HelloTriangleApplication::mainLoop()
 {
     SDL_Event e;
@@ -1640,12 +1672,6 @@ void HelloTriangleApplication::UpdateRotations()
 
 void HelloTriangleApplication::drawFrame()
 {
-
- 
-
-    //Rotation update >
-
-    
     vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
 
     uint32_t imageIndex;
@@ -1773,6 +1799,11 @@ void HelloTriangleApplication::cleanup()
     SDL_DestroyWindow(_window);
 }
 
+#pragma endregion
+
+
+//TODO JS: what's needed here
+#pragma region debugmessenger
 VkBool32 HelloTriangleApplication::debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
     VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
     void* pUserData)
@@ -1809,25 +1840,6 @@ void HelloTriangleApplication::setupDebugMessenger()
     }
 }
 
-std::vector<char> HelloTriangleApplication::readFile(const std::string& filename)
-{
-    std::ifstream file(filename, std::ios::ate | std::ios::binary);
-
-    if (!file.is_open())
-    {
-        throw std::runtime_error("failed to open file!");
-    }
-
-    size_t fileSize = (size_t)file.tellg();
-    std::vector<char> buffer(fileSize);
-
-    file.seekg(0);
-    file.read(buffer.data(), fileSize);
-
-    file.close();
-
-    return buffer;
-}
 
 void HelloTriangleApplication::printDebugSupportedExtensions(std::vector<const char*> requiredExtensions,
     std::vector<VkExtensionProperties> supportedExtensions)
@@ -1862,6 +1874,31 @@ void HelloTriangleApplication::printDebugSupportedExtensions(std::vector<const c
     //
 }
 
+#pragma endregion
+
+//TODO JS: This shouldn't be in the class
+std::vector<char> HelloTriangleApplication::readFile(const std::string& filename)
+{
+    std::ifstream file(filename, std::ios::ate | std::ios::binary);
+
+    if (!file.is_open())
+    {
+        throw std::runtime_error("failed to open file!");
+    }
+
+    size_t fileSize = (size_t)file.tellg();
+    std::vector<char> buffer(fileSize);
+
+    file.seekg(0);
+    file.read(buffer.data(), fileSize);
+
+    file.close();
+
+    return buffer;
+}
+
+
+//TODO JS: Replaceable?
 bool HelloTriangleApplication::checkValidationLayerSupport()
 {
     uint32_t layerCount;
@@ -1896,6 +1933,8 @@ bool HelloTriangleApplication::checkValidationLayerSupport()
     return false;
 }
 
+//TODO JS: Replaceable?
+#pragma region extensionSupport
 std::vector<const char*> HelloTriangleApplication::getRequiredExtensions()
 {
     uint32_t sdlExtensionCount = 0;
@@ -1913,3 +1952,23 @@ std::vector<const char*> HelloTriangleApplication::getRequiredExtensions()
     //extensions.push_back(VK_EXT_MESH_SHADER_EXTENSION_NAME);
     return extensions;
 }
+
+bool HelloTriangleApplication::checkDeviceExtensionSupport(VkPhysicalDevice device)
+{
+    uint32_t extensionCount;
+    vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
+
+    std::vector<VkExtensionProperties> availableExtensions(extensionCount);
+    vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
+
+    std::set<std::string> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
+
+    for (const auto& extension : availableExtensions)
+    {
+        requiredExtensions.erase(extension.extensionName);
+    }
+
+    return requiredExtensions.empty();
+}
+
+#pragma endregion

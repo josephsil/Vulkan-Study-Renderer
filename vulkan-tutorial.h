@@ -1,32 +1,20 @@
 #pragma once
-
-
-#include <vector>
-#include <optional>
-
-#include <cstdint> // Necessary for uint32_t
-
-
 #define GLM_FORCE_RADIANS	
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include<glm/gtc/quaternion.hpp>
-
+#include "Vulkan_Includes.h"
 //TODO JS: use
-#include "vk_mem_alloc.h"
-#include <tiny_obj_loader.h>
-
-
+// #include "vk_mem_alloc.h"
 
 #include <chrono>
 // My stuff 
-#include "ShaderLoading.h"
 
 struct MeshData; //Forward Declaration
 struct Vertex;  //Forward Declaration
-
+struct ShaderLoader;
 //Include last
 
    class HelloTriangleApplication

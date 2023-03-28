@@ -1,7 +1,6 @@
 #include "MeshData.h"
 #include "vulkan-tutorial.h"
 
-
 MeshData::MeshData(HelloTriangleApplication* app, std::vector<Vertex> vertices,
            std::vector<uint32_t> indices)
 {
