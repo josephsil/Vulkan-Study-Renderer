@@ -37,17 +37,23 @@ struct ShaderLoader;
         VkInstance instance;
         VkDebugUtilsMessengerEXT debugMessenger;
         //GLFWwindow* window;
-        const uint32_t WIDTH = 800;
-        const uint32_t HEIGHT = 600;
+        int WIDTH = 800;
+        int HEIGHT = 600;
       
 
 
+        VkQueue computeQueue;
+       
+        uint32_t computeQueueFamily;
         VkQueue graphicsQueue;
 
+        uint32_t graphicsQueueFamily;
         VkQueue presentQueue;
 
+        uint32_t presentQueueFamily;
         VkQueue transferQueue;
 
+        uint32_t transferQueueFamily;
         VkSwapchainKHR swapChain;
 
         VkImage depthImage;
@@ -253,7 +259,7 @@ struct ShaderLoader;
         void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex, VkPipeline graphicsPipeline,
                                  MeshData* mesh);
 
-        void createCommandPool();
+        void createGraphicsCommandPool();
 
         void createTransferCommandPool();
 
@@ -281,45 +287,7 @@ struct ShaderLoader;
 
         //TODO JS Collapse this? zoux niagra stream seems to do way less 
         VkPipeline createGraphicsPipeline(const char* shaderName, VkRenderPass renderPass, VkPipelineCache pipelineCache);
-
-
-        void createImageViews();
-
-        void createSwapChain();
-
-        void createSurface();
-
-        void createLogicalDevice();
-
-        void pickPhysicalDevice();
-
-        SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device);
-
-        VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
-
-        VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
-
-
-        VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
-
-
-        bool isDeviceSuitable(VkPhysicalDevice physicaldevice);
-
-        bool checkDeviceExtensionSupport(VkPhysicalDevice device);
-
-
-        struct QueueFamilyIndices
-        {
-            std::optional<uint32_t> graphicsFamily;
-            std::optional<uint32_t> presentFamily;
-            std::optional<uint32_t> transferFamily;
-
-            bool isComplete();
-        };
-
-        QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
-
-
+       
         void createInstance();
 
         int _selectedShader{0};
