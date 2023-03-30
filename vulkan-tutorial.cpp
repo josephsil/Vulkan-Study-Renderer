@@ -315,14 +315,21 @@ void HelloTriangleApplication:: initVulkan()
     compileShaders();
     createRenderPass();
 
-    //TODO JS: Sped through these parts below
-    createDescriptorSetLayout();
+    //TODO JS: Sped through these parts belo
 
 
+    //Command buffer stuff
+        
     createTransferCommandPool();
     createGraphicsCommandPool();
-    createDepthResources();
-    createFramebuffers();
+    createCommandBuffers();
+  
+
+    //createDescriptorSetLayout() fills:
+        // VkDescriptorSetLayout descriptorSetLayout;
+        //TODO: This is like, per type of shader or something right ???
+    createDescriptorSetLayout();
+    
 
     graphicsPipeline_1 = createGraphicsPipeline("triangle", renderPass, nullptr);
     graphicsPipeline_2 = createGraphicsPipeline("triangle_alt", renderPass, nullptr);
@@ -334,7 +341,6 @@ void HelloTriangleApplication:: initVulkan()
     //TODO: Scene loads mesh instead? 
     _placeholderMesh = MeshData::MeshData(this, trivertices, triindices);
     placeholderMesh = &_placeholderMesh;
-    //TODO JS: I dont understand lifetime stuff here
     //TODO JS: the mesh memory (backing _placeholdermesh) should probably go to scene too?
 
     scene = Scene();
@@ -362,10 +368,14 @@ void HelloTriangleApplication:: initVulkan()
 
     
     createUniformBuffers();
+
+
     createDescriptorPool();
     createDescriptorSets(placeholderTexture);
-    createCommandBuffers();
     createSyncObjects();
+
+    createDepthResources();
+    createFramebuffers();
 }
 
 #pragma region images 
@@ -912,10 +922,7 @@ void HelloTriangleApplication::createGraphicsCommandPool()
     poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
     poolInfo.queueFamilyIndex = graphicsQueueFamily;
 
-    if (vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool) != VK_SUCCESS)
-    {
-        throw std::runtime_error("failed to create command pool!");
-    }
+   VK_CHECK(vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool));
 }
 
 void HelloTriangleApplication::createTransferCommandPool()
@@ -926,15 +933,8 @@ void HelloTriangleApplication::createTransferCommandPool()
     poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
     poolInfo.queueFamilyIndex = transferQueueFamily;
 
-    if (vkCreateCommandPool(device, &poolInfo, nullptr, &transferCommandPool) != VK_SUCCESS)
-    {
-        throw std::runtime_error("failed to create command pool!");
-    }
-}
-
-bool HelloTriangleApplication::QueueFamilyIndices::isComplete()
-{
-    return graphicsFamily.has_value() && presentFamily.has_value() && transferFamily.has_value();
+    VK_CHECK(vkCreateCommandPool(device, &poolInfo, nullptr, &transferCommandPool));
+   
 }
 
 #pragma endregion
@@ -948,10 +948,7 @@ void HelloTriangleApplication::createCommandBuffers()
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     allocInfo.commandBufferCount = (uint32_t)commandBuffers.size();
 
-    if (vkAllocateCommandBuffers(device, &allocInfo, commandBuffers.data()) != VK_SUCCESS)
-    {
-        throw std::runtime_error("failed to allocate command buffers!");
-    }
+    VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, commandBuffers.data()));
 }
 
 void HelloTriangleApplication::createFramebuffers()
