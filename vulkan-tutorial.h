@@ -157,10 +157,10 @@ struct ShaderLoader;
 
         struct UniformBufferObject
         {
-            glm::vec2 foo;
             alignas(16) glm::mat4 model;
             alignas(16) glm::mat4 view;
             alignas(16) glm::mat4 proj;
+            alignas(16) glm::mat4 padding;
         };
 
 
@@ -213,8 +213,8 @@ struct ShaderLoader;
         void createUniformBuffers();
 
 
-        //TODO JS: Push constants
         void updateUniformBuffer(uint32_t currentImage, glm::mat4 model);
+       void updateUniformBuffers(uint32_t currentImage, std::vector<glm::mat4> models);
 
 
         void createDescriptorSetLayout();

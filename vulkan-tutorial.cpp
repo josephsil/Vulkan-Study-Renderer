@@ -345,16 +345,14 @@ void HelloTriangleApplication:: initVulkan()
     createCommandBuffers();
     
 
+    //Descriptor set layouts, which we use with push descrpitor stuff to avoid pools or sets 
     createDescriptorSetLayout();
-    // createDescriptorPool();
     
 
     graphicsPipeline_1 = createGraphicsPipeline("triangle", renderPass, nullptr);
     graphicsPipeline_2 = createGraphicsPipeline("triangle_alt", renderPass, nullptr);
     placeholderTexture = TextureData(this, "textures/testTexture.jpg");
-    //createTextureImage();				//TODO JS: Load more like MeshData?
-    //createTextureImageView();
-    //createTextureSampler();
+
 
     //TODO: Scene loads mesh instead? 
     _placeholderMesh = MeshData::MeshData(this, trivertices, triindices);
@@ -375,13 +373,13 @@ void HelloTriangleApplication:: initVulkan()
     sceneObjects.push_back(
         scene.AddObject(
             placeholderMesh,
-            glm::vec4(0,0,1,1),
+            glm::vec4(0,0,0.4,1),
             MyQuaternion));
 
     sceneObjects.push_back(
            scene.AddObject(
                placeholderMesh,
-               glm::vec4(0,0,1,1),
+               glm::vec4(0,0,-0.4,1),
                MyQuaternion));
 
     
@@ -577,7 +575,7 @@ void HelloTriangleApplication::createImage(uint32_t width, uint32_t height, VkFo
 //TODO JS: Move this to push descriptor set 
 void HelloTriangleApplication::createUniformBuffers()
 {
-    VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+    VkDeviceSize bufferSize = sizeof(UniformBufferObject) * 3;
 
     uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
     uniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
@@ -766,19 +764,42 @@ void HelloTriangleApplication::createSyncObjects()
 //TODO JS: is there a better way to structur ethis?
 #pragma region prepare and submit draw call 
 //TODO: Separate the per model xforms from the camera xform
+void HelloTriangleApplication::updateUniformBuffers(uint32_t currentImage, std::vector<glm::mat4> models)
+{
+    std::vector<UniformBufferObject> ubos;
+
+        UniformBufferObject ubo{};
+
+    for(int i = 0; i < models.size(); i++)
+    {
+        ubo.model = models[i];
+        ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+
+        ubo.proj = glm::perspective(glm::radians(70.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f,
+                                    10.0f);
+
+        ubo.proj[1][1] *= -1;
+        ubos.push_back(ubo);
+    }
+
+    memcpy(uniformBuffersMapped[currentImage], ubos.data(), sizeof(UniformBufferObject) * models.size()); 
+}
+
 void HelloTriangleApplication::updateUniformBuffer(uint32_t currentImage, glm::mat4 model)
 {
-    UniformBufferObject ubo{};
 
-    ubo.model = model;
-    ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        UniformBufferObject ubo{};
 
-    ubo.proj = glm::perspective(glm::radians(70.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f,
-                                10.0f);
+        ubo.model = model;
+        ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 
-    ubo.proj[1][1] *= -1;
+        ubo.proj = glm::perspective(glm::radians(70.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f,
+                                    10.0f);
 
-    memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo)); // TODO JS: MEmory allocator
+        ubo.proj[1][1] *= -1;
+  
+
+    memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(UniformBufferObject)); 
 }
 
 //TODO is this doing extra work?
@@ -841,13 +862,12 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
     vkCmdBindIndexBuffer(commandBuffer, mesh.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
     // /bind mesh buffers
 
-    //Loop over objects and set push constant stuff -- should i be doing this every frame, or earlier?
-    int objectcount = 1;
-    for(int i = 0; i < objectcount; i++ )
+    //Loop over objects and set push constant stuff
+    for(int i = 0; i < 3; i++ )
     {
         VkDescriptorBufferInfo bufferInfo{};
-        bufferInfo.buffer = uniformBuffers[i];
-        bufferInfo.offset = 0;
+        bufferInfo.buffer = uniformBuffers[0]; //TODO: For loop over frames
+        bufferInfo.offset = i * sizeof(UniformBufferObject);
         bufferInfo.range = sizeof(UniformBufferObject);
         
         VkDescriptorImageInfo imageInfo{};
@@ -856,16 +876,8 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
         imageInfo.sampler = placeholderTexture.textureSampler;
 
         		std::array<VkWriteDescriptorSet, 2> writeDescriptorSets{};
-        ///TODO: move ubo in
-        // Scene matrices
-        // writeDescriptorSets[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        // writeDescriptorSets[0].dstSet = 0;
-        // writeDescriptorSets[0].dstBinding = 0;
-        // writeDescriptorSets[0].descriptorCount = 1;
-        // writeDescriptorSets[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        // writeDescriptorSets[0].pBufferInfo = &uniformBuffers.scene.descriptor;
 
-        // Model matrices
+        // UBO
         writeDescriptorSets[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         writeDescriptorSets[0].dstSet = 0;
         writeDescriptorSets[0].dstBinding = 0;
@@ -1292,7 +1304,8 @@ void HelloTriangleApplication::drawFrame()
 
 
     //TODO: draw multiple objects
-    updateUniformBuffer(currentFrame, scene.matrices[1]); // TODO JS: Figure out  
+    // updateUniformBuffer(currentFrame, scene.matrices[0]);
+    updateUniformBuffers(currentFrame, scene.matrices); // TODO JS: Figure out  
 
     vkResetFences(device, 1, &inFlightFences[currentFrame]);
     //TODO JS: properly manage multiple objects with vertex buffer + corresponding pipeline object

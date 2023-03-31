@@ -8,10 +8,10 @@ struct VSInput
 
 struct UBO
 {
-	float2 foo;
 	float4x4 model;
 	float4x4 view;
 	float4x4 proj;
+	float4x4 padding;
 };
 
 [[vk::binding(0, 0)]]
