@@ -31,6 +31,9 @@ struct ShaderLoader;
         HelloTriangleApplication();
 
     private:
+
+       PFN_vkCmdPushDescriptorSetKHR vkCmdPushDescriptorSetKHR;
+       VkPhysicalDevicePushDescriptorPropertiesKHR pushDescriptorProps{};
         std::vector<int> sceneObjects;
         struct TextureData;
         struct SDL_Window* _window{nullptr};
@@ -84,7 +87,7 @@ struct ShaderLoader;
         };
 
         const std::vector<const char*> deviceExtensions = {
-            VK_KHR_SWAPCHAIN_EXTENSION_NAME
+            VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME
         };
 
         std::vector<VkFramebuffer> swapChainFramebuffers;
@@ -122,6 +125,10 @@ struct ShaderLoader;
 
 
             void createTextureImageView();
+
+
+            PFN_vkCmdPushDescriptorSetKHR vkCmdPushDescriptorSetKHR;
+            VkPhysicalDevicePushDescriptorPropertiesKHR pushDescriptorProps{};
 
 
             //TODO JS: 
@@ -197,12 +204,8 @@ struct ShaderLoader;
         std::vector<VkDeviceMemory> uniformBuffersMemory;
         std::vector<void*> uniformBuffersMapped;
 
-        void createDescriptorPool();
 
-        struct test
-        {
-            int* something;
-        };
+  
 
         void createDescriptorSets(TextureData tex);
 

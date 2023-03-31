@@ -124,6 +124,8 @@ void HelloTriangleApplication::TextureData::createTextureSampler()
     samplerInfo.minLod = 0.0f;
     samplerInfo.maxLod = 0.0f;
 
+       
+
     if (vkCreateSampler(appref->device, &samplerInfo, nullptr, &textureSampler) != VK_SUCCESS)
     {
         throw std::runtime_error("failed to create texture sampler!");
@@ -251,13 +253,14 @@ void HelloTriangleApplication:: initVulkan()
             .set_surface(surface)
             .require_separate_transfer_queue()   //NOTE: Not supporting gpus without dedicated queue 
             .require_separate_compute_queue()
-            .add_desired_extensions(deviceExtensions)
+            .add_required_extensions(deviceExtensions)
             .select();
-    
     if (!physical_device_selector_return) {
         throw std::runtime_error("Failed to create Physical Device"); 
     }
-    
+
+
+
     vkb_physicalDevice = physical_device_selector_return.value();
 
     //Get logical device
@@ -271,6 +274,21 @@ void HelloTriangleApplication:: initVulkan()
     vkb_device = dev_ret.value();
     device = vkb_device.device;
     physicalDevice = vkb_physicalDevice.physical_device;
+
+    //Get push descriptor stuff
+    
+    // The push descriptor update function is part of an extension so it has to be manually loaded
+    vkCmdPushDescriptorSetKHR = (PFN_vkCmdPushDescriptorSetKHR)vkGetDeviceProcAddr(device, "vkCmdPushDescriptorSetKHR");
+       
+
+    // Get device push descriptor properties (to display them)
+       
+    VkPhysicalDeviceProperties2KHR deviceProps2{};
+    pushDescriptorProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PUSH_DESCRIPTOR_PROPERTIES_KHR;
+    deviceProps2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2_KHR;
+    deviceProps2.pNext = &pushDescriptorProps;
+
+    vkGetPhysicalDeviceProperties2(physicalDevice, &deviceProps2);
 
 
 
@@ -322,13 +340,13 @@ void HelloTriangleApplication:: initVulkan()
         
     createTransferCommandPool();
     createGraphicsCommandPool();
-    createCommandBuffers();
-  
 
-    //createDescriptorSetLayout() fills:
-        // VkDescriptorSetLayout descriptorSetLayout;
-        //TODO: This is like, per type of shader or something right ???
+    
+    createCommandBuffers();
+    
+
     createDescriptorSetLayout();
+    // createDescriptorPool();
     
 
     graphicsPipeline_1 = createGraphicsPipeline("triangle", renderPass, nullptr);
@@ -370,8 +388,7 @@ void HelloTriangleApplication:: initVulkan()
     createUniformBuffers();
 
 
-    createDescriptorPool();
-    createDescriptorSets(placeholderTexture);
+    // createDescriptorSets(placeholderTexture);
     createSyncObjects();
 
     createDepthResources();
@@ -555,81 +572,9 @@ void HelloTriangleApplication::createImage(uint32_t width, uint32_t height, VkFo
 
 #pragma endregion
 
-#pragma region descriptor sets and pools
-void HelloTriangleApplication::createDescriptorPool()
-{
-    std::array<VkDescriptorPoolSize, 2> poolSizes{};
-    poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSizes[0].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
-    poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSizes[1].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+#pragma region descriptor sets
 
-    VkDescriptorPoolCreateInfo poolInfo{};
-    poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
-    poolInfo.pPoolSizes = poolSizes.data();
-    poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
-
-    if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS)
-    {
-        throw std::runtime_error("failed to create descriptor pool!");
-    }
-}
-
-void HelloTriangleApplication::createDescriptorSets(TextureData tex)
-{
-    std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, descriptorSetLayout);
-    VkDescriptorSetAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    allocInfo.descriptorPool = descriptorPool;
-    allocInfo.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
-    allocInfo.pSetLayouts = layouts.data();
-
-    descriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
-    if (vkAllocateDescriptorSets(device, &allocInfo, descriptorSets.data()) != VK_SUCCESS)
-    {
-        throw std::runtime_error("failed to allocate descriptor sets!");
-    }
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-    {
-        VkDescriptorBufferInfo bufferInfo{};
-        bufferInfo.buffer = uniformBuffers[i];
-        bufferInfo.offset = 0;
-        bufferInfo.range = sizeof(UniformBufferObject);
-
-        VkDescriptorImageInfo imageInfo{};
-        imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        imageInfo.imageView = tex.textureImageView;
-        imageInfo.sampler = tex.textureSampler;
-
-        std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
-        auto a = 10;
-        test t = test{&a};
-
-
-        *t.something += 10;
-        descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[0].dstSet = descriptorSets[i];
-        descriptorWrites[0].dstBinding = 0;
-        descriptorWrites[0].dstArrayElement = 0;
-        descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        descriptorWrites[0].descriptorCount = 1;
-        descriptorWrites[0].pBufferInfo = &bufferInfo;
-
-        descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[1].dstSet = descriptorSets[i];
-        descriptorWrites[1].dstBinding = 1;
-        descriptorWrites[1].dstArrayElement = 0;
-        descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        descriptorWrites[1].descriptorCount = 1;
-        descriptorWrites[1].pImageInfo = &imageInfo;
-
-        vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0,
-                               nullptr);
-    }
-}
-
-//TODO JS: Better understand what needs to be done at startup
+//TODO JS: Move this to push descriptor set 
 void HelloTriangleApplication::createUniformBuffers()
 {
     VkDeviceSize bufferSize = sizeof(UniformBufferObject);
@@ -650,7 +595,7 @@ void HelloTriangleApplication::createUniformBuffers()
 
 
 //TODO JS: Better understand what needs to be done at startup
-void HelloTriangleApplication::createDescriptorSetLayout()
+    void HelloTriangleApplication::createDescriptorSetLayout()
 {
     VkDescriptorSetLayoutBinding uboLayoutBinding{};
     uboLayoutBinding.binding = 0; //b0
@@ -672,13 +617,13 @@ void HelloTriangleApplication::createDescriptorSetLayout()
 
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    //Set flag to use push descriptors
+    layoutInfo.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR;
     layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
     layoutInfo.pBindings = bindings.data();
 
-    if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS)
-    {
-        throw std::runtime_error("failed to create descriptor set layout!");
-    }
+    VK_CHECK(vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayout));
+   
 }
 #pragma endregion 
 
@@ -823,11 +768,6 @@ void HelloTriangleApplication::createSyncObjects()
 //TODO: Separate the per model xforms from the camera xform
 void HelloTriangleApplication::updateUniformBuffer(uint32_t currentImage, glm::mat4 model)
 {
-    static auto startTime = std::chrono::high_resolution_clock::now();
-
-    auto currentTime = std::chrono::high_resolution_clock::now();
-    float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-
     UniformBufferObject ubo{};
 
     ubo.model = model;
@@ -891,6 +831,7 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
 
+    //Bind mesh buffers
     VkDeviceSize offsets[] = {0};
 
     VkBuffer vertBufferAray[]{mesh.vertBuffer};
@@ -898,12 +839,57 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertBufferAray, offsets);
 
     vkCmdBindIndexBuffer(commandBuffer, mesh.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+    // /bind mesh buffers
+
+    //Loop over objects and set push constant stuff -- should i be doing this every frame, or earlier?
+    int objectcount = 1;
+    for(int i = 0; i < objectcount; i++ )
+    {
+        VkDescriptorBufferInfo bufferInfo{};
+        bufferInfo.buffer = uniformBuffers[i];
+        bufferInfo.offset = 0;
+        bufferInfo.range = sizeof(UniformBufferObject);
+        
+        VkDescriptorImageInfo imageInfo{};
+        imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        imageInfo.imageView = placeholderTexture.textureImageView;
+        imageInfo.sampler = placeholderTexture.textureSampler;
+
+        		std::array<VkWriteDescriptorSet, 2> writeDescriptorSets{};
+        ///TODO: move ubo in
+        // Scene matrices
+        // writeDescriptorSets[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        // writeDescriptorSets[0].dstSet = 0;
+        // writeDescriptorSets[0].dstBinding = 0;
+        // writeDescriptorSets[0].descriptorCount = 1;
+        // writeDescriptorSets[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        // writeDescriptorSets[0].pBufferInfo = &uniformBuffers.scene.descriptor;
+
+        // Model matrices
+        writeDescriptorSets[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        writeDescriptorSets[0].dstSet = 0;
+        writeDescriptorSets[0].dstBinding = 0;
+        writeDescriptorSets[0].descriptorCount = 1;
+        writeDescriptorSets[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        writeDescriptorSets[0].pBufferInfo = &bufferInfo;
+
+        // Texture
+        writeDescriptorSets[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        writeDescriptorSets[1].dstSet = 0;
+        writeDescriptorSets[1].dstBinding = 1;
+        writeDescriptorSets[1].descriptorCount = 1;
+        writeDescriptorSets[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        writeDescriptorSets[1].pImageInfo = &imageInfo;
+        
+        vkCmdPushDescriptorSetKHR(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 2, writeDescriptorSets.data());
+        //3 based on my layout
+    vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(mesh.indices.size()), 1, 0, 0, 0);
+    }
 
     //Bind descriptor sets - TODO JS:  desctriptorsets should come from elsewhere?
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1,
-                            &descriptorSets[currentFrame], 0, nullptr);
+    // vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1,
+    //                         &descriptorSets[currentFrame], 0, nullptr);
 
-    vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(mesh.indices.size()), 1, 0, 0, 0);
 
     vkCmdEndRenderPass(commandBuffer);
 
@@ -1192,6 +1178,7 @@ VkPipeline HelloTriangleApplication::createGraphicsPipeline(const char* shaderNa
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipelineLayoutInfo.setLayoutCount = 1; // Optional
+    //TODO JS: These always use the same descriptor set layout currently
     pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
 
     if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS)
@@ -1199,7 +1186,6 @@ VkPipeline HelloTriangleApplication::createGraphicsPipeline(const char* shaderNa
         throw std::runtime_error("failed to create pipeline layout!");
     }
 
-    //TODO JS: Figure out whats below here im rushing 
     VkGraphicsPipelineCreateInfo pipelineInfo{};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
     pipelineInfo.stageCount = 2;
@@ -1371,7 +1357,7 @@ void HelloTriangleApplication::cleanup()
         vkFreeMemory(device, uniformBuffersMemory[i], nullptr);
     }
 
-    vkDestroyDescriptorPool(device, descriptorPool, nullptr);
+    // vkDestroyDescriptorPool(device, descriptorPool, nullptr);
 
     vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
 
