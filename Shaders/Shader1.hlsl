@@ -17,6 +17,15 @@ struct UBO
 [[vk::binding(0, 0)]]
 ConstantBuffer<UBO> ubo;
 
+
+struct pconstant
+{
+	float4 test;
+};
+
+[[vk::push_constant]]
+pconstant pc;
+
 struct VSOutput
 {
 	[[vk::location(0)]] float4 Pos : SV_POSITION;
@@ -36,7 +45,7 @@ VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
 
 	VSOutput output = (VSOutput)0;
 	output.Pos = mul(mul(mul(ubo.proj, ubo.view), ubo.model), half4(input.Position.xyz, 1.0));
-	output.Color = input.Color;
+	output.Color = input.Color * pc.test.rgb;
 	output.Texture_ST = input.Texture_ST;
 	return output;
 }
@@ -54,6 +63,7 @@ struct FSInput
 	[[vk::location(2)]] float2 Texture_ST : TEXCOORD0;
 };
 
+
 struct FSOutput
 {
 	[[vk::location(0)]] float3 Color : SV_Target;
@@ -65,6 +75,6 @@ FSOutput Frag(VSOutput input)
 {
 	FSOutput output;
 
-	output.Color = saturate(myTexture.Sample(mySampler, input.Texture_ST) + 0.2);
+	output.Color = saturate(myTexture.Sample(mySampler, input.Texture_ST) + 0.2) * input.Color;
 	return output;
 }

@@ -287,7 +287,7 @@ void HelloTriangleApplication:: initVulkan()
                    MyQuaternion));
     }
 
-    scene.Sort();
+    // scene.Sort();
     createUniformBuffers();
 
 
@@ -810,15 +810,21 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
             writeDescriptorSets[0].pBufferInfo = &bufferInfo;
 
 
-        writeDescriptorSets[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        writeDescriptorSets[1].dstBinding = 1;
-        writeDescriptorSets[1].dstArrayElement = 0;
-        writeDescriptorSets[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        writeDescriptorSets[1].descriptorCount = 1;
-        writeDescriptorSets[1].pImageInfo = &imageInfo;
+            writeDescriptorSets[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            writeDescriptorSets[1].dstBinding = 1;
+            writeDescriptorSets[1].dstArrayElement = 0;
+            writeDescriptorSets[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            writeDescriptorSets[1].descriptorCount = 1;
+            writeDescriptorSets[1].pImageInfo = &imageInfo;
             //3 based on my layout
-    vkCmdPushDescriptorSetKHR(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, writeDescriptorSets.size(), writeDescriptorSets.data());
-    vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(scene.meshes[i]->indices.size()), 1, 0, 0, 0);
+
+        PerDrawPushConstants constants;
+        constants.test = glm::vec4(1,0,0,1);
+        vkCmdPushDescriptorSetKHR(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, writeDescriptorSets.size(), writeDescriptorSets.data());
+
+        vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PerDrawPushConstants), &constants);
+
+        vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(scene.meshes[i]->indices.size()), 1, 0, 0, 0);
     }
     
     vkCmdEndRenderPass(commandBuffer);
@@ -1111,6 +1117,18 @@ VkPipeline HelloTriangleApplication::createGraphicsPipeline(const char* shaderNa
     //TODO JS: These always use the same descriptor set layout currently
     VkDescriptorSetLayout setLayouts[] = {pushDescriptorSetLayout, perMaterialSetLayout};
     pipelineLayoutInfo.pSetLayouts = setLayouts;
+
+    //setup push constants
+    VkPushConstantRange push_constant;
+    //this push constant range starts at the beginning
+    push_constant.offset = 0;
+    //this push constant range takes up the size of a MeshPushConstants struct
+    push_constant.size = sizeof(PerDrawPushConstants);
+    //this push constant range is accessible only in the vertex shader
+    push_constant.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+    pipelineLayoutInfo.pPushConstantRanges = &push_constant;
+    pipelineLayoutInfo.pushConstantRangeCount = 1;
 
     if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS)
     {

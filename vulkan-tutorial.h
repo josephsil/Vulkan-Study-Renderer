@@ -152,6 +152,11 @@ struct Scene;
             alignas(16) glm::mat4 padding;
         };
 
+        struct PerDrawPushConstants
+        {
+            glm::vec4 test;
+        };
+
 
         const int MAX_FRAMES_IN_FLIGHT = 2;
         uint32_t currentFrame = 0;
