@@ -15,11 +15,15 @@
 struct MeshData; //Forward Declaration
 struct Vertex;  //Forward Declaration
 struct ShaderLoader;
+struct TextureData;
+struct Scene;
 //Include last
 
    class HelloTriangleApplication
     {
     public:
+
+       static std::vector<char> readFile(const std::string& filename);
 
        VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
        VkDevice device; //Logical device
@@ -30,12 +34,31 @@ struct ShaderLoader;
 
         HelloTriangleApplication();
 
+       //Images
+
+       void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage,
+                 VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
+       
+       VkImageView createImageView(VkImage image, VkFormat format,
+                                   VkImageAspectFlags aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT);
+
+       void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout,
+                                  VkCommandBuffer workingBuffer = nullptr);
+
+       void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height,
+                              VkCommandBuffer workingBuffer = nullptr);
+
+       //submitting commands
+
+       VkCommandBuffer beginSingleTimeCommands();
+
+       void endSingleTimeCommands(VkCommandBuffer commandBuffer);
+
     private:
 
        PFN_vkCmdPushDescriptorSetKHR vkCmdPushDescriptorSetKHR;
        VkPhysicalDevicePushDescriptorPropertiesKHR pushDescriptorProps{};
         std::vector<int> sceneObjects;
-        struct TextureData;
         struct SDL_Window* _window{nullptr};
         VkInstance instance;
         VkDebugUtilsMessengerEXT debugMessenger;
@@ -73,9 +96,12 @@ struct ShaderLoader;
 
         VkRenderPass renderPass;
 
-        VkDescriptorSetLayout descriptorSetLayout;
+        VkDescriptorSetLayout pushDescriptorSetLayout;
+        VkDescriptorSetLayout perMaterialSetLayout;
         VkPipelineLayout pipelineLayout;
 
+       void createDescriptorPool();
+        void createDescriptorSets(TextureData tex);
         VkPipeline graphicsPipeline_1;
         VkPipeline graphicsPipeline_2;
 
@@ -104,46 +130,9 @@ struct ShaderLoader;
       
 
 
-        //TODO JS: obviously improve 
-        struct TextureData
-        {
-        public:
-            VkImageView textureImageView;
-            VkSampler textureSampler;
-            HelloTriangleApplication* appref;
-            VkImage textureImage;
-            VkDeviceMemory textureImageMemory;
+  
 
-            TextureData(HelloTriangleApplication* app, const char* path);
-
-            TextureData();
-
-            void cleanup();
-
-        private:
-            void createTextureSampler();
-
-
-            void createTextureImageView();
-
-
-            PFN_vkCmdPushDescriptorSetKHR vkCmdPushDescriptorSetKHR;
-            VkPhysicalDevicePushDescriptorPropertiesKHR pushDescriptorProps{};
-
-
-            //TODO JS: 
-            /*All of the helper functions that submit commands so far have been set up to execute synchronously by waiting for the queue to become idle.
-            For practical applications it is recommended to combine these operations in a single command bufferand execute them asynchronously for
-            higher throughput, especially the transitionsand copy in the createTextureImage function.
-            Try to experiment with this by creating a setupCommandBuffer that the helper functions record commands into,
-            and add a flushSetupCommands to execute the commands that have been recorded so far.
-            It's best to do this after the texture mapping works to check if the texture resources are still set up correctly.*/
-
-
-            void createTextureImage(const char* path);
-        };
-
-        TextureData placeholderTexture;
+        TextureData* placeholderTexture;
         //STill not 100% sure how the mesh and material component of a "draw' is supposed to get submitted in a real program
         //I think my mesh/texture structs are vaguely along the right lines, but the _work_ getting done shouldnt be taking in copies, it should be refs
         //The work probably shouldnt be happening on a per tex or per mesh case either?
@@ -184,19 +173,12 @@ struct ShaderLoader;
 
         void initVulkan();
 
-        VkImageView createImageView(VkImage image, VkFormat format,
-                                    VkImageAspectFlags aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT);
-
-        void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout,
-                                   VkCommandBuffer workingBuffer = nullptr);
-
-        void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height,
-                               VkCommandBuffer workingBuffer = nullptr);
 
         // TODO JS : Descriptor sets more related to shaders?
 
         VkDescriptorPool descriptorPool;
-        std::vector<VkDescriptorSet> descriptorSets;
+        std::vector<VkDescriptorSet> perMaterialDescriptorSets;
+       std::vector<VkDescriptorSet> pushDescriptorSets;
 
 
         //TODO JS: Move the uniform buffer data and fns and ? This belongs to like, a "material" 
@@ -204,10 +186,9 @@ struct ShaderLoader;
         std::vector<VkDeviceMemory> uniformBuffersMemory;
         std::vector<void*> uniformBuffersMapped;
 
-
   
 
-        void createDescriptorSets(TextureData tex);
+       void updateDescriptorSet(Scene* scene, int idx);
 
 
         void createUniformBuffers();
@@ -240,10 +221,7 @@ struct ShaderLoader;
 
 
         
-
-        VkCommandBuffer beginSingleTimeCommands();
-
-        void endSingleTimeCommands(VkCommandBuffer commandBuffer);
+       
 
         uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
@@ -269,10 +247,6 @@ struct ShaderLoader;
         void createCommandBuffers();
 
         void createFramebuffers();
-
-
-        void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage,
-                         VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
 
         void createDepthResources();
 
@@ -319,7 +293,7 @@ struct ShaderLoader;
 #pragma region utility fns
 #
 
-        static std::vector<char> readFile(const std::string& filename);
+       
 
         //Test/practice fn to confirm that a set of extensions is supported
 

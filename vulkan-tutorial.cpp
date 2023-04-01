@@ -1,6 +1,5 @@
 
 #define VMA_IMPLEMENTATION
-#define TINYOBJLOADER_IMPLEMENTATION
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "vulkan-tutorial.h"
@@ -24,6 +23,7 @@
 #include "Vertex.h"
 #include "stb_image.h"
 #include "ShaderLoading.h"
+#include "TextureData.h"
 
 #include "VkBootstrap.h"
 //zoux vkcheck version
@@ -80,112 +80,6 @@ HelloTriangleApplication::HelloTriangleApplication()
     };
 }
 
-#pragma region textureData
-HelloTriangleApplication::TextureData::TextureData(HelloTriangleApplication* app, const char* path)
-{
-    appref = app;
-    createTextureImage(path);
-    createTextureImageView();
-    createTextureSampler();
-}
-
-HelloTriangleApplication::TextureData::TextureData()
-{
-}
-
-void HelloTriangleApplication::TextureData::cleanup()
-{
-    vkDestroySampler(appref->device, textureSampler, nullptr);
-    vkDestroyImageView(appref->device, textureImageView, nullptr);
-    vkDestroyImage(appref->device, textureImage, nullptr);
-    vkFreeMemory(appref->device, textureImageMemory, nullptr);
-}
-
-void HelloTriangleApplication::TextureData::createTextureSampler()
-{
-    VkPhysicalDeviceProperties properties{};
-    vkGetPhysicalDeviceProperties(appref->physicalDevice, &properties);
-
-    VkSamplerCreateInfo samplerInfo{};
-    samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    samplerInfo.magFilter = VK_FILTER_LINEAR;
-    samplerInfo.minFilter = VK_FILTER_LINEAR;
-    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    samplerInfo.anisotropyEnable = VK_TRUE;
-    samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
-    samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-    samplerInfo.unnormalizedCoordinates = VK_FALSE;
-    samplerInfo.compareEnable = VK_FALSE;
-    samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
-    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-    samplerInfo.mipLodBias = 0.0f;
-    samplerInfo.minLod = 0.0f;
-    samplerInfo.maxLod = 0.0f;
-
-       
-
-    if (vkCreateSampler(appref->device, &samplerInfo, nullptr, &textureSampler) != VK_SUCCESS)
-    {
-        throw std::runtime_error("failed to create texture sampler!");
-    }
-}
-
-void HelloTriangleApplication::TextureData::createTextureImageView()
-{
-    textureImageView = appref->createImageView(textureImage, VK_FORMAT_R8G8B8A8_SRGB);
-}
-
-void HelloTriangleApplication::TextureData::createTextureImage(const char* path)
-{
-    auto workingTextureBuffer = appref->beginSingleTimeCommands();
-    int texWidth, texHeight, texChannels;
-    stbi_uc* pixels = stbi_load(path, &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
-    VkDeviceSize imageSize = texWidth * texHeight * 4;
-
-    if (!pixels)
-    {
-        throw std::runtime_error("failed to load texture image!");
-    }
-
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
-
-    appref->createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                         stagingBuffer, stagingBufferMemory);
-
-    void* data;
-    vkMapMemory(appref->device, stagingBufferMemory, 0, imageSize, 0, &data);
-    memcpy(data, pixels, static_cast<size_t>(imageSize));
-    vkUnmapMemory(appref->device, stagingBufferMemory);
-
-    stbi_image_free(pixels);
-
-    appref->createImage(texWidth, texHeight, VK_FORMAT_R8G8B8A8_SRGB,
-                        VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-                        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
-
-    appref->transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED,
-                                  VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, workingTextureBuffer);
-    appref->copyBufferToImage(stagingBuffer, textureImage, static_cast<uint32_t>(texWidth),
-                              static_cast<uint32_t>(texHeight), workingTextureBuffer);
-
-    appref->transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB,
-                                  VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, workingTextureBuffer);
-    //JS: Prepare image to read in shaders
-
-    appref->transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, workingTextureBuffer);
-
-    appref->endSingleTimeCommands(workingTextureBuffer);
-    vkDestroyBuffer(appref->device, stagingBuffer, nullptr);
-    vkFreeMemory(appref->device, stagingBufferMemory, nullptr);
-}
-
-#pragma endregion
 
 
 void HelloTriangleApplication::initWindow()
@@ -208,6 +102,7 @@ void HelloTriangleApplication::initWindow()
 
 //TODO JS: Real meshes should be kept by some kind of scene manager 
 MeshData _placeholderMesh;
+TextureData _placeholderTexture;
 
 Scene scene;
 vkb::Instance vkb_instance;
@@ -348,45 +243,55 @@ void HelloTriangleApplication:: initVulkan()
     //Descriptor set layouts, which we use with push descrpitor stuff to avoid pools or sets 
     createDescriptorSetLayout();
     
+    scene = Scene();
 
+    
     graphicsPipeline_1 = createGraphicsPipeline("triangle", renderPass, nullptr);
     graphicsPipeline_2 = createGraphicsPipeline("triangle_alt", renderPass, nullptr);
-    placeholderTexture = TextureData(this, "textures/testTexture.jpg");
-
+    int placeholderTextureidx = scene.AddBackingTexture(TextureData(this, "textures/testTexture.jpg"));
 
     //TODO: Scene loads mesh instead? 
-    _placeholderMesh = MeshData::MeshData(this, trivertices, triindices);
-    placeholderMesh = &_placeholderMesh;
+     int placeholderMeshIdx = scene.AddBackingMesh(MeshData::MeshData(this,"viking_room.obj"));
+    placeholderMeshIdx = scene.AddBackingMesh(MeshData::MeshData(this, trivertices, triindices));
+    placeholderMeshIdx = scene.AddBackingMesh(MeshData::MeshData(this,"monkey.obj"));
+    
     //TODO JS: the mesh memory (backing _placeholdermesh) should probably go to scene too?
 
-    scene = Scene();
+  
 
     glm::vec3 EulerAngles(0, 0, 0);
     auto MyQuaternion = glm::quat(EulerAngles);
 
-    sceneObjects.push_back(
-        scene.AddObject(
-            placeholderMesh,
-            glm::vec4(0,0,0,1),
-            MyQuaternion));
+    for(int i = 0; i < 1000; i++)
+    {
+        int random_number = rand() % 3;
+        sceneObjects.push_back(
+            scene.AddObject(
+                 &scene.backing_meshes[random_number],
+                &scene.backing_textures[placeholderTextureidx],
+                glm::vec4(0,- i * 0.2,0,1),
+                MyQuaternion));
+        random_number = rand() % 3;
+        sceneObjects.push_back(
+            scene.AddObject(
+            &scene.backing_meshes[random_number],
+           &scene.backing_textures[placeholderTextureidx],
+                glm::vec4(2,- i * 0.2,0.0,1),
+                MyQuaternion));
+        random_number = rand() % 3;
+        sceneObjects.push_back(
+               scene.AddObject(
+               &scene.backing_meshes[random_number],
+         &scene.backing_textures[placeholderTextureidx],
+                   glm::vec4(-2,- i * 0.2,-0.0,1),
+                   MyQuaternion));
+    }
 
-    sceneObjects.push_back(
-        scene.AddObject(
-            placeholderMesh,
-            glm::vec4(0,0,0.4,1),
-            MyQuaternion));
-
-    sceneObjects.push_back(
-           scene.AddObject(
-               placeholderMesh,
-               glm::vec4(0,0,-0.4,1),
-               MyQuaternion));
-
-    
+    scene.Sort();
     createUniformBuffers();
 
 
-    // createDescriptorSets(placeholderTexture);
+    createDescriptorSetLayout();
     createSyncObjects();
 
     createDepthResources();
@@ -572,10 +477,12 @@ void HelloTriangleApplication::createImage(uint32_t width, uint32_t height, VkFo
 
 #pragma region descriptor sets
 
-//TODO JS: Move this to push descriptor set 
+//TODO JS: Move this to scene -- these buffers belong to scene
+//TODO JS: not sure how to abstract the frames in flight thing it sucks
+//TODO JS: I guess the fn should stay here, and scene should call in, and the fn should get a "packed count" argument for the *3?
 void HelloTriangleApplication::createUniformBuffers()
 {
-    VkDeviceSize bufferSize = sizeof(UniformBufferObject) * 3;
+    VkDeviceSize bufferSize = sizeof(UniformBufferObject) * scene.matrices.size();
 
     uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
     uniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
@@ -595,13 +502,12 @@ void HelloTriangleApplication::createUniformBuffers()
 //TODO JS: Better understand what needs to be done at startup
     void HelloTriangleApplication::createDescriptorSetLayout()
 {
-    VkDescriptorSetLayoutBinding uboLayoutBinding{};
-    uboLayoutBinding.binding = 0; //b0
-    uboLayoutBinding.descriptorCount = 1;
-    uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-    uboLayoutBinding.pImmutableSamplers = nullptr; // Optional
-
+    VkDescriptorSetLayoutBinding pushDescriptorBinding{};
+    pushDescriptorBinding.binding = 0; //b0
+    pushDescriptorBinding.descriptorCount = 1;
+    pushDescriptorBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    pushDescriptorBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    pushDescriptorBinding.pImmutableSamplers = nullptr; // Optional
 
     VkDescriptorSetLayoutBinding samplerLayoutBinding{};
     samplerLayoutBinding.binding = 1;
@@ -609,18 +515,18 @@ void HelloTriangleApplication::createUniformBuffers()
     samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     samplerLayoutBinding.pImmutableSamplers = nullptr;
     samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    
+    std::array<VkDescriptorSetLayoutBinding, 2> pushConstantBindings = {pushDescriptorBinding, samplerLayoutBinding};
 
-    std::array<VkDescriptorSetLayoutBinding, 2> bindings = {uboLayoutBinding, samplerLayoutBinding};
 
-
-    VkDescriptorSetLayoutCreateInfo layoutInfo{};
-    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    VkDescriptorSetLayoutCreateInfo pushDescriptorLayout{};
+    pushDescriptorLayout.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     //Set flag to use push descriptors
-    layoutInfo.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR;
-    layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
-    layoutInfo.pBindings = bindings.data();
+    pushDescriptorLayout.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR;
+    pushDescriptorLayout.bindingCount = static_cast<uint32_t>(pushConstantBindings.size());
+    pushDescriptorLayout.pBindings = pushConstantBindings.data();
 
-    VK_CHECK(vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayout));
+    VK_CHECK(vkCreateDescriptorSetLayout(device, &pushDescriptorLayout, nullptr, &pushDescriptorSetLayout));
    
 }
 #pragma endregion 
@@ -761,8 +667,8 @@ void HelloTriangleApplication::createSyncObjects()
     }
 }
 
-//TODO JS: is there a better way to structur ethis?
 #pragma region prepare and submit draw call 
+//TODO JS: This is like, per object uniforms -- it should belong to the scene and get passed a buffer directly to the render loop
 //TODO: Separate the per model xforms from the camera xform
 void HelloTriangleApplication::updateUniformBuffers(uint32_t currentImage, std::vector<glm::mat4> models)
 {
@@ -776,7 +682,7 @@ void HelloTriangleApplication::updateUniformBuffers(uint32_t currentImage, std::
         ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 
         ubo.proj = glm::perspective(glm::radians(70.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f,
-                                    10.0f);
+                                    1000.0f);
 
         ubo.proj[1][1] *= -1;
         ubos.push_back(ubo);
@@ -855,54 +761,66 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
     //Bind mesh buffers
     VkDeviceSize offsets[] = {0};
 
-    VkBuffer vertBufferAray[]{mesh.vertBuffer};
-
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertBufferAray, offsets);
-
-    vkCmdBindIndexBuffer(commandBuffer, mesh.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-    // /bind mesh buffers
+    bool meshbound = false;
+    int lastMeshID = -1;
+    bool matbound = false;
 
     //Loop over objects and set push constant stuff
-    for(int i = 0; i < 3; i++ )
+    //TODO JS: to scene object count
+    for(int i = 0; i < scene.meshes.size(); i++ )
     {
-        VkDescriptorBufferInfo bufferInfo{};
-        bufferInfo.buffer = uniformBuffers[0]; //TODO: For loop over frames
-        bufferInfo.offset = i * sizeof(UniformBufferObject);
-        bufferInfo.range = sizeof(UniformBufferObject);
         
-        VkDescriptorImageInfo imageInfo{};
-        imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        imageInfo.imageView = placeholderTexture.textureImageView;
-        imageInfo.sampler = placeholderTexture.textureSampler;
 
-        		std::array<VkWriteDescriptorSet, 2> writeDescriptorSets{};
+        //TODO JS: Some kind of ID?
+       
+        bool differentMaterial = false;
 
-        // UBO
-        writeDescriptorSets[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        writeDescriptorSets[0].dstSet = 0;
-        writeDescriptorSets[0].dstBinding = 0;
-        writeDescriptorSets[0].descriptorCount = 1;
-        writeDescriptorSets[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        writeDescriptorSets[0].pBufferInfo = &bufferInfo;
+        if (!meshbound || scene.meshes[i]->id != lastMeshID)
+        {
+          
+            //TODO JS: loop here too, only apply when mesh changes
+            VkBuffer vertBufferAray[]{scene.meshes[i]->vertBuffer};
+            vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertBufferAray, offsets);
+            vkCmdBindIndexBuffer(commandBuffer, scene.meshes[i]->indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+            lastMeshID = scene.meshes[i]->id;
+            meshbound = true;
+        }
 
-        // Texture
+            // /bind mesh buffers
+            VkDescriptorBufferInfo bufferInfo{};
+            bufferInfo.buffer = uniformBuffers[0]; //TODO: For loop over frames
+            bufferInfo.offset = i * sizeof(UniformBufferObject);
+            bufferInfo.range = sizeof(UniformBufferObject);
+        
+            VkDescriptorImageInfo imageInfo{};
+            imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            imageInfo.imageView = scene.materials[i].texture->textureImageView;
+            imageInfo.sampler = scene.materials[i].texture->textureSampler;
+
+            std::array<VkWriteDescriptorSet, 2> writeDescriptorSets{};
+
+            //One big limitation with push descriptor sets is that I can't have more than one
+            //So i always update everything per-draw if anything has changed
+            // UBO
+            writeDescriptorSets[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            writeDescriptorSets[0].dstSet = 0;
+            writeDescriptorSets[0].dstBinding = 0;
+            writeDescriptorSets[0].descriptorCount = 1;
+            writeDescriptorSets[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+            writeDescriptorSets[0].pBufferInfo = &bufferInfo;
+
+
         writeDescriptorSets[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        writeDescriptorSets[1].dstSet = 0;
         writeDescriptorSets[1].dstBinding = 1;
-        writeDescriptorSets[1].descriptorCount = 1;
+        writeDescriptorSets[1].dstArrayElement = 0;
         writeDescriptorSets[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        writeDescriptorSets[1].descriptorCount = 1;
         writeDescriptorSets[1].pImageInfo = &imageInfo;
-        
-        vkCmdPushDescriptorSetKHR(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 2, writeDescriptorSets.data());
-        //3 based on my layout
-    vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(mesh.indices.size()), 1, 0, 0, 0);
+            //3 based on my layout
+    vkCmdPushDescriptorSetKHR(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, writeDescriptorSets.size(), writeDescriptorSets.data());
+    vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(scene.meshes[i]->indices.size()), 1, 0, 0, 0);
     }
-
-    //Bind descriptor sets - TODO JS:  desctriptorsets should come from elsewhere?
-    // vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1,
-    //                         &descriptorSets[currentFrame], 0, nullptr);
-
-
+    
     vkCmdEndRenderPass(commandBuffer);
 
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
@@ -1189,9 +1107,10 @@ VkPipeline HelloTriangleApplication::createGraphicsPipeline(const char* shaderNa
 
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutInfo.setLayoutCount = 1; // Optional
+    pipelineLayoutInfo.setLayoutCount = 2; // Optional
     //TODO JS: These always use the same descriptor set layout currently
-    pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
+    VkDescriptorSetLayout setLayouts[] = {pushDescriptorSetLayout, perMaterialSetLayout};
+    pipelineLayoutInfo.pSetLayouts = setLayouts;
 
     if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS)
     {
@@ -1278,7 +1197,7 @@ void HelloTriangleApplication::mainLoop()
 void HelloTriangleApplication::UpdateRotations()
 {
     //<Rotation update
-    glm::vec3 EulerAngles(0, 0, 0.001);
+    glm::vec3 EulerAngles(0, 0, 0.01);
     auto MyQuaternion = glm::quat(EulerAngles);
 
     // Conversion from axis-angle
@@ -1359,7 +1278,7 @@ void HelloTriangleApplication::drawFrame()
 void HelloTriangleApplication::cleanup()
 {
     //TODO clenaup swapchain
-    placeholderTexture.cleanup();
+    placeholderTexture->cleanup();
 
 
     //TODO JS: might be moving somewhere?
@@ -1372,11 +1291,10 @@ void HelloTriangleApplication::cleanup()
 
     // vkDestroyDescriptorPool(device, descriptorPool, nullptr);
 
-    vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
+    vkDestroyDescriptorSetLayout(device, pushDescriptorSetLayout, nullptr);
 
 
-    placeholderMesh->cleanup();
-
+scene.Cleanup();
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
         vkDestroySemaphore(device, renderFinishedSemaphores[i], nullptr);

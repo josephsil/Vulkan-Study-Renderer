@@ -4,6 +4,7 @@
 #define GLM_FORCE_RADIANS	
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#include <string>
 #include <vector>
 #include "vertex.h"
 
@@ -33,13 +34,14 @@ class HelloTriangleApplication;
         std::vector<Vertex> vertices;
         std::vector<uint32_t> indices;
         //TODO JS: Should meshdata own a device?
-        VkPhysicalDevice physicalDevice; //Device pointers
         VkDevice device; //Device pointers
+        int id;
 
         //TODO JS: Remove verts and indices fro mthis construct when we load meshes from disk
         MeshData(HelloTriangleApplication* app, std::vector<Vertex> vertices,
             std::vector<uint32_t> indices);
-       
+
+        MeshData(HelloTriangleApplication* app, std::string path);
 
         MeshData()
         {

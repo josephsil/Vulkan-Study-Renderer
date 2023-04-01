@@ -43,8 +43,8 @@ VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
 
 struct FSInput
 {
-	//[[vk::location(0)]] float4 Pos : SV_POSITION;
-	[[vk::location(0)]] float3 Color : COLOR0;
+	[[vk::location(0)]] float4 Pos : SV_POSITION;
+	[[vk::location(1)]] float3 Color : COLOR0;
 	[[vk::location(2)]] float2 Texture_ST : TEXCOORD0;
 };
 

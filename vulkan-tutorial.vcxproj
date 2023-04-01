@@ -135,22 +135,29 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Material.cpp" />
     <ClCompile Include="MeshData.cpp" />
     <ClCompile Include="SceneObjectData.cpp" />
     <ClCompile Include="ShaderLoading.cpp" />
+    <ClCompile Include="TextureData.cpp" />
     <ClCompile Include="Vertex.cpp" />
     <ClCompile Include="vkbootstrap\VkBootstrap.cpp" />
     <ClCompile Include="vulkan-tutorial.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Material.h" />
     <ClInclude Include="MeshData.h" />
     <ClInclude Include="SceneObjectData.h" />
     <ClInclude Include="ShaderLoading.h" />
+    <ClInclude Include="TextureData.h" />
     <ClInclude Include="Vertex.h" />
     <ClInclude Include="vkbootstrap\VkBootstrap.h" />
     <ClInclude Include="vkbootstrap\VkBootstrapDispatch.h" />
     <ClInclude Include="vulkan-tutorial.h" />
     <ClInclude Include="Vulkan_Includes.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="viking_room.obj.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

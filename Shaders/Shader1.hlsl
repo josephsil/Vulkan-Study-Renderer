@@ -49,7 +49,8 @@ SamplerState mySampler;
 struct FSInput
 {
 	//[[vk::location(0)]] float4 Pos : SV_POSITION;
-	[[vk::location(0)]] float3 Color : COLOR0;
+	[[vk::location(0)]] float3 Pos : SV_POSITION;
+	[[vk::location(1)]] float3 Color : COLOR0;
 	[[vk::location(2)]] float2 Texture_ST : TEXCOORD0;
 };
 
@@ -64,6 +65,6 @@ FSOutput Frag(VSOutput input)
 {
 	FSOutput output;
 
-	output.Color = myTexture.Sample(mySampler, input.Texture_ST);
+	output.Color = saturate(myTexture.Sample(mySampler, input.Texture_ST) + 0.2);
 	return output;
 }
