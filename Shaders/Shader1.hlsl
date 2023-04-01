@@ -15,7 +15,7 @@ struct UBO
 };
 
 [[vk::binding(0, 0)]]
-ConstantBuffer<UBO> ubo;
+ConstantBuffer<UBO> uboarr[];
 
 
 struct pconstant
@@ -43,6 +43,8 @@ static float2 positions[3] = {
 VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
 {
 
+	int idx = pc.test.a;
+	UBO ubo = uboarr[idx];
 	VSOutput output = (VSOutput)0;
 	output.Pos = mul(mul(mul(ubo.proj, ubo.view), ubo.model), half4(input.Position.xyz, 1.0));
 	output.Color = input.Color * pc.test.rgb;

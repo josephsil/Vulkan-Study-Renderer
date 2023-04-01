@@ -490,7 +490,7 @@ void HelloTriangleApplication::createUniformBuffers()
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+        createBuffer(bufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers[i],
                      uniformBuffersMemory[i]);
 
@@ -505,7 +505,7 @@ void HelloTriangleApplication::createUniformBuffers()
     VkDescriptorSetLayoutBinding pushDescriptorBinding{};
     pushDescriptorBinding.binding = 0; //b0
     pushDescriptorBinding.descriptorCount = 1;
-    pushDescriptorBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    pushDescriptorBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     pushDescriptorBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
     pushDescriptorBinding.pImmutableSamplers = nullptr; // Optional
 
@@ -789,8 +789,8 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
             // /bind mesh buffers
             VkDescriptorBufferInfo bufferInfo{};
             bufferInfo.buffer = uniformBuffers[0]; //TODO: For loop over frames
-            bufferInfo.offset = i * sizeof(UniformBufferObject);
-            bufferInfo.range = sizeof(UniformBufferObject);
+            bufferInfo.offset = 0;
+            bufferInfo.range = sizeof(UniformBufferObject) * scene.meshes.size();
         
             VkDescriptorImageInfo imageInfo{};
             imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -806,7 +806,7 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
             writeDescriptorSets[0].dstSet = 0;
             writeDescriptorSets[0].dstBinding = 0;
             writeDescriptorSets[0].descriptorCount = 1;
-            writeDescriptorSets[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+            writeDescriptorSets[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
             writeDescriptorSets[0].pBufferInfo = &bufferInfo;
 
 
@@ -819,7 +819,7 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
             //3 based on my layout
 
         PerDrawPushConstants constants;
-        constants.test = glm::vec4(1,0,0,1);
+        constants.test = glm::vec4(1,0,0, i);
         vkCmdPushDescriptorSetKHR(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, writeDescriptorSets.size(), writeDescriptorSets.data());
 
         vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PerDrawPushConstants), &constants);

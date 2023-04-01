@@ -188,6 +188,7 @@ struct Scene;
 
         //TODO JS: Move the uniform buffer data and fns and ? This belongs to like, a "material" 
         std::vector<VkBuffer> uniformBuffers;
+        VkBuffer uniformBufferBig;
         std::vector<VkDeviceMemory> uniformBuffersMemory;
         std::vector<void*> uniformBuffersMapped;
 
