@@ -53,10 +53,17 @@ assert(result_ == VK_SUCCESS); \
         return EXIT_SUCCESS;
     }
 
+std::vector<unsigned int> pastTimes;
+unsigned int averageCbTime;
+
+unsigned int frames;
+
+
 void HelloTriangleApplication::run()
 {
     initWindow();
     initVulkan();
+        pastTimes.resize(999999);
     mainLoop();
     cleanup();
 }
@@ -708,11 +715,13 @@ void HelloTriangleApplication::updateUniformBuffer(uint32_t currentImage, glm::m
     memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(UniformBufferObject)); 
 }
 
+
 //TODO is this doing extra work?
 void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex,
     VkPipeline graphicsPipeline, MeshData* _mesh)
 {
-    auto mesh = *_mesh;
+
+    auto start = std::chrono::high_resolution_clock::now();
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     beginInfo.flags = 0; // Optional
@@ -833,6 +842,19 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
     {
         throw std::runtime_error("failed to record command buffer!");
     }
+
+    auto stop = std::chrono::high_resolution_clock::now();
+    unsigned int duration = duration_cast<std::chrono::microseconds>(stop - start).count();
+    frames ++;
+    pastTimes[frames] = duration;
+    for(int j = 0; j < frames; j++)
+    {
+        averageCbTime += pastTimes[j];
+    }
+    averageCbTime /= frames;
+
+    std::cout << "Average frame time: " << std::to_string(averageCbTime) << "\n";
+    
 }
 #pragma endregion
 
@@ -1113,9 +1135,9 @@ VkPipeline HelloTriangleApplication::createGraphicsPipeline(const char* shaderNa
 
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutInfo.setLayoutCount = 2; // Optional
+    pipelineLayoutInfo.setLayoutCount = 1; // Optional
     //TODO JS: These always use the same descriptor set layout currently
-    VkDescriptorSetLayout setLayouts[] = {pushDescriptorSetLayout, perMaterialSetLayout};
+    VkDescriptorSetLayout setLayouts[] = {pushDescriptorSetLayout};
     pipelineLayoutInfo.pSetLayouts = setLayouts;
 
     //setup push constants
