@@ -46,6 +46,9 @@
         translations.push_back(position);
         rotations.push_back(rotation);
         matrices.push_back(glm::mat4(1.0));
+        meshOffsets.push_back(getOffsetFromMeshID(mesh->id));
+        TextureIDS.push_back(texture->id);
+        meshVertCounts.push_back(mesh->vertcount);
         return ct++;
     }
 

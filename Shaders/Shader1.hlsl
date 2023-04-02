@@ -3,6 +3,7 @@ struct VSInput
 	[[vk::location(0)]] float3 Position : POSITION0;
 	[[vk::location(1)]] float3 Color : COLOR0;
 	[[vk::location(2)]] float2 Texture_ST : TEXCOORD0;
+	// [[vk::location(3)]] uint vertex_id : SV_VertexID;
 };
 
 
@@ -36,7 +37,7 @@ struct MyVertexStructure
 };
 
 [[vk::binding(3)]]
-ByteAddressBuffer BufferTable[];
+RWStructuredBuffer<MyVertexStructure> BufferTable;
 
 struct FSOutput
 {
@@ -64,15 +65,17 @@ static float2 positions[3] = {
 VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
 {
 
-	int vertCount = pc.test.x;
-	int firstVert = pc.test.y;
- 	//  MyVertexStructure myVertex = BufferTable[firstVert].Load<MyVertexStructure>((vertCount + firstVert) * sizeof(MyVertexStructure));
+	int vertOffset = pc.test.g;
+ 	MyVertexStructure myVertex = BufferTable[VertexIndex + vertOffset];
 	int idx = pc.test.a;
 	UBO ubo = uboarr[idx];
 	VSOutput output = (VSOutput)0;
-	output.Pos = mul(mul(mul(ubo.proj, ubo.view), ubo.model), half4(input.Position.xyz, 1.0));
-	output.Color = input.Color * pc.test.rgb;
-	output.Texture_ST = input.Texture_ST;
+	output.Pos = mul(mul(mul(ubo.proj, ubo.view), ubo.model), half4(myVertex.position.xyz, 1.0));
+	// output.Color = input.Color;
+	output.Texture_ST = myVertex.uv0.xy;
+
+	// output.Pos = float4(positions[2 - (VertexIndex % 2)],1,1);
+	// output.Color = myVertex.uv0.xy;
 	return output;
 }
 
@@ -99,6 +102,7 @@ FSOutput Frag(VSOutput input)
 {
 	FSOutput output;
 
-	output.Color = saturate(bindless_textures[pc.test.b].Sample(bindless_samplers[pc.test.b], input.Texture_ST) + 0.2) * input.Color;
+	output.Color = saturate(bindless_textures[pc.test.b].Sample(bindless_samplers[pc.test.b], input.Texture_ST) + 0.2) ;
+	// output.Color = input.Color;
 	return output;
 }

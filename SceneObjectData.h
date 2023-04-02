@@ -22,6 +22,9 @@ class Scene
     std::vector<Material> materials;
     std::vector<MeshData> backing_meshes;
     std::vector<TextureData> backing_textures;
+    std::vector<uint32_t> meshOffsets;
+    std::vector<uint32_t> meshVertCounts;
+    std::vector<int> TextureIDS;
     std::vector<glm::mat4> matrices;
     
     Scene();

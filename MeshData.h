@@ -35,7 +35,9 @@ class HelloTriangleApplication;
         std::vector<uint32_t> indices;
         //TODO JS: Should meshdata own a device?
         VkDevice device; //Device pointers
+        int vertcount;
         int id;
+        
 
         //TODO JS: Remove verts and indices fro mthis construct when we load meshes from disk
         MeshData(HelloTriangleApplication* app, std::vector<Vertex> vertices,

@@ -66,6 +66,8 @@ struct gpuvertex
     alignas(16) glm::vec4 texCoord;
     alignas(16) glm::vec4 padding1;
     alignas(16) glm::vec4 padding2;
+
+    
 };
 
 void HelloTriangleApplication::run()
@@ -80,15 +82,15 @@ void HelloTriangleApplication::run()
 HelloTriangleApplication::HelloTriangleApplication()
 {
     trivertices = {
-            {{-1.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-            {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-            {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-            {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
+            {{-1.5f, -0.5f, 0.0f, 1.0}, {1.0f, 0.0f, 0.0f, 1.0}, {0.0f, 0.0f, 1.0, 1.0}},
+            {{0.5f, -0.5f, 0.0f, 1.0}, {0.0f, 1.0f, 0.0f, 1.0}, {1.0f, 0.0f, 1.0, 1.0}},
+            {{0.5f, 0.5f, 0.0f, 1.0}, {0.0f, 0.0f, 1.0f, 1.0}, {1.0f, 1.0f, 1.0, 1.0}},
+            {{-0.5f, 0.5f, 0.0f, 1.0}, {1.0f, 1.0f, 1.0f, 1.0}, {0.0f, 1.0f, 1.0, 1.0}},
 
-            {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-            {{0.5f, -1.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-            {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-            {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}
+            {{-0.5f, -0.5f, -0.5f, 1.0}, {1.0f, 0.0f, 0.0f, 1.0}, {0.0f, 0.0f, 1.0, 1.0}},
+            {{0.5f, -1.5f, -0.5f, 1.0}, {0.0f, 1.0f, 0.0f, 1.0}, {1.0f, 0.0f, 1.0, 1.0}},
+            {{0.5f, 0.5f, -0.5f, 1.0}, {0.0f, 0.0f, 1.0f, 1.0}, {1.0f, 1.0f, 1.0, 1.0}},
+            {{-0.5f, 0.5f, -0.5f, 1.0}, {1.0f, 1.0f, 1.0f, 1.0f}, {0.0f, 1.0f,1.0f,1.0f}}
     };
     triindices = {
         0, 1, 2, 2, 3, 0,
@@ -269,9 +271,9 @@ void HelloTriangleApplication:: initVulkan()
     placeholderTextureidx = scene.AddBackingTexture(TextureData(this, "textures/seamless_brick.png"));
 
     //TODO: Scene loads mesh instead? 
-     int placeholderMeshIdx = scene.AddBackingMesh(MeshData::MeshData(this,"viking_room.obj"));
-    placeholderMeshIdx = scene.AddBackingMesh(MeshData::MeshData(this, trivertices, triindices));
-    placeholderMeshIdx = scene.AddBackingMesh(MeshData::MeshData(this,"monkey.obj"));
+ scene.AddBackingMesh(MeshData::MeshData(this, trivertices, triindices));
+      scene.AddBackingMesh(MeshData::MeshData(this,"viking_room.obj"));
+ scene.AddBackingMesh(MeshData::MeshData(this,"monkey.obj"));
     
     //TODO JS: the mesh memory (backing _placeholdermesh) should probably go to scene too?
 
@@ -280,7 +282,7 @@ void HelloTriangleApplication:: initVulkan()
     glm::vec3 EulerAngles(0, 0, 0);
     auto MyQuaternion = glm::quat(EulerAngles);
 
-    for(int i = 0; i < 4000; i++)
+    for(int i = 0; i < 300; i++)
     {
         int random_number = rand() % 3;
         int random_number_t = rand() % 2;
@@ -290,7 +292,7 @@ void HelloTriangleApplication:: initVulkan()
                 &scene.backing_textures[random_number_t],
                 glm::vec4(0,- i * 0.2,0,1),
                 MyQuaternion));
-        random_number = rand() % 3;
+        random_number =rand() % 3;
         random_number_t = rand() % 2;
         sceneObjects.push_back(
             scene.AddObject(
@@ -298,7 +300,7 @@ void HelloTriangleApplication:: initVulkan()
            &scene.backing_textures[random_number_t],
                 glm::vec4(2,- i * 0.2,0.0,1),
                 MyQuaternion));
-        random_number = rand() % 3;
+        random_number =rand() % 3;
         random_number_t = rand() % 2;
         sceneObjects.push_back(
                scene.AddObject(
@@ -332,10 +334,10 @@ void HelloTriangleApplication::updateMeshBuffers()
         MeshData mesh = scene.backing_meshes[j];
         for(int i = 0; i < mesh.indices.size(); i++)
         {
-            glm::vec3 pos = mesh.vertices[mesh.indices[i]].pos;
-            glm::vec3 col = mesh.vertices[mesh.indices[i]].color;
-            glm::vec2 uv = mesh.vertices[mesh.indices[i]].texCoord;
-            gpuvertex vert = {glm::vec4(pos.x,pos.y,pos.z,1), glm::vec4(uv.x,uv.y,1,1), glm::vec4(1), glm::vec4(1)};
+            glm::vec4 pos = mesh.vertices[mesh.indices[i]].pos;
+            glm::vec4 col = mesh.vertices[mesh.indices[i]].color;
+            glm::vec4 uv = mesh.vertices[mesh.indices[i]].texCoord;
+            gpuvertex vert = {glm::vec4(pos.x,pos.y,pos.z,1), uv, glm::vec4(1)};
             verts.push_back(vert);
         }
     }
@@ -548,6 +550,7 @@ void HelloTriangleApplication::createUniformBuffers()
 
     meshBuffers.resize(MAX_FRAMES_IN_FLIGHT);
     meshBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
+    meshBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
@@ -851,16 +854,7 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
        
         bool differentMaterial = false;
 
-        if (!meshbound || scene.meshes[i]->id != lastMeshID)
-        {
-          
-            //TODO JS: loop here too, only apply when mesh changes
-            VkBuffer vertBufferAray[]{scene.meshes[i]->vertBuffer};
-            vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertBufferAray, offsets);
-            vkCmdBindIndexBuffer(commandBuffer, scene.meshes[i]->indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-            lastMeshID = scene.meshes[i]->id;
-            meshbound = true;
-        }
+
 
         if (i == 0) //First draw -- this could happen earlier?
         {
@@ -916,18 +910,19 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
             writeDescriptorSets[3].dstBinding = 3;
             writeDescriptorSets[3].dstArrayElement = 0;
             writeDescriptorSets[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-
+            writeDescriptorSets[3].descriptorCount = 1;
             writeDescriptorSets[3].pBufferInfo = &meshBufferinfo;
+            
             //3 based on my layout
             vkCmdPushDescriptorSetKHR(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, writeDescriptorSets.size(), writeDescriptorSets.data());
         }
         PerDrawPushConstants constants;
-        constants.test = glm::vec4(scene.meshes[i]->indices.size(),scene.getOffsetFromMeshID(scene.meshes[i]->id),scene.materials[i].texture->id, i);
+        constants.test = glm::vec4(-111,static_cast<int>(scene.meshOffsets[i]),scene.materials[i].texture->id, i);
 
         vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PerDrawPushConstants), &constants);
-
-        vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(scene.meshes[i]->indices.size()), 1, 0, 0, 0);
-    }
+        
+        vkCmdDraw(commandBuffer, static_cast<uint32_t>(scene.meshes[i]->vertcount), 1,0,0);
+   }
     
     vkCmdEndRenderPass(commandBuffer);
 
@@ -937,16 +932,16 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
     }
 
     auto stop = std::chrono::high_resolution_clock::now();
-    unsigned int duration = duration_cast<std::chrono::microseconds>(stop - start).count();
+    auto duration = duration_cast<std::chrono::microseconds>(stop - start);
     frames ++;
-    pastTimes[frames] = duration;
-    for(int j = 0; j < frames; j++)
-    {
-        averageCbTime += pastTimes[j];
-    }
-    averageCbTime /= frames;
+    // pastTimes[frames] = duration;
+    // for(int j = 0; j < frames; j++)
+    // {
+    //     averageCbTime += pastTimes[j];
+    // }
+    // averageCbTime /= frames;
 
-    std::cout << "Average frame time: " << std::to_string(averageCbTime) << "\n";
+    std::cout << "frame time: " << duration << "\n";
     
 }
 #pragma endregion
@@ -1148,10 +1143,10 @@ VkPipeline HelloTriangleApplication::createGraphicsPipeline(const char* shaderNa
 
     VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
     vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vertexInputInfo.vertexBindingDescriptionCount = 1;
-    vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
-    vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
-    vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
+    vertexInputInfo.vertexBindingDescriptionCount = 0;
+    vertexInputInfo.vertexAttributeDescriptionCount = 0;
+    vertexInputInfo.pVertexBindingDescriptions = nullptr;
+    vertexInputInfo.pVertexAttributeDescriptions = nullptr;
 
     VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
     inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -1420,6 +1415,8 @@ void HelloTriangleApplication::cleanup()
     {
         vkDestroyBuffer(device, uniformBuffers[i], nullptr);
         vkFreeMemory(device, uniformBuffersMemory[i], nullptr);
+        
+        vkFreeMemory(device, meshBuffersMemory[i], nullptr);
     }
 
     // vkDestroyDescriptorPool(device, descriptorPool, nullptr);
