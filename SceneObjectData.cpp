@@ -29,7 +29,8 @@
             glm::mat4 objectLocalRotation = glm::toMat4(rotations[i]);
             model = glm::translate(model, translations[i]); //TODO: These should update at a different rate than camera stuff
             model *= objectLocalRotation;
-            model = glm::scale(model, glm::vec3(0.2));
+            //TODO: Don't fake apply scale here
+            model = glm::scale(model, glm::vec3(0.5));
             matrices[i] = model;
         }
       

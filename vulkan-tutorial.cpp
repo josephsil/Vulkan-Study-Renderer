@@ -300,7 +300,7 @@ void HelloTriangleApplication:: initVulkan()
             scene.AddObject(
                  &scene.backing_meshes[random_number],
                 &scene.backing_textures[random_number_t],
-                glm::vec4(0,- i * 0.2,0,1),
+                glm::vec4(0,- i * 0.6,0,1),
                 MyQuaternion));
         random_number =rand() % 3;
         random_number_t = rand() % 2;
@@ -308,7 +308,7 @@ void HelloTriangleApplication:: initVulkan()
             scene.AddObject(
             &scene.backing_meshes[random_number],
            &scene.backing_textures[random_number_t],
-                glm::vec4(2,- i * 0.2,0.0,1),
+                glm::vec4(2,- i * 0.6,0.0,1),
                 MyQuaternion));
         random_number =rand() % 3;
         random_number_t = rand() % 2;
@@ -316,7 +316,7 @@ void HelloTriangleApplication:: initVulkan()
                scene.AddObject(
                &scene.backing_meshes[random_number],
          &scene.backing_textures[random_number_t],
-                   glm::vec4(-2,- i * 0.2,-0.0,1),
+                   glm::vec4(-2,- i * 0.6,-0.0,1),
                    MyQuaternion));
     }
 
@@ -805,7 +805,7 @@ void HelloTriangleApplication::updateUniformBuffers(uint32_t currentImage, std::
     for(int i = 0; i < models.size(); i++)
     {
         glm::mat4 model = models[i];
-        glm::mat4 view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        glm::mat4 view = glm::lookAt(glm::vec3(0.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.5f), glm::vec3(0.0f, 0.0f, 1.0f));
 
         glm::mat4 proj = glm::perspective(glm::radians(70.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f,
                                     1000.0f);
