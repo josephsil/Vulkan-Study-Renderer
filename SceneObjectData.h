@@ -29,6 +29,8 @@ class Scene
     void Sort();
     //Returns the index to the object in the vectors
     int AddObject(MeshData* mesh, TextureData* texture, glm::vec3 position, glm::quat rotation);
+    uint32_t getVertexCount();
+    uint32_t getOffsetFromMeshID(int id);
 
     //TODO JS: these are temporary 
     int AddBackingTexture(TextureData T);

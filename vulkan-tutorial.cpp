@@ -59,6 +59,15 @@ unsigned int averageCbTime;
 unsigned int frames;
 
 
+//TODO JS: move
+struct gpuvertex
+{
+    alignas(16) glm::vec4 pos;
+    alignas(16) glm::vec4 texCoord;
+    alignas(16) glm::vec4 padding1;
+    alignas(16) glm::vec4 padding2;
+};
+
 void HelloTriangleApplication::run()
 {
     initWindow();
@@ -308,6 +317,32 @@ void HelloTriangleApplication:: initVulkan()
 
     createDepthResources();
     createFramebuffers();
+
+    updateMeshBuffers();
+}
+
+void HelloTriangleApplication::updateMeshBuffers()
+{
+
+
+
+    std::vector<gpuvertex> verts;
+    for (int j = 0; j < scene.backing_meshes.size(); j++)
+    {
+        MeshData mesh = scene.backing_meshes[j];
+        for(int i = 0; i < mesh.indices.size(); i++)
+        {
+            glm::vec3 pos = mesh.vertices[mesh.indices[i]].pos;
+            glm::vec3 col = mesh.vertices[mesh.indices[i]].color;
+            glm::vec2 uv = mesh.vertices[mesh.indices[i]].texCoord;
+            gpuvertex vert = {glm::vec4(pos.x,pos.y,pos.z,1), glm::vec4(uv.x,uv.y,1,1), glm::vec4(1), glm::vec4(1)};
+            verts.push_back(vert);
+        }
+    }
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    {
+        memcpy(meshBuffersMapped[i], verts.data(), sizeof(gpuvertex) * scene.getVertexCount());
+    }
 }
 
 #pragma region images 
@@ -508,6 +543,20 @@ void HelloTriangleApplication::createUniformBuffers()
 
         vkMapMemory(device, uniformBuffersMemory[i], 0, bufferSize, 0, &uniformBuffersMapped[i]);
     }
+
+    VkDeviceSize bufferSize2 = sizeof(gpuvertex) * scene.getVertexCount();
+
+    meshBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+    meshBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
+
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    {
+        createBuffer(bufferSize2, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, meshBuffers[i],
+                     meshBuffersMemory[i]);
+
+        vkMapMemory(device, meshBuffersMemory[i], 0, bufferSize2, 0, &meshBuffersMapped[i]);
+    }
 }
 
 
@@ -523,19 +572,26 @@ void HelloTriangleApplication::createUniformBuffers()
 
     VkDescriptorSetLayoutBinding textureLayoutBinding{};
     textureLayoutBinding.binding = 1;
-    textureLayoutBinding.descriptorCount = 10000; // TODO JS: just make really big?
+    textureLayoutBinding.descriptorCount = 2; // TODO JS: just make really big?
     textureLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
     textureLayoutBinding.pImmutableSamplers = nullptr;
     textureLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
     VkDescriptorSetLayoutBinding samplerLayoutBinding{};
     samplerLayoutBinding.binding = 2;
-    samplerLayoutBinding.descriptorCount = 10000; // TODO JS: just make really big?
+    samplerLayoutBinding.descriptorCount = 2; // TODO JS: just make really big?
     samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
     samplerLayoutBinding.pImmutableSamplers = nullptr;
     samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    VkDescriptorSetLayoutBinding meshLayoutBinding{};
+    meshLayoutBinding.binding = 3;
+    meshLayoutBinding.descriptorCount = 1; // TODO JS: just make really big?
+    meshLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    meshLayoutBinding.pImmutableSamplers = nullptr;
+    meshLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
     
-    std::array<VkDescriptorSetLayoutBinding, 3> pushConstantBindings = {pushDescriptorBinding, textureLayoutBinding, samplerLayoutBinding};
+    std::array<VkDescriptorSetLayoutBinding, 4> pushConstantBindings = {pushDescriptorBinding, textureLayoutBinding, samplerLayoutBinding, meshLayoutBinding};
 
 
     VkDescriptorSetLayoutCreateInfo pushDescriptorLayout{};
@@ -706,8 +762,7 @@ void HelloTriangleApplication::updateUniformBuffers(uint32_t currentImage, std::
         ubo.proj[1][1] *= -1;
         ubos.push_back(ubo);
     }
-
-    memcpy(uniformBuffersMapped[currentImage], ubos.data(), sizeof(UniformBufferObject) * models.size()); 
+    memcpy(uniformBuffersMapped[currentImage], ubos.data(), sizeof(UniformBufferObject) * models.size());
 }
 
 void HelloTriangleApplication::updateUniformBuffer(uint32_t currentImage, glm::mat4 model)
@@ -807,13 +862,18 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
             meshbound = true;
         }
 
-        if (i == 0)
+        if (i == 0) //First draw -- this could happen earlier?
         {
-            // /bind mesh buffers
-            VkDescriptorBufferInfo bufferInfo{};
-            bufferInfo.buffer = uniformBuffers[0]; //TODO: For loop over frames
-            bufferInfo.offset = 0;
-            bufferInfo.range = sizeof(UniformBufferObject) * scene.meshes.size();
+            // bind ubo buffer
+            VkDescriptorBufferInfo uniformbufferinfo{};
+            uniformbufferinfo.buffer = uniformBuffers[0]; //TODO: For loop over frames
+            uniformbufferinfo.offset = 0;
+            uniformbufferinfo.range = sizeof(UniformBufferObject) * scene.meshes.size();
+
+            VkDescriptorBufferInfo meshBufferinfo{};
+            meshBufferinfo.buffer = meshBuffers[0]; //TODO: For loop over frames
+            meshBufferinfo.offset = 0;
+            meshBufferinfo.range = sizeof(gpuvertex) * scene.getVertexCount();
 
             //TODO JS: Don't do this every frame
             std::vector<VkDescriptorImageInfo> imageInfos;
@@ -827,20 +887,20 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
             }
 
             
-            std::array<VkWriteDescriptorSet, 3> writeDescriptorSets{};
+            std::array<VkWriteDescriptorSet, 4> writeDescriptorSets{};
             writeDescriptorSets[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             writeDescriptorSets[0].dstSet = 0;
             writeDescriptorSets[0].dstBinding = 0;
             writeDescriptorSets[0].descriptorCount = 1;
             writeDescriptorSets[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-            writeDescriptorSets[0].pBufferInfo = &bufferInfo;
+            writeDescriptorSets[0].pBufferInfo = &uniformbufferinfo;
 
 
             writeDescriptorSets[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             writeDescriptorSets[1].dstBinding = 1;
             writeDescriptorSets[1].dstArrayElement = 0;
             writeDescriptorSets[1].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-            writeDescriptorSets[1].descriptorCount = 2;
+            writeDescriptorSets[1].descriptorCount = scene.backing_textures.size();
 
             writeDescriptorSets[1].pImageInfo = imageInfos.data();
         
@@ -848,14 +908,21 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
             writeDescriptorSets[2].dstBinding = 2;
             writeDescriptorSets[2].dstArrayElement = 0;
             writeDescriptorSets[2].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
-            writeDescriptorSets[2].descriptorCount = 2;
+            writeDescriptorSets[2].descriptorCount = scene.backing_textures.size();
 
             writeDescriptorSets[2].pImageInfo = imageInfos.data();
+
+            writeDescriptorSets[3].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            writeDescriptorSets[3].dstBinding = 3;
+            writeDescriptorSets[3].dstArrayElement = 0;
+            writeDescriptorSets[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+
+            writeDescriptorSets[3].pBufferInfo = &meshBufferinfo;
             //3 based on my layout
             vkCmdPushDescriptorSetKHR(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, writeDescriptorSets.size(), writeDescriptorSets.data());
         }
         PerDrawPushConstants constants;
-        constants.test = glm::vec4(1,0,scene.materials[i].texture->id, i);
+        constants.test = glm::vec4(scene.meshes[i]->indices.size(),scene.getOffsetFromMeshID(scene.meshes[i]->id),scene.materials[i].texture->id, i);
 
         vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PerDrawPushConstants), &constants);
 
@@ -1290,7 +1357,7 @@ void HelloTriangleApplication::drawFrame()
 
     //TODO: draw multiple objects
     // updateUniformBuffer(currentFrame, scene.matrices[0]);
-    updateUniformBuffers(currentFrame, scene.matrices); // TODO JS: Figure out  
+    updateUniformBuffers(currentFrame, scene.matrices); // TODO JS: Figure out
 
     vkResetFences(device, 1, &inFlightFences[currentFrame]);
     //TODO JS: properly manage multiple objects with vertex buffer + corresponding pipeline object

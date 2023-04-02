@@ -192,8 +192,13 @@ struct Scene;
         std::vector<VkDeviceMemory> uniformBuffersMemory;
         std::vector<void*> uniformBuffersMapped;
 
-  
+       std::vector<VkBuffer> meshBuffers;
+       VkBuffer meshBufferBig;
+       std::vector<VkDeviceMemory> meshBuffersMemory;
+       std::vector<void*> meshBuffersMapped;
 
+  
+       void updateMeshBuffers();
        void updateDescriptorSet(Scene* scene, int idx);
 
 

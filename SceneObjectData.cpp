@@ -50,6 +50,27 @@
     }
 
 
+uint32_t Scene::getOffsetFromMeshID(int id)
+    {
+        int indexcount = 0;
+        for (int i = 0; i < id; i++)
+        {
+            indexcount += backing_meshes[i].indices.size();
+        }
+        return indexcount;
+    }
+
+uint32_t Scene::getVertexCount()
+{
+        int indexcount = 0;
+        for (int i = 0; i < backing_meshes.size(); i++)
+        {
+            indexcount += backing_meshes[i].indices.size();
+        }
+        return indexcount;
+}
+
+
 //TODO JS: we should probably CREATE from here at some point?
     int Scene::AddBackingTexture(TextureData T)
     {

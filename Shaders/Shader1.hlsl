@@ -26,6 +26,24 @@ struct pconstant
 	float4 test;
 };
 
+struct MyVertexStructure
+{
+    float4 position;
+    float4 uv0;
+	float4 _0;
+    float4 _1;
+    // uint color;
+};
+
+[[vk::binding(3)]]
+ByteAddressBuffer BufferTable[];
+
+struct FSOutput
+{
+	[[vk::location(0)]] float3 Color : SV_Target;
+};
+
+
 [[vk::push_constant]]
 pconstant pc;
 
@@ -46,6 +64,9 @@ static float2 positions[3] = {
 VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
 {
 
+	int vertCount = pc.test.x;
+	int firstVert = pc.test.y;
+ 	//  MyVertexStructure myVertex = BufferTable[firstVert].Load<MyVertexStructure>((vertCount + firstVert) * sizeof(MyVertexStructure));
 	int idx = pc.test.a;
 	UBO ubo = uboarr[idx];
 	VSOutput output = (VSOutput)0;
@@ -69,10 +90,8 @@ struct FSInput
 };
 
 
-struct FSOutput
-{
-	[[vk::location(0)]] float3 Color : SV_Target;
-};
+
+
 
 // -spirv -T ps_6_5 -E Frag .\Shader1.hlsl -Fo .\triangle.frag.spv
 
