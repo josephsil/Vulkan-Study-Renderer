@@ -15,9 +15,12 @@ struct UBO
 };
 
 [[vk::binding(0, 0)]]
-ConstantBuffer<UBO> ubo;
+RWStructuredBuffer<UBO> uboarr;
 
-
+[[vk::binding(1)]]
+Texture2D<float4> bindless_textures[];
+[[vk::binding(2)]]
+SamplerState bindless_samplers[];
 struct pconstant
 {
 	float4 test;
@@ -43,6 +46,8 @@ static float2 positions[3] = {
 VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
 {
 
+	int idx = pc.test.a;
+	UBO ubo = uboarr[idx];
 	VSOutput output = (VSOutput)0;
 	output.Pos = mul(mul(mul(ubo.proj, ubo.view), ubo.model), half4(input.Position.xyz, 1.0));
 	output.Color = input.Color * pc.test.rgb;
@@ -50,10 +55,10 @@ VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
 	return output;
 }
 
-[[vk::combinedImageSampler]] [[vk::binding(1)]]
-Texture2D<float4> myTexture;
-[[vk::combinedImageSampler]] [[vk::binding(1)]]
-SamplerState mySampler;
+// [[vk::combinedImageSampler]] [[vk::binding(1)]]
+// Texture2D<float4> myTexture;
+// [[vk::combinedImageSampler]] [[vk::binding(1)]]
+// SamplerState mySampler;
 
 struct FSInput
 {
@@ -75,6 +80,6 @@ FSOutput Frag(VSOutput input)
 {
 	FSOutput output;
 
-	output.Color = saturate(myTexture.Sample(mySampler, input.Texture_ST) + 0.2) * input.Color;
+	output.Color = saturate(bindless_textures[pc.test.b].Sample(bindless_samplers[pc.test.b], input.Texture_ST) + 0.2) * input.Color;
 	return output;
 }

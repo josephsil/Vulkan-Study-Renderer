@@ -155,6 +155,7 @@ void HelloTriangleApplication:: initVulkan()
             .set_surface(surface)
             .require_separate_transfer_queue()   //NOTE: Not supporting gpus without dedicated queue 
             .require_separate_compute_queue()
+            .set_required_features({VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES})
             .add_required_extensions(deviceExtensions)
             .select();
     if (!physical_device_selector_return) {
@@ -256,6 +257,7 @@ void HelloTriangleApplication:: initVulkan()
     graphicsPipeline_1 = createGraphicsPipeline("triangle", renderPass, nullptr);
     graphicsPipeline_2 = createGraphicsPipeline("triangle_alt", renderPass, nullptr);
     int placeholderTextureidx = scene.AddBackingTexture(TextureData(this, "textures/testTexture.jpg"));
+    placeholderTextureidx = scene.AddBackingTexture(TextureData(this, "textures/seamless_brick.png"));
 
     //TODO: Scene loads mesh instead? 
      int placeholderMeshIdx = scene.AddBackingMesh(MeshData::MeshData(this,"viking_room.obj"));
@@ -269,27 +271,30 @@ void HelloTriangleApplication:: initVulkan()
     glm::vec3 EulerAngles(0, 0, 0);
     auto MyQuaternion = glm::quat(EulerAngles);
 
-    for(int i = 0; i < 1000; i++)
+    for(int i = 0; i < 4000; i++)
     {
         int random_number = rand() % 3;
+        int random_number_t = rand() % 2;
         sceneObjects.push_back(
             scene.AddObject(
                  &scene.backing_meshes[random_number],
-                &scene.backing_textures[placeholderTextureidx],
+                &scene.backing_textures[random_number_t],
                 glm::vec4(0,- i * 0.2,0,1),
                 MyQuaternion));
         random_number = rand() % 3;
+        random_number_t = rand() % 2;
         sceneObjects.push_back(
             scene.AddObject(
             &scene.backing_meshes[random_number],
-           &scene.backing_textures[placeholderTextureidx],
+           &scene.backing_textures[random_number_t],
                 glm::vec4(2,- i * 0.2,0.0,1),
                 MyQuaternion));
         random_number = rand() % 3;
+        random_number_t = rand() % 2;
         sceneObjects.push_back(
                scene.AddObject(
                &scene.backing_meshes[random_number],
-         &scene.backing_textures[placeholderTextureidx],
+         &scene.backing_textures[random_number_t],
                    glm::vec4(-2,- i * 0.2,-0.0,1),
                    MyQuaternion));
     }
@@ -497,7 +502,7 @@ void HelloTriangleApplication::createUniformBuffers()
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+        createBuffer(bufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers[i],
                      uniformBuffersMemory[i]);
 
@@ -512,18 +517,25 @@ void HelloTriangleApplication::createUniformBuffers()
     VkDescriptorSetLayoutBinding pushDescriptorBinding{};
     pushDescriptorBinding.binding = 0; //b0
     pushDescriptorBinding.descriptorCount = 1;
-    pushDescriptorBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    pushDescriptorBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     pushDescriptorBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
     pushDescriptorBinding.pImmutableSamplers = nullptr; // Optional
 
+    VkDescriptorSetLayoutBinding textureLayoutBinding{};
+    textureLayoutBinding.binding = 1;
+    textureLayoutBinding.descriptorCount = 10000; // TODO JS: just make really big?
+    textureLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+    textureLayoutBinding.pImmutableSamplers = nullptr;
+    textureLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
     VkDescriptorSetLayoutBinding samplerLayoutBinding{};
-    samplerLayoutBinding.binding = 1;
-    samplerLayoutBinding.descriptorCount = 1;
-    samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    samplerLayoutBinding.binding = 2;
+    samplerLayoutBinding.descriptorCount = 10000; // TODO JS: just make really big?
+    samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
     samplerLayoutBinding.pImmutableSamplers = nullptr;
     samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
     
-    std::array<VkDescriptorSetLayoutBinding, 2> pushConstantBindings = {pushDescriptorBinding, samplerLayoutBinding};
+    std::array<VkDescriptorSetLayoutBinding, 3> pushConstantBindings = {pushDescriptorBinding, textureLayoutBinding, samplerLayoutBinding};
 
 
     VkDescriptorSetLayoutCreateInfo pushDescriptorLayout{};
@@ -795,41 +807,55 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
             meshbound = true;
         }
 
+        if (i == 0)
+        {
             // /bind mesh buffers
             VkDescriptorBufferInfo bufferInfo{};
             bufferInfo.buffer = uniformBuffers[0]; //TODO: For loop over frames
-            bufferInfo.offset = i * sizeof(UniformBufferObject);
-            bufferInfo.range = sizeof(UniformBufferObject);
-        
-            VkDescriptorImageInfo imageInfo{};
-            imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            imageInfo.imageView = scene.materials[i].texture->textureImageView;
-            imageInfo.sampler = scene.materials[i].texture->textureSampler;
+            bufferInfo.offset = 0;
+            bufferInfo.range = sizeof(UniformBufferObject) * scene.meshes.size();
 
-            std::array<VkWriteDescriptorSet, 2> writeDescriptorSets{};
+            //TODO JS: Don't do this every frame
+            std::vector<VkDescriptorImageInfo> imageInfos;
+            for(int texture_i = 0; texture_i < scene.backing_textures.size(); texture_i++ )
+            {
+                VkDescriptorImageInfo imageInfo{};
+                imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+                imageInfo.imageView = scene.backing_textures[texture_i].textureImageView;
+                imageInfo.sampler = scene.backing_textures[texture_i].textureSampler;
+                imageInfos.push_back(imageInfo);
+            }
 
-            //One big limitation with push descriptor sets is that I can't have more than one
-            //So i always update everything per-draw if anything has changed
-            // UBO
+            
+            std::array<VkWriteDescriptorSet, 3> writeDescriptorSets{};
             writeDescriptorSets[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             writeDescriptorSets[0].dstSet = 0;
             writeDescriptorSets[0].dstBinding = 0;
             writeDescriptorSets[0].descriptorCount = 1;
-            writeDescriptorSets[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+            writeDescriptorSets[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
             writeDescriptorSets[0].pBufferInfo = &bufferInfo;
 
 
             writeDescriptorSets[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             writeDescriptorSets[1].dstBinding = 1;
             writeDescriptorSets[1].dstArrayElement = 0;
-            writeDescriptorSets[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-            writeDescriptorSets[1].descriptorCount = 1;
-            writeDescriptorSets[1].pImageInfo = &imageInfo;
-            //3 based on my layout
+            writeDescriptorSets[1].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+            writeDescriptorSets[1].descriptorCount = 2;
 
+            writeDescriptorSets[1].pImageInfo = imageInfos.data();
+        
+            writeDescriptorSets[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            writeDescriptorSets[2].dstBinding = 2;
+            writeDescriptorSets[2].dstArrayElement = 0;
+            writeDescriptorSets[2].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
+            writeDescriptorSets[2].descriptorCount = 2;
+
+            writeDescriptorSets[2].pImageInfo = imageInfos.data();
+            //3 based on my layout
+            vkCmdPushDescriptorSetKHR(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, writeDescriptorSets.size(), writeDescriptorSets.data());
+        }
         PerDrawPushConstants constants;
-        constants.test = glm::vec4(1,0,0,1);
-        vkCmdPushDescriptorSetKHR(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, writeDescriptorSets.size(), writeDescriptorSets.data());
+        constants.test = glm::vec4(1,0,scene.materials[i].texture->id, i);
 
         vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PerDrawPushConstants), &constants);
 

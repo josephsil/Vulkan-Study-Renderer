@@ -2,7 +2,7 @@
 #include "vulkan-tutorial.h"
 
 #include "stb_image.h"
-
+int TEXTURE_INDEX;
 #pragma region textureData
 TextureData::TextureData(HelloTriangleApplication* app, const char* path)
 {
@@ -10,6 +10,7 @@ TextureData::TextureData(HelloTriangleApplication* app, const char* path)
     createTextureImage(path);
     createTextureImageView();
     createTextureSampler();
+    id = TEXTURE_INDEX++;
 }
 
 TextureData::TextureData()

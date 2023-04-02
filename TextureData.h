@@ -12,6 +12,7 @@ typedef struct VkImageView_T* VkImageView;
 typedef struct VkImage_T* VkImage;
 typedef struct VkSampler_T* VkSampler;
 
+
 class HelloTriangleApplication;
 #pragma endregion
 //TODO JS: obviously improve 
@@ -23,6 +24,7 @@ class HelloTriangleApplication;
       HelloTriangleApplication* appref;
       VkImage textureImage;
       VkDeviceMemory textureImageMemory;
+      int id;
 
       TextureData(HelloTriangleApplication* app, const char* path);
 

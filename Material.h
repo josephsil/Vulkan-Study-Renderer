@@ -6,4 +6,5 @@ struct Material
 {
 public:
     TextureData* texture;
+    int backingTextureidx;
 };
