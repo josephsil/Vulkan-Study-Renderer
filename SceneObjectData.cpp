@@ -86,6 +86,15 @@ uint32_t Scene::getVertexCount()
             return backing_meshes.size() -1;
         }
 
+int Scene::AddLight(glm::vec3 position, glm::vec3 color, float radius, float intensity)
+    {
+
+        lightposandradius.push_back(glm::vec4(position.x,position.y,position.z,radius));
+        lightcolorAndIntensity.push_back(glm::vec4(color.x,color.y,color.z,intensity));
+        lightCount ++;
+        return -1; //NOT IMPLEMENTED
+    }
+
 void Scene::Cleanup()
 {
         for(int i = 0; i < backing_meshes.size(); i++)
@@ -96,6 +105,7 @@ void Scene::Cleanup()
         {
             backing_textures[i].cleanup();
         }
+        
 }
 void Scene::Sort()
     {

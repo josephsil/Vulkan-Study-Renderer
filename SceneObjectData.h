@@ -16,16 +16,24 @@ class Scene
     
     //No scale for now
     public:
+    //Parallel arrays per-object
     std::vector<glm::vec3> translations;
     std::vector<glm::quat> rotations;
     std::vector<MeshData*> meshes;
     std::vector<Material> materials;
-    std::vector<MeshData> backing_meshes;
-    std::vector<TextureData> backing_textures;
     std::vector<uint32_t> meshOffsets;
     std::vector<uint32_t> meshVertCounts;
     std::vector<int> TextureIDS;
     std::vector<glm::mat4> matrices;
+
+    // arallel arrays per Light
+    std::vector<glm::vec4> lightposandradius;
+    std::vector<glm::vec4> lightcolorAndIntensity;
+    int lightCount = 0;
+
+    //Non parallel arrays
+    std::vector<TextureData> backing_textures;
+    std::vector<MeshData> backing_meshes;
     
     Scene();
     void Update();
@@ -38,6 +46,7 @@ class Scene
     //TODO JS: these are temporary 
     int AddBackingTexture(TextureData T);
     int AddBackingMesh(MeshData M);
+    int AddLight(glm::vec3 position, glm::vec3 color, float radius=1, float intensity=1);
 
     void Cleanup();
 

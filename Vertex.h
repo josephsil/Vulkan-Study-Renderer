@@ -18,7 +18,7 @@ struct Vertex
     glm::vec4 pos;
     glm::vec4 color;
     glm::vec4 texCoord;
-    glm::vec4 padding;
+    glm::vec4 normal;
 
     static VkVertexInputBindingDescription getBindingDescription();
 

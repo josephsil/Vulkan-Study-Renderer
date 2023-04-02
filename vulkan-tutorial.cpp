@@ -64,17 +64,24 @@ struct gpuvertex
 {
     alignas(16) glm::vec4 pos;
     alignas(16) glm::vec4 texCoord;
-    alignas(16) glm::vec4 padding1;
+    alignas(16) glm::vec4 normal;
     alignas(16) glm::vec4 padding2;
+};
 
-    
+//TODO JS: move
+struct gpulight
+{
+    alignas(16) glm::vec4 pos_xyz_range_a;
+    alignas(16) glm::vec4 color_xyz_intensity_a;
+    alignas(16) glm::vec4 padding;
+    alignas(16) glm::vec4 padding2;
 };
 
 void HelloTriangleApplication::run()
 {
     initWindow();
     initVulkan();
-        pastTimes.resize(999999);
+    pastTimes.resize(9999);
     mainLoop();
     cleanup();
 }
@@ -82,15 +89,15 @@ void HelloTriangleApplication::run()
 HelloTriangleApplication::HelloTriangleApplication()
 {
     trivertices = {
-            {{-1.5f, -0.5f, 0.0f, 1.0}, {1.0f, 0.0f, 0.0f, 1.0}, {0.0f, 0.0f, 1.0, 1.0}},
-            {{0.5f, -0.5f, 0.0f, 1.0}, {0.0f, 1.0f, 0.0f, 1.0}, {1.0f, 0.0f, 1.0, 1.0}},
-            {{0.5f, 0.5f, 0.0f, 1.0}, {0.0f, 0.0f, 1.0f, 1.0}, {1.0f, 1.0f, 1.0, 1.0}},
-            {{-0.5f, 0.5f, 0.0f, 1.0}, {1.0f, 1.0f, 1.0f, 1.0}, {0.0f, 1.0f, 1.0, 1.0}},
+            {{-1.5f, -0.5f, 0.0f, 1.0}, {1.0f, 0.0f, 0.0f, 1.0}, {0.0f, 0.0f, 1.0, 1.0}, {0.0,0.0,1.0,0.0}},
+            {{0.5f, -0.5f, 0.0f, 1.0}, {0.0f, 1.0f, 0.0f, 1.0}, {1.0f, 0.0f, 1.0, 1.0}, {0.0,0.0,1.0,0.0}},
+            {{0.5f, 0.5f, 0.0f, 1.0}, {0.0f, 0.0f, 1.0f, 1.0}, {1.0f, 1.0f, 1.0, 1.0}, {0.0,0.0,1.0,0.0}},
+            {{-0.5f, 0.5f, 0.0f, 1.0}, {1.0f, 1.0f, 1.0f, 1.0}, {0.0f, 1.0f, 1.0, 1.0}, {0.0,0.0,1.0,0.0}},
 
-            {{-0.5f, -0.5f, -0.5f, 1.0}, {1.0f, 0.0f, 0.0f, 1.0}, {0.0f, 0.0f, 1.0, 1.0}},
-            {{0.5f, -1.5f, -0.5f, 1.0}, {0.0f, 1.0f, 0.0f, 1.0}, {1.0f, 0.0f, 1.0, 1.0}},
-            {{0.5f, 0.5f, -0.5f, 1.0}, {0.0f, 0.0f, 1.0f, 1.0}, {1.0f, 1.0f, 1.0, 1.0}},
-            {{-0.5f, 0.5f, -0.5f, 1.0}, {1.0f, 1.0f, 1.0f, 1.0f}, {0.0f, 1.0f,1.0f,1.0f}}
+            {{-0.5f, -0.5f, -0.5f, 1.0}, {1.0f, 0.0f, 0.0f, 1.0}, {0.0f, 0.0f, 1.0, 1.0}, {0.0,0.0,1.0,0.0}},
+            {{0.5f, -1.5f, -0.5f, 1.0}, {0.0f, 1.0f, 0.0f, 1.0}, {1.0f, 0.0f, 1.0, 1.0}, {0.0,0.0,1.0,0.0}},
+            {{0.5f, 0.5f, -0.5f, 1.0}, {0.0f, 0.0f, 1.0f, 1.0}, {1.0f, 1.0f, 1.0, 1.0}, {0.0,0.0,1.0,0.0}},
+            {{-0.5f, 0.5f, -0.5f, 1.0}, {1.0f, 1.0f, 1.0f, 1.0f}, {0.0f, 1.0f,1.0f,1.0f}, {0.0,0.0,1.0,0.0}}
     };
     triindices = {
         0, 1, 2, 2, 3, 0,
@@ -138,8 +145,8 @@ void HelloTriangleApplication:: initVulkan()
 
     //Get instance
        auto instance_builder_return = instance_builder
-    .request_validation_layers()
-    .use_default_debug_messenger()
+    // .request_validation_layers()
+    // .use_default_debug_messenger()
     .require_api_version(1, 2, 0)
     .build();
     if (!instance_builder_return) {
@@ -274,9 +281,12 @@ void HelloTriangleApplication:: initVulkan()
  scene.AddBackingMesh(MeshData::MeshData(this, trivertices, triindices));
       scene.AddBackingMesh(MeshData::MeshData(this,"viking_room.obj"));
  scene.AddBackingMesh(MeshData::MeshData(this,"monkey.obj"));
-    
-    //TODO JS: the mesh memory (backing _placeholdermesh) should probably go to scene too?
 
+    scene.AddLight(glm::vec3(0,-0.2,1),glm::vec3(0.5,0.5,1),6, 4);
+     scene.AddLight(glm::vec3(0,-12,3),glm::vec3(1,0,0),15, 20);
+
+    scene.AddLight(glm::vec3(0,-3,1),glm::vec3(0.1,0.5,0),6, 4);
+    scene.AddLight(glm::vec3(0,-7,3),glm::vec3(0,1,0),15, 2);
   
 
     glm::vec3 EulerAngles(0, 0, 0);
@@ -337,7 +347,8 @@ void HelloTriangleApplication::updateMeshBuffers()
             glm::vec4 pos = mesh.vertices[mesh.indices[i]].pos;
             glm::vec4 col = mesh.vertices[mesh.indices[i]].color;
             glm::vec4 uv = mesh.vertices[mesh.indices[i]].texCoord;
-            gpuvertex vert = {glm::vec4(pos.x,pos.y,pos.z,1), uv, glm::vec4(1)};
+            glm::vec4 norm = mesh.vertices[mesh.indices[i]].normal;
+            gpuvertex vert = {glm::vec4(pos.x,pos.y,pos.z,1), uv, norm};
             verts.push_back(vert);
         }
     }
@@ -560,6 +571,21 @@ void HelloTriangleApplication::createUniformBuffers()
 
         vkMapMemory(device, meshBuffersMemory[i], 0, bufferSize2, 0, &meshBuffersMapped[i]);
     }
+
+    VkDeviceSize bufferSize3 = sizeof(gpulight) * scene.lightposandradius.size();
+
+    lightBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+    lightBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
+    lightBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
+
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    {
+        createBuffer(bufferSize3, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, lightBuffers[i],
+                     lightBuffersMemory[i]);
+
+        vkMapMemory(device, lightBuffersMemory[i], 0, bufferSize3, 0, &lightBuffersMapped[i]);
+    }
 }
 
 
@@ -593,8 +619,15 @@ void HelloTriangleApplication::createUniformBuffers()
     meshLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     meshLayoutBinding.pImmutableSamplers = nullptr;
     meshLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+    VkDescriptorSetLayoutBinding lightLayoutBinding{};
+    lightLayoutBinding.binding = 4;
+    lightLayoutBinding.descriptorCount = 1; // TODO JS: just make really big?
+    lightLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    lightLayoutBinding.pImmutableSamplers = nullptr;
+    lightLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
     
-    std::array<VkDescriptorSetLayoutBinding, 4> pushConstantBindings = {pushDescriptorBinding, textureLayoutBinding, samplerLayoutBinding, meshLayoutBinding};
+    std::array<VkDescriptorSetLayoutBinding, 5> pushConstantBindings = {pushDescriptorBinding, textureLayoutBinding, samplerLayoutBinding, meshLayoutBinding, lightLayoutBinding};
 
 
     VkDescriptorSetLayoutCreateInfo pushDescriptorLayout{};
@@ -745,7 +778,22 @@ void HelloTriangleApplication::createSyncObjects()
     }
 }
 
-#pragma region prepare and submit draw call 
+#pragma region prepare and submit draw call
+
+void HelloTriangleApplication::updateLightBuffers(uint32_t currentImage)
+{
+    std::vector<gpulight> lights;
+
+    lights.resize(scene.lightposandradius.size());
+    
+    for(int i = 0; i < scene.lightposandradius.size(); i++)
+    {
+        lights[i] = {scene.lightposandradius[i], scene.lightcolorAndIntensity[i], glm::vec4(1),glm::vec4(1)};
+    }
+    
+    memcpy(lightBuffersMapped[currentImage], lights.data(), sizeof(gpulight) * lights.size());
+}
+
 //TODO JS: This is like, per object uniforms -- it should belong to the scene and get passed a buffer directly to the render loop
 //TODO: Separate the per model xforms from the camera xform
 void HelloTriangleApplication::updateUniformBuffers(uint32_t currentImage, std::vector<glm::mat4> models)
@@ -756,13 +804,16 @@ void HelloTriangleApplication::updateUniformBuffers(uint32_t currentImage, std::
 
     for(int i = 0; i < models.size(); i++)
     {
-        ubo.model = models[i];
-        ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        glm::mat4 model = models[i];
+        glm::mat4 view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 
-        ubo.proj = glm::perspective(glm::radians(70.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f,
+        glm::mat4 proj = glm::perspective(glm::radians(70.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f,
                                     1000.0f);
 
-        ubo.proj[1][1] *= -1;
+        proj[1][1] *= -1;
+
+        ubo.mvp = proj * view * model;
+        ubo.model= model;
         ubos.push_back(ubo);
     }
     memcpy(uniformBuffersMapped[currentImage], ubos.data(), sizeof(UniformBufferObject) * models.size());
@@ -773,13 +824,15 @@ void HelloTriangleApplication::updateUniformBuffer(uint32_t currentImage, glm::m
 
         UniformBufferObject ubo{};
 
-        ubo.model = model;
-        ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    glm::mat4 view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 
-        ubo.proj = glm::perspective(glm::radians(70.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f,
-                                    10.0f);
+    glm::mat4 proj = glm::perspective(glm::radians(70.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f,
+                                1000.0f);
 
-        ubo.proj[1][1] *= -1;
+    proj[1][1] *= -1;
+
+    ubo.mvp = proj * view * model;
+    ubo.model= model;
   
 
     memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(UniformBufferObject)); 
@@ -844,20 +897,10 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
     int lastMeshID = -1;
     bool matbound = false;
 
-    //Loop over objects and set push constant stuff
-    //TODO JS: to scene object count
-    for(int i = 0; i < scene.meshes.size(); i++ )
-    {
-        
+    int lightct = scene.lightCount;
 
-        //TODO JS: Some kind of ID?
-       
-        bool differentMaterial = false;
-
-
-
-        if (i == 0) //First draw -- this could happen earlier?
-        {
+    int f = 0;
+    //First draw -- this could happen earlier?
             // bind ubo buffer
             VkDescriptorBufferInfo uniformbufferinfo{};
             uniformbufferinfo.buffer = uniformBuffers[0]; //TODO: For loop over frames
@@ -868,6 +911,12 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
             meshBufferinfo.buffer = meshBuffers[0]; //TODO: For loop over frames
             meshBufferinfo.offset = 0;
             meshBufferinfo.range = sizeof(gpuvertex) * scene.getVertexCount();
+
+            // bind ubo buffer
+            VkDescriptorBufferInfo lightbufferinfo{};
+            lightbufferinfo.buffer = lightBuffers[0]; //TODO: For loop over frames
+            lightbufferinfo.offset = 0;
+            lightbufferinfo.range = sizeof(gpulight) * lightct;
 
             //TODO JS: Don't do this every frame
             std::vector<VkDescriptorImageInfo> imageInfos;
@@ -881,7 +930,7 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
             }
 
             
-            std::array<VkWriteDescriptorSet, 4> writeDescriptorSets{};
+            std::array<VkWriteDescriptorSet, 5> writeDescriptorSets{};
             writeDescriptorSets[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             writeDescriptorSets[0].dstSet = 0;
             writeDescriptorSets[0].dstBinding = 0;
@@ -912,14 +961,28 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
             writeDescriptorSets[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
             writeDescriptorSets[3].descriptorCount = 1;
             writeDescriptorSets[3].pBufferInfo = &meshBufferinfo;
+
+            writeDescriptorSets[4].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            writeDescriptorSets[4].dstBinding = 4;
+            writeDescriptorSets[4].dstArrayElement = 0;
+            writeDescriptorSets[4].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+            writeDescriptorSets[4].descriptorCount = 1;
+            writeDescriptorSets[4].pBufferInfo = &lightbufferinfo;
+            
             
             //3 based on my layout
             vkCmdPushDescriptorSetKHR(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, writeDescriptorSets.size(), writeDescriptorSets.data());
-        }
-        PerDrawPushConstants constants;
-        constants.test = glm::vec4(-111,static_cast<int>(scene.meshOffsets[i]),scene.materials[i].texture->id, i);
+    //Loop over objects and set push constant stuff
+    //TODO JS: to scene object count
+    for(int i = 0; i < scene.meshes.size(); i++ )
+    {
 
-        vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PerDrawPushConstants), &constants);
+        PerDrawPushConstants constants;
+        //Light count, vert offset, texture index, and object data index
+        constants.indexInfo = glm::vec4((lightct),(scene.meshOffsets[i]),scene.materials[i].texture->id, i);
+        // constants.test = glm::vec4(1,2,3,i);
+
+        vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT || VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PerDrawPushConstants), &constants);
         
         vkCmdDraw(commandBuffer, static_cast<uint32_t>(scene.meshes[i]->vertcount), 1,0,0);
    }
@@ -1125,9 +1188,6 @@ void HelloTriangleApplication::createRenderPass()
     }
 }
 
-//TODO JS: Reduce graphics pipeline creation
-//TODO JS: Understand what we need per object
-//TODO JS: Understand when we can generate this
 VkPipeline HelloTriangleApplication::createGraphicsPipeline(const char* shaderName, VkRenderPass renderPass,
     VkPipelineCache pipelineCache)
 {
@@ -1235,7 +1295,7 @@ VkPipeline HelloTriangleApplication::createGraphicsPipeline(const char* shaderNa
     //this push constant range takes up the size of a MeshPushConstants struct
     push_constant.size = sizeof(PerDrawPushConstants);
     //this push constant range is accessible only in the vertex shader
-    push_constant.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    push_constant.stageFlags = VK_SHADER_STAGE_VERTEX_BIT || VK_SHADER_STAGE_FRAGMENT_BIT;
 
     pipelineLayoutInfo.pPushConstantRanges = &push_constant;
     pipelineLayoutInfo.pushConstantRangeCount = 1;
@@ -1353,6 +1413,7 @@ void HelloTriangleApplication::drawFrame()
     //TODO: draw multiple objects
     // updateUniformBuffer(currentFrame, scene.matrices[0]);
     updateUniformBuffers(currentFrame, scene.matrices); // TODO JS: Figure out
+    updateLightBuffers(currentFrame);
 
     vkResetFences(device, 1, &inFlightFences[currentFrame]);
     //TODO JS: properly manage multiple objects with vertex buffer + corresponding pipeline object
@@ -1380,7 +1441,8 @@ void HelloTriangleApplication::drawFrame()
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = signalSemaphores;
 
-    if (vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFences[currentFrame]) != VK_SUCCESS)
+    auto result = vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFences[currentFrame]); 
+    if (result != VK_SUCCESS)
     {
         throw std::runtime_error("failed to submit draw command buffer!");
     }
@@ -1417,6 +1479,7 @@ void HelloTriangleApplication::cleanup()
         vkFreeMemory(device, uniformBuffersMemory[i], nullptr);
         
         vkFreeMemory(device, meshBuffersMemory[i], nullptr);
+        vkFreeMemory(device, lightBuffersMemory[i], nullptr);
     }
 
     // vkDestroyDescriptorPool(device, descriptorPool, nullptr);

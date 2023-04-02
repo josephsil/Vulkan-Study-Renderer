@@ -62,11 +62,17 @@ MeshData::MeshData(HelloTriangleApplication* app, std::string path)
                      attrib.texcoords[2 * index.texcoord_index + 1],
                      1,
                      1
-                 }
+                 },
+                {
+                    attrib.normals[3 * index.normal_index + 0],
+                    attrib.normals[3 * index.normal_index + 1],
+                    attrib.normals[3 * index.normal_index + 2],      
+                    1
+                }
             };
-            // // attrib.normals[3 * index.normal_index + 0],
-            // // attrib.normals[3 * index.normal_index + 1],
-            // attrib.normals[3 * index.normal_index + 2],
+           
+           
+           
 
             auto it = unique_vertices.find(vertex);
             if (it != unique_vertices.end()) {
@@ -86,13 +92,14 @@ MeshData::MeshData(HelloTriangleApplication* app, std::string path)
 
  
 
-    this->device = app->device;
-    this->vertices = _vertices;
-    this->indices = _indices;
-    vertBuffer  = this->meshDataCreateVertexBuffer(app);
-    indexBuffer = this->meshDataCreateIndexBuffer(app);
-    this->vertcount = indices.size();
-    this->id = MESHID++;
+    this->device = app->device;                                  
+    this->vertices = _vertices;                             
+    this->indices = _indices;                               
+    this->vertBuffer  = this->meshDataCreateVertexBuffer(app);   
+    this->indexBuffer = this->meshDataCreateIndexBuffer(app);    
+    this->vertcount = indices.size();                      
+    this->id = MESHID++;                                   
+    
 
 }
 void MeshData::cleanup()

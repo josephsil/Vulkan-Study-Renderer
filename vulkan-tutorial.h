@@ -16,7 +16,7 @@ struct MeshData; //Forward Declaration
 struct Vertex;  //Forward Declaration
 struct ShaderLoader;
 struct TextureData;
-struct Scene;
+class Scene;
 //Include last
 
    class HelloTriangleApplication
@@ -146,15 +146,22 @@ struct Scene;
 
         struct UniformBufferObject
         {
+            alignas(16) glm::mat4 mvp;
             alignas(16) glm::mat4 model;
-            alignas(16) glm::mat4 view;
-            alignas(16) glm::mat4 proj;
-            alignas(16) glm::mat4 padding;
+            alignas(16) glm::mat4 padding1;
+            alignas(16) glm::mat4 padding2;
         };
 
         struct PerDrawPushConstants
         {
-            glm::vec4 test;
+            //Light count, vertex offset, texture index, ubo index
+            alignas(16) glm::vec4 indexInfo;
+            //Unused
+            alignas(16) glm::mat4 padding;
+            //Unused
+            alignas(16) glm::mat4 padding1;
+            //Unused
+            alignas(16) glm::mat4 padding2;
         };
 
 
@@ -193,11 +200,15 @@ struct Scene;
         std::vector<void*> uniformBuffersMapped;
 
        std::vector<VkBuffer> meshBuffers;
-       VkBuffer meshBufferBig;
        std::vector<VkDeviceMemory> meshBuffersMemory;
        std::vector<void*> meshBuffersMapped;
 
-  
+       std::vector<VkBuffer> lightBuffers;
+       std::vector<VkDeviceMemory> lightBuffersMemory;
+       std::vector<void*> lightBuffersMapped;
+
+
+       void updateLightBuffers(uint32_t currentImage);
        void updateMeshBuffers();
        void updateDescriptorSet(Scene* scene, int idx);
 

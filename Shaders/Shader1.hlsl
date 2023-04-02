@@ -1,3 +1,9 @@
+#define USE_RW
+
+#define LIGHTCOUNT   pc.indexInfo.r
+#define VERTEXOFFSET pc.indexInfo.g
+#define TEXTUREINDEX pc.indexInfo.b
+#define OBJECTINDEX  pc.indexInfo.a
 struct VSInput
 {
 	[[vk::location(0)]] float3 Position : POSITION0;
@@ -9,10 +15,10 @@ struct VSInput
 
 struct UBO
 {
-	float4x4 model;
-	float4x4 view;
-	float4x4 proj;
-	float4x4 padding;
+	float4x4 MVP;
+	float4x4 Local;
+	float4x4 p0;
+	float4x4 p1;
 };
 
 [[vk::binding(0, 0)]]
@@ -24,21 +30,39 @@ Texture2D<float4> bindless_textures[];
 SamplerState bindless_samplers[];
 struct pconstant
 {
-	float4 test;
+	float4 indexInfo;
+	float4 _0;
+	float4 _1;
+	float4 _2;
 };
 
 struct MyVertexStructure
 {
     float4 position;
     float4 uv0;
+	float4 normal;
+    float4 _1;
+    // uint color;
+};
+
+struct MyLightStructure
+{
+    float4 position_range;
+    float4 color_intensity;
 	float4 _0;
     float4 _1;
     // uint color;
 };
 
 [[vk::binding(3)]]
+#ifdef USE_RW
 RWStructuredBuffer<MyVertexStructure> BufferTable;
+#else 
+ByteAddressBuffer BufferTable;
+#endif
 
+[[vk::binding(4)]]
+RWStructuredBuffer<MyLightStructure> lights;
 struct FSOutput
 {
 	[[vk::location(0)]] float3 Color : SV_Target;
@@ -53,6 +77,8 @@ struct VSOutput
 	[[vk::location(0)]] float4 Pos : SV_POSITION;
 	[[vk::location(1)]] float3 Color : COLOR0;
 	[[vk::location(2)]] float2 Texture_ST : TEXCOORD0;
+	[[vk::location(3)]] float3 Normal : NORMAL0;
+	[[vk::location(4)]] float3 fragmentPos : TEXCOORD1;
 };
 
 static float2 positions[3] = {
@@ -65,24 +91,29 @@ static float2 positions[3] = {
 VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
 {
 
-	int vertOffset = pc.test.g;
- 	MyVertexStructure myVertex = BufferTable[VertexIndex + vertOffset];
-	int idx = pc.test.a;
-	UBO ubo = uboarr[idx];
+	#ifdef USE_RW
+	MyVertexStructure myVertex = BufferTable[VertexIndex + VERTEXOFFSET];
+	#else 
+	//Interesting buffer load perf numbers
+	// https://github.com/sebbbi/perfindexInfo
+	// https://github.com/microsoft/DirectXShaderCompiler/issues/2193 	
+ 	MyVertexStructure myVertex = BufferTable.Load<MyVertexStructure>((VERTEXOFFSET + VertexIndex) * sizeof(MyVertexStructure));
+	#endif
+	UBO ubo = uboarr[OBJECTINDEX];
 	VSOutput output = (VSOutput)0;
-	output.Pos = mul(mul(mul(ubo.proj, ubo.view), ubo.model), half4(myVertex.position.xyz, 1.0));
-	// output.Color = input.Color;
+	output.Pos = mul(ubo.MVP, half4(myVertex.position.xyz, 1.0));
 	output.Texture_ST = myVertex.uv0.xy;
+	output.Color = myVertex.normal.xyz;
+	output.Normal = myVertex.normal.xyz;
+	output.Normal = mul(ubo.Local, half4(myVertex.normal.xyz, 0.0) );
+	output.fragmentPos = mul(ubo.Local, half4(myVertex.position.xyz, 1.0) );
 
 	// output.Pos = float4(positions[2 - (VertexIndex % 2)],1,1);
 	// output.Color = myVertex.uv0.xy;
 	return output;
 }
 
-// [[vk::combinedImageSampler]] [[vk::binding(1)]]
-// Texture2D<float4> myTexture;
-// [[vk::combinedImageSampler]] [[vk::binding(1)]]
-// SamplerState mySampler;
+
 
 struct FSInput
 {
@@ -90,7 +121,38 @@ struct FSInput
 	[[vk::location(0)]] float3 Pos : SV_POSITION;
 	[[vk::location(1)]] float3 Color : COLOR0;
 	[[vk::location(2)]] float2 Texture_ST : TEXCOORD0;
+	[[vk::location(3)]] float2 Normal : NORMAL0;
+	[[vk::location(4)]] float3 fragmentPos : TEXCOORD1;
 };
+
+float3 getLighting(float3 incolor, float3 inNormal, float3 FragPos)
+{
+	float3 lightContribution = float3(0,0,0);
+	for(int i = 0; i < LIGHTCOUNT; i++)
+	{
+		MyLightStructure light = lights[i];
+		float3 lightPos = light.position_range.xyz;
+		float lightRange = light.position_range.a;
+		float3 lightColor = light.color_intensity.xyz * light.color_intensity.a;
+		float3 lightToFrag   = lightPos - FragPos;
+		float3 lightDir_norm = normalize(lightToFrag);
+		float lightDistance = length(lightToFrag);
+		// vec3 viewDir    = normalize(viewPos - FragPos);
+		// vec3 halfwayDir = normalize(lightDir + viewDir);
+
+
+   		float Attenuation =  saturate(lightRange / lightDistance);
+
+		Attenuation =  1.0 / (lightDistance * lightDistance);
+		// Attenuation = 3;
+		float diff = saturate(dot(inNormal, lightDir_norm));
+		lightContribution += ((lightColor * diff) * Attenuation );
+	}
+		
+
+		return incolor * lightContribution;
+
+}
 
 
 
@@ -102,7 +164,7 @@ FSOutput Frag(VSOutput input)
 {
 	FSOutput output;
 
-	output.Color = saturate(bindless_textures[pc.test.b].Sample(bindless_samplers[pc.test.b], input.Texture_ST) + 0.2) ;
-	// output.Color = input.Color;
+	float3 diff  = saturate(bindless_textures[TEXTUREINDEX].Sample(bindless_samplers[TEXTUREINDEX], input.Texture_ST) + 0.2) ;
+	output.Color =  (getLighting(diff, input.Normal, input.fragmentPos));
 	return output;
 }
