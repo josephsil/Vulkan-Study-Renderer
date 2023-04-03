@@ -115,9 +115,10 @@ VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
 	output.Normal = mul(ubo.Local, half4(myVertex.normal.xyz, 0.0) );
 	output.fragmentPos = mul(ubo.Local, half4(myVertex.position.xyz, 1.0) );
 
-	//Not sure if the mul here is correct??
+	//bitangent = fSign * cross(vN, tangent);
+	//Not sure if the mul here is correct? would need something baked
 	output.Tangent =  mul(ubo.Local, myVertex.Tangent.xyz);
-	output.BiTangent =  mul(ubo.Local,(1 * cross(myVertex.normal, myVertex.Tangent.xyz)));
+	output.BiTangent =  mul(ubo.Local,( myVertex.Tangent.a * cross(myVertex.normal, myVertex.Tangent.xyz)));
 
 	// output.Pos = float4(positions[2 - (VertexIndex % 2)],1,1);
 	// output.Color = myVertex.uv0.xy;

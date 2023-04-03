@@ -67,7 +67,7 @@ struct gpuvertex
     alignas(16) glm::vec4 pos;
     alignas(16) glm::vec4 texCoord;
     alignas(16) glm::vec4 normal;
-    alignas(16) glm::vec4 tangent_padding;
+    alignas(16) glm::vec4 tangent;
 };
 
 //TODO JS: move

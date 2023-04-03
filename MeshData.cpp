@@ -15,7 +15,7 @@ public:
     std::vector<glm::vec3> pos;
     std::vector<uint32_t> idx;
     std::vector<glm::vec3> norm;
-    std::vector<glm::vec3> tan;
+    std::vector<glm::vec4> tan;
     std::vector<glm::vec3> uv;
     MeshForMikkt(std::vector<Vertex> verts, std::vector<uint32_t> indices)
     {
@@ -107,7 +107,7 @@ void MikktImpl::set_tspace_basic(const SMikkTSpaceContext *context,
 {
     MeshForMikkt* mesh = static_cast<MeshForMikkt*> (context->m_pUserData);
     int idx = (iFace * 3) + iVert;
-    mesh->tan[idx] = {tangentu[0],tangentu[1],tangentu[2]};
+    mesh->tan[idx] = {tangentu[0],tangentu[1],tangentu[2], fSign};
 }
 
 MikktImpl::MikktImpl() {
@@ -249,29 +249,30 @@ MeshData::MeshData(HelloTriangleApplication* app, std::string path)
         flatMeshForWelder.push_back(m.tan[i].x);
         flatMeshForWelder.push_back(m.tan[i].y);
         flatMeshForWelder.push_back(m.tan[i].z);
+        flatMeshForWelder.push_back(m.tan[i].a);
         
     }
     std::vector<float> welderOutput;
     welderOutput.resize(flatMeshForWelder.size());
-    int uniqueverts = WeldMesh(remappedIndices.data(),welderOutput.data(), flatMeshForWelder.data(),_vertices.size(), 15);
+    int uniqueverts = WeldMesh(remappedIndices.data(),welderOutput.data(), flatMeshForWelder.data(),_vertices.size(), 16);
 
     for(int i = 0; i< (uniqueverts ); i++)
     {
-        _vertices[i].pos.x = welderOutput[(i*15) +0]; 
-        _vertices[i].pos.y = welderOutput[(i*15) +1]; 
-        _vertices[i].pos.z = welderOutput[(i*15) +2]; 
-        _vertices[i].normal.x = welderOutput[(i*15) +3]; 
-        _vertices[i].normal.y = welderOutput[(i*15) +4]; 
-        _vertices[i].normal.z = welderOutput[(i*15) +5]; 
-        _vertices[i].texCoord.x = welderOutput[(i*15) +6]; 
-        _vertices[i].texCoord.y = welderOutput[(i*15) +7]; 
-        _vertices[i].texCoord.z = welderOutput[(i*15) +8]; 
-        _vertices[i].color.x = welderOutput[(i*15) +9]; 
-        _vertices[i].color.y = welderOutput[(i*15) +10]; 
-        _vertices[i].color.z = welderOutput[(i*15) +11]; 
-        _vertices[i].tangent.x = welderOutput[(i*15) +12]; 
-        _vertices[i].tangent.y = welderOutput[(i*15) +13]; 
-        _vertices[i].tangent.z = welderOutput[(i*15) +14]; 
+        _vertices[i].pos.x = welderOutput[(i*16) +0]; 
+        _vertices[i].pos.y = welderOutput[(i*16) +1]; 
+        _vertices[i].pos.z = welderOutput[(i*16) +2]; 
+        _vertices[i].normal.x = welderOutput[(i*16) +3]; 
+        _vertices[i].normal.y = welderOutput[(i*16) +4]; 
+        _vertices[i].normal.z = welderOutput[(i*16) +5]; 
+        _vertices[i].texCoord.x = welderOutput[(i*16) +6]; 
+        _vertices[i].texCoord.y = welderOutput[(i*16) +7]; 
+        _vertices[i].texCoord.z = welderOutput[(i*16) +8]; 
+        _vertices[i].color.x = welderOutput[(i*16) +9]; 
+        _vertices[i].color.y = welderOutput[(i*16) +10]; 
+        _vertices[i].color.z = welderOutput[(i*16) +11]; 
+        _vertices[i].tangent.x = welderOutput[(i*16) +12]; 
+        _vertices[i].tangent.y = welderOutput[(i*16) +13]; 
+        _vertices[i].tangent.z = welderOutput[(i*16) +14]; 
         
     }
 
