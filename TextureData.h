@@ -2,6 +2,7 @@
 
 #pragma region forward declarations
 #include <cstdint>
+#include <vulkan/vulkan_core.h>
 struct VkPipelineShaderStageCreateInfo;
 struct VkPipelineShaderStageCreateInfo;
 typedef struct VkPhysicalDevice_T* VkPhysicalDevice;
@@ -20,6 +21,14 @@ class HelloTriangleApplication;
   struct TextureData
   {
   public:
+      enum TextureType
+      {
+          DIFFUSE,
+          SPECULAR,
+          NORMAL,
+          CUBE
+          
+      };
       VkImageView textureImageView;
       VkSampler textureSampler;
       HelloTriangleApplication* appref;
@@ -28,7 +37,7 @@ class HelloTriangleApplication;
       uint32_t maxmip =0;
       int id;
 
-      TextureData(HelloTriangleApplication* app, const char* path);
+      TextureData(HelloTriangleApplication* app, const char* path, TextureData::TextureType type);
 
       TextureData();
 
@@ -38,7 +47,7 @@ class HelloTriangleApplication;
       void createTextureSampler();
 
 
-      void createTextureImageView();
+      void createTextureImageView( VkFormat format);
       
 
       //TODO JS: 
@@ -50,5 +59,5 @@ class HelloTriangleApplication;
       It's best to do this after the texture mapping works to check if the texture resources are still set up correctly.*/
 
 
-      void createTextureImage(const char* path);
+      void createTextureImage(const char* path, VkFormat format);
   };

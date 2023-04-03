@@ -19,6 +19,7 @@ struct Vertex
     glm::vec4 color;
     glm::vec4 texCoord;
     glm::vec4 normal;
+    glm::vec3 tangent;
 
     static VkVertexInputBindingDescription getBindingDescription();
 

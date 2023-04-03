@@ -4,11 +4,34 @@
 #include "stb_image.h"
 int TEXTURE_INDEX;
 #pragma region textureData
-TextureData::TextureData(HelloTriangleApplication* app, const char* path)
+
+TextureData::TextureData(HelloTriangleApplication* app, const char* path, TextureData::TextureType textureType)
 {
     appref = app;
-    createTextureImage(path);
-    createTextureImageView();
+
+    VkFormat format;
+
+    switch (textureType)
+    {
+    case TextureType::DIFFUSE:
+        {
+            format = VK_FORMAT_R8G8B8A8_SRGB;
+        }
+    case TextureType::SPECULAR:
+        {
+            format = VK_FORMAT_R8G8B8A8_SRGB;
+        }
+    case TextureType::NORMAL:
+        {
+            format = VK_FORMAT_R8G8B8A8_SRGB;
+        }
+    case TextureType::CUBE:
+        {
+            format = VK_FORMAT_R8G8B8A8_SRGB;
+        }
+    }
+    createTextureImage(path, format);
+    createTextureImageView(format);
     createTextureSampler();
     id = TEXTURE_INDEX++;
 }
@@ -56,12 +79,12 @@ void TextureData::createTextureSampler()
     }
 }
 
-void TextureData::createTextureImageView()
+void TextureData::createTextureImageView(VkFormat format)
 {
-    textureImageView = appref->createImageView(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, maxmip);
+    textureImageView = appref->createImageView(textureImage, format, VK_IMAGE_ASPECT_COLOR_BIT, maxmip);
 }
 
-void TextureData::createTextureImage(const char* path)
+void TextureData::createTextureImage(const char* path, VkFormat format)
 {
     auto workingTextureBuffer = appref->beginSingleTimeCommands(true);
     int texWidth, texHeight, texChannels;
@@ -89,11 +112,11 @@ void TextureData::createTextureImage(const char* path)
 
     stbi_image_free(pixels);
 
-    appref->createImage(texWidth, texHeight, VK_FORMAT_R8G8B8A8_SRGB,
+    appref->createImage(texWidth, texHeight, format,
                         VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
                         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory, mipLevels);
 
-    appref->transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED,
+    appref->transitionImageLayout(textureImage, format, VK_IMAGE_LAYOUT_UNDEFINED,
                                   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, workingTextureBuffer.buffer, mipLevels);
     
     appref->copyBufferToImage(stagingBuffer, textureImage, static_cast<uint32_t>(texWidth),
@@ -105,7 +128,7 @@ void TextureData::createTextureImage(const char* path)
     vkDestroyBuffer(appref->device, stagingBuffer, nullptr);
     vkFreeMemory(appref->device, stagingBufferMemory, nullptr);
 
-    appref->RUNTIME_generateMipmaps(textureImage,VK_FORMAT_R8G8B8A8_SRGB, texWidth,texHeight,mipLevels);
+    appref->RUNTIME_generateMipmaps(textureImage, format, texWidth,texHeight,mipLevels);
 
 
 

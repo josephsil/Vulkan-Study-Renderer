@@ -39,16 +39,15 @@
     //So things like, get the index back from this and then index in to these vecs to update them
     //At some point in the future I can replace this with a more sophisticated reference system if I need
     //Even just returning a pointer is probably plenty, then I can sort the lists, prune stuff, etc.
-    int Scene::AddObject(MeshData* mesh, TextureData* texture, glm::vec3 position, glm::quat rotation)
+    int Scene::AddObject(MeshData* mesh, int textureidx, glm::vec3 position, glm::quat rotation)
     {
         //TODD JS: version that can add 
         meshes.push_back(mesh);
-        materials.push_back(Material{.texture = texture});
+        materials.push_back(Material{.backingTextureidx = textureidx});
         translations.push_back(position);
         rotations.push_back(rotation);
         matrices.push_back(glm::mat4(1.0));
         meshOffsets.push_back(getOffsetFromMeshID(mesh->id));
-        TextureIDS.push_back(texture->id);
         meshVertCounts.push_back(mesh->vertcount);
         return ct++;
     }
@@ -76,16 +75,19 @@ uint32_t Scene::getVertexCount()
 
 
 //TODO JS: we should probably CREATE from here at some point?
-    int Scene::AddBackingTexture(TextureData T)
+    int Scene::AddMaterial(TextureData D, TextureData S, TextureData N)
     {
-        backing_textures.push_back(T);
-        return backing_textures.size() -1;
+        backing_diffuse_textures.push_back(D);
+        backing_specular_textures.push_back(S);
+        backing_normal_textures.push_back(N);
+        return backing_diffuse_textures.size() -1;
     }
-        int Scene::AddBackingMesh(MeshData M)
-        {
-            backing_meshes.push_back(M);
-            return backing_meshes.size() -1;
-        }
+
+    int Scene::AddBackingMesh(MeshData M)
+    {
+        backing_meshes.push_back(M);
+        return backing_meshes.size() -1;
+    }
 
 int Scene::AddLight(glm::vec3 position, glm::vec3 color, float radius, float intensity)
     {
@@ -102,9 +104,9 @@ void Scene::Cleanup()
         {
             backing_meshes[i].cleanup();
         }
-        for(int i = 0; i < backing_textures.size(); i++)
+        for(int i = 0; i < backing_diffuse_textures.size(); i++)
         {
-            backing_textures[i].cleanup();
+            backing_diffuse_textures[i].cleanup();
         }
         
 }

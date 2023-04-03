@@ -166,7 +166,7 @@ class Scene;
         {
             //Light count, vertex offset, texture index, ubo index
             alignas(16) glm::vec4 indexInfo;
-            //Unused
+            
             alignas(16) glm::mat4 padding;
             //Unused
             alignas(16) glm::mat4 padding1;
