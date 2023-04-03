@@ -1,6 +1,7 @@
 #pragma once
 
 #pragma region forward declarations
+#include <cstdint>
 struct VkPipelineShaderStageCreateInfo;
 struct VkPipelineShaderStageCreateInfo;
 typedef struct VkPhysicalDevice_T* VkPhysicalDevice;
@@ -24,6 +25,7 @@ class HelloTriangleApplication;
       HelloTriangleApplication* appref;
       VkImage textureImage;
       VkDeviceMemory textureImageMemory;
+      uint32_t maxmip =0;
       int id;
 
       TextureData(HelloTriangleApplication* app, const char* path);

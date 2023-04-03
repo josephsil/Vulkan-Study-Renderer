@@ -23,6 +23,12 @@ class Scene;
     {
     public:
 
+    struct bufferAndPool
+    {
+        VkCommandBuffer buffer;
+        VkCommandPool pool;
+        VkQueue queue;
+    };
        static std::vector<char> readFile(const std::string& filename);
 
        VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
@@ -37,22 +43,26 @@ class Scene;
        //Images
 
        void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage,
-                 VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
+                 VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory, uint32_t miplevels = 1);
+
+       void RUNTIME_generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
        
        VkImageView createImageView(VkImage image, VkFormat format,
-                                   VkImageAspectFlags aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT);
+                                   VkImageAspectFlags aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT, uint32_t miplevels = 1);
 
        void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout,
-                                  VkCommandBuffer workingBuffer = nullptr);
+                                  VkCommandBuffer workingBuffer = nullptr, uint32_t miplevels = 1);
 
        void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height,
                               VkCommandBuffer workingBuffer = nullptr);
 
        //submitting commands
 
-       VkCommandBuffer beginSingleTimeCommands();
+       VkCommandBuffer beginSingleTimeCommands_transfer();
+       bufferAndPool beginSingleTimeCommands(bool useTransferPool);
 
-       void endSingleTimeCommands(VkCommandBuffer commandBuffer);
+       void endSingleTimeCommands(VkCommandBuffer buffer);
+       void endSingleTimeCommands(bufferAndPool commandBuffer);
 
     private:
 

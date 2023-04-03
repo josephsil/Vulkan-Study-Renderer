@@ -53,6 +53,7 @@ assert(result_ == VK_SUCCESS); \
         return EXIT_SUCCESS;
     }
 
+
 std::vector<unsigned int> pastTimes;
 unsigned int averageCbTime;
 
@@ -359,7 +360,7 @@ void HelloTriangleApplication::updateMeshBuffers()
 }
 
 #pragma region images 
-VkImageView HelloTriangleApplication::createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags)
+VkImageView HelloTriangleApplication::createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t miplevels)
 {
     VkImageViewCreateInfo viewInfo{};
     viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -368,7 +369,7 @@ VkImageView HelloTriangleApplication::createImageView(VkImage image, VkFormat fo
     viewInfo.format = format;
     viewInfo.subresourceRange.aspectMask = aspectFlags;
     viewInfo.subresourceRange.baseMipLevel = 0;
-    viewInfo.subresourceRange.levelCount = 1;
+    viewInfo.subresourceRange.levelCount = miplevels;
     viewInfo.subresourceRange.baseArrayLayer = 0;
     viewInfo.subresourceRange.layerCount = 1;
 
@@ -382,13 +383,13 @@ VkImageView HelloTriangleApplication::createImageView(VkImage image, VkFormat fo
 }
 
 void HelloTriangleApplication::transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout,
-    VkImageLayout newLayout, VkCommandBuffer workingBuffer)
+    VkImageLayout newLayout, VkCommandBuffer workingBuffer, uint32_t miplevels)
 {
     bool endNow = false;
     if (workingBuffer == nullptr)
     {
         //Optional buffer for if the caller wants to submit the command to an existing buffer and manually end it later
-        workingBuffer = beginSingleTimeCommands();
+        workingBuffer = beginSingleTimeCommands_transfer();
         endNow = true;
     }
 
@@ -404,7 +405,7 @@ void HelloTriangleApplication::transitionImageLayout(VkImage image, VkFormat for
     barrier.image = image;
     barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     barrier.subresourceRange.baseMipLevel = 0; //TODO JS! 
-    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.levelCount =  miplevels;
     barrier.subresourceRange.baseArrayLayer = 0;
     barrier.subresourceRange.layerCount = 1;
 
@@ -457,7 +458,7 @@ void HelloTriangleApplication::copyBufferToImage(VkBuffer buffer, VkImage image,
     if (workingBuffer == nullptr)
     {
         //Optional buffer for if the caller wants to submit the command to an existing buffer and manually end it later
-        workingBuffer = beginSingleTimeCommands();
+        workingBuffer = beginSingleTimeCommands_transfer();
         endNow = true;
     }
 
@@ -491,9 +492,98 @@ void HelloTriangleApplication::copyBufferToImage(VkBuffer buffer, VkImage image,
         endSingleTimeCommands(workingBuffer);
 }
 
+void HelloTriangleApplication::RUNTIME_generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels) {
+   // Check if image format supports linear blitting
+        VkFormatProperties formatProperties;
+        vkGetPhysicalDeviceFormatProperties(physicalDevice, imageFormat, &formatProperties);
+
+        if (!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) {
+            throw std::runtime_error("texture image format does not support linear blitting!");
+        }
+
+        bufferAndPool bandp = beginSingleTimeCommands(false);
+
+        auto commandBuffer = bandp.buffer;
+
+        VkImageMemoryBarrier barrier{};
+        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        barrier.image = image;
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        barrier.subresourceRange.baseArrayLayer = 0;
+        barrier.subresourceRange.layerCount = 1;
+        barrier.subresourceRange.levelCount = 1;
+
+        int32_t mipWidth = texWidth;
+        int32_t mipHeight = texHeight;
+
+        for (uint32_t i = 1; i < mipLevels; i++) {
+            barrier.subresourceRange.baseMipLevel = i - 1;
+            barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+            barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+            barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+
+            vkCmdPipelineBarrier(commandBuffer,
+                VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
+                0, nullptr,
+                0, nullptr,
+                1, &barrier);
+
+            VkImageBlit blit{};
+            blit.srcOffsets[0] = {0, 0, 0};
+            blit.srcOffsets[1] = {mipWidth, mipHeight, 1};
+            blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            blit.srcSubresource.mipLevel = i - 1;
+            blit.srcSubresource.baseArrayLayer = 0;
+            blit.srcSubresource.layerCount = 1;
+            blit.dstOffsets[0] = {0, 0, 0};
+            blit.dstOffsets[1] = { mipWidth > 1 ? mipWidth / 2 : 1, mipHeight > 1 ? mipHeight / 2 : 1, 1 };
+            blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            blit.dstSubresource.mipLevel = i;
+            blit.dstSubresource.baseArrayLayer = 0;
+            blit.dstSubresource.layerCount = 1;
+
+            vkCmdBlitImage(commandBuffer,
+                image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                1, &blit,
+                VK_FILTER_LINEAR);
+
+            barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+            barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+            vkCmdPipelineBarrier(commandBuffer,
+                VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0,
+                0, nullptr,
+                0, nullptr,
+                1, &barrier);
+
+            if (mipWidth > 1) mipWidth /= 2;
+            if (mipHeight > 1) mipHeight /= 2;
+        }
+
+        barrier.subresourceRange.baseMipLevel = mipLevels - 1;
+        barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+        vkCmdPipelineBarrier(commandBuffer,
+            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0,
+            0, nullptr,
+            0, nullptr,
+            1, &barrier);
+
+        endSingleTimeCommands(bandp);
+}
+
 
 void HelloTriangleApplication::createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling,
-    VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory)
+    VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory, uint32_t miplevels)
 {
     VkImageCreateInfo imageInfo{};
     imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -501,7 +591,7 @@ void HelloTriangleApplication::createImage(uint32_t width, uint32_t height, VkFo
     imageInfo.extent.width = width;
     imageInfo.extent.height = height;
     imageInfo.extent.depth = 1;
-    imageInfo.mipLevels = 1;
+    imageInfo.mipLevels = miplevels;
     imageInfo.arrayLayers = 1;
     imageInfo.format = format;
     imageInfo.tiling = tiling;
@@ -676,7 +766,7 @@ void HelloTriangleApplication::createBuffer(VkDeviceSize size, VkBufferUsageFlag
 
 void HelloTriangleApplication::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
 {
-    VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+    VkCommandBuffer commandBuffer = beginSingleTimeCommands_transfer();
 
     VkBufferCopy copyRegion{};
     copyRegion.size = size;
@@ -690,12 +780,21 @@ void HelloTriangleApplication::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer
 #pragma endregion
 
 #pragma region Begin/End commands
-VkCommandBuffer HelloTriangleApplication::beginSingleTimeCommands()
+
+//This sucks -- endsingle needs to run on a specific queue and pool, but I've been passing around just the buffer
+//_transfer() version assumes its transfer pool, other version returns a struct with necessary data
+//Endsingletimecommands is overloaded to take in either one and behave appropriately (aka
+VkCommandBuffer HelloTriangleApplication::beginSingleTimeCommands_transfer()
+{
+    return beginSingleTimeCommands(true).buffer;
+}
+
+HelloTriangleApplication::bufferAndPool HelloTriangleApplication::beginSingleTimeCommands(bool useTransferPoolInsteadOfGraphicsPool)
 {
     VkCommandBufferAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandPool = transferCommandPool;
+    allocInfo.commandPool = useTransferPoolInsteadOfGraphicsPool ? transferCommandPool : commandPool;
     allocInfo.commandBufferCount = 1;
 
     VkCommandBuffer commandBuffer;
@@ -707,22 +806,38 @@ VkCommandBuffer HelloTriangleApplication::beginSingleTimeCommands()
 
     vkBeginCommandBuffer(commandBuffer, &beginInfo);
 
-    return commandBuffer;
+    bufferAndPool result = {commandBuffer, useTransferPoolInsteadOfGraphicsPool ?transferCommandPool : commandPool, useTransferPoolInsteadOfGraphicsPool ?transferQueue : graphicsQueue};
+    return result;
 }
 
-void HelloTriangleApplication::endSingleTimeCommands(VkCommandBuffer commandBuffer)
+void HelloTriangleApplication::endSingleTimeCommands(VkCommandBuffer buffer)
 {
-    vkEndCommandBuffer(commandBuffer);
+    vkEndCommandBuffer(buffer);
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &commandBuffer;
+    submitInfo.pCommandBuffers = &buffer;
 
     vkQueueSubmit(transferQueue, 1, &submitInfo, VK_NULL_HANDLE);
     vkQueueWaitIdle(transferQueue);
 
-    vkFreeCommandBuffers(device, transferCommandPool, 1, &commandBuffer);
+    vkFreeCommandBuffers(device, transferCommandPool, 1, &buffer);
+}
+
+void HelloTriangleApplication::endSingleTimeCommands(bufferAndPool bufferAndPool)
+{
+    vkEndCommandBuffer(bufferAndPool.buffer);
+
+    VkSubmitInfo submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &bufferAndPool.buffer;
+
+    vkQueueSubmit(bufferAndPool.queue, 1, &submitInfo, VK_NULL_HANDLE);
+    vkQueueWaitIdle(bufferAndPool.queue);
+
+    vkFreeCommandBuffers(device, bufferAndPool.pool, 1, &bufferAndPool.buffer);
 }
 
 #pragma endregion
@@ -903,18 +1018,18 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
     //First draw -- this could happen earlier?
             // bind ubo buffer
             VkDescriptorBufferInfo uniformbufferinfo{};
-            uniformbufferinfo.buffer = uniformBuffers[0]; //TODO: For loop over frames
+            uniformbufferinfo.buffer = uniformBuffers[0]; //TODO: For loop over frames in flight
             uniformbufferinfo.offset = 0;
             uniformbufferinfo.range = sizeof(UniformBufferObject) * scene.meshes.size();
 
             VkDescriptorBufferInfo meshBufferinfo{};
-            meshBufferinfo.buffer = meshBuffers[0]; //TODO: For loop over frames
+            meshBufferinfo.buffer = meshBuffers[0]; //TODO: For loop over frames in flight
             meshBufferinfo.offset = 0;
             meshBufferinfo.range = sizeof(gpuvertex) * scene.getVertexCount();
 
             // bind ubo buffer
             VkDescriptorBufferInfo lightbufferinfo{};
-            lightbufferinfo.buffer = lightBuffers[0]; //TODO: For loop over frames
+            lightbufferinfo.buffer = lightBuffers[0]; //TODO: For loop over frames in flight
             lightbufferinfo.offset = 0;
             lightbufferinfo.range = sizeof(gpulight) * lightct;
 
@@ -1089,7 +1204,7 @@ void HelloTriangleApplication::createDepthResources()
     createImage(swapChainExtent.width, swapChainExtent.height, depthFormat, VK_IMAGE_TILING_OPTIMAL,
                 VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depthImage,
                 depthImageMemory);
-    depthImageView = createImageView(depthImage, depthFormat);
+    depthImageView = createImageView(depthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
 }
 
 VkFormat HelloTriangleApplication::findDepthFormat()
