@@ -59,7 +59,7 @@ unsigned int averageCbTime;
  
 unsigned int frames;
 
-unsigned int MAX_TEXTURES = 200;
+unsigned int MAX_TEXTURES = 30;
 
 //TODO JS: move
 struct gpuvertex
@@ -269,13 +269,12 @@ void HelloTriangleApplication:: initVulkan()
     
 
     //Descriptor set layouts, which we use with push descrpitor stuff to avoid pools or sets 
-    createDescriptorSetLayout();
+   
     
     scene = Scene();
 
     
-    graphicsPipeline_1 = createGraphicsPipeline("triangle", renderPass, nullptr);
-    graphicsPipeline_2 = createGraphicsPipeline("triangle_alt", renderPass, nullptr);
+ 
     int placeholderTextureidx = scene.AddMaterial(
         TextureData(this, "textures/testTexture.jpg",TextureData::TextureType::DIFFUSE),
         TextureData(this, "textures/placeholder_spec.png",TextureData::TextureType::SPECULAR),
@@ -292,23 +291,22 @@ void HelloTriangleApplication:: initVulkan()
     TextureData(this, "textures/brick.png",TextureData::TextureType::DIFFUSE),
     TextureData(this, "textures/brick_spec.png",TextureData::TextureType::SPECULAR),
     TextureData(this, "textures/brick normal.png",TextureData::TextureType::NORMAL));
-
     //TODO: Scene loads mesh instead? 
  scene.AddBackingMesh(MeshData::MeshData(this, trivertices, triindices));
       scene.AddBackingMesh(MeshData::MeshData(this,"viking_room.obj"));
  scene.AddBackingMesh(MeshData::MeshData(this,"monkey.obj"));
 
-    scene.AddLight(glm::vec3(0,-0.2,1),glm::vec3(0.5,0.5,1),6, 4);
-     scene.AddLight(glm::vec3(0,-12,3),glm::vec3(1,0,0),15, 20);
+    scene.AddLight(glm::vec3(0,-0.2,1 +1),glm::vec3(0.5,0.5,1),6, 4);
+     scene.AddLight(glm::vec3(0,-12,3 +1),glm::vec3(1,0,0),15, 20);
 
-    scene.AddLight(glm::vec3(0,-3,1),glm::vec3(0.1,0.5,0),6, 4);
-    scene.AddLight(glm::vec3(0,-7,3),glm::vec3(0,1,0),15, 2);
+    scene.AddLight(glm::vec3(0,-3,1 +1),glm::vec3(0.1,0.5,0),6, 4);
+    scene.AddLight(glm::vec3(0,-7,3 +1),glm::vec3(0,1,0),15, 2);
   
 
     glm::vec3 EulerAngles(0, 0, 0);
     auto MyQuaternion = glm::quat(EulerAngles);
 
-    for(int i = 0; i < 300; i++)
+    for(int i = 0; i < 1000; i++)
     {
         int random_number = rand() % scene.backing_meshes.size();
         int textureIndex = rand() % scene.backing_diffuse_textures.size();
@@ -335,6 +333,12 @@ void HelloTriangleApplication:: initVulkan()
                    glm::vec4(-2,- i * 0.6,-0.0,1),
                    MyQuaternion));
     }
+
+    
+    createDescriptorSetLayout();
+
+    graphicsPipeline_1 = createGraphicsPipeline("triangle", renderPass, nullptr);
+    graphicsPipeline_2 = createGraphicsPipeline("triangle_alt", renderPass, nullptr);
 
     // scene.Sort();
     createUniformBuffers();
@@ -648,7 +652,23 @@ void HelloTriangleApplication::createImage(uint32_t width, uint32_t height, VkFo
 //TODO JS: I guess the fn should stay here, and scene should call in, and the fn should get a "packed count" argument for the *3?
 void HelloTriangleApplication::createUniformBuffers()
 {
-    VkDeviceSize bufferSize = sizeof(UniformBufferObject) * scene.matrices.size();
+    VkDeviceSize bufferSize = sizeof(ShaderGlobals);
+
+    shaderGlobalsBuffer.resize(MAX_FRAMES_IN_FLIGHT);
+    shaderGlobalsMemory.resize(MAX_FRAMES_IN_FLIGHT);
+    shaderGlobalsMapped.resize(MAX_FRAMES_IN_FLIGHT);
+
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    {
+        createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, shaderGlobalsBuffer[i],
+                     shaderGlobalsMemory[i]);
+
+        vkMapMemory(device, shaderGlobalsMemory[i], 0, bufferSize, 0, &shaderGlobalsMapped[i]);
+    }
+
+    
+    VkDeviceSize bufferSize1 = sizeof(UniformBufferObject) * scene.matrices.size();
 
     uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
     uniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
@@ -656,11 +676,11 @@ void HelloTriangleApplication::createUniformBuffers()
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        createBuffer(bufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+        createBuffer(bufferSize1, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers[i],
                      uniformBuffersMemory[i]);
 
-        vkMapMemory(device, uniformBuffersMemory[i], 0, bufferSize, 0, &uniformBuffersMapped[i]);
+        vkMapMemory(device, uniformBuffersMemory[i], 0, bufferSize1, 0, &uniformBuffersMapped[i]);
     }
 
     VkDeviceSize bufferSize2 = sizeof(gpuvertex) * scene.getVertexCount();
@@ -698,23 +718,24 @@ void HelloTriangleApplication::createUniformBuffers()
 //TODO JS: Better understand what needs to be done at startup
     void HelloTriangleApplication::createDescriptorSetLayout()
 {
-    VkDescriptorSetLayoutBinding pushDescriptorBinding{};
-    pushDescriptorBinding.binding = 0; //b0
-    pushDescriptorBinding.descriptorCount = 1;
-    pushDescriptorBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    pushDescriptorBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-    pushDescriptorBinding.pImmutableSamplers = nullptr; // Optional
+
+    VkDescriptorSetLayoutBinding globalsBinding{};
+    globalsBinding.binding = 0; //b0
+    globalsBinding.descriptorCount = 1;
+    globalsBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    globalsBinding.stageFlags = VK_SHADER_STAGE_ALL;
+    globalsBinding.pImmutableSamplers = nullptr; // Optional
 
     VkDescriptorSetLayoutBinding textureLayoutBinding{};
     textureLayoutBinding.binding = 1;
-    textureLayoutBinding.descriptorCount = MAX_TEXTURES; // TODO JS: just make really big?
+    textureLayoutBinding.descriptorCount = scene.backing_diffuse_textures.size() * 3; // TODO JS: just make really big?
     textureLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
     textureLayoutBinding.pImmutableSamplers = nullptr;
     textureLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
     VkDescriptorSetLayoutBinding samplerLayoutBinding{};
     samplerLayoutBinding.binding = 2;
-    samplerLayoutBinding.descriptorCount = MAX_TEXTURES; // TODO JS: just make really big?
+    samplerLayoutBinding.descriptorCount = scene.backing_diffuse_textures.size(); // TODO JS: just make really big?
     samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
     samplerLayoutBinding.pImmutableSamplers = nullptr;
     samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -732,8 +753,21 @@ void HelloTriangleApplication::createUniformBuffers()
     lightLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     lightLayoutBinding.pImmutableSamplers = nullptr;
     lightLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    VkDescriptorSetLayoutBinding uboBinding{};
+    uboBinding.binding = 5; //b0
+    uboBinding.descriptorCount = 1;
+    uboBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    uboBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    uboBinding.pImmutableSamplers = nullptr; // Optional
     
-    std::array<VkDescriptorSetLayoutBinding, 5> pushConstantBindings = {pushDescriptorBinding, textureLayoutBinding, samplerLayoutBinding, meshLayoutBinding, lightLayoutBinding};
+    std::array<VkDescriptorSetLayoutBinding, 6> pushConstantBindings =
+        {globalsBinding,
+        textureLayoutBinding,
+        samplerLayoutBinding,
+        meshLayoutBinding,
+        lightLayoutBinding,
+        uboBinding};
 
 
     VkDescriptorSetLayoutCreateInfo pushDescriptorLayout{};
@@ -929,6 +963,20 @@ void HelloTriangleApplication::updateLightBuffers(uint32_t currentImage)
 //TODO: Separate the per model xforms from the camera xform
 void HelloTriangleApplication::updateUniformBuffers(uint32_t currentImage, std::vector<glm::mat4> models)
 {
+
+    ShaderGlobals globals;
+    glm::vec3 eyePos = glm::vec3(0.0f, 2.0f, 2.0f);
+    glm::mat4 view = glm::lookAt(eyePos, glm::vec3(0.0f, 0.0f, 0.5f), glm::vec3(0.0f, 0.0f, 1.0f));
+
+    glm::mat4 proj = glm::perspective(glm::radians(70.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f,
+                                1000.0f);
+
+    proj[1][1] *= -1;
+
+    globals.view_projection = proj * view;
+    globals.viewPos = glm::vec4(eyePos.x,eyePos.y,eyePos.z,1);
+    memcpy(shaderGlobalsMapped[currentImage], &globals, sizeof(ShaderGlobals));
+
     std::vector<UniformBufferObject> ubos;
 
         UniformBufferObject ubo{};
@@ -936,14 +984,7 @@ void HelloTriangleApplication::updateUniformBuffers(uint32_t currentImage, std::
     for(int i = 0; i < models.size(); i++)
     {
         glm::mat4 model = models[i];
-        glm::mat4 view = glm::lookAt(glm::vec3(0.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.5f), glm::vec3(0.0f, 0.0f, 1.0f));
-
-        glm::mat4 proj = glm::perspective(glm::radians(70.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f,
-                                    1000.0f);
-
-        proj[1][1] *= -1;
-
-        ubo.mvp = proj * view * model;
+        // ubo.mvp = proj * view * model;
         ubo.model= model;
         ubos.push_back(ubo);
     }
@@ -962,7 +1003,7 @@ void HelloTriangleApplication::updateUniformBuffer(uint32_t currentImage, glm::m
 
     proj[1][1] *= -1;
 
-    ubo.mvp = proj * view * model;
+    // ubo.mvp = proj * view * model;
     ubo.model= model;
   
 
@@ -1033,6 +1074,13 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
     int f = 0;
     //First draw -- this could happen earlier?
             // bind ubo buffer
+
+            VkDescriptorBufferInfo shaderglobalsinfo{};
+            shaderglobalsinfo.buffer = shaderGlobalsBuffer[0]; //TODO: For loop over frames in flight
+            shaderglobalsinfo.offset = 0;
+            shaderglobalsinfo.range = sizeof(ShaderGlobals);
+
+    
             VkDescriptorBufferInfo uniformbufferinfo{};
             uniformbufferinfo.buffer = uniformBuffers[0]; //TODO: For loop over frames in flight
             uniformbufferinfo.offset = 0;
@@ -1079,13 +1127,12 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
     }
 
             
-            std::array<VkWriteDescriptorSet, 5> writeDescriptorSets{};
+            std::array<VkWriteDescriptorSet, 6> writeDescriptorSets{};
             writeDescriptorSets[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            writeDescriptorSets[0].dstSet = 0;
             writeDescriptorSets[0].dstBinding = 0;
             writeDescriptorSets[0].descriptorCount = 1;
-            writeDescriptorSets[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-            writeDescriptorSets[0].pBufferInfo = &uniformbufferinfo;
+            writeDescriptorSets[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+            writeDescriptorSets[0].pBufferInfo = &shaderglobalsinfo;
 
 
             writeDescriptorSets[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -1093,7 +1140,7 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
             writeDescriptorSets[1].dstArrayElement = 0;
             writeDescriptorSets[1].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
             writeDescriptorSets[1].descriptorCount = scene.backing_diffuse_textures.size() * 3; // All three types of textures
-
+            
             writeDescriptorSets[1].pImageInfo = imageInfos.data();
         
             writeDescriptorSets[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -1117,6 +1164,12 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
             writeDescriptorSets[4].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
             writeDescriptorSets[4].descriptorCount = 1;
             writeDescriptorSets[4].pBufferInfo = &lightbufferinfo;
+
+            writeDescriptorSets[5].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            writeDescriptorSets[5].dstBinding = 5;
+            writeDescriptorSets[5].descriptorCount = 1;
+            writeDescriptorSets[5].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+            writeDescriptorSets[5].pBufferInfo = &uniformbufferinfo;
             
             
             //3 based on my layout

@@ -123,7 +123,7 @@ class Scene;
         };
 
         const std::vector<const char*> deviceExtensions = {
-            VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME
+            VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME, VK_KHR_MAINTENANCE_4_EXTENSION_NAME
         };
 
         std::vector<VkFramebuffer> swapChainFramebuffers;
@@ -156,11 +156,19 @@ class Scene;
 
         struct UniformBufferObject
         {
-            alignas(16) glm::mat4 mvp;
             alignas(16) glm::mat4 model;
+            alignas(16) glm::mat4 padding0;
             alignas(16) glm::mat4 padding1;
             alignas(16) glm::mat4 padding2;
         };
+
+       struct ShaderGlobals
+       {
+           alignas(16) glm::mat4 view_projection;
+           alignas(16) glm::mat4 padding1;
+           alignas(16) glm::vec4 viewPos;
+           alignas(16) glm::vec4 padding2;
+       };
 
         struct PerDrawPushConstants
         {
@@ -202,6 +210,10 @@ class Scene;
         std::vector<VkDescriptorSet> perMaterialDescriptorSets;
        std::vector<VkDescriptorSet> pushDescriptorSets;
 
+       std::vector<VkBuffer> shaderGlobalsBuffer;
+       VkBuffer shaderGlobalBig;
+       std::vector<VkDeviceMemory> shaderGlobalsMemory;
+       std::vector<void*> shaderGlobalsMapped;
 
         //TODO JS: Move the uniform buffer data and fns and ? This belongs to like, a "material" 
         std::vector<VkBuffer> uniformBuffers;

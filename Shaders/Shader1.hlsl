@@ -16,19 +16,19 @@ struct VSInput
 
 struct UBO
 {
-	float4x4 MVP;
 	float4x4 Local;
 	float4x4 p0;
 	float4x4 p1;
+	float4x4 p2;
 };
 
-[[vk::binding(0, 0)]]
-RWStructuredBuffer<UBO> uboarr;
-
-[[vk::binding(1)]]
-Texture2D<float4> bindless_textures[];
-[[vk::binding(2)]]
-SamplerState bindless_samplers[];
+struct ShaderGlobals
+{
+	float4x4 view_projection;
+	float4x4 padding1;
+	float4 viewPos;
+	float4 padding;
+};
 struct pconstant
 {
 	float4 indexInfo;
@@ -55,23 +55,39 @@ struct MyLightStructure
     // uint color;
 };
 
+	
+
+
+struct FSOutput
+{
+	[[vk::location(0)]] float3 Color : SV_Target;
+};
+
+cbuffer globals : register(b0) { ShaderGlobals globals; }
+// ShaderGlobals globals;
+
+[[vk::binding(1)]]
+Texture2D<float4> bindless_textures[];
+
+[[vk::binding(2)]]
+SamplerState bindless_samplers[];
+
 [[vk::binding(3)]]
 #ifdef USE_RW
 RWStructuredBuffer<MyVertexStructure> BufferTable;
 #else 
 ByteAddressBuffer BufferTable;
 #endif
-
 [[vk::binding(4)]]
 RWStructuredBuffer<MyLightStructure> lights;
-struct FSOutput
-{
-	[[vk::location(0)]] float3 Color : SV_Target;
-};
 
+[[vk::binding(5)]]
+RWStructuredBuffer<UBO> uboarr;
 
 [[vk::push_constant]]
 pconstant pc;
+
+
 
 struct VSOutput
 {
@@ -108,7 +124,8 @@ VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
 	#endif
 	UBO ubo = uboarr[OBJECTINDEX];
 	VSOutput output = (VSOutput)0;
-	output.Pos = mul(ubo.MVP, half4(myVertex.position.xyz, 1.0));
+	float4x4 mvp = mul(globals.view_projection, ubo.Local);
+	output.Pos = mul(mvp, half4(myVertex.position.xyz, 1.0));
 	output.Texture_ST = myVertex.uv0.xy;
 	output.Color = myVertex.normal.xyz;
 	output.Normal = myVertex.normal.xyz;
@@ -120,8 +137,7 @@ VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
 	output.Tangent =  mul(ubo.Local, myVertex.Tangent.xyz);
 	output.BiTangent =  mul(ubo.Local,( myVertex.Tangent.a * cross(myVertex.normal, myVertex.Tangent.xyz)));
 
-	// output.Pos = float4(positions[2 - (VertexIndex % 2)],1,1);
-	// output.Color = myVertex.uv0.xy;
+	output.Color = 1.0;
 	return output;
 }
 
@@ -139,7 +155,7 @@ struct FSInput
 	[[vk::location(6)]] float3 BiTangent : TEXCOORD3;
 };
 
-float3 getLighting(float3 incolor, float3 inNormal, float3 FragPos)
+float3 getLighting(float3 incolor, float3 inNormal, float3 FragPos, float3 specMap)
 {
 	float3 lightContribution = float3(0,0,0);
 	for(int i = 0; i < LIGHTCOUNT; i++)
@@ -149,18 +165,21 @@ float3 getLighting(float3 incolor, float3 inNormal, float3 FragPos)
 		float lightRange = light.position_range.a;
 		float3 lightColor = light.color_intensity.xyz * light.color_intensity.a;
 		float3 lightToFrag   = lightPos - FragPos;
-		float3 lightDir_norm = normalize(lightToFrag);
+		float3 lightDir = normalize(lightToFrag);
 		float lightDistance = length(lightToFrag);
-		// vec3 viewDir    = normalize(viewPos - FragPos);
-		// vec3 halfwayDir = normalize(lightDir + viewDir);
+		float3 viewDir    = normalize(globals.viewPos - FragPos);
+		float3 halfwayDir = normalize(lightDir + viewDir);
 
 
    		float Attenuation =  saturate(lightRange / lightDistance);
 
 		Attenuation =  1.0 / (lightDistance * lightDistance);
 		// Attenuation = 3;
-		float diff = saturate(dot(inNormal, lightDir_norm));
-		lightContribution += ((lightColor * diff) * Attenuation );
+		float3 reflectDir = reflect(-lightDir, inNormal);
+        float spec = pow(max(dot(viewDir, reflectDir), 0.0), 16.0);
+
+		float diff = saturate(dot(inNormal, lightDir));
+		lightContribution += ((lightColor * diff) * Attenuation ) + ((spec * lightColor) * specMap);
 	}
 		
 
@@ -180,7 +199,10 @@ FSOutput Frag(VSOutput input)
 
 	float3 diff  = saturate(bindless_textures[DIFFUSE_INDEX].Sample(bindless_samplers[TEXTUREINDEX], input.Texture_ST) + 0.2) ;
 	float3 normalMap  = bindless_textures[NORMAL_INDEX].Sample(bindless_samplers[TEXTUREINDEX], input.Texture_ST);
+	float3 specMap  = bindless_textures[SPECULAR_INDEX].Sample(bindless_samplers[TEXTUREINDEX], input.Texture_ST);
+
 	float3 normal =  normalize( normalMap.x * input.Tangent + normalMap.y * input.BiTangent + normalMap.z * input.Normal );
-	output.Color =  (getLighting(diff, input.Normal * normalize((normalMap * 2.0 )- 1.0), input.fragmentPos));
+	//float4 normal = input.Normal * normalize((normalMap * 2.0 )- 1.0)
+	output.Color =  (getLighting(diff, normal, input.fragmentPos, specMap)) * input.Color;
 	return output;
 }
