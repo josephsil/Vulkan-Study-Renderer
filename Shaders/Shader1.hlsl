@@ -1,8 +1,9 @@
 #define USE_RW
 
-#define LIGHTCOUNT   pc.indexInfo.r
+#define LIGHTCOUNT   globals.lightcount_padding_padding_padding.r
 #define VERTEXOFFSET pc.indexInfo.g
 #define TEXTUREINDEX pc.indexInfo.b
+#define NORMALINDEX TEXTUREINDEX +2 //TODO JS: temporary!
 #define OBJECTINDEX  pc.indexInfo.a
 
 struct VSInput
@@ -16,18 +17,18 @@ struct VSInput
 
 struct UBO
 {
-	float4x4 Local;
-	float4x4 p0;
+	float4x4 Model;
+	float4x4 NormalMat;
 	float4x4 p1;
 	float4x4 p2;
 };
 
 struct ShaderGlobals
 {
-	float4x4 view_projection;
-	float4x4 padding1;
+	float4x4 view;
+	float4x4 projection;
 	float4 viewPos;
-	float4 padding;
+	float4 lightcount_padding_padding_padding;
 };
 struct pconstant
 {
@@ -98,6 +99,7 @@ struct VSOutput
 	[[vk::location(4)]] float3 fragmentPos : TEXCOORD1;
 	[[vk::location(5)]] float3 Tangent : TEXCOORD2;
 	[[vk::location(6)]] float3 BiTangent : TEXCOORD3;
+	[[vk::location(7)]] float3x3 TBN : TEXCOORD4;
 };
 
 static float2 positions[3] = {
@@ -124,18 +126,23 @@ VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
 	#endif
 	UBO ubo = uboarr[OBJECTINDEX];
 	VSOutput output = (VSOutput)0;
-	float4x4 mvp = mul(globals.view_projection, ubo.Local);
+	float4x4 modelView = mul( globals.view, ubo.Model);
+	float4x4 mvp = mul(globals.projection,modelView);
 	output.Pos = mul(mvp, half4(myVertex.position.xyz, 1.0));
 	output.Texture_ST = myVertex.uv0.xy;
 	output.Color = myVertex.normal.xyz;
 	output.Normal = myVertex.normal.xyz;
-	output.Normal = mul(ubo.Local, half4(myVertex.normal.xyz, 0.0) );
-	output.fragmentPos = mul(ubo.Local, half4(myVertex.position.xyz, 1.0) );
+	output.fragmentPos = mul(ubo.Model, half4(myVertex.position.xyz, 1.0) );
 
-	//bitangent = fSign * cross(vN, tangent);
-	//Not sure if the mul here is correct? would need something baked
-	output.Tangent =  mul(ubo.Local, myVertex.Tangent.xyz);
-	output.BiTangent =  mul(ubo.Local,( myVertex.Tangent.a * cross(myVertex.normal, myVertex.Tangent.xyz)));
+	//Doesn't work
+	float3 worldNormal = normalize(mul(ubo.NormalMat, float4(myVertex.normal.x, myVertex.normal.y, myVertex.normal.z,  0.0) ));
+	float3 worldTangent = normalize(mul(modelView, float4(myVertex.Tangent.x,myVertex.Tangent.y,myVertex.Tangent.z,0.0)));
+	float3 worldBinormal = cross( normalize(worldNormal), normalize(worldTangent)) * (myVertex.Tangent.w *-1 )  ;
+	
+	output.Tangent = worldTangent;
+	output.Normal = worldNormal;
+	output.BiTangent = worldBinormal;
+	output.TBN = float3x3((worldTangent), (worldBinormal), (worldNormal));
 
 	output.Color = 1.0;
 	return output;
@@ -149,10 +156,11 @@ struct FSInput
 	[[vk::location(0)]] float3 Pos : SV_POSITION;
 	[[vk::location(1)]] float3 Color : COLOR0;
 	[[vk::location(2)]] float2 Texture_ST : TEXCOORD0;
-	[[vk::location(3)]] float2 Normal : NORMAL0;
+	[[vk::location(3)]] float3 Normal : NORMAL0;
 	[[vk::location(4)]] float3 fragmentPos : TEXCOORD1;
 	[[vk::location(5)]] float3 Tangent : TEXCOORD2;
 	[[vk::location(6)]] float3 BiTangent : TEXCOORD3;
+	[[vk::location(7)]] float3x3 TBN : TEXCOORD4;
 };
 
 float3 getLighting(float3 incolor, float3 inNormal, float3 FragPos, float3 specMap)
@@ -167,23 +175,24 @@ float3 getLighting(float3 incolor, float3 inNormal, float3 FragPos, float3 specM
 		float3 lightToFrag   = lightPos - FragPos;
 		float3 lightDir = normalize(lightToFrag);
 		float lightDistance = length(lightToFrag);
-		float3 viewDir    = normalize(globals.viewPos - FragPos);
+		float3 viewDir    = normalize( globals.viewPos - FragPos );
 		float3 halfwayDir = normalize(lightDir + viewDir);
 
+		float3 reflectDir = normalize(reflect(-lightDir, inNormal));
 
    		float Attenuation =  saturate(lightRange / lightDistance);
 
 		Attenuation =  1.0 / (lightDistance * lightDistance);
 		// Attenuation = 3;
-		float3 reflectDir = reflect(-lightDir, inNormal);
-        float spec = pow(max(dot(viewDir, reflectDir), 0.0), 16.0);
+        float spec = pow(max(dot(viewDir, reflectDir), 0.0), 4.0);
 
+//  spec = 0;
 		float diff = saturate(dot(inNormal, lightDir));
-		lightContribution += ((lightColor * diff) * Attenuation ) + ((spec * lightColor) * specMap);
+		lightContribution += ((lightColor * diff) * Attenuation ) + ((spec * lightColor));
 	}
 		
 
-		return incolor * lightContribution;
+		return float3(1,1,1) * lightContribution;
 
 }
 
@@ -197,12 +206,17 @@ FSOutput Frag(VSOutput input)
 {
 	FSOutput output;
 
-	float3 diff  = saturate(bindless_textures[DIFFUSE_INDEX].Sample(bindless_samplers[TEXTUREINDEX], input.Texture_ST) + 0.2) ;
-	float3 normalMap  = bindless_textures[NORMAL_INDEX].Sample(bindless_samplers[TEXTUREINDEX], input.Texture_ST);
+	float3 diff  = saturate(bindless_textures[DIFFUSE_INDEX].Sample(bindless_samplers[TEXTUREINDEX], input.Texture_ST)) ;
+	//Doesn't work
+	// float3 normalMap  = (bindless_textures[NORMAL_INDEX].Sample(bindless_samplers[NORMALINDEX], input.Texture_ST));
 	float3 specMap  = bindless_textures[SPECULAR_INDEX].Sample(bindless_samplers[TEXTUREINDEX], input.Texture_ST);
+	float3x3 tbn = transpose(input.TBN)	;
+	
+	//doesn't work
+ 	// normalMap = normalize(mul(tbn, normalize((2.0 * normalMap.xyz - 1.0))));
 
-	float3 normal =  normalize( normalMap.x * input.Tangent + normalMap.y * input.BiTangent + normalMap.z * input.Normal );
-	//float4 normal = input.Normal * normalize((normalMap * 2.0 )- 1.0)
-	output.Color =  (getLighting(diff, normal, input.fragmentPos, specMap)) * input.Color;
+	output.Color =  (getLighting(diff,input.Normal, input.fragmentPos, specMap)) * input.Color;
+	//  output.Color = input.Normal;
+	//  output.Color = input.Normal;
 	return output;
 }

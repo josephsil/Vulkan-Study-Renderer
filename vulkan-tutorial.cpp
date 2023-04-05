@@ -147,9 +147,9 @@ void HelloTriangleApplication:: initVulkan()
 
     //Get instance
        auto instance_builder_return = instance_builder
-    .request_validation_layers()
-    .use_default_debug_messenger()
-    .require_api_version(1, 2, 0)
+    // .request_validation_layers()
+    // .use_default_debug_messenger()
+    .require_api_version(1, 3, 0)
     .build();
     if (!instance_builder_return) {
         std::cerr << "Failed to create Vulkan instance. Error: " << instance_builder_return.error().message() << "\n";
@@ -171,7 +171,7 @@ void HelloTriangleApplication:: initVulkan()
     //Get physical device
     vkb::PhysicalDeviceSelector phys_device_selector(vkb_instance);
     auto physical_device_selector_return = phys_device_selector
-            .set_minimum_version(1, 1)
+            .set_minimum_version(1, 3)
             .set_surface(surface)
             .require_separate_transfer_queue()   //NOTE: Not supporting gpus without dedicated queue 
             .require_separate_compute_queue()
@@ -296,11 +296,11 @@ void HelloTriangleApplication:: initVulkan()
       scene.AddBackingMesh(MeshData::MeshData(this,"viking_room.obj"));
  scene.AddBackingMesh(MeshData::MeshData(this,"monkey.obj"));
 
-    scene.AddLight(glm::vec3(0,-0.2,1 +1),glm::vec3(0.5,0.5,1),6, 4);
-     scene.AddLight(glm::vec3(0,-12,3 +1),glm::vec3(1,0,0),15, 20);
-
-    scene.AddLight(glm::vec3(0,-3,1 +1),glm::vec3(0.1,0.5,0),6, 4);
-    scene.AddLight(glm::vec3(0,-7,3 +1),glm::vec3(0,1,0),15, 2);
+    // scene.AddLight(glm::vec3(0,-0.2,1 +1),glm::vec3(0.5,0.5,1),6, 4);
+    scene.AddLight(glm::vec3(6,1,3 +1),glm::vec3(1,0,0),5, 2);
+    //
+    scene.AddLight(glm::vec3(0,-15   ,1 +1),glm::vec3(0.1,0.5,0),6, 1);
+    scene.AddLight(glm::vec3(0,-3,3),glm::vec3(1,1,1),5, 2);
   
 
     glm::vec3 EulerAngles(0, 0, 0);
@@ -312,7 +312,7 @@ void HelloTriangleApplication:: initVulkan()
         int textureIndex = rand() % scene.backing_diffuse_textures.size();
         sceneObjects.push_back(
             scene.AddObject(
-                 &scene.backing_meshes[random_number],
+                 &scene.backing_meshes[0],
                 textureIndex,
                 glm::vec4(0,- i * 0.6,0,1),
                 MyQuaternion));
@@ -320,7 +320,7 @@ void HelloTriangleApplication:: initVulkan()
         textureIndex = rand() % scene.backing_diffuse_textures.size();
         sceneObjects.push_back(
             scene.AddObject(
-            &scene.backing_meshes[random_number],
+            &scene.backing_meshes[1],
            textureIndex,
                 glm::vec4(2,- i * 0.6,0.0,1),
                 MyQuaternion));
@@ -328,7 +328,7 @@ void HelloTriangleApplication:: initVulkan()
         textureIndex = rand() % scene.backing_diffuse_textures.size();
         sceneObjects.push_back(
                scene.AddObject(
-               &scene.backing_meshes[random_number],
+               &scene.backing_meshes[2],
          textureIndex,
                    glm::vec4(-2,- i * 0.6,-0.0,1),
                    MyQuaternion));
@@ -368,8 +368,8 @@ void HelloTriangleApplication::updateMeshBuffers()
             glm::vec4 col = mesh.vertices[mesh.indices[i]].color;
             glm::vec4 uv = mesh.vertices[mesh.indices[i]].texCoord;
             glm::vec4 norm = mesh.vertices[mesh.indices[i]].normal;
-            glm::vec3 tangent = mesh.vertices[mesh.indices[i]].tangent;
-            gpuvertex vert = {glm::vec4(pos.x,pos.y,pos.z,1), uv, norm, glm::vec4(tangent.x,tangent.y,tangent.z,1)};
+            glm::vec4 tangent = mesh.vertices[mesh.indices[i]].tangent;
+            gpuvertex vert = {glm::vec4(pos.x,pos.y,pos.z,1), uv, norm, glm::vec4(tangent.x,tangent.y,tangent.z,tangent.w)};
             verts.push_back(vert);
         }
     }
@@ -735,7 +735,7 @@ void HelloTriangleApplication::createUniformBuffers()
 
     VkDescriptorSetLayoutBinding samplerLayoutBinding{};
     samplerLayoutBinding.binding = 2;
-    samplerLayoutBinding.descriptorCount = scene.backing_diffuse_textures.size(); // TODO JS: just make really big?
+    samplerLayoutBinding.descriptorCount = scene.backing_diffuse_textures.size() * 3; // TODO JS: just make really big?
     samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
     samplerLayoutBinding.pImmutableSamplers = nullptr;
     samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -965,16 +965,18 @@ void HelloTriangleApplication::updateUniformBuffers(uint32_t currentImage, std::
 {
 
     ShaderGlobals globals;
-    glm::vec3 eyePos = glm::vec3(0.0f, 2.0f, 2.0f);
-    glm::mat4 view = glm::lookAt(eyePos, glm::vec3(0.0f, 0.0f, 0.5f), glm::vec3(0.0f, 0.0f, 1.0f));
+    glm::vec3 eyePos = glm::vec3(0.0f, 2.0f, 3.0f);
+    glm::mat4 view = glm::lookAt(eyePos, glm::vec3(0.0f, -1.0f, 0.5f), glm::vec3(0.0f, 0.0f, 1.0f));
 
     glm::mat4 proj = glm::perspective(glm::radians(70.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f,
                                 1000.0f);
-
+    
     proj[1][1] *= -1;
 
-    globals.view_projection = proj * view;
+    globals.view = view;
+    globals.proj = proj;
     globals.viewPos = glm::vec4(eyePos.x,eyePos.y,eyePos.z,1);
+    globals.lightcountx_paddingyzw = glm::vec4(scene.lightCount, 0, 0 , 0);
     memcpy(shaderGlobalsMapped[currentImage], &globals, sizeof(ShaderGlobals));
 
     std::vector<UniformBufferObject> ubos;
@@ -986,6 +988,7 @@ void HelloTriangleApplication::updateUniformBuffers(uint32_t currentImage, std::
         glm::mat4 model = models[i];
         // ubo.mvp = proj * view * model;
         ubo.model= model;
+        ubo.Normal = glm::transpose(glm::inverse(glm::mat3(model)));
         ubos.push_back(ubo);
     }
     memcpy(uniformBuffersMapped[currentImage], ubos.data(), sizeof(UniformBufferObject) * models.size());
@@ -1124,6 +1127,14 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
         imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         imageInfo.sampler = scene.backing_diffuse_textures[texture_i].textureSampler;
         samplerifos.push_back(imageInfo);
+
+        imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        imageInfo.sampler = scene.backing_specular_textures[texture_i].textureSampler;
+        samplerifos.push_back(imageInfo);
+
+        imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        imageInfo.sampler = scene.backing_normal_textures[texture_i].textureSampler;
+        samplerifos.push_back(imageInfo);
     }
 
             
@@ -1181,7 +1192,7 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
 
         PerDrawPushConstants constants;
         //Light count, vert offset, texture index, and object data index
-        constants.indexInfo = glm::vec4((lightct),(scene.meshOffsets[i]),scene.materials[i].backingTextureidx, i);
+        constants.indexInfo = glm::vec4(scene.materials[i].backingTextureidx,(scene.meshOffsets[i]),scene.materials[i].backingTextureidx, i);
         // constants.test = glm::vec4(1,2,3,i);
 
         vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT || VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PerDrawPushConstants), &constants);

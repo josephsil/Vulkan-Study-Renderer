@@ -23,7 +23,7 @@ TextureData::TextureData(HelloTriangleApplication* app, const char* path, Textur
         }
     case TextureType::NORMAL:
         {
-            format = VK_FORMAT_R8G8B8A8_SRGB;
+            format = VK_FORMAT_R8G8B8A8_UNORM;
         }
     case TextureType::CUBE:
         {

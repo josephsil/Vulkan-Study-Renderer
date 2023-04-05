@@ -217,14 +217,18 @@ MeshData::MeshData(HelloTriangleApplication* app, std::string path)
                 }
             }
         }
-     
+
+
+    //reasonably likely the mikkt thing isnt implemented right, i couldnt get normals to render correctly 
         
                 MeshForMikkt m =  MeshForMikkt(_vertices, _indices);
             MikktImpl mikkt = MikktImpl();
             mikkt.calculateTangents(&m);
             for(int i = 0; i < _vertices.size(); i++)
             {
+                _vertices[i].normal = glm::vec4(m.norm[i].x,m.norm[i].y,m.norm[i].z,0.0);
                 _vertices[i].tangent = m.tan[i];
+                
             }
             
         std::vector<uint32_t> index_data;
@@ -242,7 +246,7 @@ MeshData::MeshData(HelloTriangleApplication* app, std::string path)
         flatMeshForWelder.push_back(m.norm[i].z);
         flatMeshForWelder.push_back(m.uv[i].x);
         flatMeshForWelder.push_back(m.uv[i].y);
-        flatMeshForWelder.push_back(m.uv[i].z);
+        flatMeshForWelder.push_back(1.0);
         flatMeshForWelder.push_back(_vertices[i].color.x);
         flatMeshForWelder.push_back(_vertices[i].color.y);
         flatMeshForWelder.push_back(_vertices[i].color.z);
@@ -272,7 +276,8 @@ MeshData::MeshData(HelloTriangleApplication* app, std::string path)
         _vertices[i].color.z = welderOutput[(i*16) +11]; 
         _vertices[i].tangent.x = welderOutput[(i*16) +12]; 
         _vertices[i].tangent.y = welderOutput[(i*16) +13]; 
-        _vertices[i].tangent.z = welderOutput[(i*16) +14]; 
+        _vertices[i].tangent.z = welderOutput[(i*16) +14];
+        _vertices[i].tangent.a = welderOutput[(i*16) +15]; 
         
     }
 

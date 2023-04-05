@@ -157,17 +157,17 @@ class Scene;
         struct UniformBufferObject
         {
             alignas(16) glm::mat4 model;
-            alignas(16) glm::mat4 padding0;
+            alignas(16) glm::mat4 Normal;
             alignas(16) glm::mat4 padding1;
             alignas(16) glm::mat4 padding2;
         };
 
        struct ShaderGlobals
        {
-           alignas(16) glm::mat4 view_projection;
-           alignas(16) glm::mat4 padding1;
+           alignas(16) glm::mat4 view;
+           alignas(16) glm::mat4 proj;
            alignas(16) glm::vec4 viewPos;
-           alignas(16) glm::vec4 padding2;
+           alignas(16) glm::vec4 lightcountx_paddingyzw;
        };
 
         struct PerDrawPushConstants
