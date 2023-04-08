@@ -153,6 +153,9 @@
     <ClInclude Include="SceneObjectData.h" />
     <ClInclude Include="ShaderLoading.h" />
     <ClInclude Include="TextureData.h" />
+    <ClInclude Include="tinygltf\stb_image.h" />
+    <ClInclude Include="tinygltf\stb_image_write.h" />
+    <ClInclude Include="tinygltf\tiny_gltf.h" />
     <ClInclude Include="Vertex.h" />
     <ClInclude Include="vkbootstrap\VkBootstrap.h" />
     <ClInclude Include="vkbootstrap\VkBootstrapDispatch.h" />

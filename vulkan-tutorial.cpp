@@ -147,8 +147,8 @@ void HelloTriangleApplication:: initVulkan()
 
     //Get instance
        auto instance_builder_return = instance_builder
-    // .request_validation_layers()
-    // .use_default_debug_messenger()
+    .request_validation_layers()
+    .use_default_debug_messenger()
     .require_api_version(1, 3, 0)
     .build();
     if (!instance_builder_return) {
@@ -293,7 +293,7 @@ void HelloTriangleApplication:: initVulkan()
     TextureData(this, "textures/brick normal.png",TextureData::TextureType::NORMAL));
     //TODO: Scene loads mesh instead? 
  scene.AddBackingMesh(MeshData::MeshData(this, trivertices, triindices));
-      scene.AddBackingMesh(MeshData::MeshData(this,"viking_room.obj"));
+      scene.AddBackingMesh(MeshData::MeshData(this,"cubesphere.glb"));
  scene.AddBackingMesh(MeshData::MeshData(this,"monkey.obj"));
 
     // scene.AddLight(glm::vec3(0,-0.2,1 +1),glm::vec3(0.5,0.5,1),6, 4);
