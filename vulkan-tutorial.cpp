@@ -306,7 +306,7 @@ void HelloTriangleApplication:: initVulkan()
     glm::vec3 EulerAngles(0, 0, 0);
     auto MyQuaternion = glm::quat(EulerAngles);
 
-    for(int i = 0; i < 1000; i++)
+    for(int i = 0; i < 2000; i++)
     {
         int random_number = rand() % scene.backing_meshes.size();
         int textureIndex = rand() % scene.backing_diffuse_textures.size();
@@ -961,9 +961,11 @@ void HelloTriangleApplication::updateLightBuffers(uint32_t currentImage)
 
 //TODO JS: This is like, per object uniforms -- it should belong to the scene and get passed a buffer directly to the render loop
 //TODO: Separate the per model xforms from the camera xform
+
 void HelloTriangleApplication::updateUniformBuffers(uint32_t currentImage, std::vector<glm::mat4> models)
 {
 
+   
     ShaderGlobals globals;
     glm::vec3 eyePos = glm::vec3(0.0f, 2.0f, 3.0f);
     glm::mat4 view = glm::lookAt(eyePos, glm::vec3(0.0f, -1.0f, 0.5f), glm::vec3(0.0f, 0.0f, 1.0f));
@@ -979,39 +981,33 @@ void HelloTriangleApplication::updateUniformBuffers(uint32_t currentImage, std::
     globals.lightcountx_paddingyzw = glm::vec4(scene.lightCount, 0, 0 , 0);
     memcpy(shaderGlobalsMapped[currentImage], &globals, sizeof(ShaderGlobals));
 
+
+
     std::vector<UniformBufferObject> ubos;
 
-        UniformBufferObject ubo{};
 
+    if (ubos.size() != models.size())
+    {
+        ubos.resize(models.size());
+    }
     for(int i = 0; i < models.size(); i++)
     {
-        glm::mat4 model = models[i];
-        auto mv =  view * model;
-        ubo.model= model;
-        ubo.Normal = glm::transpose(glm::inverse(glm::mat3(model)));
-        ubos.push_back(ubo);
+        glm::mat4* model = &models[i];
+        ubos[i].model= models[i];
+        ubos[i].Normal = glm::transpose(glm::inverse(glm::mat3(*model)));
     }
     memcpy(uniformBuffersMapped[currentImage], ubos.data(), sizeof(UniformBufferObject) * models.size());
+
 }
 
 void HelloTriangleApplication::updateUniformBuffer(uint32_t currentImage, glm::mat4 model)
 {
 
-        UniformBufferObject ubo{};
-
-    glm::mat4 view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-
-    glm::mat4 proj = glm::perspective(glm::radians(70.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f,
-                                1000.0f);
-
-    proj[1][1] *= -1;
-
-    // ubo.mvp = proj * view * model;
+    UniformBufferObject ubo{};
     ubo.model= model;
-  
-
     memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(UniformBufferObject)); 
 }
+
 
 
 //TODO is this doing extra work?
@@ -1019,7 +1015,8 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
     VkPipeline graphicsPipeline, MeshData* _mesh)
 {
 
-    auto start = std::chrono::high_resolution_clock::now();
+
+    
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     beginInfo.flags = 0; // Optional
@@ -1079,24 +1076,24 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
             // bind ubo buffer
 
             VkDescriptorBufferInfo shaderglobalsinfo{};
-            shaderglobalsinfo.buffer = shaderGlobalsBuffer[0]; //TODO: For loop over frames in flight
+            shaderglobalsinfo.buffer = shaderGlobalsBuffer[currentFrame]; //TODO: For loop over frames in flight
             shaderglobalsinfo.offset = 0;
             shaderglobalsinfo.range = sizeof(ShaderGlobals);
 
     
             VkDescriptorBufferInfo uniformbufferinfo{};
-            uniformbufferinfo.buffer = uniformBuffers[0]; //TODO: For loop over frames in flight
+            uniformbufferinfo.buffer = uniformBuffers[currentFrame]; //TODO: For loop over frames in flight
             uniformbufferinfo.offset = 0;
             uniformbufferinfo.range = sizeof(UniformBufferObject) * scene.meshes.size();
 
             VkDescriptorBufferInfo meshBufferinfo{};
-            meshBufferinfo.buffer = meshBuffers[0]; //TODO: For loop over frames in flight
+            meshBufferinfo.buffer = meshBuffers[currentFrame]; //TODO: For loop over frames in flight
             meshBufferinfo.offset = 0;
             meshBufferinfo.range = sizeof(gpuvertex) * scene.getVertexCount();
 
             // bind ubo buffer
             VkDescriptorBufferInfo lightbufferinfo{};
-            lightbufferinfo.buffer = lightBuffers[0]; //TODO: For loop over frames in flight
+            lightbufferinfo.buffer = lightBuffers[currentFrame]; //TODO: For loop over frames in flight
             lightbufferinfo.offset = 0;
             lightbufferinfo.range = sizeof(gpulight) * lightct;
 
@@ -1207,17 +1204,15 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
         throw std::runtime_error("failed to record command buffer!");
     }
 
-    auto stop = std::chrono::high_resolution_clock::now();
-    auto duration = duration_cast<std::chrono::microseconds>(stop - start);
+
     frames ++;
-    // pastTimes[frames] = duration;
     // for(int j = 0; j < frames; j++)
     // {
     //     averageCbTime += pastTimes[j];
     // }
     // averageCbTime /= frames;
 
-    std::cout << "frame time: " << duration << "\n";
+   
     
 }
 #pragma endregion
@@ -1626,7 +1621,10 @@ void HelloTriangleApplication::drawFrame()
     //TODO: draw multiple objects
     // updateUniformBuffer(currentFrame, scene.matrices[0]);
     updateUniformBuffers(currentFrame, scene.matrices); // TODO JS: Figure out
+
+    
     updateLightBuffers(currentFrame);
+
 
     vkResetFences(device, 1, &inFlightFences[currentFrame]);
     //TODO JS: properly manage multiple objects with vertex buffer + corresponding pipeline object
@@ -1635,7 +1633,7 @@ void HelloTriangleApplication::drawFrame()
     //TODO: draw multiple objects
     recordCommandBuffer(commandBuffers[currentFrame], imageIndex,
                         _selectedShader == 0 ? graphicsPipeline_1 : graphicsPipeline_2, scene.meshes[1]);
-
+    
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
@@ -1676,6 +1674,7 @@ void HelloTriangleApplication::drawFrame()
     vkQueuePresentKHR(presentQueue, &presentInfo);
 
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+
 }
 
 void HelloTriangleApplication::cleanup()

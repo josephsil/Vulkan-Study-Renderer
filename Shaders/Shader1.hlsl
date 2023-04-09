@@ -194,7 +194,7 @@ float3 getLighting(float3 incolor, float3 inNormal, float3 FragPos, float3 specM
 
 		Attenuation =  1.0 / (lightDistance * lightDistance);
 		// Attenuation = 3;
-        float spec = pow(max(dot(viewDir, reflectDir), 0.0), 4.0) ;
+        float spec = pow(max(dot(viewDir, reflectDir), 0.0), 16.0) ;
 
 //  spec = 0;
 		float diff = saturate(dot(inNormal, lightDir));
@@ -222,8 +222,8 @@ FSOutput Frag(VSOutput input)
 	
  	normalMap = normalize(mul(normalize(((2.0 * normalMap) - 1.0)), input.TBN));
 
-	diff = float3(1.0,1.0,1.0);
+	// diff = float3(1.0,1.0,1.0);
 	output.Color =  (getLighting(diff,normalMap, input.fragmentPos, specMap)) * input.Color;
-	output.Color = input.TBN[0];
+	// output.Color = input.TBN[0];
 	return output;
 }

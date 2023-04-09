@@ -237,6 +237,7 @@ class Scene;
 
         void createUniformBuffers();
 
+       std::vector<UniformBufferObject> ubos;
 
         void updateUniformBuffer(uint32_t currentImage, glm::mat4 model);
        void updateUniformBuffers(uint32_t currentImage, std::vector<glm::mat4> models);

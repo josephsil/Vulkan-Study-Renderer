@@ -214,6 +214,14 @@ MeshData::MeshData(HelloTriangleApplication* app, std::string path)
                     positionvec.push_back(position);
                     
                 }
+
+                if (!prim.attributes.contains("NORMAL"))
+                {
+                    std::cout << "NOT IMPLEMENTED -- DONT WORK SUPPORT MODELS WITHOUT NORMALS";
+                    std::exit(-1);
+                }
+
+
                accessor = model.accessors[prim.attributes[std::string("NORMAL")]];
                bufferView = model.bufferViews[accessor.bufferView];
                buffer = model.buffers[bufferView.buffer];
@@ -305,7 +313,7 @@ MeshData::MeshData(HelloTriangleApplication* app, std::string path)
 
         }
 
-        //TODO JS
+        //TODO JS - we end up deduping twice if we don't have tangents 
         std::vector<Vertex> indexedVerts;
         std::unordered_map<uint32_t, int> indicesMap;
         for(int i = 0; i < _indices.size(); i++)
@@ -323,10 +331,7 @@ MeshData::MeshData(HelloTriangleApplication* app, std::string path)
     }
     else if (ext.string() == ".obj")
     {
-        // std::cout << "NOT IMPLEMENTED -- TANGENTS DONT WORK";
-        // std::exit(-1);
-
-
+   
         tinyobj::ObjReader reader;
         tinyobj::ObjReaderConfig reader_config;
 
@@ -376,7 +381,8 @@ MeshData::MeshData(HelloTriangleApplication* app, std::string path)
                    }
                 };
                 
-                   
+
+                //obj files always go through mikkt below, not bothering deduping verts
                 _indices.push_back(idx++);
                 _vertices.push_back(vertex);
             }
@@ -393,10 +399,17 @@ MeshData::MeshData(HelloTriangleApplication* app, std::string path)
     if (!tangentsLoaded)
     {
         std::vector<Vertex> expandedVertices;
-        expandedVertices.resize(_indices.size());
-        for(int i =0; i < _indices.size(); i++)
+        if (_vertices.size() == _indices.size())
         {
-            expandedVertices[i] = _vertices[_indices[i]];
+            expandedVertices = _vertices;
+        }
+        else
+        {
+            expandedVertices.resize(_indices.size());
+            for(int i =0; i < _indices.size(); i++)
+            {
+                expandedVertices[i] = _vertices[_indices[i]];
+            }
         }
         //
         MeshForMikkt m =  MeshForMikkt(expandedVertices, _indices);
