@@ -25,6 +25,18 @@ public:
     MeshForMikkt(std::vector<Vertex> verts, std::vector<uint32_t> indices)
     {
         idx = indices;
+        //expand verts out
+        if (verts.size() < indices.size())
+        {
+            std::vector<Vertex> _verts;
+            _verts.resize(indices.size());
+            for(int i = 0; i < indices.size(); i++)
+            {
+                _verts[i] = verts[indices[i]];
+            }
+            verts = _verts;
+        }
+        
         pos.resize(verts.size());
         norm.resize(verts.size());
         tan.resize(verts.size());
@@ -153,11 +165,15 @@ MeshData::MeshData(HelloTriangleApplication* app, std::string path)
 {
     auto _path = std::filesystem::path(path);
     auto ext = _path.extension();
+    bool tangentsLoaded = false;
+
+    std::vector<Vertex> _vertices;
+    std::vector<uint32_t> _indices;
+
+    
     if (ext.string() == ".glb")
     {
         //
-        std::vector<Vertex> _vertices;
-        std::vector<uint32_t> _indices;
         tinygltf::Model model;
         tinygltf::TinyGLTF loader;
         std::string err;
@@ -218,9 +234,8 @@ MeshData::MeshData(HelloTriangleApplication* app, std::string path)
                 for (size_t i = 0; i < accessor.count; ++i)
                 {
                     glm::vec4 uv;
-                    uv.x =  uvs[i * 3 + 0];
-                    uv.y =  uvs[i * 3 + 1];
-                    uv.z =  uvs[i * 3 + 2];
+                    uv.x =  uvs[i * 2 + 0];
+                    uv.y =  uvs[i * 2 + 1];
                     uvvec.push_back(uv);
                     
                 }
@@ -238,19 +253,25 @@ MeshData::MeshData(HelloTriangleApplication* app, std::string path)
                     colorvec.push_back(color);
                     
                 }
-                
-                accessor = model.accessors[prim.attributes[std::string("TANGENT")]];
-                bufferView = model.bufferViews[accessor.bufferView];
-                buffer = model.buffers[bufferView.buffer];
-                const float* tangents = reinterpret_cast<const float*>(&buffer.data[bufferView.byteOffset + accessor.byteOffset]);
-                for (size_t i = 0; i < accessor.count; ++i)
+
+                //TODO JS: Not every frame
+                if (prim.attributes.contains("TANGENT"))
                 {
-                    glm::vec4 tangent;
-                    tangent.x =  tangents[i * 3 + 0];
-                    tangent.y =  tangents[i * 3 + 1];
-                    tangent.z =  tangents[i * 3 + 2];
-                    tangentvec.push_back(tangent);
+                    tangentsLoaded = true;
+                    accessor = model.accessors[prim.attributes[std::string("TANGENT")]];
+                    bufferView = model.bufferViews[accessor.bufferView];
+                    buffer = model.buffers[bufferView.buffer];
+                    const float* tangents = reinterpret_cast<const float*>(&buffer.data[bufferView.byteOffset + accessor.byteOffset]);
+                    for (size_t i = 0; i < accessor.count; ++i)
+                    {
+                        glm::vec4 tangent;
+                        tangent.x =  tangents[i * 4 + 0];
+                        tangent.y =  tangents[i * 4 + 1];
+                        tangent.z =  tangents[i * 4 + 2];
+                        tangent.w =  tangents[i * 4 + 3];
+                        tangentvec.push_back(tangent);
                     
+                    }
                 }
                 accessor = model.accessors[prim.indices > -1 ? prim.indices : 0];
                 bufferView = model.bufferViews[accessor.bufferView];
@@ -274,7 +295,7 @@ MeshData::MeshData(HelloTriangleApplication* app, std::string path)
                 }
                 for(int i = 0; i < positionvec.size(); i++)
                 {
-                    _vertices.push_back({positionvec[i], colorvec[i], uvvec[i], normalvec[i], tangentvec[i]});
+                    _vertices.push_back({positionvec[i], colorvec[i], uvvec[i], normalvec[i], tangentsLoaded? tangentvec[i] :glm::vec4(-1)});
 
                 }
                 for(int i = 0; i < indexvec.size(); i++)
@@ -297,8 +318,6 @@ MeshData::MeshData(HelloTriangleApplication* app, std::string path)
             }
         }
 
-        this->vertices = _vertices;
-        this->indices = _indices;
         
    
     }
@@ -306,8 +325,7 @@ MeshData::MeshData(HelloTriangleApplication* app, std::string path)
     {
         // std::cout << "NOT IMPLEMENTED -- TANGENTS DONT WORK";
         // std::exit(-1);
-        std::vector<Vertex> _vertices;
-        std::vector<uint32_t> _indices;
+
 
         tinyobj::ObjReader reader;
         tinyobj::ObjReaderConfig reader_config;
@@ -329,7 +347,8 @@ MeshData::MeshData(HelloTriangleApplication* app, std::string path)
         std::unordered_map<Vertex, uint32_t, VertexHash> unique_vertices;
         for (const auto& shape : shapes)
         {
-            for (const auto& index : shape.mesh.indices) {
+            for (const auto& index : shape.mesh.indices)
+            {
                 Vertex vertex = {
                     {
                         attrib.vertices[3 * index.vertex_index + 0],
@@ -358,100 +377,63 @@ MeshData::MeshData(HelloTriangleApplication* app, std::string path)
                 };
                 
                    
-                   
-                
-                auto it = unique_vertices.find(vertex);
-                if (it != unique_vertices.end()) {
-                    // Vertex already exists, add index to index buffer
-                    _indices.push_back(it->second);
-                    _vertices.push_back(it->first);
-                } else {
-                    // Vertex doesn't exist, add to vertex buffer and index buffer
-                    uint32_t index = static_cast<uint32_t>(_vertices.size());
-                    unique_vertices[vertex] = index;
-                    _vertices.push_back(vertex);
-                    _indices.push_back(index);
-                }
+                _indices.push_back(idx++);
+                _vertices.push_back(vertex);
             }
         }
-
-
-        //reasonably likely the mikkt thing isnt implemented right, i couldnt get normals to render correctly 
         
-        MeshForMikkt m =  MeshForMikkt(_vertices, _indices);
-        MikktImpl mikkt = MikktImpl();
-        mikkt.calculateTangents(&m);
-        for(int i = 0; i < _vertices.size(); i++)
-        {
-            _vertices[i].normal = glm::vec4(m.norm[i].x,m.norm[i].y,m.norm[i].z,0.0);
-            _vertices[i].tangent = m.tan[i];
-                
-        }
-            
-        std::vector<uint32_t> index_data;
-
-        std::vector<int> remappedIndices;
-        remappedIndices.resize(_vertices.size());
-        std::vector<float> flatMeshForWelder;
-        for(int i = 0; i < _vertices.size(); i++)
-        {
-            flatMeshForWelder.push_back(m.pos[i].x);
-            flatMeshForWelder.push_back(m.pos[i].y);
-            flatMeshForWelder.push_back(m.pos[i].z);
-            flatMeshForWelder.push_back(m.norm[i].x);
-            flatMeshForWelder.push_back(m.norm[i].y);
-            flatMeshForWelder.push_back(m.norm[i].z);
-            flatMeshForWelder.push_back(m.uv[i].x);
-            flatMeshForWelder.push_back(m.uv[i].y);
-            flatMeshForWelder.push_back(1.0);
-            flatMeshForWelder.push_back(_vertices[i].color.x);
-            flatMeshForWelder.push_back(_vertices[i].color.y);
-            flatMeshForWelder.push_back(_vertices[i].color.z);
-            flatMeshForWelder.push_back(m.tan[i].x);
-            flatMeshForWelder.push_back(m.tan[i].y);
-            flatMeshForWelder.push_back(m.tan[i].z);
-            flatMeshForWelder.push_back(m.tan[i].a);
-        
-        }
-        std::vector<float> welderOutput;
-        welderOutput.resize(flatMeshForWelder.size());
-        int uniqueverts = WeldMesh(remappedIndices.data(),welderOutput.data(), flatMeshForWelder.data(),_vertices.size(), 16);
-
-        for(int i = 0; i< (uniqueverts ); i++)
-        {
-            _vertices[i].pos.x = welderOutput[(i*16) +0]; 
-            _vertices[i].pos.y = welderOutput[(i*16) +1]; 
-            _vertices[i].pos.z = welderOutput[(i*16) +2]; 
-            _vertices[i].normal.x = welderOutput[(i*16) +3]; 
-            _vertices[i].normal.y = welderOutput[(i*16) +4]; 
-            _vertices[i].normal.z = welderOutput[(i*16) +5]; 
-            _vertices[i].texCoord.x = welderOutput[(i*16) +6]; 
-            _vertices[i].texCoord.y = welderOutput[(i*16) +7]; 
-            _vertices[i].texCoord.z = welderOutput[(i*16) +8]; 
-            _vertices[i].color.x = welderOutput[(i*16) +9]; 
-            _vertices[i].color.y = welderOutput[(i*16) +10]; 
-            _vertices[i].color.z = welderOutput[(i*16) +11]; 
-            _vertices[i].tangent.x = welderOutput[(i*16) +12]; 
-            _vertices[i].tangent.y = welderOutput[(i*16) +13]; 
-            _vertices[i].tangent.z = welderOutput[(i*16) +14];
-            _vertices[i].tangent.a = welderOutput[(i*16) +15]; 
-        
-        }
-
-        _indices.resize(remappedIndices.size());
-        for (int i = 0; i < remappedIndices.size(); i++)
-        {
-            _indices[i] = static_cast<uint32_t>(remappedIndices[i]);
-        }
-    
-        this->vertices = _vertices;                             
-        this->indices = _indices;
     }
     else
     {
         std::cout << "UNSUPPORTED MODEL FORMAT: '" << ext.string() <<"' IN PATH: " << path;
         std::exit(-1);
     }
+
+    //Generate MikkT tangents
+    if (!tangentsLoaded)
+    {
+        std::vector<Vertex> expandedVertices;
+        expandedVertices.resize(_indices.size());
+        for(int i =0; i < _indices.size(); i++)
+        {
+            expandedVertices[i] = _vertices[_indices[i]];
+        }
+        //
+        MeshForMikkt m =  MeshForMikkt(expandedVertices, _indices);
+        MikktImpl mikkt = MikktImpl();
+        mikkt.calculateTangents(&m);
+        for(int i = 0; i < expandedVertices.size(); i++)
+        {
+            expandedVertices[i].tangent = m.tan[i];
+                
+        }
+
+        _vertices.clear();
+        _indices.clear();
+
+        std::unordered_map<Vertex, uint32_t, VertexHash> unique_vertices;
+
+        for(Vertex vertex : expandedVertices)
+        {
+            auto it = unique_vertices.find(vertex);
+            if (it != unique_vertices.end()) {
+                // Vertex already exists, add index to index buffer
+                _indices.push_back(it->second);
+            } else {
+                // Vertex doesn't exist, add to vertex buffer and index buffer
+                uint32_t index = static_cast<uint32_t>(_vertices.size());
+                unique_vertices[vertex] = index;
+                _vertices.push_back(vertex);
+                _indices.push_back(index);
+            }
+        }
+        
+        // _indices = remapvec;
+    }
+
+    //TODO: Dedupe verts
+    this->vertices = _vertices;                             
+    this->indices = _indices;
     this->device = app->device;                                  
     this->vertBuffer  = this->meshDataCreateVertexBuffer(app);   
     this->indexBuffer = this->meshDataCreateIndexBuffer(app);    

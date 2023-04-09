@@ -147,8 +147,8 @@ void HelloTriangleApplication:: initVulkan()
 
     //Get instance
        auto instance_builder_return = instance_builder
-    .request_validation_layers()
-    .use_default_debug_messenger()
+    // .request_validation_layers()
+    // .use_default_debug_messenger()
     .require_api_version(1, 3, 0)
     .build();
     if (!instance_builder_return) {
@@ -278,7 +278,7 @@ void HelloTriangleApplication:: initVulkan()
     int placeholderTextureidx = scene.AddMaterial(
         TextureData(this, "textures/testTexture.jpg",TextureData::TextureType::DIFFUSE),
         TextureData(this, "textures/placeholder_spec.png",TextureData::TextureType::SPECULAR),
-        TextureData(this, "textures/testtexture_normal.png",TextureData::TextureType::NORMAL));
+        TextureData(this, "textures/metalbox_normal.png",TextureData::TextureType::NORMAL));
     placeholderTextureidx = scene.AddMaterial(
         TextureData(this, "textures/seamless_brick.png",TextureData::TextureType::DIFFUSE),
         TextureData(this, "textures/placeholder_spec.png",TextureData::TextureType::SPECULAR),
@@ -292,9 +292,9 @@ void HelloTriangleApplication:: initVulkan()
     TextureData(this, "textures/brick_spec.png",TextureData::TextureType::SPECULAR),
     TextureData(this, "textures/brick normal.png",TextureData::TextureType::NORMAL));
     //TODO: Scene loads mesh instead? 
- scene.AddBackingMesh(MeshData::MeshData(this, trivertices, triindices));
-      scene.AddBackingMesh(MeshData::MeshData(this,"cubesphere.glb"));
- scene.AddBackingMesh(MeshData::MeshData(this,"monkey.obj"));
+ scene.AddBackingMesh(MeshData::MeshData(this, "pig.glb"));
+    scene.AddBackingMesh(MeshData::MeshData(this,"cubesphere.glb"));
+    scene.AddBackingMesh(MeshData::MeshData(this,"monkey.obj"));
 
     // scene.AddLight(glm::vec3(0,-0.2,1 +1),glm::vec3(0.5,0.5,1),6, 4);
     scene.AddLight(glm::vec3(6,1,3 +1),glm::vec3(1,0,0),5, 2);
@@ -312,7 +312,7 @@ void HelloTriangleApplication:: initVulkan()
         int textureIndex = rand() % scene.backing_diffuse_textures.size();
         sceneObjects.push_back(
             scene.AddObject(
-                 &scene.backing_meshes[0],
+                 &scene.backing_meshes[1],
                 textureIndex,
                 glm::vec4(0,- i * 0.6,0,1),
                 MyQuaternion));
@@ -320,7 +320,7 @@ void HelloTriangleApplication:: initVulkan()
         textureIndex = rand() % scene.backing_diffuse_textures.size();
         sceneObjects.push_back(
             scene.AddObject(
-            &scene.backing_meshes[1],
+            &scene.backing_meshes[0],
            textureIndex,
                 glm::vec4(2,- i * 0.6,0.0,1),
                 MyQuaternion));
@@ -986,7 +986,7 @@ void HelloTriangleApplication::updateUniformBuffers(uint32_t currentImage, std::
     for(int i = 0; i < models.size(); i++)
     {
         glm::mat4 model = models[i];
-        // ubo.mvp = proj * view * model;
+        auto mv =  view * model;
         ubo.model= model;
         ubo.Normal = glm::transpose(glm::inverse(glm::mat3(model)));
         ubos.push_back(ubo);

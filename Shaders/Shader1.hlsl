@@ -2,8 +2,8 @@
 
 #define LIGHTCOUNT   globals.lightcount_padding_padding_padding.r
 #define VERTEXOFFSET pc.indexInfo.g
-#define TEXTUREINDEX pc.indexInfo.b
-#define NORMALINDEX TEXTUREINDEX +2 //TODO JS: temporary!
+#define TEXTURESAMPLERINDEX pc.indexInfo.b
+#define NORMALSAMPLERINDEX TEXTURESAMPLERINDEX +2 //TODO JS: temporary!
 #define OBJECTINDEX  pc.indexInfo.a
 
 struct VSInput
@@ -108,9 +108,9 @@ static float2 positions[3] = {
 	float2(-0.5, 0.5)
 };
 
-#define  DIFFUSE_INDEX  (TEXTUREINDEX * 3) + 0
-#define  SPECULAR_INDEX  (TEXTUREINDEX * 3) + 1
-#define  NORMAL_INDEX  (TEXTUREINDEX * 3) + 2
+#define  DIFFUSE_INDEX  (TEXTURESAMPLERINDEX * 3) + 0
+#define  SPECULAR_INDEX  (TEXTURESAMPLERINDEX * 3) + 1
+#define  NORMAL_INDEX  (TEXTURESAMPLERINDEX * 3) + 2
 
 // -spirv -T vs_6_5 -E Vert .\Shader1.hlsl -Fo .\triangle.vert.spv
 VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
@@ -134,15 +134,25 @@ VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
 	output.Normal = myVertex.normal.xyz;
 	output.fragmentPos = mul(ubo.Model, half4(myVertex.position.xyz, 1.0) );
 
-	//Doesn't work
-	float3 worldNormal = normalize(mul(ubo.NormalMat, float4(myVertex.normal.x, myVertex.normal.y, myVertex.normal.z,  0.0) ));
-	float3 worldTangent = normalize(mul(modelView, float4(myVertex.Tangent.x,myVertex.Tangent.y,myVertex.Tangent.z,0.0)));
-	float3 worldBinormal = cross( normalize(worldNormal), normalize(worldTangent)) * (myVertex.Tangent.w *-1 )  ;
+	float3x3 normalMatrix = ubo.NormalMat; // TODO: move
+	//bitangent = fSign * cross(vN, tangent);
+	//Not sure if the mul here is correct? would need something baked
+	float3 worldNormal = normalize(mul(normalMatrix, float4(myVertex.normal.x, myVertex.normal.y, myVertex.normal.z,  0.0) ));
+	float3 worldTangent = normalize(mul(ubo.Model, float4(myVertex.Tangent.x,myVertex.Tangent.y,myVertex.Tangent.z,1.0)));
+	worldTangent = (worldTangent - dot(worldNormal, worldTangent) * worldNormal);
+	float3 worldBinormal = (cross( (worldNormal), (worldTangent))) * ( myVertex.Tangent.w )  ;
 	
 	output.Tangent = worldTangent;
 	output.Normal = worldNormal;
 	output.BiTangent = worldBinormal;
-	output.TBN = float3x3((worldTangent), (worldBinormal), (worldNormal));
+
+    output.TBN = float3x3((worldTangent), (worldBinormal), (worldNormal));
+
+//   float3 normalW = normalize(float3(u_NormalMatrix * vec4(a_Normal.xyz, 0.0)));
+//   float3 tangentW = normalize(float3(u_ModelMatrix * vec4(a_Tangent.xyz, 0.0)));
+//   float3 bitangentW = cross(normalW, tangentW) * a_Tangent.w;
+//   v_TBN = mat3(tangentW, bitangentW, normalW);
+
 
 	output.Color = 1.0;
 	return output;
@@ -184,7 +194,7 @@ float3 getLighting(float3 incolor, float3 inNormal, float3 FragPos, float3 specM
 
 		Attenuation =  1.0 / (lightDistance * lightDistance);
 		// Attenuation = 3;
-        float spec = pow(max(dot(viewDir, reflectDir), 0.0), 4.0);
+        float spec = pow(max(dot(viewDir, reflectDir), 0.0), 4.0) ;
 
 //  spec = 0;
 		float diff = saturate(dot(inNormal, lightDir));
@@ -192,7 +202,7 @@ float3 getLighting(float3 incolor, float3 inNormal, float3 FragPos, float3 specM
 	}
 		
 
-		return float3(1,1,1) * lightContribution;
+		return incolor * lightContribution;
 
 }
 
@@ -206,17 +216,14 @@ FSOutput Frag(VSOutput input)
 {
 	FSOutput output;
 
-	float3 diff  = saturate(bindless_textures[DIFFUSE_INDEX].Sample(bindless_samplers[TEXTUREINDEX], input.Texture_ST)) ;
-	//Doesn't work
-	// float3 normalMap  = (bindless_textures[NORMAL_INDEX].Sample(bindless_samplers[NORMALINDEX], input.Texture_ST));
-	float3 specMap  = bindless_textures[SPECULAR_INDEX].Sample(bindless_samplers[TEXTUREINDEX], input.Texture_ST);
-	float3x3 tbn = transpose(input.TBN)	;
+	float3 diff  = saturate(bindless_textures[DIFFUSE_INDEX].Sample(bindless_samplers[TEXTURESAMPLERINDEX], input.Texture_ST)) ;
+	float3 normalMap  = (bindless_textures[NORMAL_INDEX].Sample(bindless_samplers[NORMALSAMPLERINDEX], input.Texture_ST));
+	float3 specMap  = bindless_textures[SPECULAR_INDEX].Sample(bindless_samplers[TEXTURESAMPLERINDEX], input.Texture_ST);
 	
-	//doesn't work
- 	// normalMap = normalize(mul(tbn, normalize((2.0 * normalMap.xyz - 1.0))));
+ 	normalMap = normalize(mul(normalize(((2.0 * normalMap) - 1.0)), input.TBN));
 
-	output.Color =  (getLighting(diff,input.Normal, input.fragmentPos, specMap)) * input.Color;
-	//  output.Color = input.Normal;
-	//  output.Color = input.Normal;
+	diff = float3(1.0,1.0,1.0);
+	output.Color =  (getLighting(diff,normalMap, input.fragmentPos, specMap)) * input.Color;
+	output.Color = input.TBN[0];
 	return output;
 }
