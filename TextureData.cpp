@@ -1,7 +1,13 @@
+#define DEBUG 
 #include "TextureData.h"
 #include "vulkan-tutorial.h"
-
 #include "stb_image.h"
+
+
+//TODO: for cubemap loading
+#include <ktxvulkan.h>
+
+
 int TEXTURE_INDEX;
 #pragma region textureData
 
@@ -30,7 +36,10 @@ TextureData::TextureData(HelloTriangleApplication* app, const char* path, Textur
             format = VK_FORMAT_R8G8B8A8_SRGB;
         }
     }
-    createTextureImage(path, format);
+
+    //TODO JS: branch better
+    textureType == CUBE ? createTextureImageKTX(path, format) : createTextureImage(path, format);
+    
     createTextureImageView(format);
     createTextureSampler();
     id = TEXTURE_INDEX++;
@@ -84,8 +93,10 @@ void TextureData::createTextureImageView(VkFormat format)
     textureImageView = appref->createImageView(textureImage, format, VK_IMAGE_ASPECT_COLOR_BIT, maxmip);
 }
 
+
 void TextureData::createTextureImage(const char* path, VkFormat format)
 {
+    
     auto workingTextureBuffer = appref->beginSingleTimeCommands(true);
     int texWidth, texHeight, texChannels;
     stbi_uc* pixels = stbi_load(path, &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
@@ -121,17 +132,55 @@ void TextureData::createTextureImage(const char* path, VkFormat format)
     
     appref->copyBufferToImage(stagingBuffer, textureImage, static_cast<uint32_t>(texWidth),
                               static_cast<uint32_t>(texHeight), workingTextureBuffer.buffer);
-
-   
     //JS: Prepare image to read in shaders
     appref->endSingleTimeCommands(workingTextureBuffer);
     vkDestroyBuffer(appref->device, stagingBuffer, nullptr);
     vkFreeMemory(appref->device, stagingBufferMemory, nullptr);
-
     appref->RUNTIME_generateMipmaps(textureImage, format, texWidth,texHeight,mipLevels);
 
+}
 
 
+void TextureData::createTextureImageKTX(const char* path, VkFormat format)
+{
+    //TODO JS: Should i create these earlier?
+    ktxVulkanDeviceInfo vdi;
+    ktxVulkanTexture texture;
+
+    ktxTexture* kTexture;
+    KTX_error_code ktxresult;
+
+    HelloTriangleApplication::bufferAndPool workingTextureBuffer = appref->beginSingleTimeCommands(true);
+
+    ktxVulkanDeviceInfo_Construct(&vdi, appref->physicalDevice, appref->device,
+                              workingTextureBuffer.queue, workingTextureBuffer.pool, nullptr);
+
+    ktxresult = ktxTexture_CreateFromNamedFile(path, KTX_TEXTURE_CREATE_NO_FLAGS, &kTexture);
+
+    if (KTX_SUCCESS != ktxresult) {
+        std::stringstream message;
+ 
+        message << "Creation of ktxTexture from \"" << path << "\" failed: " << ktxErrorString(ktxresult);
+        throw std::runtime_error(message.str());
+    }
+    
+    
+    ktxresult = ktxTexture_VkUploadEx(kTexture, &vdi, &texture,
+                                  VK_IMAGE_TILING_OPTIMAL,
+                                  VK_IMAGE_USAGE_SAMPLED_BIT,
+                                  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+#ifdef DEBUG
+    if (KTX_SUCCESS != ktxresult) {
+        std::stringstream message;
+ 
+        message << "ktxTexture_VkUpload failed: " << ktxErrorString(ktxresult);
+        throw std::runtime_error(message.str());
+    }
+
+#endif 
+    
+        //...
 }
 
 #pragma endregion

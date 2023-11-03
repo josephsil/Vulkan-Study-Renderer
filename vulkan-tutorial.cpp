@@ -26,6 +26,7 @@
 #include "TextureData.h"
 
 #include "VkBootstrap.h"
+#include "tinygltf/tiny_gltf.h"
 //zoux vkcheck version
 #define VK_CHECK(call) \
 do { \
@@ -262,7 +263,7 @@ void HelloTriangleApplication:: initVulkan()
     //Command buffer stuff
         
     createTransferCommandPool();
-    createGraphicsCommandPool();
+    createGraphicsCommandPool(  );
 
     
     createCommandBuffers();
@@ -273,7 +274,7 @@ void HelloTriangleApplication:: initVulkan()
     
     scene = Scene();
 
-    
+    TextureData(this, "textures/output-skybox.ktx", TextureData::TextureType::CUBE);
  
     int placeholderTextureidx = scene.AddMaterial(
         TextureData(this, "textures/testTexture.jpg",TextureData::TextureType::DIFFUSE),

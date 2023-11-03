@@ -262,7 +262,7 @@ MeshData::MeshData(HelloTriangleApplication* app, std::string path)
                     
                 }
 
-                //TODO JS: Not every frame
+                //TODO JS: Not every prim
                 if (prim.attributes.contains("TANGENT"))
                 {
                     tangentsLoaded = true;

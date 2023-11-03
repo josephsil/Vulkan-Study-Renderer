@@ -20,7 +20,6 @@
     }
     void Scene::Update()
     {
-        // auto objectRotation = time * glm::radians(90.0f); //TODO JS: pass in from renderr update
         glm::mat4 model;
         
         for (int i = 0; i < translations.size(); i++)

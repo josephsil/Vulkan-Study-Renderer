@@ -19,10 +19,7 @@ typedef struct VkDeviceMemory_T* VkDeviceMemory;
 #pragma endregion
 
 class HelloTriangleApplication;
-//TODO JS: multiple objects
-    //TODO: Fn which loads mesh from disk and returns this struct
 
-    //So this like, takes in a reference to the app and assigns itself to the relevant buffers/etc. Pretty gross?
     struct MeshData
     {
         
@@ -33,13 +30,11 @@ class HelloTriangleApplication;
         VkDeviceMemory indexMemory;
         std::vector<Vertex> vertices;
         std::vector<uint32_t> indices;
-        //TODO JS: Should meshdata own a device?
         VkDevice device; //Device pointers
         int vertcount;
         int id;
         
 
-        //TODO JS: Remove verts and indices fro mthis construct when we load meshes from disk
         MeshData(HelloTriangleApplication* app, std::vector<Vertex> vertices,
             std::vector<uint32_t> indices);
 

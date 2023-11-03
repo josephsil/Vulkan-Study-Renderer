@@ -8,7 +8,7 @@ VkVertexInputBindingDescription Vertex::getBindingDescription()
     VkVertexInputBindingDescription bindingDescription{};
     bindingDescription.binding = 0;
     bindingDescription.stride = sizeof(Vertex);
-    bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX; //TODO JS: Instance is an option here
+    bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX; 
 
 
     return bindingDescription;

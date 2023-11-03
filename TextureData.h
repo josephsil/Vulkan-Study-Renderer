@@ -60,4 +60,5 @@ class HelloTriangleApplication;
 
 
       void createTextureImage(const char* path, VkFormat format);
+      void createTextureImageKTX(const char* path, VkFormat format);
   };
