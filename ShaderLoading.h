@@ -19,6 +19,7 @@ public:
 
 	void AddShader(const char* name, std::wstring shaderPath);
 private:
+	void shaderCompile(std::wstring shaderFilename, bool is_frag);
 	VkShaderModule shaderLoad(std::wstring shaderFilename, bool is_frag);
 	VkDevice device_;
 };
