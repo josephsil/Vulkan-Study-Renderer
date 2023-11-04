@@ -149,8 +149,8 @@ void HelloTriangleApplication:: initVulkan()
 
     //Get instance
        auto instance_builder_return = instance_builder
-    // .request_validation_layers()
-    // .use_default_debug_messenger()
+    .request_validation_layers()
+    .use_default_debug_messenger()
     .require_api_version(1, 3, 0)
     .build();
     if (!instance_builder_return) {
@@ -275,7 +275,7 @@ void HelloTriangleApplication:: initVulkan()
     
     scene = Scene();
 
-   cube = TextureData(this, "textures/output_skybox.ktx", TextureData::TextureType::CUBE);
+   cube = TextureData(this, "textures/output_skybox8.ktx2", TextureData::TextureType::CUBE);
  
     int placeholderTextureidx = scene.AddMaterial(
         TextureData(this, "textures/testTexture.jpg",TextureData::TextureType::DIFFUSE),
@@ -294,7 +294,7 @@ void HelloTriangleApplication:: initVulkan()
     TextureData(this, "textures/brick_spec.png",TextureData::TextureType::SPECULAR),
     TextureData(this, "textures/brick normal.png",TextureData::TextureType::NORMAL));
     //TODO: Scene loads mesh instead? 
- scene.AddBackingMesh(MeshData::MeshData(this, "pig.glb"));
+    scene.AddBackingMesh(MeshData::MeshData(this, "pig.glb"));
     scene.AddBackingMesh(MeshData::MeshData(this,"cubesphere.glb"));
     scene.AddBackingMesh(MeshData::MeshData(this,"monkey.obj"));
 
@@ -308,9 +308,8 @@ void HelloTriangleApplication:: initVulkan()
     glm::vec3 EulerAngles(0, 0, 0);
     auto MyQuaternion = glm::quat(EulerAngles);
 
-    for(int i = 0; i < 2000; i++)
+    for(int i = 0; i < 300; i++)
     {
-        int random_number = rand() % scene.backing_meshes.size();
         int textureIndex = rand() % scene.backing_diffuse_textures.size();
         sceneObjects.push_back(
             scene.AddObject(
@@ -318,7 +317,6 @@ void HelloTriangleApplication:: initVulkan()
                 textureIndex,
                 glm::vec4(0,- i * 0.6,0,1),
                 MyQuaternion));
-        random_number =rand() % scene.backing_meshes.size();
         textureIndex = rand() % scene.backing_diffuse_textures.size();
         sceneObjects.push_back(
             scene.AddObject(
@@ -326,7 +324,6 @@ void HelloTriangleApplication:: initVulkan()
            textureIndex,
                 glm::vec4(2,- i * 0.6,0.0,1),
                 MyQuaternion));
-        random_number =rand() % scene.backing_meshes.size();
         textureIndex = rand() % scene.backing_diffuse_textures.size();
         sceneObjects.push_back(
                scene.AddObject(
@@ -336,6 +333,7 @@ void HelloTriangleApplication:: initVulkan()
                    MyQuaternion));
     }
 
+    
     
     createDescriptorSetLayout();
 
@@ -380,12 +378,12 @@ void HelloTriangleApplication::updateMeshBuffers()
 }
 
 #pragma region images 
-VkImageView HelloTriangleApplication::createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t miplevels, uint32_t layerCount)
+VkImageView HelloTriangleApplication::createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, VkImageViewType type, uint32_t miplevels, uint32_t layerCount)
 {
     VkImageViewCreateInfo viewInfo{};
     viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     viewInfo.image = image;
-    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    viewInfo.viewType = type;
     viewInfo.format = format;
     viewInfo.subresourceRange.aspectMask = aspectFlags;
     viewInfo.subresourceRange.baseMipLevel = 0; //TODO JS: pass in something more robust?
@@ -738,7 +736,7 @@ void HelloTriangleApplication::createUniformBuffers()
     samplerLayoutBinding.descriptorCount = scene.backing_diffuse_textures.size() * 3; // TODO JS: just make really big?
     samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
     samplerLayoutBinding.pImmutableSamplers = nullptr;
-    samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT ;
 
     VkDescriptorSetLayoutBinding meshLayoutBinding{};
     meshLayoutBinding.binding = 3;
@@ -790,7 +788,7 @@ void HelloTriangleApplication::createUniformBuffers()
     VkDescriptorSetLayoutCreateInfo pushDescriptorLayout{};
     pushDescriptorLayout.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     //Set flag to use push descriptors
-    pushDescriptorLayout.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR;
+    pushDescriptorLayout.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR | VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
     pushDescriptorLayout.bindingCount = static_cast<uint32_t>(pushConstantBindings.size());
     pushDescriptorLayout.pBindings = pushConstantBindings.data();
 
@@ -984,7 +982,7 @@ void HelloTriangleApplication::updateUniformBuffers(uint32_t currentImage, std::
 
    
     ShaderGlobals globals;
-    glm::vec3 eyePos = glm::vec3(0.0f, 2.0f, 3.0f);
+    glm::vec3 eyePos = glm::vec3(2.0f, 1.0f, 0.0f);
     glm::mat4 view = glm::lookAt(eyePos, glm::vec3(0.0f, -1.0f, 0.5f), glm::vec3(0.0f, 0.0f, 1.0f));
 
     glm::mat4 proj = glm::perspective(glm::radians(70.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f,
@@ -1178,7 +1176,7 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
             writeDescriptorSets[2].dstBinding = 2;
             writeDescriptorSets[2].dstArrayElement = 0;
             writeDescriptorSets[2].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
-            writeDescriptorSets[2].descriptorCount = scene.backing_diffuse_textures.size();
+            writeDescriptorSets[2].descriptorCount = scene.backing_diffuse_textures.size() * 3;
 
             writeDescriptorSets[2].pImageInfo = samplerifos.data();
 

@@ -48,7 +48,7 @@ class HelloTriangleApplication;
       void createTextureSampler();
 
 
-      void createTextureImageView( VkFormat format);
+      void createTextureImageView(VkFormat format, VkImageViewType type);
       
 
       //TODO JS: 

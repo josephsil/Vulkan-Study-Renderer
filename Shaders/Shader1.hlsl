@@ -228,8 +228,11 @@ FSOutput Frag(VSOutput input)
 	
  	normalMap = normalize(mul(normalize(((2.0 * normalMap) - 1.0)), input.TBN));
 
+	float4 envColor = cube.Sample(cubeSampler,  float3(input.Normal.x, input.Normal.y, -input.Normal.z), 1);
 	// diff = float3(1.0,1.0,1.0);
 	output.Color =  (getLighting(diff,normalMap, input.fragmentPos, specMap)) * input.Color;
+
+		output.Color =envColor;
 	// output.Color = input.TBN[0];
 	return output;
 }

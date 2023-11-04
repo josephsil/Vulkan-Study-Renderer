@@ -35,6 +35,8 @@ class Scene
     std::vector<TextureData> backing_specular_textures;
     std::vector<TextureData> backing_normal_textures;
     std::vector<MeshData> backing_meshes;
+    std::vector<MeshData> misc_meshes;
+
     
     Scene();
     void Update();

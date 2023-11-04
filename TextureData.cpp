@@ -34,14 +34,14 @@ TextureData::TextureData(HelloTriangleApplication* app, const char* path, Textur
         }
     case TextureType::CUBE:
         {
-            format = VK_FORMAT_R8G8B8A8_SRGB;
+            format = VK_FORMAT_R8G8B8A8_UNORM;
         }
     }
 
     //TODO JS: branch better
     textureType == CUBE ? createCubemapImageKTX(path, format) : createTextureImage(path, format);
     
-    createTextureImageView(format);
+    createTextureImageView(format,  textureType == CUBE ? VK_IMAGE_VIEW_TYPE_CUBE : VK_IMAGE_VIEW_TYPE_2D);
     createTextureSampler();
     id = TEXTURE_INDEX++;
 }
@@ -87,9 +87,9 @@ void TextureData::createTextureSampler()
     }
 }
 
-void TextureData::createTextureImageView(VkFormat format)
+void TextureData::createTextureImageView(VkFormat format, VkImageViewType type)
 {
-    textureImageView = appref->createImageView(textureImage, format, VK_IMAGE_ASPECT_COLOR_BIT, maxmip, layerct);
+    textureImageView = appref->createImageView(textureImage, format, VK_IMAGE_ASPECT_COLOR_BIT, type, maxmip, layerct);
 }
 
 
