@@ -48,7 +48,7 @@ class Scene;
        void RUNTIME_generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
        
        VkImageView createImageView(VkImage image, VkFormat format,
-                                   VkImageAspectFlags aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT, uint32_t miplevels = 1);
+                                   VkImageAspectFlags aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT, uint32_t miplevels = 1, uint32_t layerCount = 1);
 
        void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout,
                                   VkCommandBuffer workingBuffer = nullptr, uint32_t miplevels = 1);
@@ -114,6 +114,7 @@ class Scene;
         void createDescriptorSets(TextureData tex);
         VkPipeline graphicsPipeline_1;
         VkPipeline graphicsPipeline_2;
+       VkPipeline testSkyPipeline;
 
         struct SwapChainSupportDetails
         {

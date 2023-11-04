@@ -85,6 +85,12 @@ RWStructuredBuffer<MyLightStructure> lights;
 [[vk::binding(5)]]
 RWStructuredBuffer<UBO> uboarr;
 
+[[vk::binding(6)]]
+TextureCube cube;
+
+[[vk::binding(7)]]
+SamplerState cubeSampler;
+
 [[vk::push_constant]]
 pconstant pc;
 

@@ -131,6 +131,7 @@ void HelloTriangleApplication::initWindow()
 //TODO JS: Real meshes should be kept by some kind of scene manager 
 MeshData _placeholderMesh;
 TextureData _placeholderTexture;
+TextureData cube;
 
 Scene scene;
 vkb::Instance vkb_instance;
@@ -274,7 +275,7 @@ void HelloTriangleApplication:: initVulkan()
     
     scene = Scene();
 
-    TextureData(this, "textures/output-skybox.ktx", TextureData::TextureType::CUBE);
+   cube = TextureData(this, "textures/output_skybox.ktx", TextureData::TextureType::CUBE);
  
     int placeholderTextureidx = scene.AddMaterial(
         TextureData(this, "textures/testTexture.jpg",TextureData::TextureType::DIFFUSE),
@@ -357,8 +358,6 @@ void HelloTriangleApplication:: initVulkan()
 void HelloTriangleApplication::updateMeshBuffers()
 {
 
-
-
     std::vector<gpuvertex> verts;
     for (int j = 0; j < scene.backing_meshes.size(); j++)
     {
@@ -381,7 +380,7 @@ void HelloTriangleApplication::updateMeshBuffers()
 }
 
 #pragma region images 
-VkImageView HelloTriangleApplication::createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t miplevels)
+VkImageView HelloTriangleApplication::createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t miplevels, uint32_t layerCount)
 {
     VkImageViewCreateInfo viewInfo{};
     viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -389,10 +388,10 @@ VkImageView HelloTriangleApplication::createImageView(VkImage image, VkFormat fo
     viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
     viewInfo.format = format;
     viewInfo.subresourceRange.aspectMask = aspectFlags;
-    viewInfo.subresourceRange.baseMipLevel = 0;
+    viewInfo.subresourceRange.baseMipLevel = 0; //TODO JS: pass in something more robust?
     viewInfo.subresourceRange.levelCount = miplevels;
-    viewInfo.subresourceRange.baseArrayLayer = 0;
-    viewInfo.subresourceRange.layerCount = 1;
+    viewInfo.subresourceRange.baseArrayLayer = 0; //TODO JS: pass in something more robust?
+    viewInfo.subresourceRange.layerCount = layerCount;
 
     VkImageView imageView;
     if (vkCreateImageView(device, &viewInfo, nullptr, &imageView) != VK_SUCCESS)
@@ -761,14 +760,31 @@ void HelloTriangleApplication::createUniformBuffers()
     uboBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     uboBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
     uboBinding.pImmutableSamplers = nullptr; // Optional
+
+    VkDescriptorSetLayoutBinding cubeTextureBinding{};
+    cubeTextureBinding.binding = 6;
+    cubeTextureBinding.descriptorCount = 1; // TODO JS: just make really big?
+    cubeTextureBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+    cubeTextureBinding.pImmutableSamplers = nullptr;
+    cubeTextureBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    VkDescriptorSetLayoutBinding cubeSamplerBinding{};
+    cubeSamplerBinding.binding = 7;
+    cubeSamplerBinding.descriptorCount = 1; // TODO JS: just make really big?
+    cubeSamplerBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
+    cubeSamplerBinding.pImmutableSamplers = nullptr;
+    cubeSamplerBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
     
-    std::array<VkDescriptorSetLayoutBinding, 6> pushConstantBindings =
+    std::array<VkDescriptorSetLayoutBinding, 8> pushConstantBindings =
         {globalsBinding,
         textureLayoutBinding,
         samplerLayoutBinding,
         meshLayoutBinding,
         lightLayoutBinding,
-        uboBinding};
+        uboBinding,
+        cubeTextureBinding,
+        cubeSamplerBinding};
 
 
     VkDescriptorSetLayoutCreateInfo pushDescriptorLayout{};
@@ -1016,8 +1032,6 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
     VkPipeline graphicsPipeline, MeshData* _mesh)
 {
 
-
-    
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     beginInfo.flags = 0; // Optional
@@ -1135,8 +1149,16 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
         samplerifos.push_back(imageInfo);
     }
 
+    VkDescriptorImageInfo cubeimageInfo;
+    cubeimageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    cubeimageInfo.imageView = cube.textureImageView;
+    VkDescriptorImageInfo cubesamplerInfo;
+    cubesamplerInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    cubesamplerInfo.sampler = cube.textureSampler;
+
+
             
-            std::array<VkWriteDescriptorSet, 6> writeDescriptorSets{};
+            std::array<VkWriteDescriptorSet, 8> writeDescriptorSets{};
             writeDescriptorSets[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             writeDescriptorSets[0].dstBinding = 0;
             writeDescriptorSets[0].descriptorCount = 1;
@@ -1179,6 +1201,20 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
             writeDescriptorSets[5].descriptorCount = 1;
             writeDescriptorSets[5].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
             writeDescriptorSets[5].pBufferInfo = &uniformbufferinfo;
+
+
+    writeDescriptorSets[6].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writeDescriptorSets[6].dstBinding = 6;
+    writeDescriptorSets[6].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+    writeDescriptorSets[6].descriptorCount = 1;
+    writeDescriptorSets[6].pImageInfo = &cubeimageInfo;
+
+    writeDescriptorSets[7].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writeDescriptorSets[7].dstBinding = 7;
+    writeDescriptorSets[7].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
+    writeDescriptorSets[7].descriptorCount = 1;
+    writeDescriptorSets[7].pImageInfo = &cubesamplerInfo;
+
             
             
             //3 based on my layout

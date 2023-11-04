@@ -34,7 +34,8 @@ class HelloTriangleApplication;
       HelloTriangleApplication* appref;
       VkImage textureImage;
       VkDeviceMemory textureImageMemory;
-      uint32_t maxmip =0;
+      uint32_t maxmip = 1;
+      uint32_t layerct = 1;
       int id;
 
       TextureData(HelloTriangleApplication* app, const char* path, TextureData::TextureType type);
@@ -60,5 +61,5 @@ class HelloTriangleApplication;
 
 
       void createTextureImage(const char* path, VkFormat format);
-      void createTextureImageKTX(const char* path, VkFormat format);
+      void createCubemapImageKTX(const char* path, VkFormat format);
   };

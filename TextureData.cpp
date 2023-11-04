@@ -3,13 +3,14 @@
 #include "vulkan-tutorial.h"
 #include "stb_image.h"
 
-
+#define KHRONOS_STATIC
 //TODO: for cubemap loading
 #include <ktxvulkan.h>
 
 
 int TEXTURE_INDEX;
 #pragma region textureData
+
 
 TextureData::TextureData(HelloTriangleApplication* app, const char* path, TextureData::TextureType textureType)
 {
@@ -38,16 +39,13 @@ TextureData::TextureData(HelloTriangleApplication* app, const char* path, Textur
     }
 
     //TODO JS: branch better
-    textureType == CUBE ? createTextureImageKTX(path, format) : createTextureImage(path, format);
+    textureType == CUBE ? createCubemapImageKTX(path, format) : createTextureImage(path, format);
     
     createTextureImageView(format);
     createTextureSampler();
     id = TEXTURE_INDEX++;
 }
-
-TextureData::TextureData()
-{
-}
+TextureData::TextureData(){};
 
 void TextureData::cleanup()
 {
@@ -55,6 +53,7 @@ void TextureData::cleanup()
     vkDestroyImageView(appref->device, textureImageView, nullptr);
     vkDestroyImage(appref->device, textureImage, nullptr);
     vkFreeMemory(appref->device, textureImageMemory, nullptr);
+  
 }
 
 void TextureData::createTextureSampler()
@@ -75,9 +74,9 @@ void TextureData::createTextureSampler()
     samplerInfo.compareEnable = VK_FALSE;
     samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
     samplerInfo.anisotropyEnable = VK_FALSE;
-    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR; //TODO JS
     samplerInfo.minLod = 0.0; // Optional
-    samplerInfo.maxLod = VK_LOD_CLAMP_NONE ;
+    samplerInfo.maxLod = maxmip;
     samplerInfo.mipLodBias = 0.0f; // Optional
 
        
@@ -90,7 +89,7 @@ void TextureData::createTextureSampler()
 
 void TextureData::createTextureImageView(VkFormat format)
 {
-    textureImageView = appref->createImageView(textureImage, format, VK_IMAGE_ASPECT_COLOR_BIT, maxmip);
+    textureImageView = appref->createImageView(textureImage, format, VK_IMAGE_ASPECT_COLOR_BIT, maxmip, layerct);
 }
 
 
@@ -141,7 +140,7 @@ void TextureData::createTextureImage(const char* path, VkFormat format)
 }
 
 
-void TextureData::createTextureImageKTX(const char* path, VkFormat format)
+void TextureData::createCubemapImageKTX(const char* path, VkFormat format)
 {
     //TODO JS: Should i create these earlier?
     ktxVulkanDeviceInfo vdi;
@@ -164,11 +163,20 @@ void TextureData::createTextureImageKTX(const char* path, VkFormat format)
         throw std::runtime_error(message.str());
     }
     
-    
+
+    //TODO JS: Should i use this helper elsewhere?
     ktxresult = ktxTexture_VkUploadEx(kTexture, &vdi, &texture,
                                   VK_IMAGE_TILING_OPTIMAL,
                                   VK_IMAGE_USAGE_SAMPLED_BIT,
                                   VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+    ktxTexture_Destroy(kTexture);
+    //TODO JS: destroy vdi?
+    //TODO JS: is it right to throw away the ktxVulkanTexture here without a free or w/e?
+    maxmip = texture.levelCount;
+    layerct = texture.layerCount;
+    textureImage = texture.image;
+    textureImageMemory = texture.deviceMemory;
 
 #ifdef DEBUG
     if (KTX_SUCCESS != ktxresult) {
