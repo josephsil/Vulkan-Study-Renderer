@@ -5,6 +5,8 @@
 #define TEXTURESAMPLERINDEX pc.indexInfo.b
 #define NORMALSAMPLERINDEX TEXTURESAMPLERINDEX +2 //TODO JS: temporary!
 #define OBJECTINDEX  pc.indexInfo.a
+#define SKYBOXLUTINDEX globals.lutIDX_lutSamplerIDX_padding_padding.x
+#define SKYBOXLUTSAMPLERINDEX globals.lutIDX_lutSamplerIDX_padding_padding.y
 
 struct VSInput
 {
@@ -29,6 +31,7 @@ struct ShaderGlobals
 	float4x4 projection;
 	float4 viewPos;
 	float4 lightcount_padding_padding_padding;
+	float4 lutIDX_lutSamplerIDX_padding_padding;
 };
 struct pconstant
 {
@@ -86,10 +89,10 @@ RWStructuredBuffer<MyLightStructure> lights;
 RWStructuredBuffer<UBO> uboarr;
 
 [[vk::binding(6)]]
-TextureCube cube;
+TextureCube cubes[];
 
 [[vk::binding(7)]]
-SamplerState cubeSampler;
+SamplerState cubeSamplers[];
 
 [[vk::push_constant]]
 pconstant pc;
@@ -100,9 +103,9 @@ struct VSOutput
 {
 	[[vk::location(0)]] float4 Pos : SV_POSITION;
 	[[vk::location(1)]] float3 Color : COLOR0;
-	[[vk::location(2)]] float3 Texture_ST : TEXCOORD0;
+	[[vk::location(2)]] float2 Texture_ST : TEXCOORD0;
 	[[vk::location(3)]] float3 Normal : NORMAL0;
-	[[vk::location(4)]] float3 fragmentPos : TEXCOORD1;
+	[[vk::location(4)]] float3 worldPos : TEXCOORD1;
 	[[vk::location(5)]] float3 Tangent : TEXCOORD2;
 	[[vk::location(6)]] float3 BiTangent : TEXCOORD3;
 	[[vk::location(7)]] float3x3 TBN : TEXCOORD4;
@@ -134,12 +137,33 @@ VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
 	VSOutput output = (VSOutput)0;
 	float4x4 modelView = mul( globals.view, ubo.Model);
 	float4x4 mvp = mul(globals.projection,modelView);
+	output.Pos = mul(mvp, half4(myVertex.position.xyz, 1.0));
+	output.Texture_ST = myVertex.uv0.xy;
+	output.Color = myVertex.normal.xyz;
+	output.Normal = myVertex.normal.xyz;
+	output.worldPos = mul(ubo.Model, half4(myVertex.position.xyz, 1.0) );
 
-	 output.Pos = float4(float2((VertexIndex << 1) & 2, VertexIndex & 2) * 2.0f + -1.0f, 0.0f, 1.0f);
-	 output.Texture_ST = output.Pos.xyz;
-	 output.Texture_ST.xy*= -1.0;
+	float3x3 normalMatrix = ubo.Model; // ?????
+	//bitangent = fSign * cross(vN, tangent);
+	//Not sure if the mul here is correct? would need something baked
+	float3 worldNormal = normalize(mul(normalMatrix, float4(myVertex.normal.x, myVertex.normal.y, myVertex.normal.z,  0.0) ));
+	float3 worldTangent = normalize(mul(ubo.Model, float4(myVertex.Tangent.x,myVertex.Tangent.y,myVertex.Tangent.z,1.0)));
+	worldTangent = (worldTangent - dot(worldNormal, worldTangent) * worldNormal);
+	float3 worldBinormal = (cross( (worldNormal), (worldTangent))) * ( myVertex.Tangent.w )  ;
+	
+	output.Tangent = worldTangent;
+	output.Normal = worldNormal;
+	output.BiTangent = worldBinormal;
 
-	output.Color = float3(output.Texture_ST.x, output.Texture_ST.y, 0) ;
+    output.TBN = float3x3((worldTangent), (worldBinormal), (worldNormal));
+
+//   float3 normalW = normalize(float3(u_NormalMatrix * vec4(a_Normal.xyz, 0.0)));
+//   float3 tangentW = normalize(float3(u_ModelMatrix * vec4(a_Tangent.xyz, 0.0)));
+//   float3 bitangentW = cross(normalW, tangentW) * a_Tangent.w;
+//   v_TBN = mat3(tangentW, bitangentW, normalW);
+
+
+	output.Color = 1.0;
 	return output;
 }
 
@@ -150,13 +174,46 @@ struct FSInput
 	//[[vk::location(0)]] float4 Pos : SV_POSITION;
 	[[vk::location(0)]] float3 Pos : SV_POSITION;
 	[[vk::location(1)]] float3 Color : COLOR0;
-	[[vk::location(2)]] float3 Texture_ST : TEXCOORD0;
+	[[vk::location(2)]] float2 Texture_ST : TEXCOORD0;
 	[[vk::location(3)]] float3 Normal : NORMAL0;
-	[[vk::location(4)]] float3 fragmentPos : TEXCOORD1;
+	[[vk::location(4)]] float3 worldPos : TEXCOORD1;
 	[[vk::location(5)]] float3 Tangent : TEXCOORD2;
 	[[vk::location(6)]] float3 BiTangent : TEXCOORD3;
 	[[vk::location(7)]] float3x3 TBN : TEXCOORD4;
 };
+
+float3 getLighting(float3 incolor, float3 inNormal, float3 FragPos, float3 specMap)
+{
+	float3 lightContribution = float3(0,0,0);
+	for(int i = 0; i < LIGHTCOUNT; i++)
+	{
+		MyLightStructure light = lights[i];
+		float3 lightPos = light.position_range.xyz;
+		float lightRange = light.position_range.a;
+		float3 lightColor = light.color_intensity.xyz * light.color_intensity.a;
+		float3 lightToFrag   = lightPos - FragPos;
+		float3 lightDir = normalize(lightToFrag);
+		float lightDistance = length(lightToFrag);
+		float3 viewDir    = normalize( globals.viewPos - FragPos );
+		float3 halfwayDir = normalize(lightDir + viewDir);
+
+		float3 reflectDir = normalize(reflect(-lightDir, inNormal));
+
+   		float Attenuation =  saturate(lightRange / lightDistance);
+
+		Attenuation =  1.0 / (lightDistance * lightDistance);
+		// Attenuation = 3;
+        float spec = pow(max(dot(viewDir, reflectDir), 0.0), 16.0) ;
+
+//  spec = 0;
+		float diff = saturate(dot(inNormal, lightDir));
+		lightContribution += ((lightColor * diff) * Attenuation ) + ((spec * lightColor));
+	}
+		
+
+		return incolor * lightContribution;
+
+}
 
 
 
@@ -166,11 +223,21 @@ struct FSInput
 
 FSOutput Frag(VSOutput input)
 {
-	float4 envColor = cube.Sample(cubeSampler, float3(input.Texture_ST.x,input.Texture_ST.y, 1));
 	FSOutput output;
 
+	float3 diff  = saturate(bindless_textures[DIFFUSE_INDEX].Sample(bindless_samplers[TEXTURESAMPLERINDEX], input.Texture_ST)) ;
+	float3 normalMap  = (bindless_textures[NORMAL_INDEX].Sample(bindless_samplers[NORMALSAMPLERINDEX], input.Texture_ST));
+	float3 specMap  = bindless_textures[SPECULAR_INDEX].Sample(bindless_samplers[TEXTURESAMPLERINDEX], input.Texture_ST);
+	float3 cubeLUT = bindless_textures[SKYBOXLUTINDEX].Sample(bindless_samplers[SKYBOXLUTINDEX], input.Texture_ST);
+ 	normalMap = normalize(mul(normalize(((2.0 * normalMap) - 1.0)), input.TBN));
+	float3 fixedNormals = normalMap.xzy; // TODO JS: uhhh concerning that this works. what else is broken?
+	float3 irradience =  cubes[0].Sample(cubeSamplers[0],  fixedNormals, 1).rgb;
+	float4 specularcube = cubes[1].Sample(cubeSamplers[1],  fixedNormals, 1);
 	// diff = float3(1.0,1.0,1.0);
-	output.Color =  envColor.rgb;
+	output.Color =  (getLighting(diff,normalMap, input.worldPos, specMap)) * input.Color;
+
+		output.Color = irradience;
+		output.Color = output.Color;
 	// output.Color = input.TBN[0];
 	return output;
 }

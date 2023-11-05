@@ -64,17 +64,29 @@ class Scene;
        void endSingleTimeCommands(VkCommandBuffer buffer);
        void endSingleTimeCommands(bufferAndPool commandBuffer);
 
+    struct QueueData
+{
+    VkQueue graphicsQueue;
+    uint32_t graphicsQueueFamily;
+    VkQueue presentQueue;
+    uint32_t presentQueueFamily;
+    VkQueue transferQueue;
+    uint32_t transferQueueFamily;
+    VkQueue computeQueue;
+    uint32_t computeQueueFamily;
+};
+       QueueData Queues;
+
     private:
 
        PFN_vkCmdPushDescriptorSetKHR vkCmdPushDescriptorSetKHR;
        VkPhysicalDevicePushDescriptorPropertiesKHR pushDescriptorProps{};
-        std::vector<int> sceneObjects;
         struct SDL_Window* _window{nullptr};
         VkInstance instance;
         VkDebugUtilsMessengerEXT debugMessenger;
         //GLFWwindow* window;
-        int WIDTH = 800;
-        int HEIGHT = 600;
+        int WIDTH = 1280;
+        int HEIGHT = 720;
        int fullscreenquadIDX;
       
 
@@ -124,9 +136,6 @@ class Scene;
             std::vector<VkPresentModeKHR> presentModes;
         };
 
-        const std::vector<const char*> deviceExtensions = {
-            VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME, VK_KHR_MAINTENANCE_4_EXTENSION_NAME
-        };
 
         std::vector<VkFramebuffer> swapChainFramebuffers;
 
@@ -136,22 +145,11 @@ class Scene;
 
         VkCommandPool commandPool;
         VkCommandPool transferCommandPool;
-        std::vector<int> randomMeshes;
-        std::vector<int> randomMaterials;
-        int cubemaplut_utilitytexture_index;
+    int cubemaplut_utilitytexture_index;
         
 
       
         MeshData* fullscreenQuad;
-      
-
-
-  
-
-        TextureData* placeholderTexture;
-        //STill not 100% sure how the mesh and material component of a "draw' is supposed to get submitted in a real program
-        //I think my mesh/texture structs are vaguely along the right lines, but the _work_ getting done shouldnt be taking in copies, it should be refs
-        //The work probably shouldnt be happening on a per tex or per mesh case either?
 
         std::vector<VkCommandBuffer> commandBuffers;
 
@@ -238,7 +236,7 @@ class Scene;
 
 
        void updateLightBuffers(uint32_t currentImage);
-       void updateMeshBuffers();
+       void populateMeshBuffers();
        void updateDescriptorSet(Scene* scene, int idx);
 
 

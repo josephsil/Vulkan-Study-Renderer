@@ -174,6 +174,7 @@ void TextureData::createCubemapImageKTX(const char* path, VkFormat format)
                                   VK_IMAGE_USAGE_SAMPLED_BIT,
                                   VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
+
     ktxTexture_Destroy(kTexture);
     //TODO JS: destroy vdi?
     //TODO JS: is it right to throw away the ktxVulkanTexture here without a free or w/e?
