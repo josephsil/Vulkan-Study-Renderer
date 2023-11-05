@@ -5,6 +5,8 @@
 #define TEXTURESAMPLERINDEX pc.indexInfo.b
 #define NORMALSAMPLERINDEX TEXTURESAMPLERINDEX +2 //TODO JS: temporary!
 #define OBJECTINDEX  pc.indexInfo.a
+#define SKYBOXLUTINDEX globals.lutIDX_lutSamplerIDX_padding_padding.x
+#define SKYBOXLUTSAMPLERINDEX globals.lutIDX_lutSamplerIDX_padding_padding.y
 
 struct VSInput
 {
@@ -29,6 +31,7 @@ struct ShaderGlobals
 	float4x4 projection;
 	float4 viewPos;
 	float4 lightcount_padding_padding_padding;
+	float4 lutIDX_lutSamplerIDX_padding_padding;
 };
 struct pconstant
 {
@@ -102,7 +105,7 @@ struct VSOutput
 	[[vk::location(1)]] float3 Color : COLOR0;
 	[[vk::location(2)]] float2 Texture_ST : TEXCOORD0;
 	[[vk::location(3)]] float3 Normal : NORMAL0;
-	[[vk::location(4)]] float3 fragmentPos : TEXCOORD1;
+	[[vk::location(4)]] float3 worldPos : TEXCOORD1;
 	[[vk::location(5)]] float3 Tangent : TEXCOORD2;
 	[[vk::location(6)]] float3 BiTangent : TEXCOORD3;
 	[[vk::location(7)]] float3x3 TBN : TEXCOORD4;
@@ -138,9 +141,9 @@ VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
 	output.Texture_ST = myVertex.uv0.xy;
 	output.Color = myVertex.normal.xyz;
 	output.Normal = myVertex.normal.xyz;
-	output.fragmentPos = mul(ubo.Model, half4(myVertex.position.xyz, 1.0) );
+	output.worldPos = mul(ubo.Model, half4(myVertex.position.xyz, 1.0) );
 
-	float3x3 normalMatrix = ubo.NormalMat; // TODO: move
+	float3x3 normalMatrix = ubo.Model; // ?????
 	//bitangent = fSign * cross(vN, tangent);
 	//Not sure if the mul here is correct? would need something baked
 	float3 worldNormal = normalize(mul(normalMatrix, float4(myVertex.normal.x, myVertex.normal.y, myVertex.normal.z,  0.0) ));
@@ -173,7 +176,7 @@ struct FSInput
 	[[vk::location(1)]] float3 Color : COLOR0;
 	[[vk::location(2)]] float2 Texture_ST : TEXCOORD0;
 	[[vk::location(3)]] float3 Normal : NORMAL0;
-	[[vk::location(4)]] float3 fragmentPos : TEXCOORD1;
+	[[vk::location(4)]] float3 worldPos : TEXCOORD1;
 	[[vk::location(5)]] float3 Tangent : TEXCOORD2;
 	[[vk::location(6)]] float3 BiTangent : TEXCOORD3;
 	[[vk::location(7)]] float3x3 TBN : TEXCOORD4;
@@ -225,14 +228,14 @@ FSOutput Frag(VSOutput input)
 	float3 diff  = saturate(bindless_textures[DIFFUSE_INDEX].Sample(bindless_samplers[TEXTURESAMPLERINDEX], input.Texture_ST)) ;
 	float3 normalMap  = (bindless_textures[NORMAL_INDEX].Sample(bindless_samplers[NORMALSAMPLERINDEX], input.Texture_ST));
 	float3 specMap  = bindless_textures[SPECULAR_INDEX].Sample(bindless_samplers[TEXTURESAMPLERINDEX], input.Texture_ST);
-	
+	float3 cubeLUT = bindless_textures[SKYBOXLUTINDEX].Sample(bindless_samplers[SKYBOXLUTINDEX], input.Texture_ST);
  	normalMap = normalize(mul(normalize(((2.0 * normalMap) - 1.0)), input.TBN));
-
-	float4 envColor = cube.Sample(cubeSampler,  float3(input.Normal.x, input.Normal.y, input.Normal.z), 1);
+	float3 fixedNormals = normalMap.xzy; // TODO JS: uhhh concerning that this works. what else is broken?
+	float4 envColor = cube.Sample(cubeSampler,  fixedNormals, 1);
 	// diff = float3(1.0,1.0,1.0);
-	output.Color =  (getLighting(diff,normalMap, input.fragmentPos, specMap)) * input.Color;
+	output.Color =  (getLighting(diff,normalMap, input.worldPos, specMap)) * input.Color;
 
-		output.Color =envColor;
+		output.Color = cubeLUT;
 	// output.Color = input.TBN[0];
 	return output;
 }

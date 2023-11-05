@@ -276,27 +276,37 @@ void HelloTriangleApplication:: initVulkan()
     scene = Scene();
 
    cube = TextureData(this, "textures/output_skybox8.ktx2", TextureData::TextureType::CUBE);
+    cubemaplut_utilitytexture_index = scene.AddUtilityTexture(TextureData(this, "textures/outputLUT.png", TextureData::UNORM));
  
     int placeholderTextureidx = scene.AddMaterial(
         TextureData(this, "textures/testTexture.jpg",TextureData::TextureType::DIFFUSE),
         TextureData(this, "textures/placeholder_spec.png",TextureData::TextureType::SPECULAR),
         TextureData(this, "textures/metalbox_normal.png",TextureData::TextureType::NORMAL));
+    randomMaterials.push_back(placeholderTextureidx);
+
+    
     placeholderTextureidx = scene.AddMaterial(
         TextureData(this, "textures/seamless_brick.png",TextureData::TextureType::DIFFUSE),
         TextureData(this, "textures/placeholder_spec.png",TextureData::TextureType::SPECULAR),
         TextureData(this, "textures/seamless_brick_normal.png",TextureData::TextureType::NORMAL));
+        randomMaterials.push_back(placeholderTextureidx);
+        
     placeholderTextureidx = scene.AddMaterial(
     TextureData(this, "textures/metalbox_diffuse.png",TextureData::TextureType::DIFFUSE),
         TextureData(this, "textures/metalbox_spec.png",TextureData::TextureType::SPECULAR),
         TextureData(this, "textures/metalbox_normal.png",TextureData::TextureType::NORMAL));
+        randomMaterials.push_back(placeholderTextureidx);
+        
     placeholderTextureidx = scene.AddMaterial(
     TextureData(this, "textures/brick.png",TextureData::TextureType::DIFFUSE),
     TextureData(this, "textures/brick_spec.png",TextureData::TextureType::SPECULAR),
     TextureData(this, "textures/brick normal.png",TextureData::TextureType::NORMAL));
+    randomMaterials.push_back(placeholderTextureidx);
+    
     //TODO: Scene loads mesh instead? 
-    scene.AddBackingMesh(MeshData::MeshData(this, "pig.glb"));
-    scene.AddBackingMesh(MeshData::MeshData(this,"cubesphere.glb"));
-    scene.AddBackingMesh(MeshData::MeshData(this,"monkey.obj"));
+    randomMeshes.push_back(scene.AddBackingMesh(MeshData::MeshData(this, "pig.glb")));
+    randomMeshes.push_back(scene.AddBackingMesh(MeshData::MeshData(this,"cubesphere.glb")));
+    randomMeshes.push_back(scene.AddBackingMesh(MeshData::MeshData(this,"monkey.obj")));
 
     // scene.AddLight(glm::vec3(0,-0.2,1 +1),glm::vec3(0.5,0.5,1),6, 4);
     scene.AddLight(glm::vec3(6,1,3 +1),glm::vec3(1,0,0),5, 2);
@@ -310,25 +320,25 @@ void HelloTriangleApplication:: initVulkan()
 
     for(int i = 0; i < 300; i++)
     {
-        int textureIndex = rand() % scene.backing_diffuse_textures.size();
+        int textureIndex = rand() % randomMaterials.size();
         sceneObjects.push_back(
             scene.AddObject(
-                 &scene.backing_meshes[1],
-                textureIndex,
+                 &scene.backing_meshes[randomMeshes[1]],
+                randomMaterials[textureIndex],
                 glm::vec4(0,- i * 0.6,0,1),
                 MyQuaternion));
-        textureIndex = rand() % scene.backing_diffuse_textures.size();
+        textureIndex = rand() % randomMaterials.size();
         sceneObjects.push_back(
             scene.AddObject(
-            &scene.backing_meshes[0],
-           textureIndex,
+            &scene.backing_meshes[randomMeshes[0]],
+           randomMaterials[textureIndex],
                 glm::vec4(2,- i * 0.6,0.0,1),
                 MyQuaternion));
-        textureIndex = rand() % scene.backing_diffuse_textures.size();
+        textureIndex = rand() % randomMaterials.size();
         sceneObjects.push_back(
                scene.AddObject(
-               &scene.backing_meshes[2],
-         textureIndex,
+               &scene.backing_meshes[randomMeshes[2]],
+         randomMaterials[textureIndex],
                    glm::vec4(-2,- i * 0.6,-0.0,1),
                    MyQuaternion));
     }
@@ -726,14 +736,14 @@ void HelloTriangleApplication::createUniformBuffers()
 
     VkDescriptorSetLayoutBinding textureLayoutBinding{};
     textureLayoutBinding.binding = 1;
-    textureLayoutBinding.descriptorCount = scene.backing_diffuse_textures.size() * 3; // TODO JS: just make really big?
+    textureLayoutBinding.descriptorCount = (scene.materialTextureCount()) + scene.backing_utility_textures.size(); // TODO JS: just make really big?
     textureLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
     textureLayoutBinding.pImmutableSamplers = nullptr;
     textureLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
     VkDescriptorSetLayoutBinding samplerLayoutBinding{};
     samplerLayoutBinding.binding = 2;
-    samplerLayoutBinding.descriptorCount = scene.backing_diffuse_textures.size() * 3; // TODO JS: just make really big?
+    samplerLayoutBinding.descriptorCount = scene.materialTextureCount(); // TODO JS: just make really big?
     samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
     samplerLayoutBinding.pImmutableSamplers = nullptr;
     samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT ;
@@ -994,6 +1004,7 @@ void HelloTriangleApplication::updateUniformBuffers(uint32_t currentImage, std::
     globals.proj = proj;
     globals.viewPos = glm::vec4(eyePos.x,eyePos.y,eyePos.z,1);
     globals.lightcountx_paddingyzw = glm::vec4(scene.lightCount, 0, 0 , 0);
+    globals.cubemaplutidx_cubemaplutsampleridx_paddingzw = glm::vec4(scene.materialTextureCount() + cubemaplut_utilitytexture_index, scene.materialTextureCount() + cubemaplut_utilitytexture_index,0 ,0);
     memcpy(shaderGlobalsMapped[currentImage], &globals, sizeof(ShaderGlobals));
 
 
@@ -1112,7 +1123,8 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
 
             //TODO JS: Don't do this every frame
             std::vector<VkDescriptorImageInfo> imageInfos;
-            for(int texture_i = 0; texture_i < scene.backing_diffuse_textures.size(); texture_i++ )
+            //Material textures
+            for(int texture_i = 0; texture_i < scene.materialCount(); texture_i++ )
             {
                 VkDescriptorImageInfo imageInfo{};
                 imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -1130,8 +1142,22 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
                 imageInfos.push_back(normalInfo);
             }
 
+    //Utility textures
+    for(int texture_i = 0; texture_i < scene.backing_utility_textures.size(); texture_i++ )
+    {
+        VkDescriptorImageInfo imageInfo{};
+        imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        imageInfo.imageView = scene.backing_utility_textures[texture_i].textureImageView;
+        imageInfos.push_back(imageInfo);
+          
+    }
+
+    
+
     std::vector<VkDescriptorImageInfo> samplerifos;
-    for(int texture_i = 0; texture_i < scene.backing_diffuse_textures.size(); texture_i++ )
+
+    //Material textures
+    for(int texture_i = 0; texture_i < scene.materialCount(); texture_i++ )
     {
         VkDescriptorImageInfo imageInfo{};
         imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -1145,6 +1171,16 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
         imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         imageInfo.sampler = scene.backing_normal_textures[texture_i].textureSampler;
         samplerifos.push_back(imageInfo);
+    }
+
+    //Utility textures
+    for(int texture_i = 0; texture_i < scene.backing_utility_textures.size(); texture_i++ )
+    {
+        VkDescriptorImageInfo imageInfo{};
+        imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        imageInfo.sampler = scene.backing_utility_textures[texture_i].textureSampler;
+        samplerifos.push_back(imageInfo);
+          
     }
 
     VkDescriptorImageInfo cubeimageInfo;
@@ -1168,7 +1204,7 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
             writeDescriptorSets[1].dstBinding = 1;
             writeDescriptorSets[1].dstArrayElement = 0;
             writeDescriptorSets[1].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-            writeDescriptorSets[1].descriptorCount = scene.backing_diffuse_textures.size() * 3; // All three types of textures
+            writeDescriptorSets[1].descriptorCount = (scene.materialTextureCount()) + scene.backing_utility_textures.size(); // All three types of textures
             
             writeDescriptorSets[1].pImageInfo = imageInfos.data();
         
@@ -1176,7 +1212,7 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
             writeDescriptorSets[2].dstBinding = 2;
             writeDescriptorSets[2].dstArrayElement = 0;
             writeDescriptorSets[2].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
-            writeDescriptorSets[2].descriptorCount = scene.backing_diffuse_textures.size() * 3;
+            writeDescriptorSets[2].descriptorCount = (scene.materialTextureCount()) + scene.backing_utility_textures.size();
 
             writeDescriptorSets[2].pImageInfo = samplerifos.data();
 

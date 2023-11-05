@@ -136,6 +136,10 @@ class Scene;
 
         VkCommandPool commandPool;
         VkCommandPool transferCommandPool;
+        std::vector<int> randomMeshes;
+        std::vector<int> randomMaterials;
+        int cubemaplut_utilitytexture_index;
+        
 
       
         MeshData* fullscreenQuad;
@@ -170,6 +174,7 @@ class Scene;
            alignas(16) glm::mat4 proj;
            alignas(16) glm::vec4 viewPos;
            alignas(16) glm::vec4 lightcountx_paddingyzw;
+           alignas(16) glm::vec4 cubemaplutidx_cubemaplutsampleridx_paddingzw;
        };
 
         struct PerDrawPushConstants

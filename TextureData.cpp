@@ -32,6 +32,10 @@ TextureData::TextureData(HelloTriangleApplication* app, const char* path, Textur
         {
             format = VK_FORMAT_R8G8B8A8_UNORM;
         }
+    case TextureType::UNORM:
+        {
+            format = VK_FORMAT_R8G8B8A8_UNORM;
+        }
     case TextureType::CUBE:
         {
             format = VK_FORMAT_R8G8B8A8_UNORM;

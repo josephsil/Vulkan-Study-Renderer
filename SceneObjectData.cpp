@@ -72,7 +72,19 @@ uint32_t Scene::getVertexCount()
         return indexcount;
 }
 
-
+int Scene::materialCount()
+    {
+        return backing_diffuse_textures.size();
+    }
+int Scene::materialTextureCount()
+    {
+        return backing_diffuse_textures.size() * 3;
+    }
+int Scene::AddUtilityTexture(TextureData T)
+    {
+        backing_utility_textures.push_back(T);
+        return backing_utility_textures.size() -1;
+    }
 //TODO JS: we should probably CREATE from here at some point?
     int Scene::AddMaterial(TextureData D, TextureData S, TextureData N)
     {

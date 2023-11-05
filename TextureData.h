@@ -26,7 +26,8 @@ class HelloTriangleApplication;
           DIFFUSE,
           SPECULAR,
           NORMAL,
-          CUBE
+          CUBE,
+          UNORM
           
       };
       VkImageView textureImageView;
