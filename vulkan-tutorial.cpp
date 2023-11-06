@@ -32,6 +32,7 @@ VkResult result_ = call; \
 assert(result_ == VK_SUCCESS); \
 } while (0)
 
+int SHADER_MODE;
 VkSurfaceKHR surface;
 
 #pragma region vkb setup
@@ -39,8 +40,8 @@ vkb::Instance GET_INSTANCE()
 {
     vkb::InstanceBuilder instance_builder;
     auto instanceBuilderResult = instance_builder
-                                 .request_validation_layers()
-                                 .use_default_debug_messenger()
+                                 // .request_validation_layers()
+                                 // .use_default_debug_messenger()
                                  .require_api_version(1, 3, 0)
                                  .build();
     if (!instanceBuilderResult)
@@ -949,7 +950,7 @@ void HelloTriangleApplication::updateUniformBuffers(uint32_t currentImage, std::
     globals.view = view;
     globals.proj = proj;
     globals.viewPos = glm::vec4(eyePos.x, eyePos.y, eyePos.z, 1);
-    globals.lightcountx_paddingyzw = glm::vec4(scene.lightCount, 0, 0, 0);
+    globals.lightcountx_modey_paddingzw = glm::vec4(scene.lightCount, SHADER_MODE, 0, 0);
     globals.cubemaplutidx_cubemaplutsampleridx_paddingzw = glm::vec4(
         scene.materialTextureCount() + cubemaplut_utilitytexture_index,
         scene.materialTextureCount() + cubemaplut_utilitytexture_index, 0, 0);
@@ -1617,6 +1618,11 @@ void HelloTriangleApplication::mainLoop()
                     }
                 }
 
+                if (e.key.keysym.sym == SDLK_z)
+                {
+                    SHADER_MODE = SHADER_MODE ? 0 : 1; //debug toggle float we can bool off of on shader
+                }
+
                 if (e.key.keysym.sym == SDLK_a)
                 {
                     translate += glm::vec3(1,0,0) * translateSpeed; 
@@ -1814,28 +1820,28 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
     std::vector<int> randomMaterials;
 
     int placeholderTextureidx = scene.AddMaterial(
-        TextureData(app, "textures/testTexture.jpg", TextureData::TextureType::DIFFUSE),
-        TextureData(app, "textures/placeholder_spec.png", TextureData::TextureType::SPECULAR),
-        TextureData(app, "textures/testtexture_normal.jpg", TextureData::TextureType::NORMAL));
+        TextureData(app, "textures/pbr_cruiser-panels/space-cruiser-panels2_albedo.png", TextureData::TextureType::DIFFUSE),
+        TextureData(app, "textures/pbr_cruiser-panels/space-cruiser-panels2_roughness_metallic.tga", TextureData::TextureType::SPECULAR),
+        TextureData(app, "textures/pbr_cruiser-panels/space-cruiser-panels2_normal-dx.png", TextureData::TextureType::NORMAL));
     randomMaterials.push_back(placeholderTextureidx);
 
 
     placeholderTextureidx = scene.AddMaterial(
-        TextureData(app, "textures/seamless_brick.png", TextureData::TextureType::DIFFUSE),
-        TextureData(app, "textures/placeholder_spec.png", TextureData::TextureType::SPECULAR),
-        TextureData(app, "textures/testtexture_normal.jpg", TextureData::TextureType::NORMAL));
+        TextureData(app, "textures/pbr_cruiser-panels/space-cruiser-panels2_albedo.png", TextureData::TextureType::DIFFUSE),
+        TextureData(app, "textures/pbr_cruiser-panels/space-cruiser-panels2_roughness_metallic.tga", TextureData::TextureType::SPECULAR),
+        TextureData(app, "textures/pbr_cruiser-panels/space-cruiser-panels2_normal-dx.png", TextureData::TextureType::NORMAL));
     randomMaterials.push_back(placeholderTextureidx);
 
     placeholderTextureidx = scene.AddMaterial(
-        TextureData(app, "textures/metalbox_diffuse.png", TextureData::TextureType::DIFFUSE),
-        TextureData(app, "textures/placeholder_spec.png", TextureData::TextureType::SPECULAR),
-        TextureData(app, "textures/testtexture_normal.jpg", TextureData::TextureType::NORMAL));
+        TextureData(app, "textures/pbr_stainless-steel/used-stainless-steel2_albedo.png", TextureData::TextureType::DIFFUSE),
+        TextureData(app, "textures/pbr_stainless-steel/used-stainless-steel2_roughness_metallic.tga", TextureData::TextureType::SPECULAR),
+        TextureData(app, "textures/pbr_stainless-steel/used-stainless-steel2_normal-dx.png", TextureData::TextureType::NORMAL));
     randomMaterials.push_back(placeholderTextureidx);
 
     placeholderTextureidx = scene.AddMaterial(
-        TextureData(app, "textures/brick.png", TextureData::TextureType::DIFFUSE),
-        TextureData(app, "textures/placeholder_spec.png", TextureData::TextureType::SPECULAR),
-        TextureData(app, "textures/testtexture_normal.jpg", TextureData::TextureType::NORMAL));
+        TextureData(app, "textures/pbr_factory-sliding/worn-factory-siding_albedo.png", TextureData::TextureType::DIFFUSE),
+        TextureData(app, "textures/pbr_factory-sliding/worn-factory-siding_roughness_metallic.tga", TextureData::TextureType::SPECULAR),
+        TextureData(app, "textures/pbr_factory-sliding/worn-factory-siding_normal-dx.png", TextureData::TextureType::NORMAL));
     randomMaterials.push_back(placeholderTextureidx);
 
     //TODO: Scene loads mesh instead? 
@@ -1843,9 +1849,10 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
     randomMeshes.push_back(scene.AddBackingMesh(MeshData::MeshData(app, "cubesphere.glb")));
     randomMeshes.push_back(scene.AddBackingMesh(MeshData::MeshData(app, "monkey.obj")));
 
-    scene.AddLight(glm::vec3(6, 1, 3 + 1), glm::vec3(1, 0, 0), 5, 2);
-    scene.AddLight(glm::vec3(0, -15, 1 + 1), glm::vec3(0.1, 0.5, 0), 6, 1);
-    scene.AddLight(glm::vec3(0, -3, 3), glm::vec3(1, 1, 1), 5, 2);
+    scene.AddLight(glm::vec3(1, 1, 1), glm::vec3(1, 1, 1), 5, 5 / 2);
+    scene.AddLight(glm::vec3(0, -3, 1), glm::vec3(1, 1, 1), 5, 8 / 2);
+
+    scene.AddLight(glm::vec3(0, -16, 1), glm::vec3(0.2, 0, 1), 5, 44 / 2);
 
 
     glm::vec3 EulerAngles(0, 0, 0);
@@ -1860,21 +1867,21 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
 
         scene.AddObject(
             &scene.backing_meshes[randomMeshes[1]],
-            randomMaterials[textureIndex], rowRoughness, rowmetlalic,
+            randomMaterials[textureIndex], rowRoughness, 0,
             glm::vec4(0, - i * 0.6, 0, 1),
             MyQuaternion);
         textureIndex = rand() % randomMaterials.size();
 
         scene.AddObject(
             &scene.backing_meshes[randomMeshes[0]],
-            randomMaterials[textureIndex], rowRoughness, rowmetlalic,
+            randomMaterials[textureIndex], rowRoughness, 1,
             glm::vec4(2, - i * 0.6, 0.0, 1),
             MyQuaternion);
         textureIndex = rand() % randomMaterials.size();
 
         scene.AddObject(
             &scene.backing_meshes[randomMeshes[2]],
-            randomMaterials[textureIndex], rowRoughness, rowmetlalic,
+            randomMaterials[textureIndex], rowRoughness, 0,
             glm::vec4(-2, - i * 0.6, -0.0, 1),
             MyQuaternion);
     }

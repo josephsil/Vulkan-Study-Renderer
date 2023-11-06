@@ -1,6 +1,6 @@
 #define USE_RW
 
-#define LIGHTCOUNT   globals.lightcount_padding_padding_padding.r
+#define LIGHTCOUNT   globals.lightcount_mode_padding_padding.r
 #define VERTEXOFFSET pc.indexInfo.g
 #define TEXTURESAMPLERINDEX pc.indexInfo.b
 #define NORMALSAMPLERINDEX TEXTURESAMPLERINDEX +2 //TODO JS: temporary!
@@ -30,13 +30,16 @@ struct ShaderGlobals
 	float4x4 view;
 	float4x4 projection;
 	float4 viewPos;
-	float4 lightcount_padding_padding_padding;
+	float4 lightcount_mode_padding_padding;
 	float4 lutIDX_lutSamplerIDX_padding_padding;
 };
 struct pconstant
 {
 	float4 indexInfo;
-	float4 _0;
+	float roughness;
+	float metallic;
+	float _f1;
+	float _f2;
 	float4 _1;
 	float4 _2;
 };
@@ -125,6 +128,7 @@ static float2 positions[3] = {
 VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
 {
 
+	bool mode = globals.lightcount_mode_padding_padding.g;
 	#ifdef USE_RW
 	MyVertexStructure myVertex = BufferTable[VertexIndex + VERTEXOFFSET];
 	#else 
@@ -155,6 +159,7 @@ VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
 	output.Normal = worldNormal.xyz;
 	output.BiTangent = worldBinormal;
 
+	
     output.TBN = transpose(float3x3((worldTangent), (worldBinormal), (output.Normal)));
 
 //   float3 normalW = normalize(float3(u_NormalMatrix * vec4(a_Normal.xyz, 0.0)));
@@ -167,7 +172,10 @@ VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
 	return output;
 }
 
-
+bool getMode()
+{
+	return globals.lightcount_mode_padding_padding.g;
+}
 
 struct FSInput
 {
@@ -193,45 +201,92 @@ float3x3 calculateNormal(FSInput input)
 
 	return TBN;
 }
-
-float3 getLighting(float3 incolor, float3 inNormal, float3 FragPos, float3 specMap)
+float3  FresnelSchlickRoughness(float cosTheta, float3 F0, float roughness)
 {
+	return F0 + (max(float3(1.0 - roughness,1.0 - roughness,1.0 - roughness), F0) - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+}
+
+float3 fresnelSchlick(float cosTheta, float3 F0)
+{
+	return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+}
+
+float DistributionGGX(float3 N, float3 H, float roughness)
+{
+	float PI = 3.14159265359;
+
+	float a      = roughness*roughness;
+	float a2     = a*a;
+	float NdotH  = max(dot(N, H), 0.0);
+	float NdotH2 = NdotH*NdotH;
+	
+	float num   = a2;
+	float denom = (NdotH2 * (a2 - 1.0) + 1.0);
+	denom = PI * denom * denom;
+	
+	return num / denom;
+}
+
+float GeometrySchlickGGX(float NdotV, float roughness)
+{
+	float r = (roughness + 1.0);
+	float k = (r*r) / 8.0;
+
+	float num   = NdotV;
+	float denom = NdotV * (1.0 - k) + k;
+	
+	return num / denom;
+}
+float GeometrySmith(float3 N, float3 V, float3 L, float roughness)
+{
+	float NdotV = max(dot(N, V), 0.0);
+	float NdotL = max(dot(N, L), 0.0);
+	float ggx2  = GeometrySchlickGGX(NdotV, roughness);
+	float ggx1  = GeometrySchlickGGX(NdotL, roughness);
+	
+	return ggx1 * ggx2;
+}
+
+
+float3 getLighting(float3 albedo, float3 inNormal, float3 FragPos, float3 F0, float3 roughness, float metallic)
+{
+	float PI = 3.14159265359;
+	float3 viewDir    = normalize( globals.viewPos - FragPos );
 	float3 lightContribution = float3(0,0,0);
 	for(int i = 0; i < LIGHTCOUNT; i++)
 	{
 		MyLightStructure light = lights[i];
 		float3 lightPos = light.position_range.xyz;
-		float lightRange = light.position_range.a;
 		float3 lightColor = light.color_intensity.xyz * light.color_intensity.a;
 		float3 lightToFrag   = lightPos - FragPos;
 		float3 lightDir = normalize(lightToFrag);
-		float lightDistance = length(lightToFrag);
-		float3 viewDir    = normalize( globals.viewPos - FragPos );
+		float lightDistance = pow(length(lightPos - FragPos), 2) ;
+		
 		float3 halfwayDir = normalize(lightDir + viewDir);
 
-		float3 reflectDir = normalize(reflect(-lightDir, inNormal));
-
-   		float Attenuation =  saturate(lightRange / lightDistance);
-
-		Attenuation =  1.0 / (lightDistance * lightDistance);
-		// Attenuation = 3;
-        float spec = pow(max(dot(viewDir, reflectDir), 0.0), 16.0) ;
-
-//  spec = 0;
-		float diff = saturate(dot(inNormal, lightDir));
-		lightContribution += ((lightColor * diff) * Attenuation ) + ((spec * lightColor));
+		float attenuation =  1.0 / (lightDistance * lightDistance);
+		float3 radiance     = lightColor * attenuation;
+		float3 Fresnel = fresnelSchlick(max(dot(halfwayDir,viewDir), 0.0), F0);
+		float NDF = DistributionGGX(inNormal, halfwayDir, roughness);       
+		float G   = GeometrySmith(inNormal, viewDir, lightDir, roughness);
+		float3 numerator    = NDF * G * Fresnel;
+		float denominator = 4.0 * max(dot(inNormal, viewDir), 0.0) * max(dot(inNormal, lightDir), 0.0)  + 0.0001;
+		float3 specular     = numerator / denominator;
+		float3 kS = Fresnel;
+		float3 kD = 3.0 - kS;
+  
+		kD *= 1.0 - metallic;
+		float NdotL = max(dot(inNormal, lightDir), 0.0);        
+		lightContribution += (kD * albedo / PI + specular) * radiance * NdotL;
 	}
 		
 
-		return incolor * lightContribution;
+		return lightContribution;
 
 }
 
 
-float3  FresnelSchlickRoughness(float cosTheta, float3 F0, float roughness)
-{
-    return F0 + (max(float3(1.0 - roughness,1.0 - roughness,1.0 - roughness), F0) - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
-}   
+
 
 
 // -spirv -T ps_6_5 -E Frag .\Shader1.hlsl -Fo .\triangle.frag.spv
@@ -242,42 +297,51 @@ FSOutput Frag(VSOutput input)
 
 	float3 diff  = saturate(bindless_textures[DIFFUSE_INDEX].Sample(bindless_samplers[TEXTURESAMPLERINDEX], input.Texture_ST)) ;
 	float3 albedo = pow(diff, 2.2);
+	albedo = float3(0.7,0,0);
 	float3 normalMap  = (bindless_textures[NORMAL_INDEX].Sample(bindless_samplers[NORMALSAMPLERINDEX], input.Texture_ST));
-	float3 specMap  = bindless_textures[SPECULAR_INDEX].Sample(bindless_samplers[TEXTURESAMPLERINDEX], input.Texture_ST);
-	float metallic = 1.0;
+	float4 specMap  = bindless_textures[SPECULAR_INDEX].Sample(bindless_samplers[TEXTURESAMPLERINDEX], input.Texture_ST);
+	float metallic = specMap.a;
+	metallic = pc.metallic;
 
-albedo = 0.5;
+// albedo = 0.33;
 
-	
-	normalMap = normalize(mul(input.TBN, ((2.0 * float3(0,0,1)) - 1.0)));
-	normalMap = input.Normal;
-	
-	
+
+	normalMap = normalize(mul(input.TBN, ((2.0 * normalMap) - 1.0)));
 	float3 V    = normalize( globals.viewPos - input.worldPos);
 	float3 reflected = reflect(V, normalMap);
 
-	float3 F0 = 0.04; // TODO: f0 for metallic
+	float3 F0 = 0.04; 
 	F0      = lerp(F0, albedo, metallic);
-	float roughness = 0.1;
+	float roughness =  pc.roughness;
 	float3 F = FresnelSchlickRoughness(max(dot(normalMap, V), 0.0), F0, roughness);
 
 	float3 kS = F;
 	float3 kD = 1.0 - kS;
 	kD *= 1.0 - metallic;
 
-
-	float maxReflectionLOD = 6.0;
-	float3 fixedNormals = normalMap.xyz  * float3(1,-1,1);;
-	float3 irradience =  pow(cubes[0].Sample(cubeSamplers[0],  fixedNormals, 1).rgb, 2.2) ;
+//
+	float maxReflectionLOD = 10.0;
+	float3 normalsToCubemapUVs = normalMap.xyz  * float3(1,-1,1); //TODO JS: fix root cause
+	float3 irradience =  pow(cubes[0].SampleLevel(cubeSamplers[0],  normalsToCubemapUVs, 1).rgb, 2.2) ;
 	float3 diffuse = irradience * albedo;
-	float3 fixedReflected = reflected.xzy * float3(1,-1,1);
-	float3 specularcube = pow(cubes[0].Sample(cubeSamplers[1],  fixedReflected,  roughness * maxReflectionLOD).rgb, 2.2) ;
+	float3 reflectedToCubemapUVs = reflected.xzy * float3(1,-1,1); //TODO JS: fix root cause
+	float3 specularcube = pow(cubes[1].SampleLevel(cubeSamplers[1],  reflectedToCubemapUVs,   roughness * maxReflectionLOD).rgb, 2.2) ;
 	float2 cubeLUT = bindless_textures[SKYBOXLUTINDEX].Sample(bindless_samplers[SKYBOXLUTINDEX], float2(max(dot(normalMap,V), 0.0),roughness)).rgb;
-	float3 specularResult = specularcube * (F* cubeLUT.x + cubeLUT.y);
-	float3 ambient = (kD * diffuse  + specularResult);
-	output.Color =  (getLighting(diff,normalMap, input.worldPos, specMap)) * input.Color * irradience;
+	float3 specularResult = specularcube * (F * cubeLUT.x + cubeLUT.y);
+	float3 ambient = (kD * diffuse + specularResult);
+	// output.Color =  getLighting(diff,normalMap, input.worldPos, specMap) * input.Color * irradience;
 
-	output.Color =   ambient;
+	if (getMode())
+	{
+		output.Color =   getLighting(albedo,normalMap, input.worldPos, F0, roughness, metallic);
+	}
+	else
+	{
+		output.Color = ambient + getLighting(albedo,normalMap, input.worldPos, F0, roughness, metallic);
+	}
+
+	output.Color = output.Color / (output.Color + 1.0);
+//	output.Color = pow(output.Color, 1.0/2.2); 
 	// output.Color = reflected;
 	return output;
 }

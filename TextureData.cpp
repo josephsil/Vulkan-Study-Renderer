@@ -28,7 +28,7 @@ TextureData::TextureData(HelloTriangleApplication* app, const char* path, Textur
         }
     case TextureType::SPECULAR:
         {
-            format = VK_FORMAT_R8G8B8A8_SRGB;
+            format = VK_FORMAT_R8G8B8A8_UNORM;
         }
     case TextureType::NORMAL:
         {
@@ -51,7 +51,7 @@ TextureData::TextureData(HelloTriangleApplication* app, const char* path, Textur
     textureType == CUBE ? createCubemapImageKTX(path, format) : createTextureImage(path, format, use_mipmaps);
     
     createTextureImageView(format,  textureType == CUBE ? VK_IMAGE_VIEW_TYPE_CUBE : VK_IMAGE_VIEW_TYPE_2D);
-    createTextureSampler(mode, CUBE ? -9999999999.0 : 0);
+    createTextureSampler(mode);
     id = TEXTURE_INDEX++;
 }
 TextureData::TextureData(){};
@@ -83,10 +83,10 @@ void TextureData::createTextureSampler(VkSamplerAddressMode mode, float bias)
     samplerInfo.compareEnable = VK_FALSE;
     samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
     samplerInfo.anisotropyEnable = VK_FALSE;
-    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR; //TODO JS
+    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR; 
     samplerInfo.minLod = .0; // Optional
     samplerInfo.maxLod = maxmip;
-    samplerInfo.mipLodBias = bias; // Optional
+    samplerInfo.mipLodBias = bias; 
 
        
 

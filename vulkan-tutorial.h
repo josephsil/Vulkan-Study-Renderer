@@ -187,7 +187,7 @@ class Scene;
            alignas(16) glm::mat4 view;
            alignas(16) glm::mat4 proj;
            alignas(16) glm::vec4 viewPos;
-           alignas(16) glm::vec4 lightcountx_paddingyzw;
+           alignas(16) glm::vec4 lightcountx_modey_paddingzw;
            alignas(16) glm::vec4 cubemaplutidx_cubemaplutsampleridx_paddingzw;
        };
 
