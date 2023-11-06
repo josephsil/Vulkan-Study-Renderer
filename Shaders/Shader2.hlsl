@@ -143,19 +143,19 @@ VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
 	output.Normal = myVertex.normal.xyz;
 	output.worldPos = mul(ubo.Model, half4(myVertex.position.xyz, 1.0) );
 
-	float3x3 normalMatrix = ubo.Model; // ?????
+	float3x3 normalMatrix = ubo.NormalMat; // ?????
 	//bitangent = fSign * cross(vN, tangent);
 	//Not sure if the mul here is correct? would need something baked
-	float3 worldNormal = normalize(mul(normalMatrix, float4(myVertex.normal.x, myVertex.normal.y, myVertex.normal.z,  0.0) ));
+	float3 worldNormal = normalize(mul((float3x3)normalMatrix, float4(output.Normal.x, output.Normal.y, output.Normal.z,  0.0) ));
 	float3 worldTangent = normalize(mul(ubo.Model, float4(myVertex.Tangent.x,myVertex.Tangent.y,myVertex.Tangent.z,1.0)));
 	worldTangent = (worldTangent - dot(worldNormal, worldTangent) * worldNormal);
 	float3 worldBinormal = (cross( (worldNormal), (worldTangent))) * ( myVertex.Tangent.w )  ;
 	
 	output.Tangent = worldTangent;
-	output.Normal = worldNormal;
+	output.Normal = worldNormal.xyz;
 	output.BiTangent = worldBinormal;
 
-    output.TBN = float3x3((worldTangent), (worldBinormal), (worldNormal));
+    output.TBN = transpose(float3x3((worldTangent), (worldBinormal), (output.Normal)));
 
 //   float3 normalW = normalize(float3(u_NormalMatrix * vec4(a_Normal.xyz, 0.0)));
 //   float3 tangentW = normalize(float3(u_ModelMatrix * vec4(a_Tangent.xyz, 0.0)));
@@ -181,6 +181,18 @@ struct FSInput
 	[[vk::location(6)]] float3 BiTangent : TEXCOORD3;
 	[[vk::location(7)]] float3x3 TBN : TEXCOORD4;
 };
+
+float3x3 calculateNormal(FSInput input)
+{
+	// float3 tangentNormal = normalMapTexture.Sample(normalMapSampler, input.UV).xyz * 2.0 - 1.0;
+
+	float3 N = normalize(input.Normal);
+	float3 T = normalize(input.Tangent);
+	float3 B = normalize(cross(N, T));
+	float3x3 TBN = transpose(float3x3(T, B, N));
+
+	return TBN;
+}
 
 float3 getLighting(float3 incolor, float3 inNormal, float3 FragPos, float3 specMap)
 {
@@ -216,7 +228,10 @@ float3 getLighting(float3 incolor, float3 inNormal, float3 FragPos, float3 specM
 }
 
 
-
+float3  FresnelSchlickRoughness(float cosTheta, float3 F0, float roughness)
+{
+    return F0 + (max(float3(1.0 - roughness,1.0 - roughness,1.0 - roughness), F0) - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+}   
 
 
 // -spirv -T ps_6_5 -E Frag .\Shader1.hlsl -Fo .\triangle.frag.spv
@@ -226,18 +241,43 @@ FSOutput Frag(VSOutput input)
 	FSOutput output;
 
 	float3 diff  = saturate(bindless_textures[DIFFUSE_INDEX].Sample(bindless_samplers[TEXTURESAMPLERINDEX], input.Texture_ST)) ;
+	float3 albedo = pow(diff, 2.2);
 	float3 normalMap  = (bindless_textures[NORMAL_INDEX].Sample(bindless_samplers[NORMALSAMPLERINDEX], input.Texture_ST));
 	float3 specMap  = bindless_textures[SPECULAR_INDEX].Sample(bindless_samplers[TEXTURESAMPLERINDEX], input.Texture_ST);
-	float3 cubeLUT = bindless_textures[SKYBOXLUTINDEX].Sample(bindless_samplers[SKYBOXLUTINDEX], input.Texture_ST);
- 	normalMap = normalize(mul(normalize(((2.0 * normalMap) - 1.0)), input.TBN));
-	float3 fixedNormals = normalMap.xzy; // TODO JS: uhhh concerning that this works. what else is broken?
-	float3 irradience =  cubes[0].Sample(cubeSamplers[0],  fixedNormals, 1).rgb;
-	float4 specularcube = cubes[1].Sample(cubeSamplers[1],  fixedNormals, 1);
-	// diff = float3(1.0,1.0,1.0);
-	output.Color =  (getLighting(diff,normalMap, input.worldPos, specMap)) * input.Color;
+	float metallic = 1.0;
 
-		output.Color = irradience;
-		output.Color = output.Color;
-	// output.Color = input.TBN[0];
+albedo = 0.5;
+
+	
+	normalMap = normalize(mul(input.TBN, ((2.0 * float3(0,0,1)) - 1.0)));
+	normalMap = input.Normal;
+	
+	
+	float3 V    = normalize( globals.viewPos - input.worldPos);
+	float3 reflected = reflect(V, normalMap);
+
+	float3 F0 = 0.04; // TODO: f0 for metallic
+	F0      = lerp(F0, albedo, metallic);
+	float roughness = 0.1;
+	float3 F = FresnelSchlickRoughness(max(dot(normalMap, V), 0.0), F0, roughness);
+
+	float3 kS = F;
+	float3 kD = 1.0 - kS;
+	kD *= 1.0 - metallic;
+
+
+	float maxReflectionLOD = 6.0;
+	float3 fixedNormals = normalMap.xyz  * float3(1,-1,1);;
+	float3 irradience =  pow(cubes[0].Sample(cubeSamplers[0],  fixedNormals, 1).rgb, 2.2) ;
+	float3 diffuse = irradience * albedo;
+	float3 fixedReflected = reflected.xzy * float3(1,-1,1);
+	float3 specularcube = pow(cubes[0].Sample(cubeSamplers[1],  fixedReflected,  roughness * maxReflectionLOD).rgb, 2.2) ;
+	float2 cubeLUT = bindless_textures[SKYBOXLUTINDEX].Sample(bindless_samplers[SKYBOXLUTINDEX], float2(max(dot(normalMap,V), 0.0),roughness)).rgb;
+	float3 specularResult = specularcube * (F* cubeLUT.x + cubeLUT.y);
+	float3 ambient = (kD * diffuse  + specularResult);
+	output.Color =  (getLighting(diff,normalMap, input.worldPos, specMap)) * input.Color * irradience;
+
+	output.Color =   ambient;
+	// output.Color = reflected;
 	return output;
 }

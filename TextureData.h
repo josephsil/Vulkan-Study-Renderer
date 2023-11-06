@@ -27,7 +27,7 @@ class HelloTriangleApplication;
           SPECULAR,
           NORMAL,
           CUBE,
-          UNORM
+          LINEAR_DATA
           
       };
       VkImageView textureImageView;
@@ -46,7 +46,7 @@ class HelloTriangleApplication;
       void cleanup();
 
   private:
-      void createTextureSampler();
+      void createTextureSampler(VkSamplerAddressMode mode = VK_SAMPLER_ADDRESS_MODE_REPEAT, float bias = 0);
 
 
       void createTextureImageView(VkFormat format, VkImageViewType type);
@@ -61,6 +61,6 @@ class HelloTriangleApplication;
       It's best to do this after the texture mapping works to check if the texture resources are still set up correctly.*/
 
 
-      void createTextureImage(const char* path, VkFormat format);
+      void createTextureImage(const char* path, VkFormat format, bool mips = true);
       void createCubemapImageKTX(const char* path, VkFormat format);
   };

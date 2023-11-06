@@ -23,12 +23,15 @@ class Scene;
     {
     public:
 
+       float deltaTime;
+
     struct bufferAndPool
     {
         VkCommandBuffer buffer;
         VkCommandPool pool;
         VkQueue queue;
     };
+       
        static std::vector<char> readFile(const std::string& filename);
 
        VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
@@ -77,7 +80,20 @@ class Scene;
 };
        QueueData Queues;
 
+               
+       struct inputData
+       {
+           glm::vec3 translate;
+           glm::vec3 mouseRot;
+       };
+
+       glm::vec3 eyePos  = glm::vec3(2.0f, 1.0f, 0.0f);
+       glm::vec3 eyeEulers;
+
     private:
+
+       uint32_t T;
+       uint32_t T2;
 
        PFN_vkCmdPushDescriptorSetKHR vkCmdPushDescriptorSetKHR;
        VkPhysicalDevicePushDescriptorPropertiesKHR pushDescriptorProps{};
@@ -175,12 +191,15 @@ class Scene;
            alignas(16) glm::vec4 cubemaplutidx_cubemaplutsampleridx_paddingzw;
        };
 
-        struct PerDrawPushConstants
+        struct per_object_data
         {
             //Light count, vertex offset, texture index, ubo index
             alignas(16) glm::vec4 indexInfo;
             
-            alignas(16) glm::mat4 padding;
+            alignas(16) glm::vec4 materialprops; //roughness, metalness, padding, padding
+            alignas(16) glm::vec4 padding_1;
+            alignas(16) glm::vec4 padding_2;
+            alignas(16) glm::vec4 padding_3;
             //Unused
             alignas(16) glm::mat4 padding1;
             //Unused
@@ -188,7 +207,7 @@ class Scene;
         };
 
 
-        const int MAX_FRAMES_IN_FLIGHT = 2;
+        const int MAX_FRAMES_IN_FLIGHT = 1;
         uint32_t currentFrame = 0;
 
 #ifdef NDEBUG
@@ -208,8 +227,6 @@ class Scene;
 
         void initVulkan();
 
-
-        // TODO JS : Descriptor sets more related to shaders?
 
         VkDescriptorPool descriptorPool;
         std::vector<VkDescriptorSet> perMaterialDescriptorSets;
@@ -245,7 +262,7 @@ class Scene;
        std::vector<UniformBufferObject> ubos;
 
         void updateUniformBuffer(uint32_t currentImage, glm::mat4 model);
-       void updateUniformBuffers(uint32_t currentImage, std::vector<glm::mat4> models);
+       void updateUniformBuffers(uint32_t currentImage, std::vector<glm::mat4> models, HelloTriangleApplication::inputData input);
 
 
         void createDescriptorSetLayout();
@@ -270,8 +287,7 @@ class Scene;
     because we won't come close to hitting any of these limits for now.*/
 
 
-        
-       
+
 
         uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
@@ -323,7 +339,7 @@ class Scene;
 
        void UpdateRotations();
 
-        void drawFrame();
+        void drawFrame(inputData input);
 
         void cleanup();
 

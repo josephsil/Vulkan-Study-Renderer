@@ -279,18 +279,16 @@ void HelloTriangleApplication::initVulkan()
 
     //Initialize scene-ish objects we don't have a place for yet 
     cubemaplut_utilitytexture_index = scene.AddUtilityTexture(
-        TextureData(this, "textures/outputLUT.png", TextureData::UNORM));
+        TextureData(this, "textures/outputLUT.png", TextureData::LINEAR_DATA));
     cube_irradiance = TextureData(this, "textures/output_cubemap2_diff8.ktx2", TextureData::TextureType::CUBE);
     cube_specular = TextureData(this, "textures/output_cubemap2_spec8.ktx2", TextureData::TextureType::CUBE);
 
-
+    //Only one dsl right now -- for the bindless ubershader
+    createDescriptorSetLayout();
 
     graphicsPipeline_1 = createGraphicsPipeline("triangle", renderPass, nullptr);
     graphicsPipeline_2 = createGraphicsPipeline("triangle_alt", renderPass, nullptr);
 
-    //Only one dsl right now -- for the bindless ubershader
-    createDescriptorSetLayout();
-    
     createUniformBuffers();
     createSyncObjects();
 
@@ -936,10 +934,11 @@ void HelloTriangleApplication::updateLightBuffers(uint32_t currentImage)
 //TODO JS: This is like, per object uniforms -- it should belong to the scene and get passed a buffer directly to the render loop
 //TODO: Separate the per model xforms from the camera xform
 
-void HelloTriangleApplication::updateUniformBuffers(uint32_t currentImage, std::vector<glm::mat4> models)
+void HelloTriangleApplication::updateUniformBuffers(uint32_t currentImage, std::vector<glm::mat4> models, HelloTriangleApplication::inputData input)
 {
     ShaderGlobals globals;
-    glm::vec3 eyePos = glm::vec3(2.0f, 1.0f, 0.0f);
+    eyePos += (input.translate * deltaTime);
+    
     glm::mat4 view = glm::lookAt(eyePos, glm::vec3(0.0f, -1.0f, 0.5f), glm::vec3(0.0f, 0.0f, 1.0f));
 
     glm::mat4 proj = glm::perspective(glm::radians(70.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f,
@@ -1214,14 +1213,17 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
     //TODO JS: to scene object count
     for (int i = 0; i < scene.meshes.size(); i++)
     {
-        PerDrawPushConstants constants;
+        per_object_data constants;
         //Light count, vert offset, texture index, and object data index
         constants.indexInfo = glm::vec4(scene.materials[i].backingTextureidx, (scene.meshOffsets[i]),
                                         scene.materials[i].backingTextureidx, i);
+
+
+        constants.materialprops = glm::vec4(scene.materials[i].roughness, scene.materials[i].metallic, 0,0);
         // constants.test = glm::vec4(1,2,3,i);
 
         vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT || VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-                           sizeof(PerDrawPushConstants), &constants);
+                           sizeof(per_object_data), &constants);
 
         vkCmdDraw(commandBuffer, static_cast<uint32_t>(scene.meshes[i]->vertcount), 1, 0, 0);
     }
@@ -1525,7 +1527,7 @@ VkPipeline HelloTriangleApplication::createGraphicsPipeline(const char* shaderNa
     //this push constant range starts at the beginning
     push_constant.offset = 0;
     //this push constant range takes up the size of a MeshPushConstants struct
-    push_constant.size = sizeof(PerDrawPushConstants);
+    push_constant.size = sizeof(per_object_data);
     //this push constant range is accessible only in the vertex shader
     push_constant.stageFlags = VK_SHADER_STAGE_VERTEX_BIT || VK_SHADER_STAGE_FRAGMENT_BIT;
 
@@ -1580,12 +1582,25 @@ VkPipeline HelloTriangleApplication::createGraphicsPipeline(const char* shaderNa
 
 
 #pragma region perFrameUpdate
+
+
 void HelloTriangleApplication::mainLoop()
 {
+  
     SDL_Event e;
     bool bQuit = false;
+   
+    float translateSpeed = 3.0;
+    float mouseSpeed = 1.0;
     while (!bQuit)
     {
+        this->T2 = SDL_GetTicks();
+        uint32_t deltaTicks = this->T2 - this->T;
+        this->deltaTime = deltaTicks * 0.001;
+        this->T = SDL_GetTicks();
+
+        glm::vec3 translate = glm::vec3(0);
+        glm::vec3 mouseRot = glm::vec3(0);
         //Handle events on queue
         while (SDL_PollEvent(&e) != 0)
         {
@@ -1601,6 +1616,27 @@ void HelloTriangleApplication::mainLoop()
                         _selectedShader = 0;
                     }
                 }
+
+                if (e.key.keysym.sym == SDLK_a)
+                {
+                    translate += glm::vec3(1,0,0) * translateSpeed; 
+                }
+                if (e.key.keysym.sym == SDLK_d)
+                {
+                    translate -= glm::vec3(1,0,0) * translateSpeed; 
+                }
+                if (e.key.keysym.sym == SDLK_w)
+                {
+                    translate += glm::vec3(0,0,1) * translateSpeed; 
+                }
+                if (e.key.keysym.sym == SDLK_s)
+                {
+                    translate -= glm::vec3(0,0,1) * translateSpeed; 
+                }
+            }
+            else if (e.type == SDL_MOUSEMOTION)
+            {
+                mouseRot += glm::vec3(0, e.motion.xrel, e.motion.yrel) *= mouseSpeed;
             }
         }
 
@@ -1608,7 +1644,10 @@ void HelloTriangleApplication::mainLoop()
         UpdateRotations();
         scene.Update();
 
-        drawFrame();
+      
+        HelloTriangleApplication::inputData input = {translate, mouseRot}; //TODO JS: Translate jerky. polling wrong rate?
+        drawFrame(input);
+        auto t2 = SDL_GetTicks();
     }
     vkDeviceWaitIdle(device);
 }
@@ -1631,7 +1670,7 @@ void HelloTriangleApplication::UpdateRotations()
     scene.Update();
 }
 
-void HelloTriangleApplication::drawFrame()
+void HelloTriangleApplication::drawFrame(HelloTriangleApplication::inputData input)
 {
     vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
 
@@ -1644,7 +1683,7 @@ void HelloTriangleApplication::drawFrame()
 
     //TODO: draw multiple objects
     // updateUniformBuffer(currentFrame, scene.matrices[0]);
-    updateUniformBuffers(currentFrame, scene.matrices); // TODO JS: Figure out
+    updateUniformBuffers(currentFrame, scene.matrices, input); // TODO JS: Figure out
 
 
     updateLightBuffers(currentFrame);
@@ -1814,25 +1853,28 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
 
     for (int i = 0; i < 300; i++)
     {
+
+        float rowRoughness = glm::clamp((float)i / 8.0,0.0,1.0);
+        bool rowmetlalic = i % 3 == 0;
         int textureIndex = rand() % randomMaterials.size();
 
         scene.AddObject(
             &scene.backing_meshes[randomMeshes[1]],
-            randomMaterials[textureIndex],
+            randomMaterials[textureIndex], rowRoughness, rowmetlalic,
             glm::vec4(0, - i * 0.6, 0, 1),
             MyQuaternion);
         textureIndex = rand() % randomMaterials.size();
 
         scene.AddObject(
             &scene.backing_meshes[randomMeshes[0]],
-            randomMaterials[textureIndex],
+            randomMaterials[textureIndex], rowRoughness, rowmetlalic,
             glm::vec4(2, - i * 0.6, 0.0, 1),
             MyQuaternion);
         textureIndex = rand() % randomMaterials.size();
 
         scene.AddObject(
             &scene.backing_meshes[randomMeshes[2]],
-            randomMaterials[textureIndex],
+            randomMaterials[textureIndex], rowRoughness, rowmetlalic,
             glm::vec4(-2, - i * 0.6, -0.0, 1),
             MyQuaternion);
     }

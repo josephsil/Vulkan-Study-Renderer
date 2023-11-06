@@ -45,7 +45,7 @@ class Scene
     void Update();
     void Sort();
     //Returns the index to the object in the vectors
-    int AddObject(MeshData* mesh, int textureidx, glm::vec3 position, glm::quat rotation);
+    int AddObject(MeshData* mesh, int textureidx,  float material_roughness, bool material_metallic,  glm::vec3 position, glm::quat rotation);
     uint32_t getVertexCount();
     uint32_t getOffsetFromMeshID(int id);
 

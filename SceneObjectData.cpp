@@ -38,11 +38,11 @@
     //So things like, get the index back from this and then index in to these vecs to update them
     //At some point in the future I can replace this with a more sophisticated reference system if I need
     //Even just returning a pointer is probably plenty, then I can sort the lists, prune stuff, etc.
-    int Scene::AddObject(MeshData* mesh, int textureidx, glm::vec3 position, glm::quat rotation)
+    int Scene::AddObject(MeshData* mesh, int textureidx, float material_roughness, bool material_metallic, glm::vec3 position, glm::quat rotation)
     {
         //TODD JS: version that can add 
         meshes.push_back(mesh);
-        materials.push_back(Material{.backingTextureidx = textureidx});
+        materials.push_back(Material{.backingTextureidx = textureidx, .metallic =  material_metallic, .roughness =  material_roughness});
         translations.push_back(position);
         rotations.push_back(rotation);
         matrices.push_back(glm::mat4(1.0));

@@ -17,7 +17,9 @@ TextureData::TextureData(HelloTriangleApplication* app, const char* path, Textur
     appref = app;
 
     VkFormat format;
+    VkSamplerAddressMode mode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 
+    bool use_mipmaps = true;
     switch (textureType)
     {
     case TextureType::DIFFUSE:
@@ -32,21 +34,24 @@ TextureData::TextureData(HelloTriangleApplication* app, const char* path, Textur
         {
             format = VK_FORMAT_R8G8B8A8_UNORM;
         }
-    case TextureType::UNORM:
+    case TextureType::LINEAR_DATA:
         {
             format = VK_FORMAT_R8G8B8A8_UNORM;
+            mode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+            use_mipmaps = false;
         }
     case TextureType::CUBE:
         {
             format = VK_FORMAT_R8G8B8A8_UNORM;
+            mode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
         }
     }
 
     //TODO JS: branch better
-    textureType == CUBE ? createCubemapImageKTX(path, format) : createTextureImage(path, format);
+    textureType == CUBE ? createCubemapImageKTX(path, format) : createTextureImage(path, format, use_mipmaps);
     
     createTextureImageView(format,  textureType == CUBE ? VK_IMAGE_VIEW_TYPE_CUBE : VK_IMAGE_VIEW_TYPE_2D);
-    createTextureSampler();
+    createTextureSampler(mode, CUBE ? -9999999999.0 : 0);
     id = TEXTURE_INDEX++;
 }
 TextureData::TextureData(){};
@@ -60,7 +65,7 @@ void TextureData::cleanup()
   
 }
 
-void TextureData::createTextureSampler()
+void TextureData::createTextureSampler(VkSamplerAddressMode mode, float bias)
 {
     VkPhysicalDeviceProperties properties{};
     vkGetPhysicalDeviceProperties(appref->physicalDevice, &properties);
@@ -69,9 +74,9 @@ void TextureData::createTextureSampler()
     samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
     samplerInfo.magFilter = VK_FILTER_LINEAR;
     samplerInfo.minFilter = VK_FILTER_LINEAR;
-    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerInfo.addressModeU = mode;
+    samplerInfo.addressModeV = mode;
+    samplerInfo.addressModeW = mode;
     samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
     samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
     samplerInfo.unnormalizedCoordinates = VK_FALSE;
@@ -79,9 +84,9 @@ void TextureData::createTextureSampler()
     samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
     samplerInfo.anisotropyEnable = VK_FALSE;
     samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR; //TODO JS
-    samplerInfo.minLod = 0.0; // Optional
+    samplerInfo.minLod = .0; // Optional
     samplerInfo.maxLod = maxmip;
-    samplerInfo.mipLodBias = 0.0f; // Optional
+    samplerInfo.mipLodBias = bias; // Optional
 
        
 
@@ -97,14 +102,14 @@ void TextureData::createTextureImageView(VkFormat format, VkImageViewType type)
 }
 
 
-void TextureData::createTextureImage(const char* path, VkFormat format)
+void TextureData::createTextureImage(const char* path, VkFormat format, bool mips)
 {
     
     auto workingTextureBuffer = appref->beginSingleTimeCommands(true);
     int texWidth, texHeight, texChannels;
     stbi_uc* pixels = stbi_load(path, &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
     VkDeviceSize imageSize = texWidth * texHeight * 4;
-    uint32_t mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
+    uint32_t mipLevels = !mips ? 1.0 : static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
     maxmip = mipLevels;
 
     if (!pixels)
@@ -178,7 +183,7 @@ void TextureData::createCubemapImageKTX(const char* path, VkFormat format)
     ktxTexture_Destroy(kTexture);
     //TODO JS: destroy vdi?
     //TODO JS: is it right to throw away the ktxVulkanTexture here without a free or w/e?
-    maxmip = texture.levelCount;
+    maxmip = 6.0;
     layerct = texture.layerCount;
     textureImage = texture.image;
     textureImageMemory = texture.deviceMemory;
