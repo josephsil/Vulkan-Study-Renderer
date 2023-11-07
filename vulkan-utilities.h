@@ -48,12 +48,6 @@ namespace DescriptorDataUtilities
     //TODO JS: move
     struct WriteDescriptorSetsBuilder
     {
-        union arrayData
-        {
-            VkDescriptorBufferInfo* bufferptr;
-            VkDescriptorImageInfo* imageptr;
-        };
-
         std::vector<VkWriteDescriptorSet> descriptorsets;
         int i = 0;
 
@@ -61,7 +55,6 @@ namespace DescriptorDataUtilities
         {
             descriptorsets.resize(length);
         }
-
 
         void Add(VkDescriptorType type, void* ptr, int count = 1)
         {

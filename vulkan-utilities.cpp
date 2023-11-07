@@ -8,76 +8,39 @@
 #include "vulkan-tutorial.h"
 #include "SceneObjectData.h"
 
+//TODO JS: Connect the two kinds of builders, so we like "fill slots" in the result of this one, and validate type/size?
+struct bindingBuilder
+{
+    int i = 0;
+    std::vector<VkDescriptorSetLayoutBinding> data;
+
+    bindingBuilder(int size)
+    {
+        data.resize(size);
+    }
+    void addBinding(VkDescriptorType type, VkShaderStageFlags stageflags, uint32_t count = 1)
+    {
+        VkDescriptorSetLayoutBinding binding{};
+        binding.binding = i; //b0
+        binding.descriptorCount = count;
+        binding.descriptorType = type;
+        binding.stageFlags = stageflags;
+        data[i] = binding;
+        i++;
+    }
+};
 void DescriptorSetSetup::createBindlessLayout(HelloTriangleApplication* app, VkDescriptorSetLayout* layout)
 {
-    VkDescriptorSetLayoutBinding globalsBinding{};
-    globalsBinding.binding = 0; //b0
-    globalsBinding.descriptorCount = 1;
-    globalsBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    globalsBinding.stageFlags = VK_SHADER_STAGE_ALL;
-    globalsBinding.pImmutableSamplers = nullptr; // Optional
+    auto builder = bindingBuilder(8);
+    builder.addBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL );
+    builder.addBinding(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_FRAGMENT_BIT,  app->scene->materialTextureCount()  + app->scene->utilityTextureCount());
+    builder.addBinding(VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT , app->scene->materialTextureCount()  + app->scene->utilityTextureCount());
+    builder.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
+    builder.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    builder.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
+    builder.addBinding(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_FRAGMENT_BIT,  2);
+    builder.addBinding(VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT , 2);
 
-    VkDescriptorSetLayoutBinding textureLayoutBinding{};
-    textureLayoutBinding.binding = 1;
-    textureLayoutBinding.descriptorCount = (app->scene->materialTextureCount()) + app->scene->utilityTextureCount();
-    textureLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-    textureLayoutBinding.pImmutableSamplers = nullptr;
-    textureLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-
-    VkDescriptorSetLayoutBinding samplerLayoutBinding{};
-    samplerLayoutBinding.binding = 2;
-    samplerLayoutBinding.descriptorCount = app->scene->materialTextureCount() + app->scene->utilityTextureCount();
-    samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
-    samplerLayoutBinding.pImmutableSamplers = nullptr;
-    samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-
-    VkDescriptorSetLayoutBinding meshLayoutBinding{};
-    meshLayoutBinding.binding = 3;
-    meshLayoutBinding.descriptorCount = 1;
-    meshLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    meshLayoutBinding.pImmutableSamplers = nullptr;
-    meshLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-
-    VkDescriptorSetLayoutBinding lightLayoutBinding{};
-    lightLayoutBinding.binding = 4;
-    lightLayoutBinding.descriptorCount = 1;
-    lightLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    lightLayoutBinding.pImmutableSamplers = nullptr;
-    lightLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-
-    VkDescriptorSetLayoutBinding uboBinding{};
-    uboBinding.binding = 5; //b0
-    uboBinding.descriptorCount = 1;
-    uboBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    uboBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-    uboBinding.pImmutableSamplers = nullptr; // Optional
-
-    VkDescriptorSetLayoutBinding cubeTextureBinding{};
-    cubeTextureBinding.binding = 6;
-    cubeTextureBinding.descriptorCount = 2;
-    cubeTextureBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-    cubeTextureBinding.pImmutableSamplers = nullptr;
-    cubeTextureBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-
-    VkDescriptorSetLayoutBinding cubeSamplerBinding{};
-    cubeSamplerBinding.binding = 7;
-    cubeSamplerBinding.descriptorCount = 2;
-    cubeSamplerBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
-    cubeSamplerBinding.pImmutableSamplers = nullptr;
-    cubeSamplerBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-
-
-    std::array<VkDescriptorSetLayoutBinding, 8> pushConstantBindings =
-    {
-        globalsBinding,
-        textureLayoutBinding,
-        samplerLayoutBinding,
-        meshLayoutBinding,
-        lightLayoutBinding,
-        uboBinding,
-        cubeTextureBinding,
-        cubeSamplerBinding
-    };
 
     //TODO JS: !!!! Over push descriptor set layout max !!!!!!
 
@@ -86,8 +49,8 @@ void DescriptorSetSetup::createBindlessLayout(HelloTriangleApplication* app, VkD
     //Set flag to use push descriptors
     pushDescriptorLayout.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR |
         VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
-    pushDescriptorLayout.bindingCount = static_cast<uint32_t>(pushConstantBindings.size());
-    pushDescriptorLayout.pBindings = pushConstantBindings.data();
+    pushDescriptorLayout.bindingCount = static_cast<uint32_t>(builder.data.size());
+    pushDescriptorLayout.pBindings = builder.data.data();
 
 
     VK_CHECK(vkCreateDescriptorSetLayout(app->device, &pushDescriptorLayout, nullptr, layout));

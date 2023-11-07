@@ -226,6 +226,7 @@ void HelloTriangleApplication::initVulkan()
     //Load shaders 
     shaderLoader = new ShaderLoader(device);
     compileShaders();
+    
     RenderingSetup::createRenderPass(this, {swapChainImageFormat, Capabilities::findDepthFormat(this)}, &renderPass);
 
 
@@ -574,7 +575,6 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
     vkCmdPushDescriptorSetKHR(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0,
                               writeDescriptorSetBuilder.size(), writeDescriptorSetBuilder.data());
 
-
     //Per-Object data, then draw
     for (int i = 0; i < scene->meshes.size(); i++)
     {
@@ -582,7 +582,6 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
         //Light count, vert offset, texture index, and object data index
         constants.indexInfo = glm::vec4(scene->materials[i].backingTextureidx, (scene->meshOffsets[i]),
                                         scene->materials[i].backingTextureidx, i);
-
 
         constants.materialprops = glm::vec4(scene->materials[i].roughness, scene->materials[i].metallic, 0, 0);
 
