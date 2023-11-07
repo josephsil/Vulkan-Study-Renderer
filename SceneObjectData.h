@@ -2,12 +2,14 @@
 #include <vector>
 #include <glm/glm.hpp>
 #include<glm/gtc/quaternion.hpp>
+#include <vulkan/vulkan_core.h>
 
 #include "Material.h"
 
 //Objects have like, transformation info, ref to their mesh, ref to their material
 //Not sure on ref to material. Really I only have one shader right now
 struct MeshData;
+struct VkDescriptorImageInfo;
 class Scene
 {
     //Should add a like gameobject-y thing that has a mesh and a material
@@ -58,4 +60,5 @@ class Scene
 
     void Cleanup();
 
+    std::pair<std::vector<VkDescriptorImageInfo>, std::vector<VkDescriptorImageInfo>> getBindlessTextureInfos();
 };

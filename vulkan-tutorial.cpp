@@ -246,9 +246,10 @@ void HelloTriangleApplication::initVulkan()
     //Only one dsl right now -- for the bindless ubershader
     DescriptorSetSetup::createBindlessLayout(this, &pushDescriptorSetLayout);
 
-    graphicsPipeline_1 = createGraphicsPipeline("triangle", renderPass, nullptr);
-    graphicsPipeline_2 = createGraphicsPipeline("triangle_alt", renderPass, nullptr);
+    graphicsPipeline_1 = createGraphicsPipeline("triangle", renderPass, nullptr, pushDescriptorSetLayout);
+    graphicsPipeline_2 = createGraphicsPipeline("triangle_alt", renderPass, nullptr, pushDescriptorSetLayout);
 
+    
     createUniformBuffers();
     createSyncObjects();
 
@@ -292,13 +293,17 @@ void HelloTriangleApplication::createUniformBuffers()
     VkDeviceSize bufferSize = sizeof(ShaderGlobals);
 
     shaderGlobalsBuffer.resize(MAX_FRAMES_IN_FLIGHT);
+    for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    {
+    shaderGlobalsBuffer[i].size = bufferSize;
+    }
     shaderGlobalsMemory.resize(MAX_FRAMES_IN_FLIGHT);
     shaderGlobalsMapped.resize(MAX_FRAMES_IN_FLIGHT);
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
         BufferUtilities::createBuffer(this,bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, shaderGlobalsBuffer[i],
+                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, shaderGlobalsBuffer[i].data,
                      shaderGlobalsMemory[i]);
 
         vkMapMemory(device, shaderGlobalsMemory[i], 0, bufferSize, 0, &shaderGlobalsMapped[i]);
@@ -308,13 +313,17 @@ void HelloTriangleApplication::createUniformBuffers()
     VkDeviceSize bufferSize1 = sizeof(UniformBufferObject) * scene->matrices.size();
 
     uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+    for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    {
+    uniformBuffers[i].size = bufferSize1;
+    }
     uniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
     uniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
         BufferUtilities::createBuffer(this,bufferSize1, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers[i],
+                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers[i].data,
                      uniformBuffersMemory[i]);
 
         vkMapMemory(device, uniformBuffersMemory[i], 0, bufferSize1, 0, &uniformBuffersMapped[i]);
@@ -323,13 +332,17 @@ void HelloTriangleApplication::createUniformBuffers()
     VkDeviceSize bufferSize2 = sizeof(gpuvertex) * scene->getVertexCount();
 
     meshBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+    for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    {
+    meshBuffers[i].size = bufferSize2;
+    }
     meshBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
     meshBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
         BufferUtilities::createBuffer(this,bufferSize2, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, meshBuffers[i],
+                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, meshBuffers[i].data,
                      meshBuffersMemory[i]);
 
         vkMapMemory(device, meshBuffersMemory[i], 0, bufferSize2, 0, &meshBuffersMapped[i]);
@@ -338,13 +351,17 @@ void HelloTriangleApplication::createUniformBuffers()
     VkDeviceSize bufferSize3 = sizeof(gpulight) * scene->lightposandradius.size();
 
     lightBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+    for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    {
+        lightBuffers[i].size = bufferSize3;
+    }
     lightBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
     lightBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
         BufferUtilities::createBuffer(this,bufferSize3, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, lightBuffers[i],
+                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, lightBuffers[i].data,
                      lightBuffersMemory[i]);
 
         vkMapMemory(device, lightBuffersMemory[i], 0, bufferSize3, 0, &lightBuffersMapped[i]);
@@ -475,6 +492,7 @@ void HelloTriangleApplication::updateUniformBuffer(uint32_t currentImage, glm::m
 }
 
 
+
 //TODO is this doing extra work?
 void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex,
                                                    VkPipeline graphicsPipeline, MeshData* _mesh)
@@ -523,189 +541,37 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
     scissor.extent = swapChainExtent;
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
+    //*************
+    //************
+    //** Fill data for Push Descriptor Sets
 
-    //Bind mesh buffers
-    VkDeviceSize offsets[] = {0};
+    auto writeDescriptorSetBuilder = DescriptorDataUtilities::WriteDescriptorSetsBuilder(8);
 
-    bool meshbound = false;
-    int lastMeshID = -1;
-    bool matbound = false;
+    VkDescriptorBufferInfo shaderglobalsinfo = shaderGlobalsBuffer[currentFrame].getBufferInfo();
+    writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &shaderglobalsinfo);
+   
+    auto[imageInfos, samplerInfos] = scene->getBindlessTextureInfos();
+    writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, imageInfos.data(), imageInfos.size());
+    writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_SAMPLER, samplerInfos.data(), imageInfos.size());
 
-    int lightct = scene->lightCount;
-
-    int f = 0;
-    //First draw -- this could happen earlier?
-    // bind ubo buffer
-
-    VkDescriptorBufferInfo shaderglobalsinfo{};
-    shaderglobalsinfo.buffer = shaderGlobalsBuffer[currentFrame]; //TODO: For loop over frames in flight
-    shaderglobalsinfo.offset = 0;
-    shaderglobalsinfo.range = sizeof(ShaderGlobals);
-
-
-    VkDescriptorBufferInfo uniformbufferinfo{};
-    uniformbufferinfo.buffer = uniformBuffers[currentFrame]; //TODO: For loop over frames in flight
-    uniformbufferinfo.offset = 0;
-    uniformbufferinfo.range = sizeof(UniformBufferObject) * scene->meshes.size();
-
-    VkDescriptorBufferInfo meshBufferinfo{};
-    meshBufferinfo.buffer = meshBuffers[currentFrame]; //TODO: For loop over frames in flight
-    meshBufferinfo.offset = 0;
-    meshBufferinfo.range = sizeof(gpuvertex) * scene->getVertexCount();
-
-    // bind ubo buffer
-    VkDescriptorBufferInfo lightbufferinfo{};
-    lightbufferinfo.buffer = lightBuffers[currentFrame]; //TODO: For loop over frames in flight
-    lightbufferinfo.offset = 0;
-    lightbufferinfo.range = sizeof(gpulight) * lightct;
-
-    //TODO JS: Don't do this every frame
-    std::vector<VkDescriptorImageInfo> imageInfos;
-    //Material textures
-    for (int texture_i = 0; texture_i < scene->materialCount(); texture_i++)
-    {
-        VkDescriptorImageInfo imageInfo{};
-        imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        imageInfo.imageView = scene->backing_diffuse_textures[texture_i].textureImageView;
-        imageInfos.push_back(imageInfo);
-
-        VkDescriptorImageInfo specInfo{};
-        specInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        specInfo.imageView = scene->backing_specular_textures[texture_i].textureImageView;
-        imageInfos.push_back(specInfo);
-
-        VkDescriptorImageInfo normalInfo{};
-        normalInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        normalInfo.imageView = scene->backing_normal_textures[texture_i].textureImageView;
-        imageInfos.push_back(normalInfo);
-    }
-
-    //Utility textures
-    for (int texture_i = 0; texture_i < scene->backing_utility_textures.size(); texture_i++)
-    {
-        VkDescriptorImageInfo imageInfo{};
-        imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        imageInfo.imageView = scene->backing_utility_textures[texture_i].textureImageView;
-        imageInfos.push_back(imageInfo);
-    }
-
-
-    std::vector<VkDescriptorImageInfo> samplerifos;
-
-    //Material textures
-    for (int texture_i = 0; texture_i < scene->materialCount(); texture_i++)
-    {
-        VkDescriptorImageInfo imageInfo{};
-        imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        imageInfo.sampler = scene->backing_diffuse_textures[texture_i].textureSampler;
-        samplerifos.push_back(imageInfo);
-
-        imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        imageInfo.sampler = scene->backing_specular_textures[texture_i].textureSampler;
-        samplerifos.push_back(imageInfo);
-
-        imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        imageInfo.sampler = scene->backing_normal_textures[texture_i].textureSampler;
-        samplerifos.push_back(imageInfo);
-    }
-
-    //Utility textures
-    for (int texture_i = 0; texture_i < scene->backing_utility_textures.size(); texture_i++)
-    {
-        VkDescriptorImageInfo imageInfo{};
-        imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        imageInfo.sampler = scene->backing_utility_textures[texture_i].textureSampler;
-        samplerifos.push_back(imageInfo);
-    }
-
-
-    VkDescriptorImageInfo cubeimageInfo;
-    cubeimageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    cubeimageInfo.imageView = cube_irradiance.textureImageView;
-
-    VkDescriptorImageInfo cubeimageInfo2;
-    cubeimageInfo2.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    cubeimageInfo2.imageView = cube_specular.textureImageView;
-
-    std::vector<VkDescriptorImageInfo> cubeimageinfos = {cubeimageInfo, cubeimageInfo2};
-
-    VkDescriptorImageInfo cubesamplerInfo;
-    cubesamplerInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    cubesamplerInfo.sampler = cube_irradiance.textureSampler;
-
-    VkDescriptorImageInfo cubesamplerInfo2;
-    cubesamplerInfo2.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    cubesamplerInfo2.sampler = cube_specular.textureSampler;
-
-    std::vector<VkDescriptorImageInfo> cubesamplerinfos = {cubesamplerInfo, cubesamplerInfo2};
-
-
-    std::array<VkWriteDescriptorSet, 8> writeDescriptorSets{};
-    writeDescriptorSets[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writeDescriptorSets[0].dstBinding = 0;
-    writeDescriptorSets[0].descriptorCount = 1;
-    writeDescriptorSets[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    writeDescriptorSets[0].pBufferInfo = &shaderglobalsinfo;
-
-
-    writeDescriptorSets[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writeDescriptorSets[1].dstBinding = 1;
-    writeDescriptorSets[1].dstArrayElement = 0;
-    writeDescriptorSets[1].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-    writeDescriptorSets[1].descriptorCount = (scene->materialTextureCount()) + scene->backing_utility_textures.size();
-    // All three types of textures
-
-    writeDescriptorSets[1].pImageInfo = imageInfos.data();
-
-    writeDescriptorSets[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writeDescriptorSets[2].dstBinding = 2;
-    writeDescriptorSets[2].dstArrayElement = 0;
-    writeDescriptorSets[2].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
-    writeDescriptorSets[2].descriptorCount = (scene->materialTextureCount()) + scene->backing_utility_textures.size();
-
-    writeDescriptorSets[2].pImageInfo = samplerifos.data();
-
-    writeDescriptorSets[3].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writeDescriptorSets[3].dstBinding = 3;
-    writeDescriptorSets[3].dstArrayElement = 0;
-    writeDescriptorSets[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    writeDescriptorSets[3].descriptorCount = 1;
-    writeDescriptorSets[3].pBufferInfo = &meshBufferinfo;
-
-    writeDescriptorSets[4].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writeDescriptorSets[4].dstBinding = 4;
-    writeDescriptorSets[4].dstArrayElement = 0;
-    writeDescriptorSets[4].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    writeDescriptorSets[4].descriptorCount = 1;
-    writeDescriptorSets[4].pBufferInfo = &lightbufferinfo;
-
-    writeDescriptorSets[5].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writeDescriptorSets[5].dstBinding = 5;
-    writeDescriptorSets[5].descriptorCount = 1;
-    writeDescriptorSets[5].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    writeDescriptorSets[5].pBufferInfo = &uniformbufferinfo;
-
-
-    writeDescriptorSets[6].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writeDescriptorSets[6].dstBinding = 6;
-    writeDescriptorSets[6].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-    writeDescriptorSets[6].dstArrayElement = 0;
-    writeDescriptorSets[6].descriptorCount = 2;
-    writeDescriptorSets[6].pImageInfo = cubeimageinfos.data();
-
-    writeDescriptorSets[7].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writeDescriptorSets[7].dstBinding = 7;
-    writeDescriptorSets[7].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
-    writeDescriptorSets[7].dstArrayElement = 0;
-    writeDescriptorSets[7].descriptorCount = 2;
-    writeDescriptorSets[7].pImageInfo = cubesamplerinfos.data();
-
-
-    //3 based on my layout
+    VkDescriptorBufferInfo meshBufferinfo = meshBuffers[currentFrame].getBufferInfo();
+    writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &meshBufferinfo);
+    
+    VkDescriptorBufferInfo lightbufferinfo = lightBuffers[currentFrame].getBufferInfo();
+    writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &lightbufferinfo);
+    
+    VkDescriptorBufferInfo uniformbufferinfo = uniformBuffers[currentFrame].getBufferInfo();
+    writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &uniformbufferinfo);
+    
+    auto [cubeImageInfos, cubeSamplerInfos] = DescriptorDataUtilities::ImageInfoFromImageDataVec({cube_irradiance, cube_specular});
+    writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, cubeImageInfos.data(), cubeImageInfos.size());
+    writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_SAMPLER, cubeSamplerInfos.data(), cubeSamplerInfos.size());
+    
     vkCmdPushDescriptorSetKHR(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0,
-                              writeDescriptorSets.size(), writeDescriptorSets.data());
-    //Loop over objects and set push constant stuff
-    //TODO JS: to scene object count
+                              writeDescriptorSetBuilder.size(), writeDescriptorSetBuilder.data());
+
+
+    //Per-Object data, then draw
     for (int i = 0; i < scene->meshes.size(); i++)
     {
         per_object_data constants;
@@ -715,7 +581,6 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
 
 
         constants.materialprops = glm::vec4(scene->materials[i].roughness, scene->materials[i].metallic, 0,0);
-        // constants.test = glm::vec4(1,2,3,i);
 
         vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT || VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                            sizeof(per_object_data), &constants);
@@ -809,7 +674,7 @@ void HelloTriangleApplication::createDepthResources()
 
 
 VkPipeline HelloTriangleApplication::createGraphicsPipeline(const char* shaderName, VkRenderPass renderPass,
-                                                            VkPipelineCache pipelineCache)
+                                                            VkPipelineCache pipelineCache, VkDescriptorSetLayout layout)
 {
     VkPipeline newGraphicsPipeline; //This guy is getting initialized and returned 
     auto shaders = shaderLoader->compiledShaders[shaderName];
@@ -905,7 +770,7 @@ VkPipeline HelloTriangleApplication::createGraphicsPipeline(const char* shaderNa
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipelineLayoutInfo.setLayoutCount = 1; // Optional
     //TODO JS: These always use the same descriptor set layout currently
-    VkDescriptorSetLayout setLayouts[] = {pushDescriptorSetLayout};
+    VkDescriptorSetLayout setLayouts[] = {layout};
     pipelineLayoutInfo.pSetLayouts = setLayouts;
 
     //setup push constants
@@ -1138,7 +1003,7 @@ void HelloTriangleApplication::cleanup()
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        vkDestroyBuffer(device, uniformBuffers[i], nullptr);
+        vkDestroyBuffer(device, uniformBuffers[i].data, nullptr);
         vkFreeMemory(device, uniformBuffersMemory[i], nullptr);
 
         vkFreeMemory(device, meshBuffersMemory[i], nullptr);

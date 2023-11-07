@@ -14,6 +14,7 @@
 #include "CommandPoolManager.h"
 // My stuff 
 
+struct dataBuffer;
 struct MeshData; //Forward Declaration
 struct Vertex;  //Forward Declaration
 struct ShaderLoader;
@@ -186,22 +187,23 @@ class Scene;
         std::vector<VkDescriptorSet> perMaterialDescriptorSets;
        std::vector<VkDescriptorSet> pushDescriptorSets;
 
-       std::vector<VkBuffer> shaderGlobalsBuffer;
-       VkBuffer shaderGlobalBig;
+
+    
+
+       
+       std::vector<dataBuffer> shaderGlobalsBuffer;
        std::vector<VkDeviceMemory> shaderGlobalsMemory;
        std::vector<void*> shaderGlobalsMapped;
-
         //TODO JS: Move the uniform buffer data and fns and ? This belongs to like, a "material" 
-        std::vector<VkBuffer> uniformBuffers;
-        VkBuffer uniformBufferBig;
+        std::vector<dataBuffer> uniformBuffers;
         std::vector<VkDeviceMemory> uniformBuffersMemory;
         std::vector<void*> uniformBuffersMapped;
 
-       std::vector<VkBuffer> meshBuffers;
+       std::vector<dataBuffer> meshBuffers;
        std::vector<VkDeviceMemory> meshBuffersMemory;
        std::vector<void*> meshBuffersMapped;
 
-       std::vector<VkBuffer> lightBuffers;
+       std::vector<dataBuffer> lightBuffers;
        std::vector<VkDeviceMemory> lightBuffersMemory;
        std::vector<void*> lightBuffersMapped;
 
@@ -276,8 +278,8 @@ class Scene;
 
        
         //TODO JS Collapse this? zoux niagra stream seems to do way less 
-        VkPipeline createGraphicsPipeline(const char* shaderName, VkRenderPass renderPass, VkPipelineCache pipelineCache);
-       
+        VkPipeline createGraphicsPipeline(const char* shaderName, VkRenderPass renderPass,
+                                                            VkPipelineCache pipelineCache, VkDescriptorSetLayout layout);
         void createInstance();
 
         int _selectedShader{0};

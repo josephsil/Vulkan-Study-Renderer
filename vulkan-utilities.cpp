@@ -517,3 +517,26 @@ void BufferUtilities::copyBuffer(HelloTriangleApplication* app, VkBuffer srcBuff
 }
 
 
+std::pair<std::vector<VkDescriptorImageInfo>, std::vector<VkDescriptorImageInfo>> DescriptorDataUtilities::ImageInfoFromImageDataVec(std::vector<TextureData> textures)
+{
+    std::vector<VkDescriptorImageInfo> imageinfos(textures.size());
+    std::vector<VkDescriptorImageInfo> samplerinfos(textures.size());
+    for (int i = 0; i < textures.size(); i++)
+    {
+        imageinfos[i] = VkDescriptorImageInfo {.imageView =  textures[i].textureImageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+        samplerinfos[i] = VkDescriptorImageInfo {.sampler =  textures[i].textureSampler, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+    }
+
+    return std::make_pair(imageinfos, samplerinfos);
+}
+
+//TODO JS: Move to textureData? Just return a 
+
+std::pair<VkDescriptorImageInfo, VkDescriptorImageInfo>  DescriptorDataUtilities::ImageInfoFromImageData(TextureData texture)
+{
+    return std::make_pair(
+        VkDescriptorImageInfo {.imageView =  texture.textureImageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
+        VkDescriptorImageInfo {.sampler =  texture.textureSampler, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}
+        );
+}
+

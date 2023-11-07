@@ -12,8 +12,10 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/quaternion.hpp>
 
+#include "vulkan-utilities.h"
 
-    //No scale for now
+
+//No scale for now
     Scene::Scene()
     {
         
@@ -126,6 +128,40 @@ void Scene::Cleanup()
         }
         
 }
+
+std::pair<std::vector<VkDescriptorImageInfo>, std::vector<VkDescriptorImageInfo>> Scene::getBindlessTextureInfos()
+{
+
+    //TODO JS: Don't do this every frame
+    std::vector<VkDescriptorImageInfo> imageInfos;
+    std::vector<VkDescriptorImageInfo> samplerInfos;
+    //Material textures
+    for (int texture_i = 0; texture_i < materialCount(); texture_i++)
+    {
+        auto[imageInfo, samplerInfo] = DescriptorDataUtilities::ImageInfoFromImageData(backing_diffuse_textures[texture_i]);
+        imageInfos.push_back(imageInfo);
+        samplerInfos.push_back(samplerInfo);
+
+        auto [imageInfo2, samplerInfo2] = DescriptorDataUtilities::ImageInfoFromImageData(backing_specular_textures[texture_i]);
+        imageInfos.push_back(imageInfo2);
+        samplerInfos.push_back(samplerInfo2);
+
+        auto [imageInfo3, samplerInfo3] = DescriptorDataUtilities::ImageInfoFromImageData(backing_normal_textures[texture_i]);
+        imageInfos.push_back(imageInfo3);
+        samplerInfos.push_back(samplerInfo3);
+    }
+        
+    for (int texture_i = 0; texture_i < backing_utility_textures.size(); texture_i++)
+    {
+        auto[imageInfo, samplerInfo] = DescriptorDataUtilities::ImageInfoFromImageData(backing_utility_textures[texture_i]);
+        imageInfos.push_back(imageInfo);
+        samplerInfos.push_back(samplerInfo);
+    }
+
+        return make_pair(imageInfos, samplerInfos);
+    
+}
+
 void Scene::Sort()
     {
         std::sort(meshes.begin(), meshes.end(), [](MeshData* a, MeshData* b) {

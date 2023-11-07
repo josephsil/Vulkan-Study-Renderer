@@ -19,7 +19,85 @@ typedef struct VkImageView_T* VkImageView;
 typedef struct VkRenderPass_T* VkRenderPass;
 typedef struct VkSampler_T* VkSampler;
 struct CommandPoolManager;
+struct TextureData;
 enum VkFormat;
+
+struct dataBuffer
+{
+    VkBuffer data;
+    uint32_t size;
+
+    VkDescriptorBufferInfo getBufferInfo()
+    {
+        VkDescriptorBufferInfo bufferInfo{};
+        bufferInfo.buffer = data; //TODO: For loop over frames in flight
+        bufferInfo.offset = 0;
+        bufferInfo.range =size;
+        return bufferInfo;
+    }
+        
+};
+
+
+namespace DescriptorDataUtilities
+{
+    
+    std::pair<std::vector<VkDescriptorImageInfo>, std::vector<VkDescriptorImageInfo>> ImageInfoFromImageDataVec(std::vector<TextureData> textures);
+    //TODO JS: Move to textureData? 
+    std::pair<VkDescriptorImageInfo, VkDescriptorImageInfo>  ImageInfoFromImageData(TextureData texture);
+
+    //TODO JS: move
+    struct WriteDescriptorSetsBuilder
+    {
+        union arrayData {
+            VkDescriptorBufferInfo* bufferptr;
+            VkDescriptorImageInfo*  imageptr;
+        };
+        std::vector<VkWriteDescriptorSet> descriptorsets;
+        int i = 0;
+        
+        WriteDescriptorSetsBuilder(int length)
+        {
+            descriptorsets.resize(length);
+        }
+        
+       
+        void Add(VkDescriptorType type, void* ptr, int count = 1)
+        {
+            descriptorsets[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            descriptorsets[i].dstBinding = i;
+            descriptorsets[i].descriptorCount = count;
+            descriptorsets[i].descriptorType  = type;
+            if (type == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE || type == VK_DESCRIPTOR_TYPE_SAMPLER)
+            {
+                descriptorsets[i].pImageInfo = static_cast<VkDescriptorImageInfo*>(ptr);
+            }
+            else
+            {
+                descriptorsets[i].pBufferInfo = static_cast<VkDescriptorBufferInfo*>(ptr);
+            }
+            i++;
+        }
+
+        void AddStorageBuffer(dataBuffer storageBuffer )
+        {
+            auto bufferInfo = storageBuffer.getBufferInfo();
+            
+            Add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,&bufferInfo);
+           
+        }
+
+        VkWriteDescriptorSet* data()
+        {
+            return descriptorsets.data();
+        }
+
+        uint32_t size()
+        {
+            return descriptorsets.size();
+        }
+    };
+}
 
 namespace DescriptorSetSetup 
 {
