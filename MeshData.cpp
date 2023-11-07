@@ -11,6 +11,7 @@
 #include <vector>
 #include <unordered_map>
 
+#include "vulkan-utilities.h"
 #include "tinygltf/tiny_gltf.h"
 
 struct MeshForMikkt
@@ -473,7 +474,7 @@ VkBuffer MeshData::meshDataCreateVertexBuffer(HelloTriangleApplication* renderer
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
 
-    renderer->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+    BufferUtilities::createBuffer(renderer, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                            stagingBuffer, stagingBufferMemory);
 
@@ -484,12 +485,12 @@ VkBuffer MeshData::meshDataCreateVertexBuffer(HelloTriangleApplication* renderer
     memcpy(data, this->vertices.data(), (size_t)bufferSize);
     vkUnmapMemory(device, stagingBufferMemory);
 
-    renderer->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+    BufferUtilities::createBuffer(renderer, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
 
 
                            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, this->vertMemory);
 
-    renderer->copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
+    BufferUtilities::copyBuffer(renderer, stagingBuffer, vertexBuffer, bufferSize);
 
     vkDestroyBuffer(device, stagingBuffer, nullptr);
     vkFreeMemory(device, stagingBufferMemory, nullptr);
@@ -505,7 +506,7 @@ VkBuffer MeshData::meshDataCreateIndexBuffer(HelloTriangleApplication* renderer)
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
 
-    renderer->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+    BufferUtilities::createBuffer(renderer, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                            stagingBuffer, stagingBufferMemory);
 
@@ -516,12 +517,12 @@ VkBuffer MeshData::meshDataCreateIndexBuffer(HelloTriangleApplication* renderer)
     memcpy(data, this->indices.data(), (size_t)bufferSize);
     vkUnmapMemory(device, stagingBufferMemory);
 
-    renderer->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+    BufferUtilities::createBuffer(renderer, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
 
 
                            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, this->indexMemory);
 
-    renderer->copyBuffer(stagingBuffer, indexBuffer, bufferSize);
+    BufferUtilities::copyBuffer(renderer, stagingBuffer, indexBuffer, bufferSize);
 
     vkDestroyBuffer(device, stagingBuffer, nullptr);
     vkFreeMemory(device, stagingBufferMemory, nullptr);

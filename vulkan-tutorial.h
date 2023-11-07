@@ -10,8 +10,11 @@
 // #include "vk_mem_alloc.h"
 
 #include <chrono>
+
+#include "CommandPoolManager.h"
 // My stuff 
 
+struct dataBuffer;
 struct MeshData; //Forward Declaration
 struct Vertex;  //Forward Declaration
 struct ShaderLoader;
@@ -22,63 +25,28 @@ class Scene;
    class HelloTriangleApplication
     {
     public:
-
+    std::unique_ptr<Scene> scene;
        float deltaTime;
 
-    struct bufferAndPool
-    {
-        VkCommandBuffer buffer;
-        VkCommandPool pool;
-        VkQueue queue;
-    };
+
        
        static std::vector<char> readFile(const std::string& filename);
 
        VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
        VkDevice device; //Logical device
-        void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
-        void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer,
-                          VkDeviceMemory& bufferMemory);
-        void run();
 
         HelloTriangleApplication();
 
        //Images
 
-       void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage,
-                 VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory, uint32_t miplevels = 1);
-
-       void RUNTIME_generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
-       
-       VkImageView createImageView(VkImage image, VkFormat format,
-                                   VkImageAspectFlags aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT, VkImageViewType type = VK_IMAGE_VIEW_TYPE_2D, uint32_t miplevels = 1, uint32_t layerCount = 1);
-
-       void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout,
-                                  VkCommandBuffer workingBuffer = nullptr, uint32_t miplevels = 1);
-
+     //TODO JS
        void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height,
                               VkCommandBuffer workingBuffer = nullptr);
 
        //submitting commands
 
-       VkCommandBuffer beginSingleTimeCommands_transfer();
-       bufferAndPool beginSingleTimeCommands(bool useTransferPool);
 
-       void endSingleTimeCommands(VkCommandBuffer buffer);
-       void endSingleTimeCommands(bufferAndPool commandBuffer);
-
-    struct QueueData
-{
-    VkQueue graphicsQueue;
-    uint32_t graphicsQueueFamily;
-    VkQueue presentQueue;
-    uint32_t presentQueueFamily;
-    VkQueue transferQueue;
-    uint32_t transferQueueFamily;
-    VkQueue computeQueue;
-    uint32_t computeQueueFamily;
-};
-       QueueData Queues;
+       CommandPoolManager commandPoolmanager;
 
                
        struct inputData
@@ -106,19 +74,6 @@ class Scene;
        int fullscreenquadIDX;
       
 
-
-        VkQueue computeQueue;
-       
-        uint32_t computeQueueFamily;
-        VkQueue graphicsQueue;
-
-        uint32_t graphicsQueueFamily;
-        VkQueue presentQueue;
-
-        uint32_t presentQueueFamily;
-        VkQueue transferQueue;
-
-        uint32_t transferQueueFamily;
         VkSwapchainKHR swapChain;
 
         VkImage depthImage;
@@ -159,8 +114,8 @@ class Scene;
             "VK_LAYER_KHRONOS_validation"
         };
 
-        VkCommandPool commandPool;
-        VkCommandPool transferCommandPool;
+
+       
     int cubemaplut_utilitytexture_index;
         
 
@@ -232,22 +187,23 @@ class Scene;
         std::vector<VkDescriptorSet> perMaterialDescriptorSets;
        std::vector<VkDescriptorSet> pushDescriptorSets;
 
-       std::vector<VkBuffer> shaderGlobalsBuffer;
-       VkBuffer shaderGlobalBig;
+
+    
+
+       
+       std::vector<dataBuffer> shaderGlobalsBuffer;
        std::vector<VkDeviceMemory> shaderGlobalsMemory;
        std::vector<void*> shaderGlobalsMapped;
-
         //TODO JS: Move the uniform buffer data and fns and ? This belongs to like, a "material" 
-        std::vector<VkBuffer> uniformBuffers;
-        VkBuffer uniformBufferBig;
+        std::vector<dataBuffer> uniformBuffers;
         std::vector<VkDeviceMemory> uniformBuffersMemory;
         std::vector<void*> uniformBuffersMapped;
 
-       std::vector<VkBuffer> meshBuffers;
+       std::vector<dataBuffer> meshBuffers;
        std::vector<VkDeviceMemory> meshBuffersMemory;
        std::vector<void*> meshBuffersMapped;
 
-       std::vector<VkBuffer> lightBuffers;
+       std::vector<dataBuffer> lightBuffers;
        std::vector<VkDeviceMemory> lightBuffersMemory;
        std::vector<void*> lightBuffersMapped;
 
@@ -265,7 +221,7 @@ class Scene;
        void updateUniformBuffers(uint32_t currentImage, std::vector<glm::mat4> models, HelloTriangleApplication::inputData input);
 
 
-        void createDescriptorSetLayout();
+        void createDescriptorSetLayout(VkDescriptorSetLayoutCreateInfo layoutinfo, VkDescriptorSetLayout* layout);
 
 
         void compileShaders();
@@ -289,7 +245,6 @@ class Scene;
 
 
 
-        uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
         void createSyncObjects();
 
@@ -316,21 +271,15 @@ class Scene;
 
         void createDepthResources();
 
-        VkFormat findDepthFormat();
 
         bool hasStencilComponent(VkFormat format);
 
 
-        VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling,
-                                     VkFormatFeatureFlags features);
 
-        //TODO JS: VK_KHR_dynamic_rendering gets rid of render pass types and just lets you vkBeginRenderPass
-        void createRenderPass();
-
-
-        //TODO JS Collapse this? zoux niagra stream seems to do way less 
-        VkPipeline createGraphicsPipeline(const char* shaderName, VkRenderPass renderPass, VkPipelineCache pipelineCache);
        
+        //TODO JS Collapse this? zoux niagra stream seems to do way less 
+        VkPipeline createGraphicsPipeline(const char* shaderName, VkRenderPass renderPass,
+                                                            VkPipelineCache pipelineCache, VkDescriptorSetLayout layout);
         void createInstance();
 
         int _selectedShader{0};
