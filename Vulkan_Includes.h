@@ -1,4 +1,4 @@
-#pragma once 
+#pragma once
 #ifndef  VULKAN_INCLUDES
 #define VULKAN_INCLUDES 
 #include <vulkan/vulkan_core.h>
@@ -13,13 +13,11 @@ struct RenderTextureFormat
 {
     VkFormat ColorFormat;
     VkFormat DepthFormat;
-    
 };
-    
+
 struct bufferAndPool
 {
     VkCommandBuffer buffer;
     VkCommandPool pool;
     VkQueue queue;
 };
-

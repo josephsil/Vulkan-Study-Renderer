@@ -89,7 +89,7 @@ void DescriptorSetSetup::createBindlessLayout(HelloTriangleApplication* app, VkD
     pushDescriptorLayout.bindingCount = static_cast<uint32_t>(pushConstantBindings.size());
     pushDescriptorLayout.pBindings = pushConstantBindings.data();
 
-  
+
     VK_CHECK(vkCreateDescriptorSetLayout(app->device, &pushDescriptorLayout, nullptr, layout));
 }
 
@@ -158,16 +158,17 @@ void RenderingSetup::createRenderPass(HelloTriangleApplication* app, RenderTextu
 
 VkFormat Capabilities::findDepthFormat(HelloTriangleApplication* app)
 {
-    return Capabilities::findSupportedFormat(app,
-        {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT},
-        VK_IMAGE_TILING_OPTIMAL,
-        VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
+    return findSupportedFormat(app,
+                               {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT},
+                               VK_IMAGE_TILING_OPTIMAL,
+                               VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
     );
 }
 
 
-VkFormat Capabilities::findSupportedFormat(HelloTriangleApplication* app, const std::vector<VkFormat>& candidates, VkImageTiling tiling,
-                                                       VkFormatFeatureFlags features)
+VkFormat Capabilities::findSupportedFormat(HelloTriangleApplication* app, const std::vector<VkFormat>& candidates,
+                                           VkImageTiling tiling,
+                                           VkFormatFeatureFlags features)
 {
     for (VkFormat format : candidates)
     {
@@ -178,7 +179,7 @@ VkFormat Capabilities::findSupportedFormat(HelloTriangleApplication* app, const 
         {
             return format;
         }
-        else if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features)
+        if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features)
         {
             return format;
         }
@@ -188,7 +189,8 @@ VkFormat Capabilities::findSupportedFormat(HelloTriangleApplication* app, const 
     exit(1);
 }
 
-uint32_t Capabilities::findMemoryType(HelloTriangleApplication* app, uint32_t typeFilter, VkMemoryPropertyFlags properties)
+uint32_t Capabilities::findMemoryType(HelloTriangleApplication* app, uint32_t typeFilter,
+                                      VkMemoryPropertyFlags properties)
 {
     VkPhysicalDeviceMemoryProperties memProperties;
     vkGetPhysicalDeviceMemoryProperties(app->physicalDevice, &memProperties);
@@ -204,8 +206,9 @@ uint32_t Capabilities::findMemoryType(HelloTriangleApplication* app, uint32_t ty
     throw std::runtime_error("failed to find suitable memory type!");
 }
 
-VkImageView TextureUtilities::createImageView(VkDevice device, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags,
-                                                      VkImageViewType type, uint32_t miplevels, uint32_t layerCount)
+VkImageView TextureUtilities::createImageView(VkDevice device, VkImage image, VkFormat format,
+                                              VkImageAspectFlags aspectFlags,
+                                              VkImageViewType type, uint32_t miplevels, uint32_t layerCount)
 {
     VkImageViewCreateInfo viewInfo{};
     viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -228,9 +231,10 @@ VkImageView TextureUtilities::createImageView(VkDevice device, VkImage image, Vk
 }
 
 
-void TextureUtilities::createImage(HelloTriangleApplication* app, uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling,
-                                           VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image,
-                                           VkDeviceMemory& imageMemory, uint32_t miplevels)
+void TextureUtilities::createImage(HelloTriangleApplication* app, uint32_t width, uint32_t height, VkFormat format,
+                                   VkImageTiling tiling,
+                                   VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image,
+                                   VkDeviceMemory& imageMemory, uint32_t miplevels)
 {
     VkImageCreateInfo imageInfo{};
     imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -250,7 +254,7 @@ void TextureUtilities::createImage(HelloTriangleApplication* app, uint32_t width
     if (vkCreateImage(app->device, &imageInfo, nullptr, &image) != VK_SUCCESS)
     {
         std::cerr << "failed to create image!" << "\n";
-    exit(1);
+        exit(1);
     }
 
     VkMemoryRequirements memRequirements;
@@ -264,14 +268,15 @@ void TextureUtilities::createImage(HelloTriangleApplication* app, uint32_t width
     if (vkAllocateMemory(app->device, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS)
     {
         std::cerr << "failed to allocate image memory!" << "\n";
-    exit(1);
+        exit(1);
     }
 
     vkBindImageMemory(app->device, image, imageMemory, 0);
 }
 
-void TextureUtilities::transitionImageLayout(HelloTriangleApplication* app, VkImage image, VkFormat format, VkImageLayout oldLayout,
-    VkImageLayout newLayout, VkCommandBuffer workingBuffer, uint32_t miplevels)
+void TextureUtilities::transitionImageLayout(HelloTriangleApplication* app, VkImage image, VkFormat format,
+                                             VkImageLayout oldLayout,
+                                             VkImageLayout newLayout, VkCommandBuffer workingBuffer, uint32_t miplevels)
 {
     bool endNow = false;
     if (workingBuffer == nullptr)
@@ -293,7 +298,7 @@ void TextureUtilities::transitionImageLayout(HelloTriangleApplication* app, VkIm
     barrier.image = image;
     barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     barrier.subresourceRange.baseMipLevel = 0; //TODO JS! 
-    barrier.subresourceRange.levelCount =  miplevels;
+    barrier.subresourceRange.levelCount = miplevels;
     barrier.subresourceRange.baseArrayLayer = 0;
     barrier.subresourceRange.layerCount = 1;
 
@@ -339,8 +344,9 @@ void TextureUtilities::transitionImageLayout(HelloTriangleApplication* app, VkIm
         app->commandPoolmanager.endSingleTimeCommands(workingBuffer);
 }
 
-void TextureUtilities::generateMipmaps(HelloTriangleApplication* app, VkImage image, VkFormat imageFormat, int32_t texWidth,
-                                                       int32_t texHeight, uint32_t mipLevels)
+void TextureUtilities::generateMipmaps(HelloTriangleApplication* app, VkImage image, VkFormat imageFormat,
+                                       int32_t texWidth,
+                                       int32_t texHeight, uint32_t mipLevels)
 {
     // Check if image format supports linear blitting
     VkFormatProperties formatProperties;
@@ -432,8 +438,9 @@ void TextureUtilities::generateMipmaps(HelloTriangleApplication* app, VkImage im
     app->commandPoolmanager.endSingleTimeCommands(bandp);
 }
 
-void TextureUtilities::copyBufferToImage(CommandPoolManager* commandPoolManager, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height,
-                                                 VkCommandBuffer workingBuffer)
+void TextureUtilities::copyBufferToImage(CommandPoolManager* commandPoolManager, VkBuffer buffer, VkImage image,
+                                         uint32_t width, uint32_t height,
+                                         VkCommandBuffer workingBuffer)
 {
     bool endNow = false;
     if (workingBuffer == nullptr)
@@ -475,8 +482,8 @@ void TextureUtilities::copyBufferToImage(CommandPoolManager* commandPoolManager,
 
 
 void BufferUtilities::createBuffer(HelloTriangleApplication* app, VkDeviceSize size, VkBufferUsageFlags usage,
-                                            VkMemoryPropertyFlags properties, VkBuffer& buffer,
-                                            VkDeviceMemory& bufferMemory)
+                                   VkMemoryPropertyFlags properties, VkBuffer& buffer,
+                                   VkDeviceMemory& bufferMemory)
 {
     VkBufferCreateInfo bufferInfo{};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -495,7 +502,7 @@ void BufferUtilities::createBuffer(HelloTriangleApplication* app, VkDeviceSize s
     VkMemoryAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocInfo.allocationSize = memRequirements.size;
-    allocInfo.memoryTypeIndex = Capabilities::findMemoryType(app,memRequirements.memoryTypeBits, properties);
+    allocInfo.memoryTypeIndex = Capabilities::findMemoryType(app, memRequirements.memoryTypeBits, properties);
 
     if (vkAllocateMemory(app->device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS)
     {
@@ -505,7 +512,8 @@ void BufferUtilities::createBuffer(HelloTriangleApplication* app, VkDeviceSize s
     vkBindBufferMemory(app->device, buffer, bufferMemory, 0);
 }
 
-void BufferUtilities::copyBuffer(HelloTriangleApplication* app, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
+void BufferUtilities::copyBuffer(HelloTriangleApplication* app, VkBuffer srcBuffer, VkBuffer dstBuffer,
+                                 VkDeviceSize size)
 {
     VkCommandBuffer commandBuffer = app->commandPoolmanager.beginSingleTimeCommands_transfer();
 
@@ -517,14 +525,19 @@ void BufferUtilities::copyBuffer(HelloTriangleApplication* app, VkBuffer srcBuff
 }
 
 
-std::pair<std::vector<VkDescriptorImageInfo>, std::vector<VkDescriptorImageInfo>> DescriptorDataUtilities::ImageInfoFromImageDataVec(std::vector<TextureData> textures)
+std::pair<std::vector<VkDescriptorImageInfo>, std::vector<VkDescriptorImageInfo>>
+DescriptorDataUtilities::ImageInfoFromImageDataVec(std::vector<TextureData> textures)
 {
     std::vector<VkDescriptorImageInfo> imageinfos(textures.size());
     std::vector<VkDescriptorImageInfo> samplerinfos(textures.size());
     for (int i = 0; i < textures.size(); i++)
     {
-        imageinfos[i] = VkDescriptorImageInfo {.imageView =  textures[i].textureImageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-        samplerinfos[i] = VkDescriptorImageInfo {.sampler =  textures[i].textureSampler, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+        imageinfos[i] = VkDescriptorImageInfo{
+            .imageView = textures[i].textureImageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+        };
+        samplerinfos[i] = VkDescriptorImageInfo{
+            .sampler = textures[i].textureSampler, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+        };
     }
 
     return std::make_pair(imageinfos, samplerinfos);
@@ -532,11 +545,15 @@ std::pair<std::vector<VkDescriptorImageInfo>, std::vector<VkDescriptorImageInfo>
 
 //TODO JS: Move to textureData? Just return a 
 
-std::pair<VkDescriptorImageInfo, VkDescriptorImageInfo>  DescriptorDataUtilities::ImageInfoFromImageData(TextureData texture)
+std::pair<VkDescriptorImageInfo, VkDescriptorImageInfo> DescriptorDataUtilities::ImageInfoFromImageData(
+    TextureData texture)
 {
     return std::make_pair(
-        VkDescriptorImageInfo {.imageView =  texture.textureImageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
-        VkDescriptorImageInfo {.sampler =  texture.textureSampler, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}
-        );
+        VkDescriptorImageInfo{
+            .imageView = texture.textureImageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+        },
+        VkDescriptorImageInfo{
+            .sampler = texture.textureSampler, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+        }
+    );
 }
-

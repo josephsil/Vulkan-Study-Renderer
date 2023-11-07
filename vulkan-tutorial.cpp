@@ -47,7 +47,7 @@ vkb::Instance GET_INSTANCE()
         exit(1);
     }
 
-   return  instanceBuilderResult.value();
+    return instanceBuilderResult.value();
 }
 
 vkb::PhysicalDevice GET_GPU(vkb::Instance instance)
@@ -55,22 +55,22 @@ vkb::PhysicalDevice GET_GPU(vkb::Instance instance)
     const std::vector<const char*> deviceExtensions = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME, VK_KHR_MAINTENANCE_4_EXTENSION_NAME
     };
-    
+
     vkb::PhysicalDeviceSelector phys_device_selector(instance);
     auto physicalDeviceBuilderResult = phys_device_selector
-                                           .set_minimum_version(1, 3)
-                                           .set_surface(surface)
-                                           .require_separate_transfer_queue()
-                                           //NOTE: Not supporting gpus without dedicated queue 
-                                           .require_separate_compute_queue()
-                                           .set_required_features({
-                                               VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES
-                                           })
-                                           .add_required_extensions(deviceExtensions)
-                                           .select();
+                                       .set_minimum_version(1, 3)
+                                       .set_surface(surface)
+                                       .require_separate_transfer_queue()
+                                       //NOTE: Not supporting gpus without dedicated queue 
+                                       .require_separate_compute_queue()
+                                       .set_required_features({
+                                           VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES
+                                       })
+                                       .add_required_extensions(deviceExtensions)
+                                       .select();
     if (!physicalDeviceBuilderResult)
     {
-        std::cerr <<  ("Failed to create Physical Device");
+        std::cerr << ("Failed to create Physical Device");
         exit(1);
     }
 
@@ -80,18 +80,17 @@ vkb::PhysicalDevice GET_GPU(vkb::Instance instance)
 
 vkb::Device GET_DEVICE(vkb::PhysicalDevice gpu)
 {
-  vkb::DeviceBuilder device_builder{gpu};
+    vkb::DeviceBuilder device_builder{gpu};
 
     auto devicebuilderResult = device_builder.build();
 
     if (!devicebuilderResult)
     {
-        std::cerr <<  ("Failed to create Virtual Device");
+        std::cerr << ("Failed to create Virtual Device");
         exit(1);
     }
-    
+
     return devicebuilderResult.value();
-    
 }
 
 #pragma endregion
@@ -145,7 +144,7 @@ void HelloTriangleApplication::initWindow()
     // We initialize SDL and create a window with it. 
     SDL_Init(SDL_INIT_VIDEO);
 
-    SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_VULKAN);
+    auto window_flags = SDL_WINDOW_VULKAN;
 
     //create blank SDL window for our application
     _window = SDL_CreateWindow(
@@ -192,17 +191,17 @@ void HelloTriangleApplication::initVulkan()
     SDL_Vulkan_GetDrawableSize(_window, &WIDTH, &HEIGHT);
 
     //Get physical device
-    vkb_physicalDevice  = GET_GPU(vkb_instance);
+    vkb_physicalDevice = GET_GPU(vkb_instance);
     physicalDevice = vkb_physicalDevice.physical_device;
-    
+
     //Get logical device
-    vkb_device =  GET_DEVICE(vkb_physicalDevice);
+    vkb_device = GET_DEVICE(vkb_physicalDevice);
     device = vkb_device.device;
-    
+
     //Get push descriptor stuff
     //The push descriptor update function is part of an extension so it has to be manually loaded
     vkCmdPushDescriptorSetKHR = (PFN_vkCmdPushDescriptorSetKHR)vkGetDeviceProcAddr(device, "vkCmdPushDescriptorSetKHR");
-    
+
     // Get device push descriptor properties (to display them)
 
     //Get queues and queue families and command pools
@@ -217,7 +216,7 @@ void HelloTriangleApplication::initVulkan()
                     .set_desired_extent(WIDTH, HEIGHT)
                     .build()
                     .value();
-    
+
     swapChain = vkb_swapchain.swapchain;
     swapChainImages = vkb_swapchain.get_images().value();
     swapChainImageViews = vkb_swapchain.get_image_views().value();
@@ -227,12 +226,12 @@ void HelloTriangleApplication::initVulkan()
     //Load shaders 
     shaderLoader = new ShaderLoader(device);
     compileShaders();
-    RenderingSetup::createRenderPass(this,{swapChainImageFormat, Capabilities::findDepthFormat(this)}, &renderPass);
+    RenderingSetup::createRenderPass(this, {swapChainImageFormat, Capabilities::findDepthFormat(this)}, &renderPass);
 
 
     //Command buffer stuff
     createCommandBuffers();
-    
+
     //Initialize scene
     scene = std::make_unique<Scene>(Scene());
     SET_UP_SCENE(this);
@@ -249,7 +248,7 @@ void HelloTriangleApplication::initVulkan()
     graphicsPipeline_1 = createGraphicsPipeline("triangle", renderPass, nullptr, pushDescriptorSetLayout);
     graphicsPipeline_2 = createGraphicsPipeline("triangle_alt", renderPass, nullptr, pushDescriptorSetLayout);
 
-    
+
     createUniformBuffers();
     createSyncObjects();
 
@@ -293,18 +292,19 @@ void HelloTriangleApplication::createUniformBuffers()
     VkDeviceSize bufferSize = sizeof(ShaderGlobals);
 
     shaderGlobalsBuffer.resize(MAX_FRAMES_IN_FLIGHT);
-    for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-    shaderGlobalsBuffer[i].size = bufferSize;
+        shaderGlobalsBuffer[i].size = bufferSize;
     }
     shaderGlobalsMemory.resize(MAX_FRAMES_IN_FLIGHT);
     shaderGlobalsMapped.resize(MAX_FRAMES_IN_FLIGHT);
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        BufferUtilities::createBuffer(this,bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, shaderGlobalsBuffer[i].data,
-                     shaderGlobalsMemory[i]);
+        BufferUtilities::createBuffer(this, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                                      shaderGlobalsBuffer[i].data,
+                                      shaderGlobalsMemory[i]);
 
         vkMapMemory(device, shaderGlobalsMemory[i], 0, bufferSize, 0, &shaderGlobalsMapped[i]);
     }
@@ -313,18 +313,19 @@ void HelloTriangleApplication::createUniformBuffers()
     VkDeviceSize bufferSize1 = sizeof(UniformBufferObject) * scene->matrices.size();
 
     uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-    for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-    uniformBuffers[i].size = bufferSize1;
+        uniformBuffers[i].size = bufferSize1;
     }
     uniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
     uniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        BufferUtilities::createBuffer(this,bufferSize1, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers[i].data,
-                     uniformBuffersMemory[i]);
+        BufferUtilities::createBuffer(this, bufferSize1, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                                      uniformBuffers[i].data,
+                                      uniformBuffersMemory[i]);
 
         vkMapMemory(device, uniformBuffersMemory[i], 0, bufferSize1, 0, &uniformBuffersMapped[i]);
     }
@@ -332,18 +333,19 @@ void HelloTriangleApplication::createUniformBuffers()
     VkDeviceSize bufferSize2 = sizeof(gpuvertex) * scene->getVertexCount();
 
     meshBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-    for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-    meshBuffers[i].size = bufferSize2;
+        meshBuffers[i].size = bufferSize2;
     }
     meshBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
     meshBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        BufferUtilities::createBuffer(this,bufferSize2, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, meshBuffers[i].data,
-                     meshBuffersMemory[i]);
+        BufferUtilities::createBuffer(this, bufferSize2, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                                      meshBuffers[i].data,
+                                      meshBuffersMemory[i]);
 
         vkMapMemory(device, meshBuffersMemory[i], 0, bufferSize2, 0, &meshBuffersMapped[i]);
     }
@@ -351,7 +353,7 @@ void HelloTriangleApplication::createUniformBuffers()
     VkDeviceSize bufferSize3 = sizeof(gpulight) * scene->lightposandradius.size();
 
     lightBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-    for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
         lightBuffers[i].size = bufferSize3;
     }
@@ -360,9 +362,10 @@ void HelloTriangleApplication::createUniformBuffers()
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        BufferUtilities::createBuffer(this,bufferSize3, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, lightBuffers[i].data,
-                     lightBuffersMemory[i]);
+        BufferUtilities::createBuffer(this, bufferSize3, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                                      lightBuffers[i].data,
+                                      lightBuffersMemory[i]);
 
         vkMapMemory(device, lightBuffersMemory[i], 0, bufferSize3, 0, &lightBuffersMapped[i]);
     }
@@ -370,7 +373,8 @@ void HelloTriangleApplication::createUniformBuffers()
 
 
 //TODO JS: Better understand what needs to be done at startup
-void HelloTriangleApplication::createDescriptorSetLayout(VkDescriptorSetLayoutCreateInfo layoutinfo, VkDescriptorSetLayout* layout)
+void HelloTriangleApplication::createDescriptorSetLayout(VkDescriptorSetLayoutCreateInfo layoutinfo,
+                                                         VkDescriptorSetLayout* layout)
 {
     VK_CHECK(vkCreateDescriptorSetLayout(device, &layoutinfo, nullptr, layout));
 }
@@ -380,12 +384,9 @@ void HelloTriangleApplication::createDescriptorSetLayout(VkDescriptorSetLayoutCr
 #pragma region buffer creation and tools
 
 
-
 #pragma endregion
 
 #pragma region Begin/End commands
-
-
 
 
 #pragma endregion
@@ -446,14 +447,16 @@ void HelloTriangleApplication::updateLightBuffers(uint32_t currentImage)
 //TODO JS: This is like, per object uniforms -- it should belong to the scene and get passed a buffer directly to the render loop
 //TODO: Separate the per model xforms from the camera xform
 
-void HelloTriangleApplication::updateUniformBuffers(uint32_t currentImage, std::vector<glm::mat4> models, HelloTriangleApplication::inputData input)
+void HelloTriangleApplication::updateUniformBuffers(uint32_t currentImage, std::vector<glm::mat4> models,
+                                                    inputData input)
 {
     ShaderGlobals globals;
     eyePos += (input.translate * deltaTime);
-    
-    glm::mat4 view = glm::lookAt(eyePos, glm::vec3(0.0f, -1.0f, 0.5f), glm::vec3(0.0f, 0.0f, 1.0f));
 
-    glm::mat4 proj = glm::perspective(glm::radians(70.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f,
+    glm::mat4 view = lookAt(eyePos, glm::vec3(0.0f, -1.0f, 0.5f), glm::vec3(0.0f, 0.0f, 1.0f));
+
+    glm::mat4 proj = glm::perspective(glm::radians(70.0f),
+                                      swapChainExtent.width / static_cast<float>(swapChainExtent.height), 0.1f,
                                       1000.0f);
 
     proj[1][1] *= -1;
@@ -479,7 +482,7 @@ void HelloTriangleApplication::updateUniformBuffers(uint32_t currentImage, std::
     {
         glm::mat4* model = &models[i];
         ubos[i].model = models[i];
-        ubos[i].Normal = glm::transpose(glm::inverse(glm::mat3(*model)));
+        ubos[i].Normal = transpose(inverse(glm::mat3(*model)));
     }
     memcpy(uniformBuffersMapped[currentImage], ubos.data(), sizeof(UniformBufferObject) * models.size());
 }
@@ -490,7 +493,6 @@ void HelloTriangleApplication::updateUniformBuffer(uint32_t currentImage, glm::m
     ubo.model = model;
     memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(UniformBufferObject));
 }
-
 
 
 //TODO is this doing extra work?
@@ -530,8 +532,8 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
     VkViewport viewport{};
     viewport.x = 0.0f;
     viewport.y = 0.0f;
-    viewport.width = (float)swapChainExtent.width;
-    viewport.height = (float)swapChainExtent.height;
+    viewport.width = static_cast<float>(swapChainExtent.width);
+    viewport.height = static_cast<float>(swapChainExtent.height);
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
     vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
@@ -549,24 +551,26 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
 
     VkDescriptorBufferInfo shaderglobalsinfo = shaderGlobalsBuffer[currentFrame].getBufferInfo();
     writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &shaderglobalsinfo);
-   
-    auto[imageInfos, samplerInfos] = scene->getBindlessTextureInfos();
+
+    auto [imageInfos, samplerInfos] = scene->getBindlessTextureInfos();
     writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, imageInfos.data(), imageInfos.size());
     writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_SAMPLER, samplerInfos.data(), imageInfos.size());
 
     VkDescriptorBufferInfo meshBufferinfo = meshBuffers[currentFrame].getBufferInfo();
     writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &meshBufferinfo);
-    
+
     VkDescriptorBufferInfo lightbufferinfo = lightBuffers[currentFrame].getBufferInfo();
     writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &lightbufferinfo);
-    
+
     VkDescriptorBufferInfo uniformbufferinfo = uniformBuffers[currentFrame].getBufferInfo();
     writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &uniformbufferinfo);
-    
-    auto [cubeImageInfos, cubeSamplerInfos] = DescriptorDataUtilities::ImageInfoFromImageDataVec({cube_irradiance, cube_specular});
+
+    auto [cubeImageInfos, cubeSamplerInfos] = DescriptorDataUtilities::ImageInfoFromImageDataVec({
+        cube_irradiance, cube_specular
+    });
     writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, cubeImageInfos.data(), cubeImageInfos.size());
     writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_SAMPLER, cubeSamplerInfos.data(), cubeSamplerInfos.size());
-    
+
     vkCmdPushDescriptorSetKHR(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0,
                               writeDescriptorSetBuilder.size(), writeDescriptorSetBuilder.data());
 
@@ -580,7 +584,7 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
                                         scene->materials[i].backingTextureidx, i);
 
 
-        constants.materialprops = glm::vec4(scene->materials[i].roughness, scene->materials[i].metallic, 0,0);
+        constants.materialprops = glm::vec4(scene->materials[i].roughness, scene->materials[i].metallic, 0, 0);
 
         vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT || VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                            sizeof(per_object_data), &constants);
@@ -617,7 +621,7 @@ void HelloTriangleApplication::createCommandBuffers()
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     allocInfo.commandPool = commandPoolmanager.commandPool;
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandBufferCount = (uint32_t)commandBuffers.size();
+    allocInfo.commandBufferCount = static_cast<uint32_t>(commandBuffers.size());
 
     VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, commandBuffers.data()));
 }
@@ -662,12 +666,14 @@ void HelloTriangleApplication::createDepthResources()
 {
     VkFormat depthFormat = Capabilities::findDepthFormat(this);
 
-    TextureUtilities::createImage(this, swapChainExtent.width, swapChainExtent.height, depthFormat, VK_IMAGE_TILING_OPTIMAL,
-                VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depthImage,
-                depthImageMemory);
-    depthImageView = TextureUtilities::createImageView(this->device, depthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
+    TextureUtilities::createImage(this, swapChainExtent.width, swapChainExtent.height, depthFormat,
+                                  VK_IMAGE_TILING_OPTIMAL,
+                                  VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                                  depthImage,
+                                  depthImageMemory);
+    depthImageView =
+        TextureUtilities::createImageView(this->device, depthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
 }
-
 
 
 #pragma endregion
@@ -837,10 +843,9 @@ VkPipeline HelloTriangleApplication::createGraphicsPipeline(const char* shaderNa
 
 void HelloTriangleApplication::mainLoop()
 {
-  
     SDL_Event e;
     bool bQuit = false;
-   
+
     float translateSpeed = 3.0;
     float mouseSpeed = 1.0;
     while (!bQuit)
@@ -850,8 +855,8 @@ void HelloTriangleApplication::mainLoop()
         this->deltaTime = deltaTicks * 0.001;
         this->T = SDL_GetTicks();
 
-        glm::vec3 translate = glm::vec3(0);
-        glm::vec3 mouseRot = glm::vec3(0);
+        auto translate = glm::vec3(0);
+        auto mouseRot = glm::vec3(0);
         //Handle events on queue
         while (SDL_PollEvent(&e) != 0)
         {
@@ -875,19 +880,19 @@ void HelloTriangleApplication::mainLoop()
 
                 if (e.key.keysym.sym == SDLK_a)
                 {
-                    translate += glm::vec3(1,0,0) * translateSpeed; 
+                    translate += glm::vec3(1, 0, 0) * translateSpeed;
                 }
                 if (e.key.keysym.sym == SDLK_d)
                 {
-                    translate -= glm::vec3(1,0,0) * translateSpeed; 
+                    translate -= glm::vec3(1, 0, 0) * translateSpeed;
                 }
                 if (e.key.keysym.sym == SDLK_w)
                 {
-                    translate += glm::vec3(0,0,1) * translateSpeed; 
+                    translate += glm::vec3(0, 0, 1) * translateSpeed;
                 }
                 if (e.key.keysym.sym == SDLK_s)
                 {
-                    translate -= glm::vec3(0,0,1) * translateSpeed; 
+                    translate -= glm::vec3(0, 0, 1) * translateSpeed;
                 }
             }
             else if (e.type == SDL_MOUSEMOTION)
@@ -900,8 +905,8 @@ void HelloTriangleApplication::mainLoop()
         UpdateRotations();
         scene->Update();
 
-      
-        HelloTriangleApplication::inputData input = {translate, mouseRot}; //TODO JS: Translate jerky. polling wrong rate?
+
+        inputData input = {translate, mouseRot}; //TODO JS: Translate jerky. polling wrong rate?
         drawFrame(input);
         auto t2 = SDL_GetTicks();
     }
@@ -926,7 +931,7 @@ void HelloTriangleApplication::UpdateRotations()
     scene->Update();
 }
 
-void HelloTriangleApplication::drawFrame(HelloTriangleApplication::inputData input)
+void HelloTriangleApplication::drawFrame(inputData input)
 {
     vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
 
@@ -1045,7 +1050,7 @@ void HelloTriangleApplication::cleanup()
     }
 
 
-    vkb::destroy_swapchain(vkb_swapchain);
+    destroy_swapchain(vkb_swapchain);
     vkDestroySwapchainKHR(device, swapChain, nullptr);
 
     vkDestroyDevice(device, nullptr);
@@ -1055,8 +1060,8 @@ void HelloTriangleApplication::cleanup()
     vkDestroyInstance(instance, nullptr);
 
     // vkb::destroy_surface(vkb_surface);
-    vkb::destroy_device(vkb_device);
-    vkb::destroy_instance(vkb_instance);
+    destroy_device(vkb_device);
+    destroy_instance(vkb_instance);
     SDL_DestroyWindow(_window);
 }
 
@@ -1070,34 +1075,46 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
     std::vector<int> randomMaterials;
 
     int placeholderTextureidx = app->scene->AddMaterial(
-        TextureData(app, "textures/pbr_cruiser-panels/space-cruiser-panels2_albedo.png", TextureData::TextureType::DIFFUSE),
-        TextureData(app, "textures/pbr_cruiser-panels/space-cruiser-panels2_roughness_metallic.tga", TextureData::TextureType::SPECULAR),
-        TextureData(app, "textures/pbr_cruiser-panels/space-cruiser-panels2_normal-dx.png", TextureData::TextureType::NORMAL));
+        TextureData(app, "textures/pbr_cruiser-panels/space-cruiser-panels2_albedo.png",
+                    TextureData::TextureType::DIFFUSE),
+        TextureData(app, "textures/pbr_cruiser-panels/space-cruiser-panels2_roughness_metallic.tga",
+                    TextureData::TextureType::SPECULAR),
+        TextureData(app, "textures/pbr_cruiser-panels/space-cruiser-panels2_normal-dx.png",
+                    TextureData::TextureType::NORMAL));
     randomMaterials.push_back(placeholderTextureidx);
 
 
     placeholderTextureidx = app->scene->AddMaterial(
-        TextureData(app, "textures/pbr_cruiser-panels/space-cruiser-panels2_albedo.png", TextureData::TextureType::DIFFUSE),
-        TextureData(app, "textures/pbr_cruiser-panels/space-cruiser-panels2_roughness_metallic.tga", TextureData::TextureType::SPECULAR),
-        TextureData(app, "textures/pbr_cruiser-panels/space-cruiser-panels2_normal-dx.png", TextureData::TextureType::NORMAL));
+        TextureData(app, "textures/pbr_cruiser-panels/space-cruiser-panels2_albedo.png",
+                    TextureData::TextureType::DIFFUSE),
+        TextureData(app, "textures/pbr_cruiser-panels/space-cruiser-panels2_roughness_metallic.tga",
+                    TextureData::TextureType::SPECULAR),
+        TextureData(app, "textures/pbr_cruiser-panels/space-cruiser-panels2_normal-dx.png",
+                    TextureData::TextureType::NORMAL));
     randomMaterials.push_back(placeholderTextureidx);
 
     placeholderTextureidx = app->scene->AddMaterial(
-        TextureData(app, "textures/pbr_stainless-steel/used-stainless-steel2_albedo.png", TextureData::TextureType::DIFFUSE),
-        TextureData(app, "textures/pbr_stainless-steel/used-stainless-steel2_roughness_metallic.tga", TextureData::TextureType::SPECULAR),
-        TextureData(app, "textures/pbr_stainless-steel/used-stainless-steel2_normal-dx.png", TextureData::TextureType::NORMAL));
+        TextureData(app, "textures/pbr_stainless-steel/used-stainless-steel2_albedo.png",
+                    TextureData::TextureType::DIFFUSE),
+        TextureData(app, "textures/pbr_stainless-steel/used-stainless-steel2_roughness_metallic.tga",
+                    TextureData::TextureType::SPECULAR),
+        TextureData(app, "textures/pbr_stainless-steel/used-stainless-steel2_normal-dx.png",
+                    TextureData::TextureType::NORMAL));
     randomMaterials.push_back(placeholderTextureidx);
 
     placeholderTextureidx = app->scene->AddMaterial(
-        TextureData(app, "textures/pbr_factory-sliding/worn-factory-siding_albedo.png", TextureData::TextureType::DIFFUSE),
-        TextureData(app, "textures/pbr_factory-sliding/worn-factory-siding_roughness_metallic.tga", TextureData::TextureType::SPECULAR),
-        TextureData(app, "textures/pbr_factory-sliding/worn-factory-siding_normal-dx.png", TextureData::TextureType::NORMAL));
+        TextureData(app, "textures/pbr_factory-sliding/worn-factory-siding_albedo.png",
+                    TextureData::TextureType::DIFFUSE),
+        TextureData(app, "textures/pbr_factory-sliding/worn-factory-siding_roughness_metallic.tga",
+                    TextureData::TextureType::SPECULAR),
+        TextureData(app, "textures/pbr_factory-sliding/worn-factory-siding_normal-dx.png",
+                    TextureData::TextureType::NORMAL));
     randomMaterials.push_back(placeholderTextureidx);
 
     //TODO: Scene loads mesh instead? 
-    randomMeshes.push_back(app->scene->AddBackingMesh(MeshData::MeshData(app, "pig.glb")));
-    randomMeshes.push_back(app->scene->AddBackingMesh(MeshData::MeshData(app, "cubesphere.glb")));
-    randomMeshes.push_back(app->scene->AddBackingMesh(MeshData::MeshData(app, "monkey.obj")));
+    randomMeshes.push_back(app->scene->AddBackingMesh(MeshData(app, "pig.glb")));
+    randomMeshes.push_back(app->scene->AddBackingMesh(MeshData(app, "cubesphere.glb")));
+    randomMeshes.push_back(app->scene->AddBackingMesh(MeshData(app, "monkey.obj")));
 
     app->scene->AddLight(glm::vec3(1, 1, 1), glm::vec3(1, 1, 1), 5, 5 / 2);
     app->scene->AddLight(glm::vec3(0, -3, 1), glm::vec3(1, 1, 1), 5, 8 / 2);
@@ -1110,28 +1127,27 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
 
     for (int i = 0; i < 300; i++)
     {
-
-        float rowRoughness = glm::clamp((float)i / 8.0,0.0,1.0);
+        float rowRoughness = glm::clamp(static_cast<float>(i) / 8.0, 0.0, 1.0);
         bool rowmetlalic = i % 3 == 0;
         int textureIndex = rand() % randomMaterials.size();
 
         app->scene->AddObject(
             &app->scene->backing_meshes[randomMeshes[1]],
-            randomMaterials[textureIndex], rowRoughness, 0,
+            randomMaterials[textureIndex], rowRoughness, false,
             glm::vec4(0, - i * 0.6, 0, 1),
             MyQuaternion);
         textureIndex = rand() % randomMaterials.size();
 
         app->scene->AddObject(
             &app->scene->backing_meshes[randomMeshes[0]],
-            randomMaterials[textureIndex], rowRoughness, 1,
+            randomMaterials[textureIndex], rowRoughness, true,
             glm::vec4(2, - i * 0.6, 0.0, 1),
             MyQuaternion);
         textureIndex = rand() % randomMaterials.size();
 
         app->scene->AddObject(
             &app->scene->backing_meshes[randomMeshes[2]],
-            randomMaterials[textureIndex], rowRoughness, 0,
+            randomMaterials[textureIndex], rowRoughness, false,
             glm::vec4(-2, - i * 0.6, -0.0, 1),
             MyQuaternion);
     }
@@ -1148,7 +1164,7 @@ std::vector<char> HelloTriangleApplication::readFile(const std::string& filename
         throw std::runtime_error("failed to open file!");
     }
 
-    size_t fileSize = (size_t)file.tellg();
+    size_t fileSize = file.tellg();
     std::vector<char> buffer(fileSize);
 
     file.seekg(0);

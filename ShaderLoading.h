@@ -4,22 +4,22 @@
 #include <map>
 
 
-#pragma region forward declarations 
+#pragma region forward declarations
 struct VkPipelineShaderStageCreateInfo;
-typedef struct VkDevice_T* VkDevice;
-typedef struct VkShaderModule_T* VkShaderModule;
+using VkDevice = struct VkDevice_T*;
+using VkShaderModule = struct VkShaderModule_T*;
 #pragma endregion
 
-struct ShaderLoader {
-
+struct ShaderLoader
+{
 public:
-	ShaderLoader(VkDevice device);
+    ShaderLoader(VkDevice device);
 
-	std::map<const char*, std::vector<VkPipelineShaderStageCreateInfo>>		compiledShaders;
+    std::map<const char*, std::vector<VkPipelineShaderStageCreateInfo>> compiledShaders;
 
-	void AddShader(const char* name, std::wstring shaderPath);
+    void AddShader(const char* name, std::wstring shaderPath);
 private:
-	void shaderCompile(std::wstring shaderFilename, bool is_frag);
-	VkShaderModule shaderLoad(std::wstring shaderFilename, bool is_frag);
-	VkDevice device_;
+    void shaderCompile(std::wstring shaderFilename, bool is_frag);
+    VkShaderModule shaderLoad(std::wstring shaderFilename, bool is_frag);
+    VkDevice device_;
 };

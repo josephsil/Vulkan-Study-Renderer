@@ -16,157 +16,161 @@
 
 
 //No scale for now
-    Scene::Scene()
-    {
-        
-    }
-    void Scene::Update()
-    {
-        glm::mat4 model;
-        
-        for (int i = 0; i < translations.size(); i++)
-        {
-            model = glm::mat4(1.0f);
-            glm::mat4 objectLocalRotation = glm::toMat4(rotations[i]);
-            model = glm::translate(model, translations[i]); //TODO: These should update at a different rate than camera stuff
-            model *= objectLocalRotation;
-            //TODO: Don't fake apply scale here
-            model = glm::scale(model, glm::vec3(0.5));
-            matrices[i] = model;
-        }
-      
-    }
+Scene::Scene()
+{
+}
 
-    //So things like, get the index back from this and then index in to these vecs to update them
-    //At some point in the future I can replace this with a more sophisticated reference system if I need
-    //Even just returning a pointer is probably plenty, then I can sort the lists, prune stuff, etc.
-    int Scene::AddObject(MeshData* mesh, int textureidx, float material_roughness, bool material_metallic, glm::vec3 position, glm::quat rotation)
+void Scene::Update()
+{
+    glm::mat4 model;
+
+    for (int i = 0; i < translations.size(); i++)
     {
-        //TODD JS: version that can add 
-        meshes.push_back(mesh);
-        materials.push_back(Material{.backingTextureidx = textureidx, .metallic =  material_metallic, .roughness =  material_roughness});
-        translations.push_back(position);
-        rotations.push_back(rotation);
-        matrices.push_back(glm::mat4(1.0));
-        meshOffsets.push_back(getOffsetFromMeshID(mesh->id));
-        meshVertCounts.push_back(mesh->vertcount);
-        return ct++;
+        model = glm::mat4(1.0f);
+        glm::mat4 objectLocalRotation = toMat4(rotations[i]);
+        model = translate(model, translations[i]); //TODO: These should update at a different rate than camera stuff
+        model *= objectLocalRotation;
+        //TODO: Don't fake apply scale here
+        model = scale(model, glm::vec3(0.5));
+        matrices[i] = model;
     }
+}
+
+//So things like, get the index back from this and then index in to these vecs to update them
+//At some point in the future I can replace this with a more sophisticated reference system if I need
+//Even just returning a pointer is probably plenty, then I can sort the lists, prune stuff, etc.
+int Scene::AddObject(MeshData* mesh, int textureidx, float material_roughness, bool material_metallic,
+                     glm::vec3 position, glm::quat rotation)
+{
+    //TODD JS: version that can add 
+    meshes.push_back(mesh);
+    materials.push_back(Material{
+        .backingTextureidx = textureidx, .metallic = material_metallic, .roughness = material_roughness
+    });
+    translations.push_back(position);
+    rotations.push_back(rotation);
+    matrices.push_back(glm::mat4(1.0));
+    meshOffsets.push_back(getOffsetFromMeshID(mesh->id));
+    meshVertCounts.push_back(mesh->vertcount);
+    return ct++;
+}
 
 
 uint32_t Scene::getOffsetFromMeshID(int id)
+{
+    int indexcount = 0;
+    for (int i = 0; i < id; i++)
     {
-        int indexcount = 0;
-        for (int i = 0; i < id; i++)
-        {
-            indexcount += backing_meshes[i].indices.size();
-        }
-        return indexcount;
+        indexcount += backing_meshes[i].indices.size();
     }
+    return indexcount;
+}
 
 uint32_t Scene::getVertexCount()
 {
-        int indexcount = 0;
-        for (int i = 0; i < backing_meshes.size(); i++)
-        {
-            indexcount += backing_meshes[i].indices.size();
-        }
-        return indexcount;
+    int indexcount = 0;
+    for (int i = 0; i < backing_meshes.size(); i++)
+    {
+        indexcount += backing_meshes[i].indices.size();
+    }
+    return indexcount;
 }
 
 int Scene::materialCount()
-    {
-        return backing_diffuse_textures.size();
-    }
+{
+    return backing_diffuse_textures.size();
+}
+
 int Scene::utilityTextureCount()
 {
     return backing_utility_textures.size();
 }
 
 int Scene::materialTextureCount()
-    {
-        return backing_diffuse_textures.size() * 3;
-    }
-int Scene::AddUtilityTexture(TextureData T)
-    {
-        backing_utility_textures.push_back(T);
-        return backing_utility_textures.size() -1;
-    }
-//TODO JS: we should probably CREATE from here at some point?
-    int Scene::AddMaterial(TextureData D, TextureData S, TextureData N)
-    {
-        backing_diffuse_textures.push_back(D);
-        backing_specular_textures.push_back(S);
-        backing_normal_textures.push_back(N);
-        return backing_diffuse_textures.size() -1;
-    }
+{
+    return backing_diffuse_textures.size() * 3;
+}
 
-    int Scene::AddBackingMesh(MeshData M)
-    {
-        backing_meshes.push_back(M);
-        return backing_meshes.size() -1;
-    }
+int Scene::AddUtilityTexture(TextureData T)
+{
+    backing_utility_textures.push_back(T);
+    return backing_utility_textures.size() - 1;
+}
+
+//TODO JS: we should probably CREATE from here at some point?
+int Scene::AddMaterial(TextureData D, TextureData S, TextureData N)
+{
+    backing_diffuse_textures.push_back(D);
+    backing_specular_textures.push_back(S);
+    backing_normal_textures.push_back(N);
+    return backing_diffuse_textures.size() - 1;
+}
+
+int Scene::AddBackingMesh(MeshData M)
+{
+    backing_meshes.push_back(M);
+    return backing_meshes.size() - 1;
+}
 
 int Scene::AddLight(glm::vec3 position, glm::vec3 color, float radius, float intensity)
-    {
-
-        lightposandradius.push_back(glm::vec4(position.x,position.y,position.z,radius));
-        lightcolorAndIntensity.push_back(glm::vec4(color.x,color.y,color.z,intensity));
-        lightCount ++;
-        return -1; //NOT IMPLEMENTED
-    }
+{
+    lightposandradius.push_back(glm::vec4(position.x, position.y, position.z, radius));
+    lightcolorAndIntensity.push_back(glm::vec4(color.x, color.y, color.z, intensity));
+    lightCount ++;
+    return -1; //NOT IMPLEMENTED
+}
 
 void Scene::Cleanup()
 {
-        for(int i = 0; i < backing_meshes.size(); i++)
-        {
-            backing_meshes[i].cleanup();
-        }
-        for(int i = 0; i < backing_diffuse_textures.size(); i++)
-        {
-            backing_diffuse_textures[i].cleanup();
-        }
-        
+    for (int i = 0; i < backing_meshes.size(); i++)
+    {
+        backing_meshes[i].cleanup();
+    }
+    for (int i = 0; i < backing_diffuse_textures.size(); i++)
+    {
+        backing_diffuse_textures[i].cleanup();
+    }
 }
 
 std::pair<std::vector<VkDescriptorImageInfo>, std::vector<VkDescriptorImageInfo>> Scene::getBindlessTextureInfos()
 {
-
     //TODO JS: Don't do this every frame
     std::vector<VkDescriptorImageInfo> imageInfos;
     std::vector<VkDescriptorImageInfo> samplerInfos;
     //Material textures
     for (int texture_i = 0; texture_i < materialCount(); texture_i++)
     {
-        auto[imageInfo, samplerInfo] = DescriptorDataUtilities::ImageInfoFromImageData(backing_diffuse_textures[texture_i]);
+        auto [imageInfo, samplerInfo] = DescriptorDataUtilities::ImageInfoFromImageData(
+            backing_diffuse_textures[texture_i]);
         imageInfos.push_back(imageInfo);
         samplerInfos.push_back(samplerInfo);
 
-        auto [imageInfo2, samplerInfo2] = DescriptorDataUtilities::ImageInfoFromImageData(backing_specular_textures[texture_i]);
+        auto [imageInfo2, samplerInfo2] = DescriptorDataUtilities::ImageInfoFromImageData(
+            backing_specular_textures[texture_i]);
         imageInfos.push_back(imageInfo2);
         samplerInfos.push_back(samplerInfo2);
 
-        auto [imageInfo3, samplerInfo3] = DescriptorDataUtilities::ImageInfoFromImageData(backing_normal_textures[texture_i]);
+        auto [imageInfo3, samplerInfo3] = DescriptorDataUtilities::ImageInfoFromImageData(
+            backing_normal_textures[texture_i]);
         imageInfos.push_back(imageInfo3);
         samplerInfos.push_back(samplerInfo3);
     }
-        
+
     for (int texture_i = 0; texture_i < backing_utility_textures.size(); texture_i++)
     {
-        auto[imageInfo, samplerInfo] = DescriptorDataUtilities::ImageInfoFromImageData(backing_utility_textures[texture_i]);
+        auto [imageInfo, samplerInfo] = DescriptorDataUtilities::ImageInfoFromImageData(
+            backing_utility_textures[texture_i]);
         imageInfos.push_back(imageInfo);
         samplerInfos.push_back(samplerInfo);
     }
 
-        return make_pair(imageInfos, samplerInfos);
-    
+    return make_pair(imageInfos, samplerInfos);
 }
 
 void Scene::Sort()
+{
+    std::sort(meshes.begin(), meshes.end(), [](MeshData* a, MeshData* b)
     {
-        std::sort(meshes.begin(), meshes.end(), [](MeshData* a, MeshData* b) {
-       return a->id < b->id;
-   });
-    }
-
-    
+        return a->id < b->id;
+    });
+}
