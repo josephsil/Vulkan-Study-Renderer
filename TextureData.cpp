@@ -2,15 +2,15 @@
 #include "TextureData.h"
 #include "vulkan-tutorial.h"
 #include "stb_image.h"
+#include "vulkan-utilities.h"
 
 #define KHRONOS_STATIC
-//TODO: for cubemap loading
+//TODO: for cubemap loadingc
 #include <ktxvulkan.h>
 
 
 int TEXTURE_INDEX;
 #pragma region textureData
-
 
 TextureData::TextureData(HelloTriangleApplication* app, const char* path, TextureData::TextureType textureType)
 {
@@ -98,7 +98,7 @@ void TextureData::createTextureSampler(VkSamplerAddressMode mode, float bias)
 
 void TextureData::createTextureImageView(VkFormat format, VkImageViewType type)
 {
-    textureImageView = appref->createImageView(textureImage, format, VK_IMAGE_ASPECT_COLOR_BIT, type, maxmip, layerct);
+    textureImageView = TextureUtilities::createImageView(appref->device, textureImage, format, VK_IMAGE_ASPECT_COLOR_BIT, type, maxmip, layerct);
 }
 
 
@@ -131,7 +131,7 @@ void TextureData::createTextureImage(const char* path, VkFormat format, bool mip
 
     stbi_image_free(pixels);
 
-    appref->createImage(texWidth, texHeight, format,
+    TextureUtilities::createImage(appref, texWidth, texHeight, format,
                         VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
                         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory, mipLevels);
 
@@ -158,7 +158,7 @@ void TextureData::createCubemapImageKTX(const char* path, VkFormat format)
     ktxTexture* kTexture;
     KTX_error_code ktxresult;
 
-    HelloTriangleApplication::bufferAndPool workingTextureBuffer = appref->beginSingleTimeCommands(true);
+    bufferAndPool workingTextureBuffer = appref->beginSingleTimeCommands(true);
 
     ktxVulkanDeviceInfo_Construct(&vdi, appref->physicalDevice, appref->device,
                               workingTextureBuffer.queue, workingTextureBuffer.pool, nullptr);
@@ -200,5 +200,7 @@ void TextureData::createCubemapImageKTX(const char* path, VkFormat format)
     
         //...
 }
+
+
 
 #pragma endregion

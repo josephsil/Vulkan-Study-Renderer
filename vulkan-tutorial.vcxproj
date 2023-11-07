@@ -24,10 +24,10 @@
     <None Include="Shaders\**" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="Textures\**" >
+    <Content Include="Textures\**">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="Shaders\**" >
+    <Content Include="Shaders\**">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
@@ -157,6 +157,9 @@
     <ClCompile Include="Vertex.cpp" />
     <ClCompile Include="vkbootstrap\VkBootstrap.cpp" />
     <ClCompile Include="vulkan-tutorial.cpp" />
+    <ClInclude Include="vulkan-utilities.h" />
+    <ClInclude Include="Vulkan_Includes.cpp" />
+    <ClCompile Include="vulkan-utilities.cpp" />
     <ClCompile Include="weldmesh.c" />
   </ItemGroup>
   <ItemGroup>

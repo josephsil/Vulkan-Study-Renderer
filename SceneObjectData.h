@@ -32,6 +32,7 @@ class Scene
 
     //Non parallel arrays //TODO JS: Pack together?
     std::vector<TextureData> backing_utility_textures;
+    int utilityTextureCount();
     std::vector<TextureData> backing_diffuse_textures;
     std::vector<TextureData> backing_specular_textures;
     std::vector<TextureData> backing_normal_textures;

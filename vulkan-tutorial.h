@@ -22,15 +22,10 @@ class Scene;
    class HelloTriangleApplication
     {
     public:
-
+    std::unique_ptr<Scene> scene;
        float deltaTime;
 
-    struct bufferAndPool
-    {
-        VkCommandBuffer buffer;
-        VkCommandPool pool;
-        VkQueue queue;
-    };
+
        
        static std::vector<char> readFile(const std::string& filename);
 
@@ -45,14 +40,9 @@ class Scene;
 
        //Images
 
-       void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage,
-                 VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory, uint32_t miplevels = 1);
-
+     
        void RUNTIME_generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
-       
-       VkImageView createImageView(VkImage image, VkFormat format,
-                                   VkImageAspectFlags aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT, VkImageViewType type = VK_IMAGE_VIEW_TYPE_2D, uint32_t miplevels = 1, uint32_t layerCount = 1);
-
+    
        void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout,
                                   VkCommandBuffer workingBuffer = nullptr, uint32_t miplevels = 1);
 
@@ -265,7 +255,7 @@ class Scene;
        void updateUniformBuffers(uint32_t currentImage, std::vector<glm::mat4> models, HelloTriangleApplication::inputData input);
 
 
-        void createDescriptorSetLayout();
+        void createDescriptorSetLayout(VkDescriptorSetLayoutCreateInfo layoutinfo, VkDescriptorSetLayout* layout);
 
 
         void compileShaders();
@@ -289,7 +279,6 @@ class Scene;
 
 
 
-        uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
         void createSyncObjects();
 
@@ -316,18 +305,12 @@ class Scene;
 
         void createDepthResources();
 
-        VkFormat findDepthFormat();
 
         bool hasStencilComponent(VkFormat format);
 
 
-        VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling,
-                                     VkFormatFeatureFlags features);
 
-        //TODO JS: VK_KHR_dynamic_rendering gets rid of render pass types and just lets you vkBeginRenderPass
-        void createRenderPass();
-
-
+       
         //TODO JS Collapse this? zoux niagra stream seems to do way less 
         VkPipeline createGraphicsPipeline(const char* shaderName, VkRenderPass renderPass, VkPipelineCache pipelineCache);
        

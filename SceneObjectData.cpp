@@ -76,6 +76,11 @@ int Scene::materialCount()
     {
         return backing_diffuse_textures.size();
     }
+int Scene::utilityTextureCount()
+{
+    return backing_utility_textures.size();
+}
+
 int Scene::materialTextureCount()
     {
         return backing_diffuse_textures.size() * 3;
