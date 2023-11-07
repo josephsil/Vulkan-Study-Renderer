@@ -17,12 +17,12 @@
 struct MeshForMikkt
 {
 public:
-   
     std::vector<glm::vec3> pos;
     std::vector<uint32_t> idx;
     std::vector<glm::vec3> norm;
     std::vector<glm::vec4> tan;
     std::vector<glm::vec3> uv;
+
     MeshForMikkt(std::vector<Vertex> verts, std::vector<uint32_t> indices)
     {
         idx = indices;
@@ -31,104 +31,104 @@ public:
         {
             std::vector<Vertex> _verts;
             _verts.resize(indices.size());
-            for(int i = 0; i < indices.size(); i++)
+            for (int i = 0; i < indices.size(); i++)
             {
                 _verts[i] = verts[indices[i]];
             }
             verts = _verts;
         }
-        
+
         pos.resize(verts.size());
         norm.resize(verts.size());
         tan.resize(verts.size());
         uv.resize(verts.size());
-        for(int __i = 0; __i < verts.size(); __i++)
+        for (int __i = 0; __i < verts.size(); __i++)
         {
             pos[__i] = {verts[__i].pos.x, verts[__i].pos.y, verts[__i].pos.z};
             norm[__i] = {verts[__i].normal.x, verts[__i].normal.y, verts[__i].normal.z};
             uv[__i] = {verts[__i].texCoord.x, verts[__i].texCoord.y, verts[__i].texCoord.z};
         }
-        }
-    
+    }
 };
 #pragma region mikkt
 struct MikktImpl
 {
-
     MikktImpl();
     void calculateTangents(MeshForMikkt* mesh);
-    
+
 
 private:
     SMikkTSpaceInterface interace{};
     SMikkTSpaceContext context{};
-    static int face_count(const SMikkTSpaceContext *context);
-    static int faceverts(const SMikkTSpaceContext *context, int iFace);
-    static void vertpos(const SMikkTSpaceContext *context, float outpos[],
+    static int face_count(const SMikkTSpaceContext* context);
+    static int faceverts(const SMikkTSpaceContext* context, int iFace);
+    static void vertpos(const SMikkTSpaceContext* context, float outpos[],
                         int iFace, int iVert);
 
-    static void norm(const SMikkTSpaceContext *context, float outnormal[],
+    static void norm(const SMikkTSpaceContext* context, float outnormal[],
                      int iFace, int iVert);
 
-    static void getUV(const SMikkTSpaceContext *context, float outuv[],
-                   int iFace, int iVert);
+    static void getUV(const SMikkTSpaceContext* context, float outuv[],
+                      int iFace, int iVert);
 
-    static void set_tspace_basic(const SMikkTSpaceContext *context,
+    static void set_tspace_basic(const SMikkTSpaceContext* context,
                                  const float tangentu[],
                                  float fSign, int iFace, int iVert);
 };
 
 
-int MikktImpl::face_count(const SMikkTSpaceContext *context)
+int MikktImpl::face_count(const SMikkTSpaceContext* context)
 {
-    MeshForMikkt* mesh = static_cast<MeshForMikkt*> (context->m_pUserData);
+    auto mesh = static_cast<MeshForMikkt*>(context->m_pUserData);
 
     return (mesh->idx.size() / 3);
 }
-int MikktImpl::faceverts(const SMikkTSpaceContext *context, int iFace)
+
+int MikktImpl::faceverts(const SMikkTSpaceContext* context, int iFace)
 {
     return 3;
 }
-void MikktImpl::vertpos(const SMikkTSpaceContext *context, float outpos[],
+
+void MikktImpl::vertpos(const SMikkTSpaceContext* context, float outpos[],
                         int iFace, int iVert)
 {
-    MeshForMikkt* mesh = static_cast<MeshForMikkt*> (context->m_pUserData);
+    auto mesh = static_cast<MeshForMikkt*>(context->m_pUserData);
     int idx = (iFace * 3) + iVert;
     outpos[0] = mesh->pos[idx].x;
     outpos[1] = mesh->pos[idx].y;
     outpos[2] = mesh->pos[idx].z;
-    
 }
 
-void MikktImpl::norm(const SMikkTSpaceContext *context, float outnormal[],
+void MikktImpl::norm(const SMikkTSpaceContext* context, float outnormal[],
                      int iFace, int iVert)
 {
-    MeshForMikkt* mesh = static_cast<MeshForMikkt*> (context->m_pUserData);
+    auto mesh = static_cast<MeshForMikkt*>(context->m_pUserData);
     int idx = (iFace * 3) + iVert;
     outnormal[0] = mesh->norm[idx].x;
     outnormal[1] = mesh->norm[idx].y;
     outnormal[2] = mesh->norm[idx].z;
 }
 
-void MikktImpl::getUV(const SMikkTSpaceContext *context, float outuv[],
-              int iFace, int iVert)
+void MikktImpl::getUV(const SMikkTSpaceContext* context, float outuv[],
+                      int iFace, int iVert)
 {
-    MeshForMikkt* mesh = static_cast<MeshForMikkt*> (context->m_pUserData);
+    auto mesh = static_cast<MeshForMikkt*>(context->m_pUserData);
     int idx = (iFace * 3) + iVert;
     outuv[0] = (mesh->uv[idx].x);
     outuv[1] = (mesh->uv[idx].y);
 }
 
-void MikktImpl::set_tspace_basic(const SMikkTSpaceContext *context,
-                            const float tangentu[],
-                            float fSign, int iFace, int iVert)
+void MikktImpl::set_tspace_basic(const SMikkTSpaceContext* context,
+                                 const float tangentu[],
+                                 float fSign, int iFace, int iVert)
 {
-    MeshForMikkt* mesh = static_cast<MeshForMikkt*> (context->m_pUserData);
+    auto mesh = static_cast<MeshForMikkt*>(context->m_pUserData);
     int idx = (iFace * 3) + iVert;
-    mesh->tan[idx] = {tangentu[0],tangentu[1],tangentu[2], fSign};
+    mesh->tan[idx] = {tangentu[0], tangentu[1], tangentu[2], fSign};
 }
 
-MikktImpl::MikktImpl() {
+MikktImpl::MikktImpl()
+{
     interace.m_getNumFaces = face_count;
     interace.m_getNumVerticesOfFace = faceverts;
 
@@ -140,8 +140,8 @@ MikktImpl::MikktImpl() {
     context.m_pInterface = &interace;
 }
 
-void MikktImpl::calculateTangents(MeshForMikkt* mesh) {
-
+void MikktImpl::calculateTangents(MeshForMikkt* mesh)
+{
     context.m_pUserData = mesh;
 
     genTangSpaceDefault(&this->context);
@@ -149,14 +149,15 @@ void MikktImpl::calculateTangents(MeshForMikkt* mesh) {
 
 
 #pragma endreion
-int MESHID =0;
+int MESHID = 0;
+
 MeshData::MeshData(HelloTriangleApplication* app, std::vector<Vertex> vertices,
                    std::vector<uint32_t> indices)
 {
     device = app->device;
     this->vertices = vertices;
     this->indices = indices;
-    vertBuffer  = this->meshDataCreateVertexBuffer(app);
+    vertBuffer = this->meshDataCreateVertexBuffer(app);
     indexBuffer = this->meshDataCreateIndexBuffer(app);
     this->vertcount = indices.size();
     this->id = MESHID++;
@@ -171,7 +172,7 @@ MeshData::MeshData(HelloTriangleApplication* app, std::string path)
     std::vector<Vertex> _vertices;
     std::vector<uint32_t> _indices;
 
-    
+
     if (ext.string() == ".glb")
     {
         //
@@ -181,7 +182,8 @@ MeshData::MeshData(HelloTriangleApplication* app, std::string path)
         std::string warn;
 
         bool ret = loader.LoadBinaryFromFile(&model, &err, &warn, path.c_str());
-        if (!warn.empty()) {
+        if (!warn.empty())
+        {
             printf("Warn: %s\n", warn.c_str());
         }
 
@@ -190,10 +192,10 @@ MeshData::MeshData(HelloTriangleApplication* app, std::string path)
             std::cout << "NOT IMPLEMENTED -- DON'T SUPPORT MULTIPLE MESHES";
             std::exit(-1);
         }
-        
-        for(const auto mesh : model.meshes)
+
+        for (const auto mesh : model.meshes)
         {
-            for( auto prim : mesh.primitives)
+            for (auto prim : mesh.primitives)
             {
                 Vertex vert;
                 std::vector<glm::vec4> positionvec;
@@ -205,15 +207,15 @@ MeshData::MeshData(HelloTriangleApplication* app, std::string path)
                 tinygltf::Accessor& accessor = model.accessors[prim.attributes["POSITION"]];
                 tinygltf::BufferView& bufferView = model.bufferViews[accessor.bufferView];
                 tinygltf::Buffer& buffer = model.buffers[bufferView.buffer];
-                const float* positions = reinterpret_cast<const float*>(&buffer.data[bufferView.byteOffset + accessor.byteOffset]);
+                auto positions = reinterpret_cast<const float*>(&buffer.data[bufferView.byteOffset + accessor.
+                    byteOffset]);
                 for (size_t i = 0; i < accessor.count; ++i)
                 {
                     glm::vec4 position;
-                    position.x =  positions[i * 3 + 0];
-                    position.y =  positions[i * 3 + 1];
-                    position.z =  positions[i * 3 + 2];
+                    position.x = positions[i * 3 + 0];
+                    position.y = positions[i * 3 + 1];
+                    position.z = positions[i * 3 + 2];
                     positionvec.push_back(position);
-                    
                 }
 
                 if (!prim.attributes.contains("NORMAL"))
@@ -223,44 +225,42 @@ MeshData::MeshData(HelloTriangleApplication* app, std::string path)
                 }
 
 
-               accessor = model.accessors[prim.attributes[std::string("NORMAL")]];
-               bufferView = model.bufferViews[accessor.bufferView];
-               buffer = model.buffers[bufferView.buffer];
-               const float* normals = reinterpret_cast<const float*>(&buffer.data[bufferView.byteOffset + accessor.byteOffset]);
+                accessor = model.accessors[prim.attributes[std::string("NORMAL")]];
+                bufferView = model.bufferViews[accessor.bufferView];
+                buffer = model.buffers[bufferView.buffer];
+                auto normals = reinterpret_cast<const float*>(&buffer.data[bufferView.byteOffset + accessor.
+                    byteOffset]);
                 for (size_t i = 0; i < accessor.count; ++i)
                 {
                     glm::vec4 normal;
-                    normal.x =  normals[i * 3 + 0];
-                    normal.y =  normals[i * 3 + 1]; //TODO JS NORMAL MYSTERY: Are we loading these wrong?
-                    normal.z =  normals[i * 3 + 2]; //TODO JS NORMAL MYSTERY: Are we loading these wrong?
+                    normal.x = normals[i * 3 + 0];
+                    normal.y = normals[i * 3 + 1]; //TODO JS NORMAL MYSTERY: Are we loading these wrong?
+                    normal.z = normals[i * 3 + 2]; //TODO JS NORMAL MYSTERY: Are we loading these wrong?
                     normalvec.push_back(normal);
-                    
                 }
                 accessor = model.accessors[prim.attributes[std::string("TEXCOORD_0")]];
                 bufferView = model.bufferViews[accessor.bufferView];
                 buffer = model.buffers[bufferView.buffer];
-                const float* uvs = reinterpret_cast<const float*>(&buffer.data[bufferView.byteOffset + accessor.byteOffset]);
+                auto uvs = reinterpret_cast<const float*>(&buffer.data[bufferView.byteOffset + accessor.byteOffset]);
                 for (size_t i = 0; i < accessor.count; ++i)
                 {
                     glm::vec4 uv;
-                    uv.x =  uvs[i * 2 + 0];
-                    uv.y =  uvs[i * 2 + 1];
+                    uv.x = uvs[i * 2 + 0];
+                    uv.y = uvs[i * 2 + 1];
                     uvvec.push_back(uv);
-                    
                 }
 
                 accessor = model.accessors[prim.attributes[std::string("COLOR_0")]];
                 bufferView = model.bufferViews[accessor.bufferView];
                 buffer = model.buffers[bufferView.buffer];
-                const float* colors = reinterpret_cast<const float*>(&buffer.data[bufferView.byteOffset + accessor.byteOffset]);
+                auto colors = reinterpret_cast<const float*>(&buffer.data[bufferView.byteOffset + accessor.byteOffset]);
                 for (size_t i = 0; i < accessor.count; ++i)
                 {
                     glm::vec4 color;
-                    color.x =  colors[i * 3 + 0];
-                    color.y =  colors[i * 3 + 1];
-                    color.z =  colors[i * 3 + 2];
+                    color.x = colors[i * 3 + 0];
+                    color.y = colors[i * 3 + 1];
+                    color.z = colors[i * 3 + 2];
                     colorvec.push_back(color);
-                    
                 }
 
                 //TODO JS: Not every prim
@@ -270,69 +270,70 @@ MeshData::MeshData(HelloTriangleApplication* app, std::string path)
                     accessor = model.accessors[prim.attributes[std::string("TANGENT")]];
                     bufferView = model.bufferViews[accessor.bufferView];
                     buffer = model.buffers[bufferView.buffer];
-                    const float* tangents = reinterpret_cast<const float*>(&buffer.data[bufferView.byteOffset + accessor.byteOffset]);
+                    auto tangents = reinterpret_cast<const float*>(&buffer.data[bufferView.byteOffset + accessor.
+                        byteOffset]);
                     for (size_t i = 0; i < accessor.count; ++i)
                     {
                         glm::vec4 tangent;
-                        tangent.x =  tangents[i * 4 + 0];
-                        tangent.y =  tangents[i * 4 + 1];
-                        tangent.z =  tangents[i * 4 + 2];
-                        tangent.w =  tangents[i * 4 + 3];
+                        tangent.x = tangents[i * 4 + 0];
+                        tangent.y = tangents[i * 4 + 1];
+                        tangent.z = tangents[i * 4 + 2];
+                        tangent.w = tangents[i * 4 + 3];
                         tangentvec.push_back(tangent);
-                    
                     }
                 }
                 accessor = model.accessors[prim.indices > -1 ? prim.indices : 0];
                 bufferView = model.bufferViews[accessor.bufferView];
                 buffer = model.buffers[bufferView.buffer];
-                const float* indexs = reinterpret_cast<const float*>(&buffer.data[bufferView.byteOffset + accessor.byteOffset]);
+                auto indexs = reinterpret_cast<const float*>(&buffer.data[bufferView.byteOffset + accessor.byteOffset]);
                 const uint8_t* indicesData = buffer.data.data() + bufferView.byteOffset + accessor.byteOffset;
 
-                if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT) {
+                if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
+                {
                     // Indices are stored as unsigned shorts (16 bits)
-                    const uint16_t* indices16 = reinterpret_cast<const uint16_t*>(indicesData);
-                    for (size_t i = 0; i < accessor.count; i++) {
-                        indexvec.push_back(static_cast<uint32_t>(indices16[i]));
+                    auto indices16 = reinterpret_cast<const uint16_t*>(indicesData);
+                    for (size_t i = 0; i < accessor.count; i++)
+                    {
+                        indexvec.push_back(indices16[i]);
                     }
-                } else if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT)
+                }
+                else if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT)
                 {
                     // Indices are stored as unsigned ints (32 bits)
-                    const uint32_t* indices32 = reinterpret_cast<const uint32_t*>(indicesData);
-                    for (size_t i = 0; i < accessor.count; i++) {
+                    auto indices32 = reinterpret_cast<const uint32_t*>(indicesData);
+                    for (size_t i = 0; i < accessor.count; i++)
+                    {
                         indexvec.push_back(indices32[i]);
                     }
                 }
-                for(int i = 0; i < positionvec.size(); i++)
+                for (int i = 0; i < positionvec.size(); i++)
                 {
-                    _vertices.push_back({positionvec[i], colorvec[i], uvvec[i], normalvec[i], tangentsLoaded? tangentvec[i] :glm::vec4(-1)});
-
+                    _vertices.push_back({
+                        positionvec[i], colorvec[i], uvvec[i], normalvec[i],
+                        tangentsLoaded ? tangentvec[i] : glm::vec4(-1)
+                    });
                 }
-                for(int i = 0; i < indexvec.size(); i++)
-                   { _indices.push_back(indexvec[i]);}
-                
+                for (int i = 0; i < indexvec.size(); i++)
+                {
+                    _indices.push_back(indexvec[i]);
+                }
             }
-
         }
 
         //TODO JS - we end up deduping twice if we don't have tangents 
         std::vector<Vertex> indexedVerts;
         std::unordered_map<uint32_t, int> indicesMap;
-        for(int i = 0; i < _indices.size(); i++)
+        for (int i = 0; i < _indices.size(); i++)
         {
-            
             auto it = indicesMap.find(_indices[i]);
             if (it != indicesMap.end())
             {
-            indexedVerts.push_back(_vertices[_indices[i]]);
+                indexedVerts.push_back(_vertices[_indices[i]]);
             }
         }
-
-        
-   
     }
     else if (ext.string() == ".obj")
     {
-   
         tinyobj::ObjReader reader;
         tinyobj::ObjReaderConfig reader_config;
 
@@ -340,14 +341,16 @@ MeshData::MeshData(HelloTriangleApplication* app, std::string path)
         auto& shapes = reader.GetShapes();
         auto& _ = reader.GetMaterials();
 
-        if (!reader.ParseFromFile(path, reader_config)) {
-            if (!reader.Error().empty()) {
+        if (!reader.ParseFromFile(path, reader_config))
+        {
+            if (!reader.Error().empty())
+            {
                 std::cerr << "TinyObjReader: " << reader.Error();
             }
             exit(1);
         }
 
-   
+
         // De-duplicate vertices
         int idx = 0;
         std::unordered_map<Vertex, uint32_t, VertexHash> unique_vertices;
@@ -374,25 +377,24 @@ MeshData::MeshData(HelloTriangleApplication* app, std::string path)
                         1,
                         1
                     },
-                   {
-                       attrib.normals[3 * index.normal_index + 0],
-                       attrib.normals[3 * index.normal_index + 1],
-                       attrib.normals[3 * index.normal_index + 2],      
-                       1
-                   }
+                    {
+                        attrib.normals[3 * index.normal_index + 0],
+                        attrib.normals[3 * index.normal_index + 1],
+                        attrib.normals[3 * index.normal_index + 2],
+                        1
+                    }
                 };
-                
+
 
                 //obj files always go through mikkt below, not bothering deduping verts
                 _indices.push_back(idx++);
                 _vertices.push_back(vertex);
             }
         }
-        
     }
     else
     {
-        std::cout << "UNSUPPORTED MODEL FORMAT: '" << ext.string() <<"' IN PATH: " << path;
+        std::cout << "UNSUPPORTED MODEL FORMAT: '" << ext.string() << "' IN PATH: " << path;
         std::exit(-1);
     }
 
@@ -407,19 +409,18 @@ MeshData::MeshData(HelloTriangleApplication* app, std::string path)
         else
         {
             expandedVertices.resize(_indices.size());
-            for(int i =0; i < _indices.size(); i++)
+            for (int i = 0; i < _indices.size(); i++)
             {
                 expandedVertices[i] = _vertices[_indices[i]];
             }
         }
         //
-        MeshForMikkt m =  MeshForMikkt(expandedVertices, _indices);
-        MikktImpl mikkt = MikktImpl();
+        auto m = MeshForMikkt(expandedVertices, _indices);
+        auto mikkt = MikktImpl();
         mikkt.calculateTangents(&m);
-        for(int i = 0; i < expandedVertices.size(); i++)
+        for (int i = 0; i < expandedVertices.size(); i++)
         {
             expandedVertices[i].tangent = m.tan[i];
-                
         }
 
         _vertices.clear();
@@ -427,13 +428,16 @@ MeshData::MeshData(HelloTriangleApplication* app, std::string path)
 
         std::unordered_map<Vertex, uint32_t, VertexHash> unique_vertices;
 
-        for(Vertex vertex : expandedVertices)
+        for (Vertex vertex : expandedVertices)
         {
             auto it = unique_vertices.find(vertex);
-            if (it != unique_vertices.end()) {
+            if (it != unique_vertices.end())
+            {
                 // Vertex already exists, add index to index buffer
                 _indices.push_back(it->second);
-            } else {
+            }
+            else
+            {
                 // Vertex doesn't exist, add to vertex buffer and index buffer
                 uint32_t index = static_cast<uint32_t>(_vertices.size());
                 unique_vertices[vertex] = index;
@@ -441,21 +445,20 @@ MeshData::MeshData(HelloTriangleApplication* app, std::string path)
                 _indices.push_back(index);
             }
         }
-        
+
         // _indices = remapvec;
     }
 
     //TODO: Dedupe verts
-    this->vertices = _vertices;                             
+    this->vertices = _vertices;
     this->indices = _indices;
-    this->device = app->device;                                  
-    this->vertBuffer  = this->meshDataCreateVertexBuffer(app);   
-    this->indexBuffer = this->meshDataCreateIndexBuffer(app);    
-    this->vertcount = indices.size();                      
-    this->id = MESHID++;                                   
-    
-
+    this->device = app->device;
+    this->vertBuffer = this->meshDataCreateVertexBuffer(app);
+    this->indexBuffer = this->meshDataCreateIndexBuffer(app);
+    this->vertcount = indices.size();
+    this->id = MESHID++;
 }
+
 void MeshData::cleanup()
 {
     vkDestroyBuffer(device, vertBuffer, nullptr);
@@ -475,20 +478,21 @@ VkBuffer MeshData::meshDataCreateVertexBuffer(HelloTriangleApplication* renderer
     VkDeviceMemory stagingBufferMemory;
 
     BufferUtilities::createBuffer(renderer, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                           VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                           stagingBuffer, stagingBufferMemory);
+                                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                                  stagingBuffer, stagingBufferMemory);
 
     //Bind to memory buffer
     // TODO JS - Use amd memory allocator
     void* data;
     vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
-    memcpy(data, this->vertices.data(), (size_t)bufferSize);
+    memcpy(data, this->vertices.data(), bufferSize);
     vkUnmapMemory(device, stagingBufferMemory);
 
-    BufferUtilities::createBuffer(renderer, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+    BufferUtilities::createBuffer(renderer, bufferSize,
+                                  VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
 
 
-                           VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, this->vertMemory);
+                                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, this->vertMemory);
 
     BufferUtilities::copyBuffer(renderer, stagingBuffer, vertexBuffer, bufferSize);
 
@@ -507,20 +511,21 @@ VkBuffer MeshData::meshDataCreateIndexBuffer(HelloTriangleApplication* renderer)
     VkDeviceMemory stagingBufferMemory;
 
     BufferUtilities::createBuffer(renderer, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                           VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                           stagingBuffer, stagingBufferMemory);
+                                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                                  stagingBuffer, stagingBufferMemory);
 
     //Bind to memory buffer
     // TODO JS - Use amd memory allocator
     void* data;
     vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
-    memcpy(data, this->indices.data(), (size_t)bufferSize);
+    memcpy(data, this->indices.data(), bufferSize);
     vkUnmapMemory(device, stagingBufferMemory);
 
-    BufferUtilities::createBuffer(renderer, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+    BufferUtilities::createBuffer(renderer, bufferSize,
+                                  VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
 
 
-                           VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, this->indexMemory);
+                                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, this->indexMemory);
 
     BufferUtilities::copyBuffer(renderer, stagingBuffer, indexBuffer, bufferSize);
 

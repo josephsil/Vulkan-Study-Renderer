@@ -7,13 +7,17 @@
 
 QueueData GET_QUEUES(vkb::Device device);
 void createCommandPool(VkDevice device, uint32_t index, VkCommandPool* pool);
-CommandPoolManager::CommandPoolManager(){};
+
+CommandPoolManager::CommandPoolManager()
+{
+};
+
 CommandPoolManager::CommandPoolManager(vkb::Device vkbdevice)
 {
     Queues = GET_QUEUES(vkbdevice);
     device = vkbdevice.device;
-    createCommandPool(device,  Queues.graphicsQueueFamily, &commandPool);
-    createCommandPool(device,  Queues.transferQueueFamily, &transferCommandPool);
+    createCommandPool(device, Queues.graphicsQueueFamily, &commandPool);
+    createCommandPool(device, Queues.transferQueueFamily, &transferCommandPool);
 }
 
 VkCommandBuffer CommandPoolManager::beginSingleTimeCommands_transfer()
@@ -87,7 +91,6 @@ void createCommandPool(VkDevice device, uint32_t index, VkCommandPool* pool)
 }
 
 
-
 QueueData GET_QUEUES(vkb::Device device)
 {
     //Get queues -- the dedicated transfer queue will prevent this from running on many gpus
@@ -100,13 +103,15 @@ QueueData GET_QUEUES(vkb::Device device)
         exit(1);
     }
     auto compute_ret = device.get_queue(vkb::QueueType::compute);
-    
-    return { graphicsqueueResult.value(),
-    device.get_queue_index(vkb::QueueType::graphics).value(),
-    presentqueueResult.value(),
-    device.get_queue_index(vkb::QueueType::present).value(),
-    transferqueueResult.value(),
-    device.get_dedicated_queue_index(vkb::QueueType::transfer).value(),
-    compute_ret.value(),
-    device.get_queue_index(vkb::QueueType::compute).value()};
+
+    return {
+        graphicsqueueResult.value(),
+        device.get_queue_index(vkb::QueueType::graphics).value(),
+        presentqueueResult.value(),
+        device.get_queue_index(vkb::QueueType::present).value(),
+        transferqueueResult.value(),
+        device.get_dedicated_queue_index(vkb::QueueType::transfer).value(),
+        compute_ret.value(),
+        device.get_queue_index(vkb::QueueType::compute).value()
+    };
 }

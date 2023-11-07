@@ -6,8 +6,8 @@ namespace vkb
     struct Device;
 }
 
-typedef struct VkCommandPool_T* VkCommandPool;
-typedef struct VkCommandBuffer_T* VkCommandBuffer;
+using VkCommandPool = struct VkCommandPool_T*;
+using VkCommandBuffer = struct VkCommandBuffer_T*;
 
 struct bufferAndPool; //TODO JS: can i move to cpp?
 
@@ -30,12 +30,12 @@ public:
     QueueData Queues;
     CommandPoolManager();
     CommandPoolManager(vkb::Device device);
-    
+
     VkCommandPool commandPool;
     VkCommandPool transferCommandPool;
     VkCommandBuffer beginSingleTimeCommands_transfer();
     bufferAndPool beginSingleTimeCommands(bool useTransferPool); //TODO JS: can i move to cpp?
-    
+
     void endSingleTimeCommands(VkCommandBuffer buffer);
     void endSingleTimeCommands(bufferAndPool commandBuffer);
 

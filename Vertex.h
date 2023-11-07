@@ -9,10 +9,10 @@
 #include <glm/glm.hpp>
 #include "glm/gtx/hash.hpp"
 
-#pragma region Forward Declarations 
+#pragma region Forward Declarations
 struct VkVertexInputBindingDescription;
 struct VkVertexInputAttributeDescription;
-#pragma endregion 
+#pragma endregion
 struct Vertex
 {
     glm::vec4 pos;
@@ -25,13 +25,16 @@ struct Vertex
 
     static std::array<VkVertexInputAttributeDescription, 4> getAttributeDescriptions();
 
-    bool operator==(const Vertex& other) const {
+    bool operator==(const Vertex& other) const
+    {
         return pos == other.pos && color == other.color && texCoord == other.texCoord;
     }
 };
 
-struct VertexHash {
-    std::size_t operator()(const Vertex& v) const {
+struct VertexHash
+{
+    std::size_t operator()(const Vertex& v) const
+    {
         std::size_t h1 = std::hash<glm::vec4>{}(v.pos);
         std::size_t h2 = std::hash<glm::vec4>{}(v.color);
         std::size_t h3 = std::hash<glm::vec4>{}(v.texCoord);
@@ -39,4 +42,4 @@ struct VertexHash {
     }
 };
 
-#endif 
+#endif
