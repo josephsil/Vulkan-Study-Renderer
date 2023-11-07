@@ -23,12 +23,15 @@ class Scene;
     {
     public:
 
+       float deltaTime;
+
     struct bufferAndPool
     {
         VkCommandBuffer buffer;
         VkCommandPool pool;
         VkQueue queue;
     };
+       
        static std::vector<char> readFile(const std::string& filename);
 
        VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
@@ -48,7 +51,7 @@ class Scene;
        void RUNTIME_generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
        
        VkImageView createImageView(VkImage image, VkFormat format,
-                                   VkImageAspectFlags aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT, uint32_t miplevels = 1);
+                                   VkImageAspectFlags aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT, VkImageViewType type = VK_IMAGE_VIEW_TYPE_2D, uint32_t miplevels = 1, uint32_t layerCount = 1);
 
        void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout,
                                   VkCommandBuffer workingBuffer = nullptr, uint32_t miplevels = 1);
@@ -64,17 +67,43 @@ class Scene;
        void endSingleTimeCommands(VkCommandBuffer buffer);
        void endSingleTimeCommands(bufferAndPool commandBuffer);
 
+    struct QueueData
+{
+    VkQueue graphicsQueue;
+    uint32_t graphicsQueueFamily;
+    VkQueue presentQueue;
+    uint32_t presentQueueFamily;
+    VkQueue transferQueue;
+    uint32_t transferQueueFamily;
+    VkQueue computeQueue;
+    uint32_t computeQueueFamily;
+};
+       QueueData Queues;
+
+               
+       struct inputData
+       {
+           glm::vec3 translate;
+           glm::vec3 mouseRot;
+       };
+
+       glm::vec3 eyePos  = glm::vec3(2.0f, 1.0f, 0.0f);
+       glm::vec3 eyeEulers;
+
     private:
+
+       uint32_t T;
+       uint32_t T2;
 
        PFN_vkCmdPushDescriptorSetKHR vkCmdPushDescriptorSetKHR;
        VkPhysicalDevicePushDescriptorPropertiesKHR pushDescriptorProps{};
-        std::vector<int> sceneObjects;
         struct SDL_Window* _window{nullptr};
         VkInstance instance;
         VkDebugUtilsMessengerEXT debugMessenger;
         //GLFWwindow* window;
-        int WIDTH = 800;
-        int HEIGHT = 600;
+        int WIDTH = 1280;
+        int HEIGHT = 720;
+       int fullscreenquadIDX;
       
 
 
@@ -114,6 +143,7 @@ class Scene;
         void createDescriptorSets(TextureData tex);
         VkPipeline graphicsPipeline_1;
         VkPipeline graphicsPipeline_2;
+       VkPipeline testSkyPipeline;
 
         struct SwapChainSupportDetails
         {
@@ -122,9 +152,6 @@ class Scene;
             std::vector<VkPresentModeKHR> presentModes;
         };
 
-        const std::vector<const char*> deviceExtensions = {
-            VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME, VK_KHR_MAINTENANCE_4_EXTENSION_NAME
-        };
 
         std::vector<VkFramebuffer> swapChainFramebuffers;
 
@@ -134,18 +161,11 @@ class Scene;
 
         VkCommandPool commandPool;
         VkCommandPool transferCommandPool;
+    int cubemaplut_utilitytexture_index;
+        
 
       
-        MeshData* placeholderMesh;
-      
-
-
-  
-
-        TextureData* placeholderTexture;
-        //STill not 100% sure how the mesh and material component of a "draw' is supposed to get submitted in a real program
-        //I think my mesh/texture structs are vaguely along the right lines, but the _work_ getting done shouldnt be taking in copies, it should be refs
-        //The work probably shouldnt be happening on a per tex or per mesh case either?
+        MeshData* fullscreenQuad;
 
         std::vector<VkCommandBuffer> commandBuffers;
 
@@ -167,15 +187,19 @@ class Scene;
            alignas(16) glm::mat4 view;
            alignas(16) glm::mat4 proj;
            alignas(16) glm::vec4 viewPos;
-           alignas(16) glm::vec4 lightcountx_paddingyzw;
+           alignas(16) glm::vec4 lightcountx_modey_paddingzw;
+           alignas(16) glm::vec4 cubemaplutidx_cubemaplutsampleridx_paddingzw;
        };
 
-        struct PerDrawPushConstants
+        struct per_object_data
         {
             //Light count, vertex offset, texture index, ubo index
             alignas(16) glm::vec4 indexInfo;
             
-            alignas(16) glm::mat4 padding;
+            alignas(16) glm::vec4 materialprops; //roughness, metalness, padding, padding
+            alignas(16) glm::vec4 padding_1;
+            alignas(16) glm::vec4 padding_2;
+            alignas(16) glm::vec4 padding_3;
             //Unused
             alignas(16) glm::mat4 padding1;
             //Unused
@@ -183,7 +207,7 @@ class Scene;
         };
 
 
-        const int MAX_FRAMES_IN_FLIGHT = 2;
+        const int MAX_FRAMES_IN_FLIGHT = 1;
         uint32_t currentFrame = 0;
 
 #ifdef NDEBUG
@@ -203,8 +227,6 @@ class Scene;
 
         void initVulkan();
 
-
-        // TODO JS : Descriptor sets more related to shaders?
 
         VkDescriptorPool descriptorPool;
         std::vector<VkDescriptorSet> perMaterialDescriptorSets;
@@ -231,7 +253,7 @@ class Scene;
 
 
        void updateLightBuffers(uint32_t currentImage);
-       void updateMeshBuffers();
+       void populateMeshBuffers();
        void updateDescriptorSet(Scene* scene, int idx);
 
 
@@ -240,7 +262,7 @@ class Scene;
        std::vector<UniformBufferObject> ubos;
 
         void updateUniformBuffer(uint32_t currentImage, glm::mat4 model);
-       void updateUniformBuffers(uint32_t currentImage, std::vector<glm::mat4> models);
+       void updateUniformBuffers(uint32_t currentImage, std::vector<glm::mat4> models, HelloTriangleApplication::inputData input);
 
 
         void createDescriptorSetLayout();
@@ -265,8 +287,7 @@ class Scene;
     because we won't come close to hitting any of these limits for now.*/
 
 
-        
-       
+
 
         uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
@@ -318,7 +339,7 @@ class Scene;
 
        void UpdateRotations();
 
-        void drawFrame();
+        void drawFrame(inputData input);
 
         void cleanup();
 

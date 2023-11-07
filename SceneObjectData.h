@@ -30,21 +30,27 @@ class Scene
     std::vector<glm::vec4> lightcolorAndIntensity;
     int lightCount = 0;
 
-    //Non parallel arrays
+    //Non parallel arrays //TODO JS: Pack together?
+    std::vector<TextureData> backing_utility_textures;
     std::vector<TextureData> backing_diffuse_textures;
     std::vector<TextureData> backing_specular_textures;
     std::vector<TextureData> backing_normal_textures;
+    int materialCount();
+    int materialTextureCount();
     std::vector<MeshData> backing_meshes;
+    std::vector<MeshData> misc_meshes;
+
     
     Scene();
     void Update();
     void Sort();
     //Returns the index to the object in the vectors
-    int AddObject(MeshData* mesh, int textureidx, glm::vec3 position, glm::quat rotation);
+    int AddObject(MeshData* mesh, int textureidx,  float material_roughness, bool material_metallic,  glm::vec3 position, glm::quat rotation);
     uint32_t getVertexCount();
     uint32_t getOffsetFromMeshID(int id);
 
-    //TODO JS: these are temporary 
+    //TODO JS: these are temporary
+    int AddUtilityTexture(TextureData T);
     int AddMaterial(TextureData D, TextureData S, TextureData N);
     int AddBackingMesh(MeshData M);
     int AddLight(glm::vec3 position, glm::vec3 color, float radius=1, float intensity=1);

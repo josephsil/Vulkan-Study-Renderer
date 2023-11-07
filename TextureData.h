@@ -26,7 +26,8 @@ class HelloTriangleApplication;
           DIFFUSE,
           SPECULAR,
           NORMAL,
-          CUBE
+          CUBE,
+          LINEAR_DATA
           
       };
       VkImageView textureImageView;
@@ -34,7 +35,8 @@ class HelloTriangleApplication;
       HelloTriangleApplication* appref;
       VkImage textureImage;
       VkDeviceMemory textureImageMemory;
-      uint32_t maxmip =0;
+      uint32_t maxmip = 1;
+      uint32_t layerct = 1;
       int id;
 
       TextureData(HelloTriangleApplication* app, const char* path, TextureData::TextureType type);
@@ -44,10 +46,10 @@ class HelloTriangleApplication;
       void cleanup();
 
   private:
-      void createTextureSampler();
+      void createTextureSampler(VkSamplerAddressMode mode = VK_SAMPLER_ADDRESS_MODE_REPEAT, float bias = 0);
 
 
-      void createTextureImageView( VkFormat format);
+      void createTextureImageView(VkFormat format, VkImageViewType type);
       
 
       //TODO JS: 
@@ -59,5 +61,6 @@ class HelloTriangleApplication;
       It's best to do this after the texture mapping works to check if the texture resources are still set up correctly.*/
 
 
-      void createTextureImage(const char* path, VkFormat format);
+      void createTextureImage(const char* path, VkFormat format, bool mips = true);
+      void createCubemapImageKTX(const char* path, VkFormat format);
   };

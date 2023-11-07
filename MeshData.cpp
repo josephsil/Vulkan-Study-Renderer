@@ -230,8 +230,8 @@ MeshData::MeshData(HelloTriangleApplication* app, std::string path)
                 {
                     glm::vec4 normal;
                     normal.x =  normals[i * 3 + 0];
-                    normal.y =  normals[i * 3 + 1];
-                    normal.z =  normals[i * 3 + 2];
+                    normal.y =  normals[i * 3 + 1]; //TODO JS NORMAL MYSTERY: Are we loading these wrong?
+                    normal.z =  normals[i * 3 + 2]; //TODO JS NORMAL MYSTERY: Are we loading these wrong?
                     normalvec.push_back(normal);
                     
                 }
@@ -262,7 +262,7 @@ MeshData::MeshData(HelloTriangleApplication* app, std::string path)
                     
                 }
 
-                //TODO JS: Not every frame
+                //TODO JS: Not every prim
                 if (prim.attributes.contains("TANGENT"))
                 {
                     tangentsLoaded = true;

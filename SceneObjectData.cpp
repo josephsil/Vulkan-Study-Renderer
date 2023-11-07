@@ -20,7 +20,6 @@
     }
     void Scene::Update()
     {
-        // auto objectRotation = time * glm::radians(90.0f); //TODO JS: pass in from renderr update
         glm::mat4 model;
         
         for (int i = 0; i < translations.size(); i++)
@@ -39,11 +38,11 @@
     //So things like, get the index back from this and then index in to these vecs to update them
     //At some point in the future I can replace this with a more sophisticated reference system if I need
     //Even just returning a pointer is probably plenty, then I can sort the lists, prune stuff, etc.
-    int Scene::AddObject(MeshData* mesh, int textureidx, glm::vec3 position, glm::quat rotation)
+    int Scene::AddObject(MeshData* mesh, int textureidx, float material_roughness, bool material_metallic, glm::vec3 position, glm::quat rotation)
     {
         //TODD JS: version that can add 
         meshes.push_back(mesh);
-        materials.push_back(Material{.backingTextureidx = textureidx});
+        materials.push_back(Material{.backingTextureidx = textureidx, .metallic =  material_metallic, .roughness =  material_roughness});
         translations.push_back(position);
         rotations.push_back(rotation);
         matrices.push_back(glm::mat4(1.0));
@@ -73,7 +72,19 @@ uint32_t Scene::getVertexCount()
         return indexcount;
 }
 
-
+int Scene::materialCount()
+    {
+        return backing_diffuse_textures.size();
+    }
+int Scene::materialTextureCount()
+    {
+        return backing_diffuse_textures.size() * 3;
+    }
+int Scene::AddUtilityTexture(TextureData T)
+    {
+        backing_utility_textures.push_back(T);
+        return backing_utility_textures.size() -1;
+    }
 //TODO JS: we should probably CREATE from here at some point?
     int Scene::AddMaterial(TextureData D, TextureData S, TextureData N)
     {
