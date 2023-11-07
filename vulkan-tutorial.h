@@ -10,6 +10,8 @@
 // #include "vk_mem_alloc.h"
 
 #include <chrono>
+
+#include "CommandPoolManager.h"
 // My stuff 
 
 struct MeshData; //Forward Declaration
@@ -31,44 +33,19 @@ class Scene;
 
        VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
        VkDevice device; //Logical device
-        void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
-        void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer,
-                          VkDeviceMemory& bufferMemory);
-        void run();
 
         HelloTriangleApplication();
 
        //Images
 
-     
-       void RUNTIME_generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
-    
-       void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout,
-                                  VkCommandBuffer workingBuffer = nullptr, uint32_t miplevels = 1);
-
+     //TODO JS
        void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height,
                               VkCommandBuffer workingBuffer = nullptr);
 
        //submitting commands
 
-       VkCommandBuffer beginSingleTimeCommands_transfer();
-       bufferAndPool beginSingleTimeCommands(bool useTransferPool);
 
-       void endSingleTimeCommands(VkCommandBuffer buffer);
-       void endSingleTimeCommands(bufferAndPool commandBuffer);
-
-    struct QueueData
-{
-    VkQueue graphicsQueue;
-    uint32_t graphicsQueueFamily;
-    VkQueue presentQueue;
-    uint32_t presentQueueFamily;
-    VkQueue transferQueue;
-    uint32_t transferQueueFamily;
-    VkQueue computeQueue;
-    uint32_t computeQueueFamily;
-};
-       QueueData Queues;
+       CommandPoolManager commandPoolmanager;
 
                
        struct inputData
@@ -96,19 +73,6 @@ class Scene;
        int fullscreenquadIDX;
       
 
-
-        VkQueue computeQueue;
-       
-        uint32_t computeQueueFamily;
-        VkQueue graphicsQueue;
-
-        uint32_t graphicsQueueFamily;
-        VkQueue presentQueue;
-
-        uint32_t presentQueueFamily;
-        VkQueue transferQueue;
-
-        uint32_t transferQueueFamily;
         VkSwapchainKHR swapChain;
 
         VkImage depthImage;
@@ -149,8 +113,8 @@ class Scene;
             "VK_LAYER_KHRONOS_validation"
         };
 
-        VkCommandPool commandPool;
-        VkCommandPool transferCommandPool;
+
+       
     int cubemaplut_utilitytexture_index;
         
 

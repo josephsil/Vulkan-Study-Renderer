@@ -3,6 +3,8 @@
 
 #include <vector>
 #include <vulkan/vulkan_core.h>
+
+
 #include "Vulkan_Includes.h"
 //Forward declaration
 class HelloTriangleApplication;
@@ -16,6 +18,7 @@ typedef struct VkDeviceMemory_T* VkDeviceMemory;
 typedef struct VkImageView_T* VkImageView;
 typedef struct VkRenderPass_T* VkRenderPass;
 typedef struct VkSampler_T* VkSampler;
+struct CommandPoolManager;
 enum VkFormat;
 
 namespace DescriptorSetSetup 
@@ -50,4 +53,23 @@ namespace TextureUtilities
                                            VkFlags usage, VkFlags properties, VkImage& image,
                                            VkDeviceMemory& imageMemory, uint32_t miplevels = 1);
 
+    void transitionImageLayout(HelloTriangleApplication* app, VkImage image, VkFormat format, VkImageLayout oldLayout,
+                                                     VkImageLayout newLayout, VkCommandBuffer workingBuffer,
+                                                     uint32_t miplevels = 1);
+
+    void generateMipmaps(HelloTriangleApplication* app, VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
+    void copyBufferToImage(CommandPoolManager* commandPoolManager, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height,
+                              VkCommandBuffer workingBuffer = nullptr);
+
+}
+
+
+//TODO JS: may be better to bundle stuff like createUniformBuffers, and the buffers themselves, along with these fns ala commandpoolmanager
+namespace  BufferUtilities
+{
+
+    void copyBuffer(HelloTriangleApplication* app, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+    void createBuffer(HelloTriangleApplication* app, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer,
+                      VkDeviceMemory& bufferMemory);
+    
 }

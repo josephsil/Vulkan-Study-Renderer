@@ -105,7 +105,7 @@ void TextureData::createTextureImageView(VkFormat format, VkImageViewType type)
 void TextureData::createTextureImage(const char* path, VkFormat format, bool mips)
 {
     
-    auto workingTextureBuffer = appref->beginSingleTimeCommands(true);
+    auto workingTextureBuffer = appref->commandPoolmanager.beginSingleTimeCommands(true);
     int texWidth, texHeight, texChannels;
     stbi_uc* pixels = stbi_load(path, &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
     VkDeviceSize imageSize = texWidth * texHeight * 4;
@@ -120,7 +120,7 @@ void TextureData::createTextureImage(const char* path, VkFormat format, bool mip
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
 
-    appref->createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+    BufferUtilities::createBuffer(appref, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                          stagingBuffer, stagingBufferMemory);
 
@@ -135,16 +135,16 @@ void TextureData::createTextureImage(const char* path, VkFormat format, bool mip
                         VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
                         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory, mipLevels);
 
-    appref->transitionImageLayout(textureImage, format, VK_IMAGE_LAYOUT_UNDEFINED,
+    TextureUtilities::transitionImageLayout(appref, textureImage, format, VK_IMAGE_LAYOUT_UNDEFINED,
                                   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, workingTextureBuffer.buffer, mipLevels);
     
-    appref->copyBufferToImage(stagingBuffer, textureImage, static_cast<uint32_t>(texWidth),
+    TextureUtilities::copyBufferToImage(&appref->commandPoolmanager, stagingBuffer, textureImage, static_cast<uint32_t>(texWidth),
                               static_cast<uint32_t>(texHeight), workingTextureBuffer.buffer);
     //JS: Prepare image to read in shaders
-    appref->endSingleTimeCommands(workingTextureBuffer);
+    appref->commandPoolmanager.endSingleTimeCommands(workingTextureBuffer);
     vkDestroyBuffer(appref->device, stagingBuffer, nullptr);
     vkFreeMemory(appref->device, stagingBufferMemory, nullptr);
-    appref->RUNTIME_generateMipmaps(textureImage, format, texWidth,texHeight,mipLevels);
+    TextureUtilities::generateMipmaps(appref, textureImage, format, texWidth,texHeight,mipLevels);
 
 }
 
@@ -158,7 +158,7 @@ void TextureData::createCubemapImageKTX(const char* path, VkFormat format)
     ktxTexture* kTexture;
     KTX_error_code ktxresult;
 
-    bufferAndPool workingTextureBuffer = appref->beginSingleTimeCommands(true);
+    bufferAndPool workingTextureBuffer = appref->commandPoolmanager.beginSingleTimeCommands(true);
 
     ktxVulkanDeviceInfo_Construct(&vdi, appref->physicalDevice, appref->device,
                               workingTextureBuffer.queue, workingTextureBuffer.pool, nullptr);
@@ -200,6 +200,9 @@ void TextureData::createCubemapImageKTX(const char* path, VkFormat format)
     
         //...
 }
+
+
+
 
 
 

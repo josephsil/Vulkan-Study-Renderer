@@ -148,6 +148,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="CommandPoolManager.cpp" />
     <ClCompile Include="Material.cpp" />
     <ClCompile Include="MeshData.cpp" />
     <ClCompile Include="mikktspace.c" />
@@ -157,6 +158,7 @@
     <ClCompile Include="Vertex.cpp" />
     <ClCompile Include="vkbootstrap\VkBootstrap.cpp" />
     <ClCompile Include="vulkan-tutorial.cpp" />
+    <ClInclude Include="CommandPoolManager.h" />
     <ClInclude Include="vulkan-utilities.h" />
     <ClInclude Include="Vulkan_Includes.cpp" />
     <ClCompile Include="vulkan-utilities.cpp" />

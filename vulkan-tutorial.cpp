@@ -16,6 +16,7 @@
 #include <map>
 #include <set>
 
+#include "CommandPoolManager.h"
 #include "meshData.h"
 #include "SceneObjectData.h"
 #include "Vertex.h"
@@ -93,43 +94,11 @@ vkb::Device GET_DEVICE(vkb::PhysicalDevice gpu)
     
 }
 
-HelloTriangleApplication::QueueData GET_QUEUES(vkb::Device device)
-{
-    //Get queues -- the dedicated transfer queue will prevent this from running on many gpus
-    auto graphicsqueueResult = device.get_queue(vkb::QueueType::graphics);
-    auto presentqueueResult = device.get_queue(vkb::QueueType::present);
-    auto transferqueueResult = device.get_dedicated_queue(vkb::QueueType::transfer);
-    if (!transferqueueResult)
-    {
-        std::cerr << ("NO DEDICATED TRANSFER QUEUE");
-        exit(1);
-    }
-    auto compute_ret = device.get_queue(vkb::QueueType::compute);
-    
-    return { graphicsqueueResult.value(),
-    device.get_queue_index(vkb::QueueType::graphics).value(),
-    presentqueueResult.value(),
-    device.get_queue_index(vkb::QueueType::present).value(),
-    transferqueueResult.value(),
-    device.get_dedicated_queue_index(vkb::QueueType::transfer).value(),
-    compute_ret.value(),
-    device.get_queue_index(vkb::QueueType::compute).value()};
-}
 #pragma endregion
 
 int main()
 {
     HelloTriangleApplication app;
-
-    try
-    {
-        app.run();
-    }
-    catch (const std::exception& e)
-    {
-        std::cerr << e.what() << std::endl;
-        return EXIT_FAILURE;
-    }
 
     return EXIT_SUCCESS;
 }
@@ -160,18 +129,14 @@ struct gpulight
     alignas(16) glm::vec4 padding2;
 };
 
-void HelloTriangleApplication::run()
+
+HelloTriangleApplication::HelloTriangleApplication()
 {
     initWindow();
     initVulkan();
     pastTimes.resize(9999);
     mainLoop();
     cleanup();
-}
-
-HelloTriangleApplication::HelloTriangleApplication()
-{
-  
 }
 
 
@@ -240,8 +205,8 @@ void HelloTriangleApplication::initVulkan()
     
     // Get device push descriptor properties (to display them)
 
-    //Get queues and queue families
-    Queues = GET_QUEUES(vkb_device);
+    //Get queues and queue families and command pools
+    commandPoolmanager = CommandPoolManager(vkb_device);
 
     //Swapchain
     vkb::SwapchainBuilder swapchain_builder{vkb_device};
@@ -266,8 +231,6 @@ void HelloTriangleApplication::initVulkan()
 
 
     //Command buffer stuff
-    createTransferCommandPool();
-    createGraphicsCommandPool();
     createCommandBuffers();
     
     //Initialize scene
@@ -321,215 +284,6 @@ void HelloTriangleApplication::populateMeshBuffers()
     }
 }
 
-#pragma region images
-void HelloTriangleApplication::transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout,
-                                                     VkImageLayout newLayout, VkCommandBuffer workingBuffer,
-                                                     uint32_t miplevels)
-{
-    bool endNow = false;
-    if (workingBuffer == nullptr)
-    {
-        //Optional buffer for if the caller wants to submit the command to an existing buffer and manually end it later
-        workingBuffer = beginSingleTimeCommands_transfer();
-        endNow = true;
-    }
-
-
-    VkImageMemoryBarrier barrier{};
-    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    barrier.oldLayout = oldLayout;
-    barrier.newLayout = newLayout;
-
-    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-
-    barrier.image = image;
-    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    barrier.subresourceRange.baseMipLevel = 0; //TODO JS! 
-    barrier.subresourceRange.levelCount = miplevels;
-    barrier.subresourceRange.baseArrayLayer = 0;
-    barrier.subresourceRange.layerCount = 1;
-
-    barrier.srcAccessMask = 0; // TODO
-    barrier.dstAccessMask = 0; // TODO
-
-    VkPipelineStageFlags sourceStage;
-    VkPipelineStageFlags destinationStage;
-
-    if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
-    {
-        barrier.srcAccessMask = 0;
-        barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-
-        sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-        destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-    }
-    else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout ==
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
-    {
-        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-        sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-        destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-    }
-    else
-    {
-        throw std::invalid_argument("unsupported layout transition!");
-    }
-
-
-    vkCmdPipelineBarrier(
-        workingBuffer,
-        sourceStage, destinationStage,
-        0,
-        0, nullptr,
-        0, nullptr,
-        1, &barrier
-    );
-
-    if (endNow)
-        endSingleTimeCommands(workingBuffer);
-}
-
-void HelloTriangleApplication::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height,
-                                                 VkCommandBuffer workingBuffer)
-{
-    bool endNow = false;
-    if (workingBuffer == nullptr)
-    {
-        //Optional buffer for if the caller wants to submit the command to an existing buffer and manually end it later
-        workingBuffer = beginSingleTimeCommands_transfer();
-        endNow = true;
-    }
-
-    VkBufferImageCopy region{};
-    region.bufferOffset = 0;
-    region.bufferRowLength = 0;
-    region.bufferImageHeight = 0;
-
-    region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    region.imageSubresource.mipLevel = 0; //TODO JS
-    region.imageSubresource.baseArrayLayer = 0;
-    region.imageSubresource.layerCount = 1;
-
-    region.imageOffset = {0, 0, 0};
-    region.imageExtent = {
-        width,
-        height,
-        1
-    };
-
-    vkCmdCopyBufferToImage(
-        workingBuffer,
-        buffer,
-        image,
-        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        1,
-        &region
-    );
-
-    if (endNow)
-        endSingleTimeCommands(workingBuffer);
-}
-
-void HelloTriangleApplication::RUNTIME_generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth,
-                                                       int32_t texHeight, uint32_t mipLevels)
-{
-    // Check if image format supports linear blitting
-    VkFormatProperties formatProperties;
-    vkGetPhysicalDeviceFormatProperties(physicalDevice, imageFormat, &formatProperties);
-
-    if (!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT))
-    {
-        throw std::runtime_error("texture image format does not support linear blitting!");
-    }
-
-    bufferAndPool bandp = beginSingleTimeCommands(false);
-
-    auto commandBuffer = bandp.buffer;
-
-    VkImageMemoryBarrier barrier{};
-    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    barrier.image = image;
-    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    barrier.subresourceRange.baseArrayLayer = 0;
-    barrier.subresourceRange.layerCount = 1;
-    barrier.subresourceRange.levelCount = 1;
-
-    int32_t mipWidth = texWidth;
-    int32_t mipHeight = texHeight;
-
-    for (uint32_t i = 1; i < mipLevels; i++)
-    {
-        barrier.subresourceRange.baseMipLevel = i - 1;
-        barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-
-        vkCmdPipelineBarrier(commandBuffer,
-                             VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
-                             0, nullptr,
-                             0, nullptr,
-                             1, &barrier);
-
-        VkImageBlit blit{};
-        blit.srcOffsets[0] = {0, 0, 0};
-        blit.srcOffsets[1] = {mipWidth, mipHeight, 1};
-        blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        blit.srcSubresource.mipLevel = i - 1;
-        blit.srcSubresource.baseArrayLayer = 0;
-        blit.srcSubresource.layerCount = 1;
-        blit.dstOffsets[0] = {0, 0, 0};
-        blit.dstOffsets[1] = {mipWidth > 1 ? mipWidth / 2 : 1, mipHeight > 1 ? mipHeight / 2 : 1, 1};
-        blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        blit.dstSubresource.mipLevel = i;
-        blit.dstSubresource.baseArrayLayer = 0;
-        blit.dstSubresource.layerCount = 1;
-
-        vkCmdBlitImage(commandBuffer,
-                       image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                       image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                       1, &blit,
-                       VK_FILTER_LINEAR);
-
-        barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-        barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-        vkCmdPipelineBarrier(commandBuffer,
-                             VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0,
-                             0, nullptr,
-                             0, nullptr,
-                             1, &barrier);
-
-        if (mipWidth > 1) mipWidth /= 2;
-        if (mipHeight > 1) mipHeight /= 2;
-    }
-
-    barrier.subresourceRange.baseMipLevel = mipLevels - 1;
-    barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-    vkCmdPipelineBarrier(commandBuffer,
-                         VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0,
-                         0, nullptr,
-                         0, nullptr,
-                         1, &barrier);
-
-    endSingleTimeCommands(bandp);
-}
-
-
-
-#pragma endregion
-
 #pragma region descriptor sets
 
 //TODO JS: Move?
@@ -543,7 +297,7 @@ void HelloTriangleApplication::createUniformBuffers()
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+        BufferUtilities::createBuffer(this,bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, shaderGlobalsBuffer[i],
                      shaderGlobalsMemory[i]);
 
@@ -559,7 +313,7 @@ void HelloTriangleApplication::createUniformBuffers()
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        createBuffer(bufferSize1, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+        BufferUtilities::createBuffer(this,bufferSize1, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers[i],
                      uniformBuffersMemory[i]);
 
@@ -574,7 +328,7 @@ void HelloTriangleApplication::createUniformBuffers()
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        createBuffer(bufferSize2, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+        BufferUtilities::createBuffer(this,bufferSize2, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, meshBuffers[i],
                      meshBuffersMemory[i]);
 
@@ -589,7 +343,7 @@ void HelloTriangleApplication::createUniformBuffers()
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        createBuffer(bufferSize3, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+        BufferUtilities::createBuffer(this,bufferSize3, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, lightBuffers[i],
                      lightBuffersMemory[i]);
 
@@ -607,47 +361,7 @@ void HelloTriangleApplication::createDescriptorSetLayout(VkDescriptorSetLayoutCr
 
 //TODO JS: ??
 #pragma region buffer creation and tools
-void HelloTriangleApplication::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
-                                            VkMemoryPropertyFlags properties, VkBuffer& buffer,
-                                            VkDeviceMemory& bufferMemory)
-{
-    VkBufferCreateInfo bufferInfo{};
-    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufferInfo.size = size;
-    bufferInfo.usage = usage;
-    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    if (vkCreateBuffer(device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS)
-    {
-        throw std::runtime_error("failed to create buffer!");
-    }
-
-    VkMemoryRequirements memRequirements;
-    vkGetBufferMemoryRequirements(device, buffer, &memRequirements);
-
-    VkMemoryAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocInfo.allocationSize = memRequirements.size;
-    allocInfo.memoryTypeIndex = Capabilities::findMemoryType(this,memRequirements.memoryTypeBits, properties);
-
-    if (vkAllocateMemory(device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS)
-    {
-        throw std::runtime_error("failed to allocate buffer memory!");
-    }
-
-    vkBindBufferMemory(device, buffer, bufferMemory, 0);
-}
-
-void HelloTriangleApplication::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
-{
-    VkCommandBuffer commandBuffer = beginSingleTimeCommands_transfer();
-
-    VkBufferCopy copyRegion{};
-    copyRegion.size = size;
-    vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
-
-    endSingleTimeCommands(commandBuffer);
-}
 
 
 #pragma endregion
@@ -655,65 +369,7 @@ void HelloTriangleApplication::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer
 #pragma region Begin/End commands
 
 
-VkCommandBuffer HelloTriangleApplication::beginSingleTimeCommands_transfer()
-{
-    return beginSingleTimeCommands(true).buffer;
-}
 
-bufferAndPool HelloTriangleApplication::beginSingleTimeCommands(
-    bool useTransferPoolInsteadOfGraphicsPool)
-{
-    VkCommandBufferAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandPool = useTransferPoolInsteadOfGraphicsPool ? transferCommandPool : commandPool;
-    allocInfo.commandBufferCount = 1;
-
-    VkCommandBuffer commandBuffer;
-    vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer);
-
-    VkCommandBufferBeginInfo beginInfo{};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-    vkBeginCommandBuffer(commandBuffer, &beginInfo);
-
-    bufferAndPool result = {
-        commandBuffer, useTransferPoolInsteadOfGraphicsPool ? transferCommandPool : commandPool,
-        useTransferPoolInsteadOfGraphicsPool ? Queues.transferQueue : Queues.graphicsQueue
-    };
-    return result;
-}
-
-void HelloTriangleApplication::endSingleTimeCommands(VkCommandBuffer buffer)
-{
-    vkEndCommandBuffer(buffer);
-
-    VkSubmitInfo submitInfo{};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &buffer;
-
-    vkQueueSubmit(Queues.transferQueue, 1, &submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(Queues.transferQueue);
-
-    vkFreeCommandBuffers(device, transferCommandPool, 1, &buffer);
-}
-
-void HelloTriangleApplication::endSingleTimeCommands(bufferAndPool bufferAndPool)
-{
-    vkEndCommandBuffer(bufferAndPool.buffer);
-
-    VkSubmitInfo submitInfo{};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &bufferAndPool.buffer;
-
-    vkQueueSubmit(bufferAndPool.queue, 1, &submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(bufferAndPool.queue);
-
-    vkFreeCommandBuffers(device, bufferAndPool.pool, 1, &bufferAndPool.buffer);
-}
 
 #pragma endregion
 
@@ -1085,25 +741,7 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
 #pragma endregion
 
 #pragma region Command Pools/Queues
-void HelloTriangleApplication::createGraphicsCommandPool()
-{
-    VkCommandPoolCreateInfo poolInfo{};
-    poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-    poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-    poolInfo.queueFamilyIndex = Queues.graphicsQueueFamily;
 
-    VK_CHECK(vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool));
-}
-
-void HelloTriangleApplication::createTransferCommandPool()
-{
-    VkCommandPoolCreateInfo poolInfo{};
-    poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-    poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-    poolInfo.queueFamilyIndex = Queues.transferQueueFamily;
-
-    VK_CHECK(vkCreateCommandPool(device, &poolInfo, nullptr, &transferCommandPool));
-}
 
 #pragma endregion
 
@@ -1112,7 +750,7 @@ void HelloTriangleApplication::createCommandBuffers()
     commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
     VkCommandBufferAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.commandPool = commandPool;
+    allocInfo.commandPool = commandPoolmanager.commandPool;
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     allocInfo.commandBufferCount = (uint32_t)commandBuffers.size();
 
@@ -1468,7 +1106,7 @@ void HelloTriangleApplication::drawFrame(HelloTriangleApplication::inputData inp
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = signalSemaphores;
 
-    auto result = vkQueueSubmit(Queues.graphicsQueue, 1, &submitInfo, inFlightFences[currentFrame]);
+    auto result = vkQueueSubmit(commandPoolmanager.Queues.graphicsQueue, 1, &submitInfo, inFlightFences[currentFrame]);
     if (result != VK_SUCCESS)
     {
         throw std::runtime_error("failed to submit draw command buffer!");
@@ -1487,7 +1125,7 @@ void HelloTriangleApplication::drawFrame(HelloTriangleApplication::inputData inp
 
     presentInfo.pResults = nullptr; // Optional
 
-    vkQueuePresentKHR(Queues.presentQueue, &presentInfo);
+    vkQueuePresentKHR(commandPoolmanager.Queues.presentQueue, &presentInfo);
 
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
@@ -1520,8 +1158,8 @@ void HelloTriangleApplication::cleanup()
         vkDestroyFence(device, inFlightFences[i], nullptr);
     }
 
-    vkDestroyCommandPool(device, commandPool, nullptr);
-    vkDestroyCommandPool(device, transferCommandPool, nullptr);
+    vkDestroyCommandPool(device, commandPoolmanager.commandPool, nullptr);
+    vkDestroyCommandPool(device, commandPoolmanager.transferCommandPool, nullptr);
 
 
     for (auto framebuffer : swapChainFramebuffers)
