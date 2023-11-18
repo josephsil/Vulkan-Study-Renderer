@@ -1,26 +1,13 @@
 #pragma once
-
-
 #include <vector>
-#include <vulkan/vulkan_core.h>
-
-
 #include "Vulkan_Includes.h"
+#include "common-structs.h"
+class Scene;
 //Forward declaration
-class HelloTriangleApplication;
-struct VkPipelineShaderStageCreateInfo;
-struct VkPipelineShaderStageCreateInfo;
-using VkPhysicalDevice = struct VkPhysicalDevice_T*;
-using VkDevice = struct VkDevice_T*;
-using VkDescriptorSetLayout = struct VkDescriptorSetLayout_T*;
-using VkBuffer = struct VkBuffer_T*;
-using VkDeviceMemory = struct VkDeviceMemory_T*;
-using VkImageView = struct VkImageView_T*;
-using VkRenderPass = struct VkRenderPass_T*;
-using VkSampler = struct VkSampler_T*;
+struct RendererHandles;
 struct CommandPoolManager;
 struct TextureData;
-enum VkFormat;
+
 
 struct dataBuffer
 {
@@ -94,23 +81,23 @@ namespace DescriptorDataUtilities
 
 namespace DescriptorSetSetup
 {
-    void createBindlessLayout(HelloTriangleApplication* app, VkDescriptorSetLayout* layout);
+    void createBindlessLayout(RendererHandles rendererHandles, Scene* scene, VkDescriptorSetLayout* layout);
 }
 
 namespace RenderingSetup
 {
-    void createRenderPass(HelloTriangleApplication* app, RenderTextureFormat passformat, VkRenderPass* pass);
+    void createRenderPass(RendererHandles rendererHandles, RenderTextureFormat passformat, VkRenderPass* pass);
 }
 
 namespace Capabilities
 {
-    VkFormat findDepthFormat(HelloTriangleApplication* app);
+    VkFormat findDepthFormat(RendererHandles rendererHandles);
 
-    VkFormat findSupportedFormat(HelloTriangleApplication* app, const std::vector<VkFormat>& candidates,
+    VkFormat findSupportedFormat(RendererHandles rendererHandles, const std::vector<VkFormat>& candidates,
                                  VkImageTiling tiling,
                                  VkFormatFeatureFlags features);
 
-    uint32_t findMemoryType(HelloTriangleApplication* app, uint32_t typeFilter, VkMemoryPropertyFlags properties);
+    uint32_t findMemoryType(RendererHandles rendererHandles, uint32_t typeFilter, VkMemoryPropertyFlags properties);
 }
 
 namespace TextureUtilities
@@ -120,16 +107,16 @@ namespace TextureUtilities
                                 VkImageViewType type = VK_IMAGE_VIEW_TYPE_2D, uint32_t miplevels = 1,
                                 uint32_t layerCount = 1);
 
-    void createImage(HelloTriangleApplication* app, uint32_t width, uint32_t height, VkFormat format,
+    void createImage(RendererHandles rendererHandles, uint32_t width, uint32_t height, VkFormat format,
                      VkImageTiling tiling,
                      VkFlags usage, VkFlags properties, VkImage& image,
                      VkDeviceMemory& imageMemory, uint32_t miplevels = 1);
 
-    void transitionImageLayout(HelloTriangleApplication* app, VkImage image, VkFormat format, VkImageLayout oldLayout,
+    void transitionImageLayout(RendererHandles rendererHandles, VkImage image, VkFormat format, VkImageLayout oldLayout,
                                VkImageLayout newLayout, VkCommandBuffer workingBuffer,
                                uint32_t miplevels = 1);
 
-    void generateMipmaps(HelloTriangleApplication* app, VkImage image, VkFormat imageFormat, int32_t texWidth,
+    void generateMipmaps(RendererHandles rendererHandles, VkImage image, VkFormat imageFormat, int32_t texWidth,
                          int32_t texHeight, uint32_t mipLevels);
     void copyBufferToImage(CommandPoolManager* commandPoolManager, VkBuffer buffer, VkImage image, uint32_t width,
                            uint32_t height,
@@ -140,8 +127,8 @@ namespace TextureUtilities
 //TODO JS: may be better to bundle stuff like createUniformBuffers, and the buffers themselves, along with these fns ala commandpoolmanager
 namespace BufferUtilities
 {
-    void copyBuffer(HelloTriangleApplication* app, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
-    void createBuffer(HelloTriangleApplication* app, VkDeviceSize size, VkBufferUsageFlags usage,
+    void copyBuffer(RendererHandles rendererHandles, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+    void createBuffer(RendererHandles rendererHandles, VkDeviceSize size, VkBufferUsageFlags usage,
                       VkMemoryPropertyFlags properties, VkBuffer& buffer,
                       VkDeviceMemory& bufferMemory);
 }

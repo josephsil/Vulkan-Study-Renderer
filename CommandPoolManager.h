@@ -6,8 +6,8 @@ namespace vkb
     struct Device;
 }
 
-using VkCommandPool = struct VkCommandPool_T*;
-using VkCommandBuffer = struct VkCommandBuffer_T*;
+#include "vulkan-forwards.h"
+#include "common-structs.h"
 
 struct bufferAndPool; //TODO JS: can i move to cpp?
 

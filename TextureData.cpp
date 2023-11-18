@@ -1,20 +1,25 @@
 #define DEBUG 
 #include "TextureData.h"
-#include "vulkan-tutorial.h"
 #include "stb_image.h"
 #include "vulkan-utilities.h"
+#include "Vulkan_Includes.h"
 
 #define KHRONOS_STATIC
 //TODO: for cubemap loadingc
+#include <cassert>
+#include <iostream>
 #include <ktxvulkan.h>
+
+#include "CommandPoolManager.h"
 
 
 int TEXTURE_INDEX;
 #pragma region textureData
 
-TextureData::TextureData(HelloTriangleApplication* app, const char* path, TextureType textureType)
+TextureData::TextureData(RendererHandles rendererHandles, const char* path, TextureType textureType)
 {
-    appref = app;
+
+    this->rendererHandles = rendererHandles;
 
     VkFormat format;
     VkSamplerAddressMode mode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
@@ -61,16 +66,16 @@ TextureData::TextureData()
 
 void TextureData::cleanup()
 {
-    vkDestroySampler(appref->device, textureSampler, nullptr);
-    vkDestroyImageView(appref->device, textureImageView, nullptr);
-    vkDestroyImage(appref->device, textureImage, nullptr);
-    vkFreeMemory(appref->device, textureImageMemory, nullptr);
+    vkDestroySampler(rendererHandles.device, textureSampler, nullptr);
+    vkDestroyImageView(rendererHandles.device, textureImageView, nullptr);
+    vkDestroyImage(rendererHandles.device, textureImage, nullptr);
+    vkFreeMemory(rendererHandles.device, textureImageMemory, nullptr);
 }
 
 void TextureData::createTextureSampler(VkSamplerAddressMode mode, float bias)
 {
     VkPhysicalDeviceProperties properties{};
-    vkGetPhysicalDeviceProperties(appref->physicalDevice, &properties);
+    vkGetPhysicalDeviceProperties(rendererHandles.physicalDevice, &properties);
 
     VkSamplerCreateInfo samplerInfo{};
     samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -91,22 +96,23 @@ void TextureData::createTextureSampler(VkSamplerAddressMode mode, float bias)
     samplerInfo.mipLodBias = bias;
 
 
-    if (vkCreateSampler(appref->device, &samplerInfo, nullptr, &textureSampler) != VK_SUCCESS)
+    if (vkCreateSampler(rendererHandles.device, &samplerInfo, nullptr, &textureSampler) != VK_SUCCESS)
     {
-        throw std::runtime_error("failed to create texture sampler!");
+       std::cerr << ("failed to create texture sampler!");
+        exit(-1);
     }
 }
 
 void TextureData::createTextureImageView(VkFormat format, VkImageViewType type)
 {
-    textureImageView = TextureUtilities::createImageView(appref->device, textureImage, format,
+    textureImageView = TextureUtilities::createImageView(rendererHandles.device, textureImage, format,
                                                          VK_IMAGE_ASPECT_COLOR_BIT, type, maxmip, layerct);
 }
 
 
 void TextureData::createTextureImage(const char* path, VkFormat format, bool mips)
 {
-    auto workingTextureBuffer = appref->commandPoolmanager.beginSingleTimeCommands(true);
+    auto workingTextureBuffer = rendererHandles.commandPoolmanager->beginSingleTimeCommands(true);
     int texWidth, texHeight, texChannels;
     stbi_uc* pixels = stbi_load(path, &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
     VkDeviceSize imageSize = texWidth * texHeight * 4;
@@ -115,41 +121,42 @@ void TextureData::createTextureImage(const char* path, VkFormat format, bool mip
 
     if (!pixels)
     {
-        throw std::runtime_error("failed to load texture image!");
+         std::cerr << "failed to load texture image!";
+        exit(-1);
     }
 
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
 
-    BufferUtilities::createBuffer(appref, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+    BufferUtilities::createBuffer(rendererHandles, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                                   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                                   stagingBuffer, stagingBufferMemory);
 
     void* data;
-    vkMapMemory(appref->device, stagingBufferMemory, 0, imageSize, 0, &data);
+    vkMapMemory(rendererHandles.device, stagingBufferMemory, 0, imageSize, 0, &data);
     memcpy(data, pixels, imageSize);
-    vkUnmapMemory(appref->device, stagingBufferMemory);
+    vkUnmapMemory(rendererHandles.device, stagingBufferMemory);
 
     stbi_image_free(pixels);
 
-    TextureUtilities::createImage(appref, texWidth, texHeight, format,
+    TextureUtilities::createImage(rendererHandles, texWidth, texHeight, format,
                                   VK_IMAGE_TILING_OPTIMAL,
                                   VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT |
                                   VK_IMAGE_USAGE_SAMPLED_BIT,
                                   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory, mipLevels);
 
-    TextureUtilities::transitionImageLayout(appref, textureImage, format, VK_IMAGE_LAYOUT_UNDEFINED,
+    TextureUtilities::transitionImageLayout(rendererHandles, textureImage, format, VK_IMAGE_LAYOUT_UNDEFINED,
                                             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, workingTextureBuffer.buffer,
                                             mipLevels);
 
-    TextureUtilities::copyBufferToImage(&appref->commandPoolmanager, stagingBuffer, textureImage,
+    TextureUtilities::copyBufferToImage(rendererHandles.commandPoolmanager, stagingBuffer, textureImage,
                                         static_cast<uint32_t>(texWidth),
                                         static_cast<uint32_t>(texHeight), workingTextureBuffer.buffer);
     //JS: Prepare image to read in shaders
-    appref->commandPoolmanager.endSingleTimeCommands(workingTextureBuffer);
-    vkDestroyBuffer(appref->device, stagingBuffer, nullptr);
-    vkFreeMemory(appref->device, stagingBufferMemory, nullptr);
-    TextureUtilities::generateMipmaps(appref, textureImage, format, texWidth, texHeight, mipLevels);
+    rendererHandles.commandPoolmanager->endSingleTimeCommands(workingTextureBuffer);
+    vkDestroyBuffer(rendererHandles.device, stagingBuffer, nullptr);
+    vkFreeMemory(rendererHandles.device, stagingBufferMemory, nullptr);
+    TextureUtilities::generateMipmaps(rendererHandles, textureImage, format, texWidth, texHeight, mipLevels);
 }
 
 
@@ -162,19 +169,17 @@ void TextureData::createCubemapImageKTX(const char* path, VkFormat format)
     ktxTexture* kTexture;
     KTX_error_code ktxresult;
 
-    bufferAndPool workingTextureBuffer = appref->commandPoolmanager.beginSingleTimeCommands(true);
+    bufferAndPool workingTextureBuffer = rendererHandles.commandPoolmanager->beginSingleTimeCommands(true);
 
-    ktxVulkanDeviceInfo_Construct(&vdi, appref->physicalDevice, appref->device,
+    ktxVulkanDeviceInfo_Construct(&vdi, rendererHandles.physicalDevice, rendererHandles.device,
                                   workingTextureBuffer.queue, workingTextureBuffer.pool, nullptr);
 
     ktxresult = ktxTexture_CreateFromNamedFile(path, KTX_TEXTURE_CREATE_NO_FLAGS, &kTexture);
 
     if (KTX_SUCCESS != ktxresult)
     {
-        std::stringstream message;
-
-        message << "Creation of ktxTexture from \"" << path << "\" failed: " << ktxErrorString(ktxresult);
-        throw std::runtime_error(message.str());
+         std::cerr << "Creation of ktxTexture from \"" << path << "\" failed: " << ktxErrorString(ktxresult);
+        exit(-1);
     }
 
 
@@ -196,10 +201,8 @@ void TextureData::createCubemapImageKTX(const char* path, VkFormat format)
 #ifdef DEBUG
     if (KTX_SUCCESS != ktxresult)
     {
-        std::stringstream message;
-
-        message << "ktxTexture_VkUpload failed: " << ktxErrorString(ktxresult);
-        throw std::runtime_error(message.str());
+          std::cerr << "ktxTexture_VkUpload failed: " << ktxErrorString(ktxresult);
+         exit(-1);
     }
 
 #endif

@@ -2,20 +2,11 @@
 
 #pragma region forward declarations
 #include <cstdint>
-#include <vulkan/vulkan_core.h>
-struct VkPipelineShaderStageCreateInfo;
-struct VkPipelineShaderStageCreateInfo;
-using VkPhysicalDevice = struct VkPhysicalDevice_T*;
-using VkDevice = struct VkDevice_T*;
-using VkShaderModule = struct VkShaderModule_T*;
-using VkBuffer = struct VkBuffer_T*;
-using VkDeviceMemory = struct VkDeviceMemory_T*;
-using VkImageView = struct VkImageView_T*;
-using VkImage = struct VkImage_T*;
-using VkSampler = struct VkSampler_T*;
+
+#include "AppStruct.h"
+#include "vulkan-forwards.h"
 
 
-class HelloTriangleApplication;
 #pragma endregion
 //TODO JS: obviously improve 
 struct TextureData
@@ -32,21 +23,22 @@ public:
 
     VkImageView textureImageView;
     VkSampler textureSampler;
-    HelloTriangleApplication* appref;
+    RendererHandles rendererHandles;
     VkImage textureImage;
     VkDeviceMemory textureImageMemory;
     uint32_t maxmip = 1;
     uint32_t layerct = 1;
     int id;
 
-    TextureData(HelloTriangleApplication* app, const char* path, TextureType type);
+    TextureData(RendererHandles rendererHandles, const char* path, TextureType type);
 
     TextureData();
 
     void cleanup();
 
 private:
-    void createTextureSampler(VkSamplerAddressMode mode = VK_SAMPLER_ADDRESS_MODE_REPEAT, float bias = 0);
+    // 0 = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    void createTextureSampler(VkSamplerAddressMode mode = (VkSamplerAddressMode)0, float bias = 0);
 
 
     void createTextureImageView(VkFormat format, VkImageViewType type);

@@ -1,16 +1,15 @@
 #include "MeshData.h"
-#include "vulkan-tutorial.h"
 #define TINYOBJLOADER_IMPLEMENTATION
 #define TINYGLTF_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <filesystem>
 #include <iostream>
 #include "mikktspace.h"
-#include "weldmesh.h"
 #include "tiny_obj_loader.h"
 #include <vector>
 #include <unordered_map>
 
+#include "AppStruct.h"
 #include "vulkan-utilities.h"
 #include "tinygltf/tiny_gltf.h"
 
@@ -151,19 +150,19 @@ void MikktImpl::calculateTangents(MeshForMikkt* mesh)
 #pragma endreion
 int MESHID = 0;
 
-MeshData::MeshData(HelloTriangleApplication* app, std::vector<Vertex> vertices,
+MeshData::MeshData(RendererHandles rendererHandles, std::vector<Vertex> vertices,
                    std::vector<uint32_t> indices)
 {
-    device = app->device;
+    device = rendererHandles.device;
     this->vertices = vertices;
     this->indices = indices;
-    vertBuffer = this->meshDataCreateVertexBuffer(app);
-    indexBuffer = this->meshDataCreateIndexBuffer(app);
+    vertBuffer = this->meshDataCreateVertexBuffer(rendererHandles);
+    indexBuffer = this->meshDataCreateIndexBuffer(rendererHandles);
     this->vertcount = indices.size();
     this->id = MESHID++;
 }
 
-MeshData::MeshData(HelloTriangleApplication* app, std::string path)
+MeshData::MeshData(RendererHandles app, std::string path)
 {
     auto _path = std::filesystem::path(path);
     auto ext = _path.extension();
@@ -452,7 +451,7 @@ MeshData::MeshData(HelloTriangleApplication* app, std::string path)
     //TODO: Dedupe verts
     this->vertices = _vertices;
     this->indices = _indices;
-    this->device = app->device;
+    this->device = app.device;
     this->vertBuffer = this->meshDataCreateVertexBuffer(app);
     this->indexBuffer = this->meshDataCreateIndexBuffer(app);
     this->vertcount = indices.size();
@@ -469,7 +468,7 @@ void MeshData::cleanup()
     vkFreeMemory(device, indexMemory, nullptr);
 }
 
-VkBuffer MeshData::meshDataCreateVertexBuffer(HelloTriangleApplication* renderer)
+VkBuffer MeshData::meshDataCreateVertexBuffer(RendererHandles renderer)
 {
     VkBuffer vertexBuffer;
     auto bufferSize = sizeof(this->vertices[0]) * this->vertices.size();
@@ -502,7 +501,7 @@ VkBuffer MeshData::meshDataCreateVertexBuffer(HelloTriangleApplication* renderer
     return vertexBuffer;
 }
 
-VkBuffer MeshData::meshDataCreateIndexBuffer(HelloTriangleApplication* renderer)
+VkBuffer MeshData::meshDataCreateIndexBuffer(RendererHandles renderer)
 {
     VkBuffer indexBuffer;
     auto bufferSize = sizeof(this->indices[0]) * this->indices.size();

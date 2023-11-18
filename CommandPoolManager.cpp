@@ -1,7 +1,5 @@
 #include "CommandPoolManager.h"
 
-#include <iostream>
-
 #include "Vulkan_Includes.h";
 #include "VkBootstrap.h"; //TODO JS: dont love vkb being in multiple places
 
@@ -99,7 +97,7 @@ QueueData GET_QUEUES(vkb::Device device)
     auto transferqueueResult = device.get_dedicated_queue(vkb::QueueType::transfer);
     if (!transferqueueResult)
     {
-        std::cerr << ("NO DEDICATED TRANSFER QUEUE");
+        printf("NO DEDICATED TRANSFER QUEUE \n");
         exit(1);
     }
     auto compute_ret = device.get_queue(vkb::QueueType::compute);

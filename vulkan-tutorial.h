@@ -6,11 +6,9 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include<glm/gtc/quaternion.hpp>
 #include "Vulkan_Includes.h"
-//TODO JS: use
-// #include "vk_mem_alloc.h"
-
 #include <chrono>
 
+#include "AppStruct.h"
 #include "CommandPoolManager.h"
 // My stuff 
 
@@ -31,6 +29,7 @@ public:
 
     static std::vector<char> readFile(const std::string& filename);
 
+    RendererHandles getHandles();
     VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
     VkDevice device; //Logical device
 

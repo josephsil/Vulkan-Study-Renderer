@@ -29,12 +29,12 @@ struct bindingBuilder
         i++;
     }
 };
-void DescriptorSetSetup::createBindlessLayout(HelloTriangleApplication* app, VkDescriptorSetLayout* layout)
+void DescriptorSetSetup::createBindlessLayout(RendererHandles rendererHandles, Scene* scene, VkDescriptorSetLayout* layout)
 {
     auto builder = bindingBuilder(8);
     builder.addBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL );
-    builder.addBinding(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_FRAGMENT_BIT,  app->scene->materialTextureCount()  + app->scene->utilityTextureCount());
-    builder.addBinding(VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT , app->scene->materialTextureCount()  + app->scene->utilityTextureCount());
+    builder.addBinding(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_FRAGMENT_BIT,  scene->materialTextureCount()  + scene->utilityTextureCount());
+    builder.addBinding(VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT , scene->materialTextureCount()  + scene->utilityTextureCount());
     builder.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
     builder.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
     builder.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
@@ -53,11 +53,11 @@ void DescriptorSetSetup::createBindlessLayout(HelloTriangleApplication* app, VkD
     pushDescriptorLayout.pBindings = builder.data.data();
 
 
-    VK_CHECK(vkCreateDescriptorSetLayout(app->device, &pushDescriptorLayout, nullptr, layout));
+    VK_CHECK(vkCreateDescriptorSetLayout(rendererHandles.device, &pushDescriptorLayout, nullptr, layout));
 }
 
 //TODO JS: VK_KHR_dynamic_rendering gets rid of render pass types and just lets you vkBeginRenderPass
-void RenderingSetup::createRenderPass(HelloTriangleApplication* app, RenderTextureFormat passformat, VkRenderPass* pass)
+void RenderingSetup::createRenderPass(RendererHandles rendererHandles, RenderTextureFormat passformat, VkRenderPass* pass)
 {
     VkAttachmentDescription colorAttachment{};
     colorAttachment.format = passformat.ColorFormat;
@@ -113,15 +113,15 @@ void RenderingSetup::createRenderPass(HelloTriangleApplication* app, RenderTextu
     renderPassInfo.dependencyCount = 1;
     renderPassInfo.pDependencies = &dependency;
 
-    if (vkCreateRenderPass(app->device, &renderPassInfo, nullptr, pass) != VK_SUCCESS)
+    if (vkCreateRenderPass(rendererHandles.device, &renderPassInfo, nullptr, pass) != VK_SUCCESS)
     {
         throw std::runtime_error("failed to create render pass!");
     }
 }
 
-VkFormat Capabilities::findDepthFormat(HelloTriangleApplication* app)
+VkFormat Capabilities::findDepthFormat(RendererHandles rendererHandles)
 {
-    return findSupportedFormat(app,
+    return findSupportedFormat(rendererHandles,
                                {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT},
                                VK_IMAGE_TILING_OPTIMAL,
                                VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
@@ -129,14 +129,14 @@ VkFormat Capabilities::findDepthFormat(HelloTriangleApplication* app)
 }
 
 
-VkFormat Capabilities::findSupportedFormat(HelloTriangleApplication* app, const std::vector<VkFormat>& candidates,
+VkFormat Capabilities::findSupportedFormat(RendererHandles rendererHandles, const std::vector<VkFormat>& candidates,
                                            VkImageTiling tiling,
                                            VkFormatFeatureFlags features)
 {
     for (VkFormat format : candidates)
     {
         VkFormatProperties props;
-        vkGetPhysicalDeviceFormatProperties(app->physicalDevice, format, &props);
+        vkGetPhysicalDeviceFormatProperties(rendererHandles.physicalDevice, format, &props);
 
         if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features)
         {
@@ -152,11 +152,11 @@ VkFormat Capabilities::findSupportedFormat(HelloTriangleApplication* app, const 
     exit(1);
 }
 
-uint32_t Capabilities::findMemoryType(HelloTriangleApplication* app, uint32_t typeFilter,
+uint32_t Capabilities::findMemoryType(RendererHandles rendererHandles, uint32_t typeFilter,
                                       VkMemoryPropertyFlags properties)
 {
     VkPhysicalDeviceMemoryProperties memProperties;
-    vkGetPhysicalDeviceMemoryProperties(app->physicalDevice, &memProperties);
+    vkGetPhysicalDeviceMemoryProperties(rendererHandles.physicalDevice, &memProperties);
 
     for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
     {
@@ -194,7 +194,7 @@ VkImageView TextureUtilities::createImageView(VkDevice device, VkImage image, Vk
 }
 
 
-void TextureUtilities::createImage(HelloTriangleApplication* app, uint32_t width, uint32_t height, VkFormat format,
+void TextureUtilities::createImage(RendererHandles rendererHandles, uint32_t width, uint32_t height, VkFormat format,
                                    VkImageTiling tiling,
                                    VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image,
                                    VkDeviceMemory& imageMemory, uint32_t miplevels)
@@ -214,30 +214,30 @@ void TextureUtilities::createImage(HelloTriangleApplication* app, uint32_t width
     imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
     imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    if (vkCreateImage(app->device, &imageInfo, nullptr, &image) != VK_SUCCESS)
+    if (vkCreateImage(rendererHandles.device, &imageInfo, nullptr, &image) != VK_SUCCESS)
     {
         std::cerr << "failed to create image!" << "\n";
         exit(1);
     }
 
     VkMemoryRequirements memRequirements;
-    vkGetImageMemoryRequirements(app->device, image, &memRequirements);
+    vkGetImageMemoryRequirements(rendererHandles.device, image, &memRequirements);
 
     VkMemoryAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocInfo.allocationSize = memRequirements.size;
-    allocInfo.memoryTypeIndex = Capabilities::findMemoryType(app, memRequirements.memoryTypeBits, properties);
+    allocInfo.memoryTypeIndex = Capabilities::findMemoryType(rendererHandles, memRequirements.memoryTypeBits, properties);
 
-    if (vkAllocateMemory(app->device, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS)
+    if (vkAllocateMemory(rendererHandles.device, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS)
     {
         std::cerr << "failed to allocate image memory!" << "\n";
         exit(1);
     }
 
-    vkBindImageMemory(app->device, image, imageMemory, 0);
+    vkBindImageMemory(rendererHandles.device, image, imageMemory, 0);
 }
 
-void TextureUtilities::transitionImageLayout(HelloTriangleApplication* app, VkImage image, VkFormat format,
+void TextureUtilities::transitionImageLayout(RendererHandles rendererHandles, VkImage image, VkFormat format,
                                              VkImageLayout oldLayout,
                                              VkImageLayout newLayout, VkCommandBuffer workingBuffer, uint32_t miplevels)
 {
@@ -245,7 +245,7 @@ void TextureUtilities::transitionImageLayout(HelloTriangleApplication* app, VkIm
     if (workingBuffer == nullptr)
     {
         //Optional buffer for if the caller wants to submit the command to an existing buffer and manually end it later
-        workingBuffer = app->commandPoolmanager.beginSingleTimeCommands_transfer();
+        workingBuffer = rendererHandles.commandPoolmanager->beginSingleTimeCommands_transfer();
         endNow = true;
     }
 
@@ -304,23 +304,23 @@ void TextureUtilities::transitionImageLayout(HelloTriangleApplication* app, VkIm
     );
 
     if (endNow)
-        app->commandPoolmanager.endSingleTimeCommands(workingBuffer);
+        rendererHandles.commandPoolmanager->endSingleTimeCommands(workingBuffer);
 }
 
-void TextureUtilities::generateMipmaps(HelloTriangleApplication* app, VkImage image, VkFormat imageFormat,
+void TextureUtilities::generateMipmaps(RendererHandles rendererHandles, VkImage image, VkFormat imageFormat,
                                        int32_t texWidth,
                                        int32_t texHeight, uint32_t mipLevels)
 {
     // Check if image format supports linear blitting
     VkFormatProperties formatProperties;
-    vkGetPhysicalDeviceFormatProperties(app->physicalDevice, imageFormat, &formatProperties);
+    vkGetPhysicalDeviceFormatProperties(rendererHandles.physicalDevice, imageFormat, &formatProperties);
 
     if (!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT))
     {
         throw std::runtime_error("texture image format does not support linear blitting!");
     }
 
-    bufferAndPool bandp = app->commandPoolmanager.beginSingleTimeCommands(false);
+    bufferAndPool bandp = rendererHandles.commandPoolmanager->beginSingleTimeCommands(false);
 
     auto commandBuffer = bandp.buffer;
 
@@ -398,7 +398,7 @@ void TextureUtilities::generateMipmaps(HelloTriangleApplication* app, VkImage im
                          0, nullptr,
                          1, &barrier);
 
-    app->commandPoolmanager.endSingleTimeCommands(bandp);
+    rendererHandles.commandPoolmanager->endSingleTimeCommands(bandp);
 }
 
 void TextureUtilities::copyBufferToImage(CommandPoolManager* commandPoolManager, VkBuffer buffer, VkImage image,
@@ -444,7 +444,7 @@ void TextureUtilities::copyBufferToImage(CommandPoolManager* commandPoolManager,
 }
 
 
-void BufferUtilities::createBuffer(HelloTriangleApplication* app, VkDeviceSize size, VkBufferUsageFlags usage,
+void BufferUtilities::createBuffer(RendererHandles rendererHandles, VkDeviceSize size, VkBufferUsageFlags usage,
                                    VkMemoryPropertyFlags properties, VkBuffer& buffer,
                                    VkDeviceMemory& bufferMemory)
 {
@@ -454,37 +454,37 @@ void BufferUtilities::createBuffer(HelloTriangleApplication* app, VkDeviceSize s
     bufferInfo.usage = usage;
     bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    if (vkCreateBuffer(app->device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS)
+    if (vkCreateBuffer(rendererHandles.device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS)
     {
         throw std::runtime_error("failed to create buffer!");
     }
 
     VkMemoryRequirements memRequirements;
-    vkGetBufferMemoryRequirements(app->device, buffer, &memRequirements);
+    vkGetBufferMemoryRequirements(rendererHandles.device, buffer, &memRequirements);
 
     VkMemoryAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocInfo.allocationSize = memRequirements.size;
-    allocInfo.memoryTypeIndex = Capabilities::findMemoryType(app, memRequirements.memoryTypeBits, properties);
+    allocInfo.memoryTypeIndex = Capabilities::findMemoryType(rendererHandles, memRequirements.memoryTypeBits, properties);
 
-    if (vkAllocateMemory(app->device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS)
+    if (vkAllocateMemory(rendererHandles.device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS)
     {
         throw std::runtime_error("failed to allocate buffer memory!");
     }
 
-    vkBindBufferMemory(app->device, buffer, bufferMemory, 0);
+    vkBindBufferMemory(rendererHandles.device, buffer, bufferMemory, 0);
 }
 
-void BufferUtilities::copyBuffer(HelloTriangleApplication* app, VkBuffer srcBuffer, VkBuffer dstBuffer,
+void BufferUtilities::copyBuffer(RendererHandles rendererHandles, VkBuffer srcBuffer, VkBuffer dstBuffer,
                                  VkDeviceSize size)
 {
-    VkCommandBuffer commandBuffer = app->commandPoolmanager.beginSingleTimeCommands_transfer();
+    VkCommandBuffer commandBuffer = rendererHandles.commandPoolmanager->beginSingleTimeCommands_transfer();
 
     VkBufferCopy copyRegion{};
     copyRegion.size = size;
     vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
 
-    app->commandPoolmanager.endSingleTimeCommands(commandBuffer);
+    rendererHandles.commandPoolmanager->endSingleTimeCommands(commandBuffer);
 }
 
 
