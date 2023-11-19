@@ -21,10 +21,15 @@
 
     <ItemGroup>
         <None Include="Textures\**" />
+        <None Include="Meshes\**" />
+
         <None Include="Shaders\**" />
     </ItemGroup>
     <ItemGroup>
         <Content Include="Textures\**">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
+        <Content Include="Meshes\**">
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </Content>
         <Content Include="Shaders\**">

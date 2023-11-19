@@ -1119,9 +1119,9 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
     randomMaterials.push_back(placeholderTextureidx);
 
     //TODO: Scene loads mesh instead? 
-    randomMeshes.push_back(app->scene->AddBackingMesh(MeshData(app->getHandles(), "pig.glb")));
-    randomMeshes.push_back(app->scene->AddBackingMesh(MeshData(app->getHandles(), "cubesphere.glb")));
-    randomMeshes.push_back(app->scene->AddBackingMesh(MeshData(app->getHandles(), "monkey.obj")));
+    randomMeshes.push_back(app->scene->AddBackingMesh(MeshData(app->getHandles(), "Meshes/pig.glb")));
+    randomMeshes.push_back(app->scene->AddBackingMesh(MeshData(app->getHandles(), "Meshes/cubesphere.glb")));
+    randomMeshes.push_back(app->scene->AddBackingMesh(MeshData(app->getHandles(), "Meshes/monkey.obj")));
 
     app->scene->AddLight(glm::vec3(1, 1, 1), glm::vec3(1, 1, 1), 5, 5 / 2);
     app->scene->AddLight(glm::vec3(0, -3, 1), glm::vec3(1, 1, 1), 5, 8 / 2);
