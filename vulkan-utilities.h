@@ -1,42 +1,30 @@
 #pragma once
-
-
 #include <vector>
-#include <vulkan/vulkan_core.h>
-
-
-#include "Vulkan_Includes.h"
+#include "vulkan-forwards.h"
+#include "common-structs.h"
+struct Vertex;
+class Scene;
 //Forward declaration
-class HelloTriangleApplication;
-struct VkPipelineShaderStageCreateInfo;
-struct VkPipelineShaderStageCreateInfo;
-using VkPhysicalDevice = struct VkPhysicalDevice_T*;
-using VkDevice = struct VkDevice_T*;
-using VkDescriptorSetLayout = struct VkDescriptorSetLayout_T*;
-using VkBuffer = struct VkBuffer_T*;
-using VkDeviceMemory = struct VkDeviceMemory_T*;
-using VkImageView = struct VkImageView_T*;
-using VkRenderPass = struct VkRenderPass_T*;
-using VkSampler = struct VkSampler_T*;
+struct RendererHandles;
 struct CommandPoolManager;
 struct TextureData;
-enum VkFormat;
+
 
 struct dataBuffer
 {
     VkBuffer data;
     uint32_t size;
 
-    VkDescriptorBufferInfo getBufferInfo()
-    {
-        VkDescriptorBufferInfo bufferInfo{};
-        bufferInfo.buffer = data; //TODO: For loop over frames in flight
-        bufferInfo.offset = 0;
-        bufferInfo.range = size;
-        return bufferInfo;
-    }
+    VkDescriptorBufferInfo getBufferInfo();
 };
 
+
+void DestroyBuffer(VkDevice device, VkBuffer buffer);
+void FreeMemory(VkDevice device, VkDeviceMemory memory);
+void UnmapMemory(VkDevice device, VkDeviceMemory memory);
+
+
+void MapMemory(VkDevice device, VkDeviceMemory memory, VkDeviceSize size, void** data);
 
 namespace DescriptorDataUtilities
 {
@@ -48,95 +36,61 @@ namespace DescriptorDataUtilities
     //TODO JS: move
     struct WriteDescriptorSetsBuilder
     {
-        union arrayData
-        {
-            VkDescriptorBufferInfo* bufferptr;
-            VkDescriptorImageInfo* imageptr;
-        };
-
         std::vector<VkWriteDescriptorSet> descriptorsets;
         int i = 0;
 
-        WriteDescriptorSetsBuilder(int length)
-        {
-            descriptorsets.resize(length);
-        }
+        WriteDescriptorSetsBuilder(int length);
 
+        void Add(VkDescriptorType type, void* ptr, int count = 1);
+      
 
-        void Add(VkDescriptorType type, void* ptr, int count = 1)
-        {
-            descriptorsets[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            descriptorsets[i].dstBinding = i;
-            descriptorsets[i].descriptorCount = count;
-            descriptorsets[i].descriptorType = type;
-            if (type == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE || type == VK_DESCRIPTOR_TYPE_SAMPLER)
-            {
-                descriptorsets[i].pImageInfo = static_cast<VkDescriptorImageInfo*>(ptr);
-            }
-            else
-            {
-                descriptorsets[i].pBufferInfo = static_cast<VkDescriptorBufferInfo*>(ptr);
-            }
-            i++;
-        }
+        void AddStorageBuffer(dataBuffer storageBuffer);
 
-        void AddStorageBuffer(dataBuffer storageBuffer)
-        {
-            auto bufferInfo = storageBuffer.getBufferInfo();
+        VkWriteDescriptorSet* data();
 
-            Add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &bufferInfo);
-        }
-
-        VkWriteDescriptorSet* data()
-        {
-            return descriptorsets.data();
-        }
-
-        uint32_t size()
-        {
-            return descriptorsets.size();
-        }
+        uint32_t size();
     };
 }
 
 namespace DescriptorSetSetup
 {
-    void createBindlessLayout(HelloTriangleApplication* app, VkDescriptorSetLayout* layout);
+    void createBindlessLayout(RendererHandles rendererHandles, Scene* scene, VkDescriptorSetLayout* layout);
 }
 
 namespace RenderingSetup
 {
-    void createRenderPass(HelloTriangleApplication* app, RenderTextureFormat passformat, VkRenderPass* pass);
+    void createRenderPass(RendererHandles rendererHandles, RenderTextureFormat passformat, VkRenderPass* pass);
 }
 
 namespace Capabilities
 {
-    VkFormat findDepthFormat(HelloTriangleApplication* app);
+    VkFormat findDepthFormat(RendererHandles rendererHandles);
 
-    VkFormat findSupportedFormat(HelloTriangleApplication* app, const std::vector<VkFormat>& candidates,
+    VkFormat findSupportedFormat(RendererHandles rendererHandles, const std::vector<VkFormat>& candidates,
                                  VkImageTiling tiling,
                                  VkFormatFeatureFlags features);
 
-    uint32_t findMemoryType(HelloTriangleApplication* app, uint32_t typeFilter, VkMemoryPropertyFlags properties);
+    uint32_t findMemoryType(RendererHandles rendererHandles, uint32_t typeFilter, VkMemoryPropertyFlags properties);
 }
 
 namespace TextureUtilities
 {
+    //TODO JS: this -1 stuff is sketchy
     VkImageView createImageView(VkDevice device, VkImage image,
-                                VkFormat format, VkImageAspectFlags aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT,
-                                VkImageViewType type = VK_IMAGE_VIEW_TYPE_2D, uint32_t miplevels = 1,
+                                VkFormat format, VkImageAspectFlags aspectFlags = -1,
+                                VkImageViewType type = (VkImageViewType)-1, uint32_t miplevels = 1,
                                 uint32_t layerCount = 1);
 
-    void createImage(HelloTriangleApplication* app, uint32_t width, uint32_t height, VkFormat format,
+    void createImage(RendererHandles rendererHandles, uint32_t width, uint32_t height, VkFormat format,
                      VkImageTiling tiling,
                      VkFlags usage, VkFlags properties, VkImage& image,
                      VkDeviceMemory& imageMemory, uint32_t miplevels = 1);
 
-    void transitionImageLayout(HelloTriangleApplication* app, VkImage image, VkFormat format, VkImageLayout oldLayout,
+    void transitionImageLayout(RendererHandles rendererHandles, VkImage image, VkFormat format, VkImageLayout oldLayout,
                                VkImageLayout newLayout, VkCommandBuffer workingBuffer,
                                uint32_t miplevels = 1);
 
-    void generateMipmaps(HelloTriangleApplication* app, VkImage image, VkFormat imageFormat, int32_t texWidth,
+    void generateMipmaps(RendererHandles rendererHandles, VkImage image, VkFormat imageFormat, int32_t texWidth,
                          int32_t texHeight, uint32_t mipLevels);
     void copyBufferToImage(CommandPoolManager* commandPoolManager, VkBuffer buffer, VkImage image, uint32_t width,
                            uint32_t height,
@@ -147,8 +101,18 @@ namespace TextureUtilities
 //TODO JS: may be better to bundle stuff like createUniformBuffers, and the buffers themselves, along with these fns ala commandpoolmanager
 namespace BufferUtilities
 {
-    void copyBuffer(HelloTriangleApplication* app, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
-    void createBuffer(HelloTriangleApplication* app, VkDeviceSize size, VkBufferUsageFlags usage,
+    void stageVertexBuffer(RendererHandles rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
+                                   VkDeviceMemory& bufferMemory, Vertex* data);
+
+    void stageIndexBuffer(RendererHandles rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
+                                  VkDeviceMemory& bufferMemory, uint32_t* data);
+
+    //TODO JS: move to cpp file?
+    void stageMeshDataBuffer(RendererHandles rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
+                                   VkDeviceMemory& bufferMemory, void* vertices, VkBufferUsageFlags dataTypeFlag);
+
+    void copyBuffer(RendererHandles rendererHandles, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+    void createBuffer(RendererHandles rendererHandles, VkDeviceSize size, VkBufferUsageFlags usage,
                       VkMemoryPropertyFlags properties, VkBuffer& buffer,
                       VkDeviceMemory& bufferMemory);
 }

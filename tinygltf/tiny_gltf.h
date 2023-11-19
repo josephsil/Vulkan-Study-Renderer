@@ -2668,7 +2668,7 @@ static inline std::string WcharToUTF8(const std::wstring &wstr) {
 #endif
 
 #ifndef TINYGLTF_NO_FS
-// Default implementations of filesystem functions
+// Default MeshLibraryImplementations of filesystem functions
 
 bool FileExists(const std::string &abs_filename, void *) {
   bool ret;
@@ -6261,7 +6261,7 @@ bool TinyGLTF::LoadFromString(Model *model, std::string *err, std::string *warn,
   // 17. Parse Extensions
   ParseExtensionsProperty(&model->extensions, err, v);
 
-  // 18. Specific extension implementations
+  // 18. Specific extension MeshLibraryImplementations
   {
     detail::json_const_iterator rootIt;
     if (detail::FindMember(v, "extensions", rootIt) && detail::IsObject(detail::GetValue(rootIt))) {

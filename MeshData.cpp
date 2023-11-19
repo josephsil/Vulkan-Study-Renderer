@@ -1,18 +1,15 @@
 #include "MeshData.h"
-#include "vulkan-tutorial.h"
-#define TINYOBJLOADER_IMPLEMENTATION
-#define TINYGLTF_IMPLEMENTATION
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#include <filesystem>
+
+
+
 #include <iostream>
 #include "mikktspace.h"
-#include "weldmesh.h"
-#include "tiny_obj_loader.h"
+#include "MeshLibraryImplementations.h"
 #include <vector>
 #include <unordered_map>
-
+#include "AppStruct.h"
 #include "vulkan-utilities.h"
-#include "tinygltf/tiny_gltf.h"
+
 
 struct MeshForMikkt
 {
@@ -151,29 +148,28 @@ void MikktImpl::calculateTangents(MeshForMikkt* mesh)
 #pragma endreion
 int MESHID = 0;
 
-MeshData::MeshData(HelloTriangleApplication* app, std::vector<Vertex> vertices,
+MeshData::MeshData(RendererHandles rendererHandles, std::vector<Vertex> vertices,
                    std::vector<uint32_t> indices)
 {
-    device = app->device;
+    device = rendererHandles.device;
     this->vertices = vertices;
     this->indices = indices;
-    vertBuffer = this->meshDataCreateVertexBuffer(app);
-    indexBuffer = this->meshDataCreateIndexBuffer(app);
+    vertBuffer = this->meshDataCreateVertexBuffer(rendererHandles);
+    indexBuffer = this->meshDataCreateIndexBuffer(rendererHandles);
     this->vertcount = indices.size();
     this->id = MESHID++;
 }
 
-MeshData::MeshData(HelloTriangleApplication* app, std::string path)
+MeshData::MeshData(RendererHandles app, const char* path)
 {
-    auto _path = std::filesystem::path(path);
-    auto ext = _path.extension();
+    const char* ext = strrchr(path, '.');
     bool tangentsLoaded = false;
 
     std::vector<Vertex> _vertices;
     std::vector<uint32_t> _indices;
 
 
-    if (ext.string() == ".glb")
+    if (strcmp(ext, ".glb") == 0 )
     {
         //
         tinygltf::Model model;
@@ -181,10 +177,10 @@ MeshData::MeshData(HelloTriangleApplication* app, std::string path)
         std::string err;
         std::string warn;
 
-        bool ret = loader.LoadBinaryFromFile(&model, &err, &warn, path.c_str());
+        bool ret = loader.LoadBinaryFromFile(&model, &err, &warn, path);
         if (!warn.empty())
         {
-            printf("Warn: %s\n", warn.c_str());
+            printf("Warn: %s\n", warn);
         }
 
         if (model.meshes.size() > 1)
@@ -332,7 +328,7 @@ MeshData::MeshData(HelloTriangleApplication* app, std::string path)
             }
         }
     }
-    else if (ext.string() == ".obj")
+    else if (strcmp(ext, ".obj") == 0)
     {
         tinyobj::ObjReader reader;
         tinyobj::ObjReaderConfig reader_config;
@@ -394,7 +390,7 @@ MeshData::MeshData(HelloTriangleApplication* app, std::string path)
     }
     else
     {
-        std::cout << "UNSUPPORTED MODEL FORMAT: '" << ext.string() << "' IN PATH: " << path;
+        std::cout << "UNSUPPORTED MODEL FORMAT: '" << ext << "' IN PATH: " << path;
         std::exit(-1);
     }
 
@@ -452,7 +448,7 @@ MeshData::MeshData(HelloTriangleApplication* app, std::string path)
     //TODO: Dedupe verts
     this->vertices = _vertices;
     this->indices = _indices;
-    this->device = app->device;
+    this->device = app.device;
     this->vertBuffer = this->meshDataCreateVertexBuffer(app);
     this->indexBuffer = this->meshDataCreateIndexBuffer(app);
     this->vertcount = indices.size();
@@ -461,76 +457,30 @@ MeshData::MeshData(HelloTriangleApplication* app, std::string path)
 
 void MeshData::cleanup()
 {
-    vkDestroyBuffer(device, vertBuffer, nullptr);
-    vkDestroyBuffer(device, vertBuffer, nullptr);
-    vkFreeMemory(device, vertMemory, nullptr);
+    DestroyBuffer(device, vertBuffer);
+    DestroyBuffer(device, vertBuffer);
+    FreeMemory(device, vertMemory);
 
-    vkDestroyBuffer(device, indexBuffer, nullptr);
-    vkFreeMemory(device, indexMemory, nullptr);
+    DestroyBuffer(device, indexBuffer);
+    FreeMemory(device, indexMemory);
 }
 
-VkBuffer MeshData::meshDataCreateVertexBuffer(HelloTriangleApplication* renderer)
+VkBuffer MeshData::meshDataCreateVertexBuffer(RendererHandles renderer)
 {
     VkBuffer vertexBuffer;
     auto bufferSize = sizeof(this->vertices[0]) * this->vertices.size();
 
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
-
-    BufferUtilities::createBuffer(renderer, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                                  stagingBuffer, stagingBufferMemory);
-
-    //Bind to memory buffer
-    // TODO JS - Use amd memory allocator
-    void* data;
-    vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
-    memcpy(data, this->vertices.data(), bufferSize);
-    vkUnmapMemory(device, stagingBufferMemory);
-
-    BufferUtilities::createBuffer(renderer, bufferSize,
-                                  VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-
-
-                                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, this->vertMemory);
-
-    BufferUtilities::copyBuffer(renderer, stagingBuffer, vertexBuffer, bufferSize);
-
-    vkDestroyBuffer(device, stagingBuffer, nullptr);
-    vkFreeMemory(device, stagingBufferMemory, nullptr);
+    BufferUtilities::stageVertexBuffer(renderer, bufferSize, vertexBuffer, this->vertMemory,this->vertices.data());
 
     return vertexBuffer;
 }
 
-VkBuffer MeshData::meshDataCreateIndexBuffer(HelloTriangleApplication* renderer)
+VkBuffer MeshData::meshDataCreateIndexBuffer(RendererHandles renderer)
 {
     VkBuffer indexBuffer;
     auto bufferSize = sizeof(this->indices[0]) * this->indices.size();
-
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
-
-    BufferUtilities::createBuffer(renderer, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                                  stagingBuffer, stagingBufferMemory);
-
-    //Bind to memory buffer
-    // TODO JS - Use amd memory allocator
-    void* data;
-    vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
-    memcpy(data, this->indices.data(), bufferSize);
-    vkUnmapMemory(device, stagingBufferMemory);
-
-    BufferUtilities::createBuffer(renderer, bufferSize,
-                                  VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-
-
-                                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, this->indexMemory);
-
-    BufferUtilities::copyBuffer(renderer, stagingBuffer, indexBuffer, bufferSize);
-
-    vkDestroyBuffer(device, stagingBuffer, nullptr);
-    vkFreeMemory(device, stagingBufferMemory, nullptr);
+    BufferUtilities::stageIndexBuffer(renderer, bufferSize, indexBuffer, this->indexMemory,this->indices.data());
+    
 
     return indexBuffer;
 }

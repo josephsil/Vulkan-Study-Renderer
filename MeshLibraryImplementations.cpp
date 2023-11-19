@@ -1,0 +1,4 @@
+#define TINYOBJLOADER_IMPLEMENTATION
+#define TINYGLTF_IMPLEMENTATION
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "MeshLibraryImplementations.h"

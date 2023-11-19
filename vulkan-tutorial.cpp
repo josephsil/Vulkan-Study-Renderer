@@ -1,6 +1,4 @@
-#define VMA_IMPLEMENTATION
 
-#define STB_IMAGE_IMPLEMENTATION
 #include "vulkan-tutorial.h"
 #include<glm/gtc/quaternion.hpp>
 #undef main
@@ -9,22 +7,19 @@
 #include <SDL2/SDL_vulkan.h>
 
 #include <array>
-#include <iostream>
-#include <stdexcept>
 #include <cstdlib>
 #include <fstream>
-#include <map>
-#include <set>
+#include <iostream>
+
 
 #include "CommandPoolManager.h"
 #include "meshData.h"
 #include "SceneObjectData.h"
 #include "Vertex.h"
-#include "stb_image.h"
+#include "ImageLibraryImplementations.h"
 #include "ShaderLoading.h"
 #include "TextureData.h"
 #include "VkBootstrap.h"
-#include "tinygltf/tiny_gltf.h"
 #include "vulkan-utilities.h"
 //zoux vkcheck version
 
@@ -172,6 +167,11 @@ vkb::Swapchain vkb_swapchain;
 
 void SET_UP_SCENE(HelloTriangleApplication* app);
 
+//TODO JS: replace phys device, device, etc members with a rendererhandles instance?
+RendererHandles HelloTriangleApplication::getHandles()
+{
+    return RendererHandles(physicalDevice, device, &commandPoolmanager);
+}
 
 void HelloTriangleApplication::initVulkan()
 {
@@ -190,6 +190,7 @@ void HelloTriangleApplication::initVulkan()
 
     SDL_Vulkan_GetDrawableSize(_window, &WIDTH, &HEIGHT);
 
+    
     //Get physical device
     vkb_physicalDevice = GET_GPU(vkb_instance);
     physicalDevice = vkb_physicalDevice.physical_device;
@@ -226,7 +227,8 @@ void HelloTriangleApplication::initVulkan()
     //Load shaders 
     shaderLoader = new ShaderLoader(device);
     compileShaders();
-    RenderingSetup::createRenderPass(this, {swapChainImageFormat, Capabilities::findDepthFormat(this)}, &renderPass);
+    
+    RenderingSetup::createRenderPass(getHandles(), {swapChainImageFormat, Capabilities::findDepthFormat(getHandles())}, &renderPass);
 
 
     //Command buffer stuff
@@ -238,12 +240,12 @@ void HelloTriangleApplication::initVulkan()
 
     //Initialize scene-ish objects we don't have a place for yet 
     cubemaplut_utilitytexture_index = scene->AddUtilityTexture(
-        TextureData(this, "textures/outputLUT.png", TextureData::LINEAR_DATA));
-    cube_irradiance = TextureData(this, "textures/output_cubemap2_diff8.ktx2", TextureData::TextureType::CUBE);
-    cube_specular = TextureData(this, "textures/output_cubemap2_spec8.ktx2", TextureData::TextureType::CUBE);
+        TextureData(getHandles(), "textures/outputLUT.png", TextureData::LINEAR_DATA));
+    cube_irradiance = TextureData(getHandles(), "textures/output_cubemap2_diff8.ktx2", TextureData::TextureType::CUBE);
+    cube_specular = TextureData(getHandles(), "textures/output_cubemap2_spec8.ktx2", TextureData::TextureType::CUBE);
 
     //Only one dsl right now -- for the bindless ubershader
-    DescriptorSetSetup::createBindlessLayout(this, &pushDescriptorSetLayout);
+    DescriptorSetSetup::createBindlessLayout(getHandles(), scene.get(), &pushDescriptorSetLayout);
 
     graphicsPipeline_1 = createGraphicsPipeline("triangle", renderPass, nullptr, pushDescriptorSetLayout);
     graphicsPipeline_2 = createGraphicsPipeline("triangle_alt", renderPass, nullptr, pushDescriptorSetLayout);
@@ -301,7 +303,7 @@ void HelloTriangleApplication::createUniformBuffers()
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        BufferUtilities::createBuffer(this, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+        BufferUtilities::createBuffer(getHandles(), bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                                       shaderGlobalsBuffer[i].data,
                                       shaderGlobalsMemory[i]);
@@ -322,7 +324,7 @@ void HelloTriangleApplication::createUniformBuffers()
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        BufferUtilities::createBuffer(this, bufferSize1, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+        BufferUtilities::createBuffer(getHandles(), bufferSize1, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
                                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                                       uniformBuffers[i].data,
                                       uniformBuffersMemory[i]);
@@ -342,7 +344,7 @@ void HelloTriangleApplication::createUniformBuffers()
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        BufferUtilities::createBuffer(this, bufferSize2, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+        BufferUtilities::createBuffer(getHandles(), bufferSize2, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
                                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                                       meshBuffers[i].data,
                                       meshBuffersMemory[i]);
@@ -362,7 +364,7 @@ void HelloTriangleApplication::createUniformBuffers()
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        BufferUtilities::createBuffer(this, bufferSize3, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+        BufferUtilities::createBuffer(getHandles(), bufferSize3, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
                                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                                       lightBuffers[i].data,
                                       lightBuffersMemory[i]);
@@ -423,7 +425,8 @@ void HelloTriangleApplication::createSyncObjects()
             vkCreateSemaphore(device, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]) != VK_SUCCESS ||
             vkCreateFence(device, &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS)
         {
-            throw std::runtime_error("failed to create synchronization objects for a frame!");
+            printf("failed to create synchronization objects for a frame!");
+            exit(-1);
         }
     }
 }
@@ -506,7 +509,8 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
 
     if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS)
     {
-        throw std::runtime_error("failed to begin recording command buffer!");
+        printf("failed to begin recording command buffer!");
+        exit(-1);
     }
 
     VkRenderPassBeginInfo renderPassInfo{};
@@ -574,7 +578,6 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
     vkCmdPushDescriptorSetKHR(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0,
                               writeDescriptorSetBuilder.size(), writeDescriptorSetBuilder.data());
 
-
     //Per-Object data, then draw
     for (int i = 0; i < scene->meshes.size(); i++)
     {
@@ -582,7 +585,6 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
         //Light count, vert offset, texture index, and object data index
         constants.indexInfo = glm::vec4(scene->materials[i].backingTextureidx, (scene->meshOffsets[i]),
                                         scene->materials[i].backingTextureidx, i);
-
 
         constants.materialprops = glm::vec4(scene->materials[i].roughness, scene->materials[i].metallic, 0, 0);
 
@@ -596,7 +598,8 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
 
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
     {
-        throw std::runtime_error("failed to record command buffer!");
+        printf("failed to record command buffer!");
+        exit(-1);
     }
 
 
@@ -648,7 +651,8 @@ void HelloTriangleApplication::createFramebuffers()
 
         if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, &swapChainFramebuffers[i]) != VK_SUCCESS)
         {
-            throw std::runtime_error("failed to create framebuffer!");
+            printf("failed to create framebuffer!");
+            exit(-1);
         }
     }
 }
@@ -664,9 +668,9 @@ bool HelloTriangleApplication::hasStencilComponent(VkFormat format)
 
 void HelloTriangleApplication::createDepthResources()
 {
-    VkFormat depthFormat = Capabilities::findDepthFormat(this);
+    VkFormat depthFormat = Capabilities::findDepthFormat(getHandles());
 
-    TextureUtilities::createImage(this, swapChainExtent.width, swapChainExtent.height, depthFormat,
+    TextureUtilities::createImage(getHandles(), swapChainExtent.width, swapChainExtent.height, depthFormat,
                                   VK_IMAGE_TILING_OPTIMAL,
                                   VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
                                   depthImage,
@@ -793,7 +797,8 @@ VkPipeline HelloTriangleApplication::createGraphicsPipeline(const char* shaderNa
 
     if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS)
     {
-        throw std::runtime_error("failed to create pipeline layout!");
+        printf("failed to create pipeline layout!");
+        exit(-1);
     }
 
     VkGraphicsPipelineCreateInfo pipelineInfo{};
@@ -823,7 +828,8 @@ VkPipeline HelloTriangleApplication::createGraphicsPipeline(const char* shaderNa
     if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &newGraphicsPipeline) !=
         VK_SUCCESS)
     {
-        throw std::runtime_error("failed to create graphics pipeline!");
+        printf("failed to create graphics pipeline!");
+        exit(-1);
     }
 
 
@@ -979,7 +985,8 @@ void HelloTriangleApplication::drawFrame(inputData input)
     auto result = vkQueueSubmit(commandPoolmanager.Queues.graphicsQueue, 1, &submitInfo, inFlightFences[currentFrame]);
     if (result != VK_SUCCESS)
     {
-        throw std::runtime_error("failed to submit draw command buffer!");
+        printf("failed to submit draw command buffer!");
+        exit(-1);
     }
 
     VkPresentInfoKHR presentInfo{};
@@ -1075,46 +1082,46 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
     std::vector<int> randomMaterials;
 
     int placeholderTextureidx = app->scene->AddMaterial(
-        TextureData(app, "textures/pbr_cruiser-panels/space-cruiser-panels2_albedo.png",
+        TextureData(app->getHandles(), "textures/pbr_cruiser-panels/space-cruiser-panels2_albedo.png",
                     TextureData::TextureType::DIFFUSE),
-        TextureData(app, "textures/pbr_cruiser-panels/space-cruiser-panels2_roughness_metallic.tga",
+        TextureData(app->getHandles(), "textures/pbr_cruiser-panels/space-cruiser-panels2_roughness_metallic.tga",
                     TextureData::TextureType::SPECULAR),
-        TextureData(app, "textures/pbr_cruiser-panels/space-cruiser-panels2_normal-dx.png",
+        TextureData(app->getHandles(), "textures/pbr_cruiser-panels/space-cruiser-panels2_normal-dx.png",
                     TextureData::TextureType::NORMAL));
     randomMaterials.push_back(placeholderTextureidx);
 
 
     placeholderTextureidx = app->scene->AddMaterial(
-        TextureData(app, "textures/pbr_cruiser-panels/space-cruiser-panels2_albedo.png",
+        TextureData(app->getHandles(), "textures/pbr_cruiser-panels/space-cruiser-panels2_albedo.png",
                     TextureData::TextureType::DIFFUSE),
-        TextureData(app, "textures/pbr_cruiser-panels/space-cruiser-panels2_roughness_metallic.tga",
+        TextureData(app->getHandles(), "textures/pbr_cruiser-panels/space-cruiser-panels2_roughness_metallic.tga",
                     TextureData::TextureType::SPECULAR),
-        TextureData(app, "textures/pbr_cruiser-panels/space-cruiser-panels2_normal-dx.png",
+        TextureData(app->getHandles(), "textures/pbr_cruiser-panels/space-cruiser-panels2_normal-dx.png",
                     TextureData::TextureType::NORMAL));
     randomMaterials.push_back(placeholderTextureidx);
 
     placeholderTextureidx = app->scene->AddMaterial(
-        TextureData(app, "textures/pbr_stainless-steel/used-stainless-steel2_albedo.png",
+        TextureData(app->getHandles(), "textures/pbr_stainless-steel/used-stainless-steel2_albedo.png",
                     TextureData::TextureType::DIFFUSE),
-        TextureData(app, "textures/pbr_stainless-steel/used-stainless-steel2_roughness_metallic.tga",
+        TextureData(app->getHandles(), "textures/pbr_stainless-steel/used-stainless-steel2_roughness_metallic.tga",
                     TextureData::TextureType::SPECULAR),
-        TextureData(app, "textures/pbr_stainless-steel/used-stainless-steel2_normal-dx.png",
+        TextureData(app->getHandles(), "textures/pbr_stainless-steel/used-stainless-steel2_normal-dx.png",
                     TextureData::TextureType::NORMAL));
     randomMaterials.push_back(placeholderTextureidx);
 
     placeholderTextureidx = app->scene->AddMaterial(
-        TextureData(app, "textures/pbr_factory-sliding/worn-factory-siding_albedo.png",
+        TextureData(app->getHandles(), "textures/pbr_factory-sliding/worn-factory-siding_albedo.png",
                     TextureData::TextureType::DIFFUSE),
-        TextureData(app, "textures/pbr_factory-sliding/worn-factory-siding_roughness_metallic.tga",
+        TextureData(app->getHandles(), "textures/pbr_factory-sliding/worn-factory-siding_roughness_metallic.tga",
                     TextureData::TextureType::SPECULAR),
-        TextureData(app, "textures/pbr_factory-sliding/worn-factory-siding_normal-dx.png",
+        TextureData(app->getHandles(), "textures/pbr_factory-sliding/worn-factory-siding_normal-dx.png",
                     TextureData::TextureType::NORMAL));
     randomMaterials.push_back(placeholderTextureidx);
 
     //TODO: Scene loads mesh instead? 
-    randomMeshes.push_back(app->scene->AddBackingMesh(MeshData(app, "pig.glb")));
-    randomMeshes.push_back(app->scene->AddBackingMesh(MeshData(app, "cubesphere.glb")));
-    randomMeshes.push_back(app->scene->AddBackingMesh(MeshData(app, "monkey.obj")));
+    randomMeshes.push_back(app->scene->AddBackingMesh(MeshData(app->getHandles(), "Meshes/pig.glb")));
+    randomMeshes.push_back(app->scene->AddBackingMesh(MeshData(app->getHandles(), "Meshes/cubesphere.glb")));
+    randomMeshes.push_back(app->scene->AddBackingMesh(MeshData(app->getHandles(), "Meshes/monkey.obj")));
 
     app->scene->AddLight(glm::vec3(1, 1, 1), glm::vec3(1, 1, 1), 5, 5 / 2);
     app->scene->AddLight(glm::vec3(0, -3, 1), glm::vec3(1, 1, 1), 5, 8 / 2);
@@ -1155,13 +1162,14 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
 
 
 //TODO JS: This shouldn't be in the class
-std::vector<char> HelloTriangleApplication::readFile(const std::string& filename)
+std::vector<char> HelloTriangleApplication::readFile(const char* filename)
 {
     std::ifstream file(filename, std::ios::ate | std::ios::binary);
 
     if (!file.is_open())
     {
-        throw std::runtime_error("failed to open file!");
+        printf("failed to open file!");
+        exit(-1);
     }
 
     size_t fileSize = file.tellg();

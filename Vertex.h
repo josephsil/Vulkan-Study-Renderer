@@ -10,8 +10,7 @@
 #include "glm/gtx/hash.hpp"
 
 #pragma region Forward Declarations
-struct VkVertexInputBindingDescription;
-struct VkVertexInputAttributeDescription;
+#include "vulkan-forwards.h"
 #pragma endregion
 struct Vertex
 {
