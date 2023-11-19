@@ -10,6 +10,8 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+
+#include "FileCaching.h"
 #ifndef WIN32
 #include <unistd.h>
 #endif
@@ -26,65 +28,12 @@ ShaderLoader::ShaderLoader(VkDevice device)
 
 void SaveShaderCompilationTime(std::wstring shaderPath)
 {
-    struct stat result;
-    if (_wstat(shaderPath.c_str(), &result) != 0)
-    {
-        throw std::runtime_error("Could not read shader file date");
-        return;
-    }
-
-    auto modifiedTime = result.st_mtime;
-
-    std::wstring shadertimepath = shaderPath + L".modified";
-
-    int size = result.st_size / sizeof(byte);
-    std::ofstream myFile(shadertimepath, std::ifstream::in | std::ifstream::out | std::ifstream::trunc);
-    myFile << modifiedTime;
-
-    myFile.close();
+    FileCaching::saveAssetChangedTime(shaderPath);
 }
 
 bool ShaderNeedsReciompiled(std::wstring shaderPath)
 {
-    //Last changed check 
-    struct stat result;
-    if (_wstat(shaderPath.c_str(), &result) != 0)
-    {
-        throw std::runtime_error("Could not read shader file date");
-        return true;
-    }
-
-    auto modifiedTime = result.st_mtime;
-
-    std::wstring shadertimepath = shaderPath + L".modified";
-
-
-    if (_wstat(shadertimepath.c_str(), &result) != 0)
-    {
-        return true;
-    }
-
-    int size = result.st_size / sizeof(byte);
-    std::ifstream myFile(shadertimepath, std::ifstream::in | std::ifstream::out);
-    if (!myFile.is_open())
-    {
-        //Could not open shadertime file, assume new shader
-        return true;
-    }
-    auto buffer = new char [size];
-
-    myFile.read(buffer, size);
-
-    long long savedTime = atoll(buffer);
-
-    myFile.close();
-
-    //TODO JS: update file with current time after compilation finishes
-
-    if (savedTime == modifiedTime)
-    {
-        return false;
-    }
+    return FileCaching::assetOutOfDate(shaderPath);
 }
 
 bool SaveBlobToDisk(std::wstring shaderPath, SIZE_T size, uint32_t* buffer)

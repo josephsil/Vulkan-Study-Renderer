@@ -11,6 +11,9 @@
 *.sln.docstates
 *.compiled
 *.hlsl.modified
+*.png.modified
+*.tga.modified
+*.ktx.modified
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 

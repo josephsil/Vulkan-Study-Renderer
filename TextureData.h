@@ -34,7 +34,7 @@ public:
     RendererHandles rendererHandles;
     VkImage textureImage;
     VkDeviceMemory textureImageMemory;
-    uint32_t maxmip = 1;
+    uint32_t maxmip = 1; //TODO JS: mutate less places
     uint32_t layerct = 1;
     int id;
 
@@ -45,6 +45,7 @@ public:
         int width;
         int height;
         int mipLevels;
+        bool generateMips = false;
         int depth = 1;
         int layers = 1;
         int dimension = 2;
@@ -63,6 +64,8 @@ public:
 private:
     // 0 = VK_SAMPLER_ADDRESS_MODE_REPEAT;
     void createTextureSampler(VkSamplerAddressMode mode = (VkSamplerAddressMode)0, float bias = 0);
+    void cacheKTXFromSTB(const char* path, const char* outpath, VkFormat format, TextureType textureType,
+                         bool use_mipmaps);
 
 
     void createTextureImageView(VkFormat format, VkImageViewType type);
@@ -78,5 +81,5 @@ private:
 
 
     TextureData::bufferAndMemory createTextureImage(const char* path, VkFormat format, bool mips = true);
-    void createCubemapImageKTX(const char* path, VkFormat format);
+    void createImageKTX(const char* path, TextureType type, bool mips);
 };

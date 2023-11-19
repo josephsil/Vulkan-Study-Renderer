@@ -12,6 +12,7 @@
 #include <ktxvulkan.h>
 
 #include "CommandPoolManager.h"
+#include "FileCaching.h"
 
 
 int TEXTURE_INDEX;
@@ -59,6 +60,7 @@ TextureData::TextureData(RendererHandles rendererHandles, const char* path, Text
     }
 
     //TODO JS: branch better
+	
     GetOrLoadTexture(path, format, textureType, use_mipmaps);
     createTextureImageView(format, textureType == CUBE ? VK_IMAGE_VIEW_TYPE_CUBE : VK_IMAGE_VIEW_TYPE_2D);
     createTextureSampler(mode);
@@ -265,99 +267,61 @@ void readImageData(RendererHandles rendererInfo, VkDeviceMemory memory, VkBuffer
 	vkUnmapMemory(rendererInfo.device, memory);
 }
 
-void TextureData::GetOrLoadTexture(const char* path,VkFormat format, TextureType textureType, bool use_mipmaps)
+std::basic_string<char> replaceExt(const char* target, const char* extension)
 {
+	std::basic_string<char> ktxPath;
+	size_t ext = strcspn(target, ".");
+	ktxPath.resize(ext + 4);
 
-	//TODO JS: Figure out cubes later
-	if (textureType == CUBE)
-	{
-		maxmip = 6.0;
-		createCubemapImageKTX(path, format);
-		return; 
-	}
-
-	auto staging = createTextureImage(path, format, use_mipmaps);
-    VkImage image = this->textureImage;
-
-	
-	if (textureType != CUBE)
-	{
-			
-
-    ktxTexture2* texture;                   // For KTX2
-    //ktxTexture1* texture;                 // For KTX
-    ktxTextureCreateInfo createInfo;
-    KTX_error_code result;
-    FILE* src;
-    ktx_size_t srcSize;
-    
-    createInfo.vkFormat = format;   // Ignored if creating a ktxTexture1.
-    createInfo.baseWidth = iData.width;
-    createInfo.baseHeight = iData.height;
-    createInfo.baseDepth = 1; //TODO JS: ?????? I think only for 3d textures
-    createInfo.numDimensions = 2;
-    // Note: it is not necessary to provide a full mipmap pyramid.
-    createInfo.numLevels = 1; //TOOD JS: Get this when we load cube  iData.mipLevels;
-    createInfo.numLayers = 1; //TOOD JS: Get this when we load cube 
-    createInfo.numFaces = textureType == CUBE ? 6 : 1; //TOOD JS: Get this when we load cube 
-    createInfo.isArray = KTX_FALSE;
-    createInfo.generateMipmaps = KTX_TRUE; // TODO JS: Make false and save mipmaps
-    
-    result = ktxTexture2_Create(&createInfo,
-                            KTX_TEXTURE_CREATE_ALLOC_STORAGE,
-                            &texture);
-    
-    // for (int i = 0; i < createInfo.numLevels; i++)
-    // {
-		int i = 0;
-    
-        std::vector<uint8_t> _imageData;
-    
-        const size_t imageByteSize = (size_t) iData.width * (size_t)iData.height * (size_t)getFormatSize(format);
-        _imageData.resize(imageByteSize);
-		readImageData(this->rendererHandles, staging.bufferMemory, staging.buffer,_imageData.data(),imageByteSize, 0);
-
-		ktxTexture2_Create(&createInfo, KTX_TEXTURE_CREATE_ALLOC_STORAGE, &texture);
-        
-        // for (int j = 0; j < createInfo.numLayers; j++)
-        // {
-            // for (int k = 0; k < createInfo.numFaces; k++)
-            // {
-				int j = 0;
-				int k = 0;
-                int mipLevel = i;
-                int layer = j;
-                int faceSlice = k;
-                KTX_error_code r = ktxTexture_SetImageFromMemory(ktxTexture(texture),mipLevel, layer,faceSlice,_imageData.data(),_imageData.size());
-
-		vkDestroyBuffer(rendererHandles.device, staging.buffer, nullptr);
-		vkFreeMemory(rendererHandles.device,  staging.bufferMemory, nullptr);
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable : 4996)
 #endif
-			
-		std::vector<char> name;
-		size_t ext = strcspn(path, ".");
-		name.resize(ext + 5);
-		strncpy(name.data(), path, ext);
-		strncpy(&name.data()[ext], ".ktx\0", 5); 
-
+	strncpy(ktxPath.data(), target, ext);
+	strncpy(&ktxPath.data()[ext], extension, 4); 
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif
-				ktxTexture_WriteToNamedFile(ktxTexture(texture), name.data());
-				ktxTexture_Destroy(ktxTexture(texture));
-		
-				createCubemapImageKTX(name.data(), (VkFormat)0);
-            // }
-        // }
-    // }
 
+	return ktxPath;
+
+	
+}
+
+
+void TextureData::GetOrLoadTexture(const char* path,VkFormat format, TextureType textureType, bool use_mipmaps)
+{
+	//TODO JS: Figure out cubes later
+	if (textureType == CUBE)
+	{
+		maxmip = 6.0;
+		createImageKTX(path, textureType, true);
+		return; 
+}
+	
+	auto ktxPath = replaceExt(path, ".ktx");
+
+	bool generateKTX = true;
+	//TODO JS: don't resave input ktxes, do caching
+	if (FileCaching::fileExists(ktxPath))
+	{
+		if (!FileCaching::assetOutOfDate(path))
+		{
+			generateKTX = false;
+		}
+	}
+	
+	if (generateKTX)
+	{
+		cacheKTXFromSTB(path, ktxPath.data(), format, textureType, use_mipmaps);
+		FileCaching::saveAssetChangedTime(path);
+	}
+	
+	createImageKTX(ktxPath.data(), textureType, use_mipmaps);
+	if (iData.generateMips)
 		TextureUtilities::generateMipmaps(rendererHandles, textureImage, format, iData.width, iData.height, iData.mipLevels);
 
 		
-	}
 
     
 }
@@ -403,6 +367,64 @@ void TextureData::createTextureSampler(VkSamplerAddressMode mode, float bias)
        std::cerr << ("failed to create texture sampler!");
         exit(-1);
     }
+}
+
+void TextureData::cacheKTXFromSTB(const char* path, const char* outpath, VkFormat format, TextureType textureType, bool use_mipmaps)
+{
+	ktx_size_t srcSize;
+    auto staging = createTextureImage(path, format, use_mipmaps);
+        VkImage image = this->textureImage;
+        ktxTexture2* texture;                   // For KTX2
+        //ktxTexture1* texture;                 // For KTX
+        ktxTextureCreateInfo createInfo;
+        KTX_error_code result;
+        FILE* src;
+    createInfo.vkFormat = format;   // Ignored if creating a ktxTexture1.
+    createInfo.baseWidth = iData.width;
+    createInfo.baseHeight = iData.height;
+    createInfo.baseDepth = 1; //TODO JS: ?????? I think only for 3d textures
+    createInfo.numDimensions = 2;
+    // Note: it is not necessary to provide a full mipmap pyramid.
+    createInfo.numLevels = 1; //TOOD JS: Get this when we load cube  iData.mipLevels;
+    createInfo.numLayers = 1; //TOOD JS: Get this when we load cube 
+    createInfo.numFaces = textureType == CUBE ? 6 : 1; //TOOD JS: Get this when we load cube 
+    createInfo.isArray = KTX_FALSE;
+    createInfo.generateMipmaps = KTX_TRUE; // TODO JS: Make false and save mipmaps
+    
+    result = ktxTexture2_Create(&createInfo,
+                            KTX_TEXTURE_CREATE_ALLOC_STORAGE,
+                            &texture);
+    
+    // for (int i = 0; i < createInfo.numLevels; i++)
+    // {
+		int i = 0;
+    
+        std::vector<uint8_t> _imageData;
+    
+        const size_t imageByteSize = (size_t) iData.width * (size_t)iData.height * (size_t)getFormatSize(format);
+        _imageData.resize(imageByteSize);
+		readImageData(this->rendererHandles, staging.bufferMemory, staging.buffer,_imageData.data(),imageByteSize, 0);
+  
+		ktxTexture2_Create(&createInfo, KTX_TEXTURE_CREATE_ALLOC_STORAGE, &texture);
+        
+        // for (int j = 0; j < createInfo.numLayers; j++)
+        // {
+            // for (int k = 0; k < createInfo.numFaces; k++)
+            // {
+				int j = 0;
+				int k = 0;
+                int mipLevel = i;
+                int layer = j;
+                int faceSlice = k;
+		
+                KTX_error_code r = ktxTexture_SetImageFromMemory(ktxTexture(texture),mipLevel, layer,faceSlice,_imageData.data(),_imageData.size());
+  
+		vkDestroyBuffer(rendererHandles.device, staging.buffer, nullptr);
+		vkFreeMemory(rendererHandles.device,  staging.bufferMemory, nullptr);
+
+				ktxTexture_WriteToNamedFile(ktxTexture(texture), outpath);
+				ktxTexture_Destroy(ktxTexture(texture));
+	
 }
 
 void TextureData::createTextureImageView(VkFormat format, VkImageViewType type)
@@ -464,57 +486,68 @@ TextureData::bufferAndMemory TextureData::createTextureImage(const char* path, V
 
 }
 
-
-
-void TextureData::createCubemapImageKTX(const char* path, VkFormat format)
+void TextureData::createImageKTX(const char* path, TextureType type, bool mips)
 {
-    //TODO JS: Should i create these earlier?
-    ktxVulkanDeviceInfo vdi;
-    ktxVulkanTexture texture;
+	ktxVulkanDeviceInfo vdi;
+	ktxVulkanTexture texture;
 
-    ktxTexture* kTexture;
-    KTX_error_code ktxresult;
+	ktxTexture* kTexture;
+	KTX_error_code ktxresult;
 
-    bufferAndPool workingTextureBuffer = rendererHandles.commandPoolmanager->beginSingleTimeCommands(false ); //TODO JS: Transfer pool doesnt work since ktx saving wor-- why?
+	bufferAndPool workingTextureBuffer = rendererHandles.commandPoolmanager->beginSingleTimeCommands(false ); //TODO JS: Transfer pool doesnt work since ktx saving wor-- why?
 
-    ktxVulkanDeviceInfo_Construct(&vdi, rendererHandles.physicalDevice, rendererHandles.device,
-                                  workingTextureBuffer.queue, workingTextureBuffer.pool, nullptr);
+	ktxVulkanDeviceInfo_Construct(&vdi, rendererHandles.physicalDevice, rendererHandles.device,
+								  workingTextureBuffer.queue, workingTextureBuffer.pool, nullptr);
 
-    ktxresult = ktxTexture_CreateFromNamedFile(path, KTX_TEXTURE_CREATE_NO_FLAGS, &kTexture);
+	ktxresult = ktxTexture_CreateFromNamedFile(path, KTX_TEXTURE_CREATE_NO_FLAGS, &kTexture);
 
-    if (KTX_SUCCESS != ktxresult)
-    {
-         std::cerr << "Creation of ktxTexture from \"" << path << "\" failed: " << ktxErrorString(ktxresult);
-        exit(-1);
-    }
-
-
-    //TODO JS: Should i use this helper elsewhere?
-    ktxresult = ktxTexture_VkUploadEx(kTexture, &vdi, &texture,
-                                      VK_IMAGE_TILING_OPTIMAL,
-                                      VK_IMAGE_USAGE_SAMPLED_BIT,
-                                      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	if (KTX_SUCCESS != ktxresult)
+	{
+		std::cerr << "Creation of ktxTexture from \"" << path << "\" failed: " << ktxErrorString(ktxresult);
+		exit(-1);
+	}
 
 
-    ktxTexture_Destroy(kTexture);
-    //TODO JS: destroy vdi?
-    //TODO JS: is it right to throw away the ktxVulkanTexture here without a free or w/e?
-  
-    layerct = texture.layerCount;
-    textureImage = texture.image;
-    textureImageMemory = texture.deviceMemory;
+	//TODO JS: Should i use this helper elsewhere?
+	ktxresult = ktxTexture_VkUploadEx(kTexture, &vdi, &texture,
+									  VK_IMAGE_TILING_OPTIMAL,
+									  VK_IMAGE_USAGE_SAMPLED_BIT,
+									  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+
+	ktxTexture_Destroy(kTexture);
+	//TODO JS: destroy vdi?
+	//TODO JS: is it right to throw away the ktxVulkanTexture here without a free or w/e?
+
+	iData.width = texture.width; //TODO 
+	iData.height = texture.height; //TODO
+	
+	uint32_t desiredMipLevels;
+	if (type == CUBE)
+	{
+		desiredMipLevels = 6.0;
+	}
+	else
+	{
+		desiredMipLevels =  !mips ? 1.0 : static_cast<uint32_t>(std::floor(std::log2(std::max(texture.width,  texture.height)))) + 1;
+	}
+	iData.mipLevels = desiredMipLevels;
+	iData.generateMips == desiredMipLevels > texture.levelCount; //TODO JS idk how this will behave if true and levelcount > 1
+	
+	layerct = texture.layerCount;
+	textureImage = texture.image;
+	textureImageMemory = texture.deviceMemory;
 
 #ifdef DEBUG
-    if (KTX_SUCCESS != ktxresult)
-    {
-          std::cerr << "ktxTexture_VkUpload failed: " << ktxErrorString(ktxresult);
-         exit(-1);
-    }
+	if (KTX_SUCCESS != ktxresult)
+	{
+		std::cerr << "ktxTexture_VkUpload failed: " << ktxErrorString(ktxresult);
+		exit(-1);
+	}
 
 #endif
-
-    //...
 }
+
 
 
 #pragma endregion

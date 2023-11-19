@@ -152,6 +152,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="CommandPoolManager.cpp" />
+    <ClCompile Include="FileCaching.cpp" />
     <ClCompile Include="ImageLibraryImplementations.cpp" />
     <ClCompile Include="Memory.cpp" />
     <ClCompile Include="MeshData.cpp" />
@@ -166,6 +167,7 @@
     <ClInclude Include="AppStruct.h" />
     <ClInclude Include="CommandPoolManager.h" />
     <ClInclude Include="common-structs.h" />
+    <ClInclude Include="FileCaching.h" />
     <ClInclude Include="ImageLibraryImplementations.h" />
     <ClInclude Include="Memory.h" />
     <ClInclude Include="MeshLibraryImplementations.h" />
