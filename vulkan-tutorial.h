@@ -2,11 +2,12 @@
 #define GLM_FORCE_RADIANS	
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#include <memory>
+#include <vector>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-#include<glm/gtc/quaternion.hpp>
+#include <glm/gtc/quaternion.hpp>
 #include "Vulkan_Includes.h"
-#include <chrono>
 
 #include "AppStruct.h"
 #include "CommandPoolManager.h"
@@ -27,7 +28,7 @@ public:
     float deltaTime;
 
 
-    static std::vector<char> readFile(const std::string& filename);
+    static std::vector<char> readFile(const char* filename);
 
     RendererHandles getHandles();
     VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;

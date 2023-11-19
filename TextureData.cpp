@@ -1,6 +1,6 @@
 #define DEBUG 
 #include "TextureData.h"
-#include "stb_image.h"
+#include "ImageLibraryImplementations.h"
 #include "vulkan-utilities.h"
 #include "Vulkan_Includes.h"
 

@@ -1,6 +1,4 @@
-#define VMA_IMPLEMENTATION
 
-#define STB_IMAGE_IMPLEMENTATION
 #include "vulkan-tutorial.h"
 #include<glm/gtc/quaternion.hpp>
 #undef main
@@ -9,22 +7,19 @@
 #include <SDL2/SDL_vulkan.h>
 
 #include <array>
-#include <iostream>
-#include <stdexcept>
 #include <cstdlib>
 #include <fstream>
-#include <map>
-#include <set>
+#include <iostream>
+
 
 #include "CommandPoolManager.h"
 #include "meshData.h"
 #include "SceneObjectData.h"
 #include "Vertex.h"
-#include "stb_image.h"
+#include "ImageLibraryImplementations.h"
 #include "ShaderLoading.h"
 #include "TextureData.h"
 #include "VkBootstrap.h"
-#include "tinygltf/tiny_gltf.h"
 #include "vulkan-utilities.h"
 //zoux vkcheck version
 
@@ -430,7 +425,8 @@ void HelloTriangleApplication::createSyncObjects()
             vkCreateSemaphore(device, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]) != VK_SUCCESS ||
             vkCreateFence(device, &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS)
         {
-            throw std::runtime_error("failed to create synchronization objects for a frame!");
+            printf("failed to create synchronization objects for a frame!");
+            exit(-1);
         }
     }
 }
@@ -513,7 +509,8 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
 
     if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS)
     {
-        throw std::runtime_error("failed to begin recording command buffer!");
+        printf("failed to begin recording command buffer!");
+        exit(-1);
     }
 
     VkRenderPassBeginInfo renderPassInfo{};
@@ -601,7 +598,8 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
 
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
     {
-        throw std::runtime_error("failed to record command buffer!");
+        printf("failed to record command buffer!");
+        exit(-1);
     }
 
 
@@ -653,7 +651,8 @@ void HelloTriangleApplication::createFramebuffers()
 
         if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, &swapChainFramebuffers[i]) != VK_SUCCESS)
         {
-            throw std::runtime_error("failed to create framebuffer!");
+            printf("failed to create framebuffer!");
+            exit(-1);
         }
     }
 }
@@ -798,7 +797,8 @@ VkPipeline HelloTriangleApplication::createGraphicsPipeline(const char* shaderNa
 
     if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS)
     {
-        throw std::runtime_error("failed to create pipeline layout!");
+        printf("failed to create pipeline layout!");
+        exit(-1);
     }
 
     VkGraphicsPipelineCreateInfo pipelineInfo{};
@@ -828,7 +828,8 @@ VkPipeline HelloTriangleApplication::createGraphicsPipeline(const char* shaderNa
     if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &newGraphicsPipeline) !=
         VK_SUCCESS)
     {
-        throw std::runtime_error("failed to create graphics pipeline!");
+        printf("failed to create graphics pipeline!");
+        exit(-1);
     }
 
 
@@ -984,7 +985,8 @@ void HelloTriangleApplication::drawFrame(inputData input)
     auto result = vkQueueSubmit(commandPoolmanager.Queues.graphicsQueue, 1, &submitInfo, inFlightFences[currentFrame]);
     if (result != VK_SUCCESS)
     {
-        throw std::runtime_error("failed to submit draw command buffer!");
+        printf("failed to submit draw command buffer!");
+        exit(-1);
     }
 
     VkPresentInfoKHR presentInfo{};
@@ -1160,13 +1162,14 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
 
 
 //TODO JS: This shouldn't be in the class
-std::vector<char> HelloTriangleApplication::readFile(const std::string& filename)
+std::vector<char> HelloTriangleApplication::readFile(const char* filename)
 {
     std::ifstream file(filename, std::ios::ate | std::ios::binary);
 
     if (!file.is_open())
     {
-        throw std::runtime_error("failed to open file!");
+        printf("failed to open file!");
+        exit(-1);
     }
 
     size_t fileSize = file.tellg();

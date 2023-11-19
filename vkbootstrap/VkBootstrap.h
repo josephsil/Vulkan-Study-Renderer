@@ -255,7 +255,7 @@ struct SystemInfo {
 	bool debug_utils_available = false;
 };
 
-// Forward declared - check VkBoostrap.cpp for implementations
+// Forward declared - check VkBoostrap.cpp for MeshLibraryImplementations
 const char* to_string_message_severity(VkDebugUtilsMessageSeverityFlagBitsEXT s);
 const char* to_string_message_type(VkDebugUtilsMessageTypeFlagsEXT s);
 

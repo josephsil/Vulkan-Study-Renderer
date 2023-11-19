@@ -149,8 +149,10 @@
     </ItemDefinitionGroup>
     <ItemGroup>
         <ClCompile Include="CommandPoolManager.cpp" />
+        <ClCompile Include="ImageLibraryImplementations.cpp" />
         <ClCompile Include="Memory.cpp" />
         <ClCompile Include="MeshData.cpp" />
+        <ClCompile Include="MeshLibraryImplementations.cpp" />
         <ClCompile Include="mikktspace.c" />
         <ClCompile Include="SceneObjectData.cpp" />
         <ClCompile Include="ShaderLoading.cpp" />
@@ -161,7 +163,9 @@
         <ClInclude Include="AppStruct.h" />
         <ClInclude Include="CommandPoolManager.h" />
         <ClInclude Include="common-structs.h" />
+        <ClInclude Include="ImageLibraryImplementations.h" />
         <ClInclude Include="Memory.h" />
+        <ClInclude Include="MeshLibraryImplementations.h" />
         <ClInclude Include="vulkan-forwards.h" />
         <ClInclude Include="vulkan-utilities.h" />
         <ClCompile Include="vulkan-utilities.cpp" />

@@ -3,9 +3,10 @@
 #define GLM_FORCE_RADIANS	
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#include <string>
+
 #include <vector>
 #include "vertex.h"
+
 
 #pragma region forward declarations
 #include "vulkan-forwards.h"
@@ -30,7 +31,7 @@ public:
     MeshData(RendererHandles rendererHandles, std::vector<Vertex> vertices,
              std::vector<uint32_t> indices);
 
-    MeshData(RendererHandles rendererHandles, std::string path);
+    MeshData(RendererHandles rendererHandles, const char* path);
 
     MeshData()
     {
@@ -40,7 +41,7 @@ public:
     void cleanup();
 
 private:
-    VkBuffer meshDataCreateVertexBuffer(RendererHandles rendererHandles);
+    VkBuffer meshDataCreateVertexBuffer(RendererHandles app);
 
-    VkBuffer meshDataCreateIndexBuffer(RendererHandles rendererHandles);
+    VkBuffer meshDataCreateIndexBuffer(RendererHandles app);
 };

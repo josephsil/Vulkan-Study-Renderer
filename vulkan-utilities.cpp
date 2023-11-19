@@ -3,10 +3,31 @@
 #include <array>
 #include <iostream>
 
+#include "AppStruct.h"
+#include "CommandPoolManager.h"
+#include "TextureData.h"
 #include "Vulkan_Includes.h"
-
-#include "vulkan-tutorial.h"
 #include "SceneObjectData.h"
+
+
+void DestroyBuffer(VkDevice device, VkBuffer buffer)
+{
+vkDestroyBuffer(device, buffer, nullptr);
+}
+void FreeMemory(VkDevice device, VkDeviceMemory memory)
+{
+    vkFreeMemory(device, memory, nullptr);
+}
+
+void MapMemory(VkDevice device, VkDeviceMemory memory, VkDeviceSize size, void** data)
+{
+    vkMapMemory(device, memory, 0, size, 0, data);
+}
+
+void UnmapMemory(VkDevice device, VkDeviceMemory memory)
+{
+    vkUnmapMemory(device, memory);
+}
 
 //TODO JS: Connect the two kinds of builders, so we like "fill slots" in the result of this one, and validate type/size?
 struct bindingBuilder
@@ -173,6 +194,8 @@ VkImageView TextureUtilities::createImageView(VkDevice device, VkImage image, Vk
                                               VkImageAspectFlags aspectFlags,
                                               VkImageViewType type, uint32_t miplevels, uint32_t layerCount)
 {
+    aspectFlags = aspectFlags == -1 ? VK_IMAGE_ASPECT_COLOR_BIT : aspectFlags;
+    type = (int)type == -1 ? VK_IMAGE_VIEW_TYPE_2D : type; 
     VkImageViewCreateInfo viewInfo{};
     viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     viewInfo.image = image;
@@ -443,7 +466,56 @@ void TextureUtilities::copyBufferToImage(CommandPoolManager* commandPoolManager,
         commandPoolManager->endSingleTimeCommands(workingBuffer);
 }
 
+void BufferUtilities::stageVertexBuffer(RendererHandles rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
+                                   VkDeviceMemory& bufferMemory, Vertex* data)
+{
+    BufferUtilities::stageMeshDataBuffer(rendererHandles,
+bufferSize,
+buffer,
+bufferMemory,
+data, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+    
+}
 
+void BufferUtilities::stageIndexBuffer(RendererHandles rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
+                                   VkDeviceMemory& bufferMemory, uint32_t* data)
+{
+    BufferUtilities::stageMeshDataBuffer(rendererHandles,
+bufferSize,
+buffer,
+bufferMemory,
+data, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+    
+}
+
+void BufferUtilities::stageMeshDataBuffer(RendererHandles rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
+                                   VkDeviceMemory& bufferMemory, void* vertices, VkBufferUsageFlags dataTypeFlag)
+{
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingBufferMemory;
+    
+    BufferUtilities::createBuffer(rendererHandles, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                                  stagingBuffer, stagingBufferMemory);
+
+    //Bind to memory buffer
+    // TODO JS - Use amd memory allocator
+    void* data;
+    MapMemory(rendererHandles.device, stagingBufferMemory, bufferSize, &data);
+    memcpy(data, vertices, bufferSize);
+    UnmapMemory(rendererHandles.device, stagingBufferMemory);
+
+    BufferUtilities::createBuffer(rendererHandles, bufferSize,
+                                  VK_BUFFER_USAGE_TRANSFER_DST_BIT | dataTypeFlag,
+
+
+                                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, buffer, bufferMemory);
+
+    BufferUtilities::copyBuffer(rendererHandles, stagingBuffer, buffer, bufferSize);
+
+    DestroyBuffer(rendererHandles.device, stagingBuffer);
+    FreeMemory(rendererHandles.device, stagingBufferMemory);
+}
 void BufferUtilities::createBuffer(RendererHandles rendererHandles, VkDeviceSize size, VkBufferUsageFlags usage,
                                    VkMemoryPropertyFlags properties, VkBuffer& buffer,
                                    VkDeviceMemory& bufferMemory)
@@ -519,4 +591,53 @@ std::pair<VkDescriptorImageInfo, VkDescriptorImageInfo> DescriptorDataUtilities:
             .sampler = texture.textureSampler, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
         }
     );
+}
+
+DescriptorDataUtilities::WriteDescriptorSetsBuilder::WriteDescriptorSetsBuilder(int length)
+{
+    descriptorsets.resize(length);
+}
+
+VkWriteDescriptorSet* DescriptorDataUtilities::WriteDescriptorSetsBuilder::data()
+{
+    return descriptorsets.data();
+}
+
+uint32_t DescriptorDataUtilities::WriteDescriptorSetsBuilder::size()
+{
+    return descriptorsets.size();
+}
+
+void DescriptorDataUtilities::WriteDescriptorSetsBuilder::Add(VkDescriptorType type, void* ptr, int count )
+{
+      {
+          descriptorsets[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+          descriptorsets[i].dstBinding = i;
+          descriptorsets[i].descriptorCount = count;
+          descriptorsets[i].descriptorType = type;
+          if (type == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE || type == VK_DESCRIPTOR_TYPE_SAMPLER)
+          {
+              descriptorsets[i].pImageInfo = static_cast<VkDescriptorImageInfo*>(ptr);
+          }
+          else
+          {
+              descriptorsets[i].pBufferInfo = static_cast<VkDescriptorBufferInfo*>(ptr);
+          }
+          i++;
+      }}
+
+void DescriptorDataUtilities::WriteDescriptorSetsBuilder::AddStorageBuffer(dataBuffer storageBuffer)
+{
+    auto bufferInfo = storageBuffer.getBufferInfo();
+
+    Add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &bufferInfo);
+}
+
+VkDescriptorBufferInfo dataBuffer::getBufferInfo()
+{
+    VkDescriptorBufferInfo bufferInfo{};
+    bufferInfo.buffer = data; //TODO: For loop over frames in flight
+    bufferInfo.offset = 0;
+    bufferInfo.range = size;
+    return bufferInfo;
 }

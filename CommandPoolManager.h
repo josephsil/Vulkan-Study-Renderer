@@ -1,13 +1,15 @@
 #pragma once
-#include "TextureData.h"
+#include <cstdint>
+
+
+
+#include "vulkan-forwards.h"
+#include "common-structs.h"
 
 namespace vkb
 {
     struct Device;
 }
-
-#include "vulkan-forwards.h"
-#include "common-structs.h"
 
 struct bufferAndPool; //TODO JS: can i move to cpp?
 

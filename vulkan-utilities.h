@@ -1,7 +1,8 @@
 #pragma once
 #include <vector>
-#include "Vulkan_Includes.h"
+#include "vulkan-forwards.h"
 #include "common-structs.h"
+struct Vertex;
 class Scene;
 //Forward declaration
 struct RendererHandles;
@@ -14,16 +15,16 @@ struct dataBuffer
     VkBuffer data;
     uint32_t size;
 
-    VkDescriptorBufferInfo getBufferInfo()
-    {
-        VkDescriptorBufferInfo bufferInfo{};
-        bufferInfo.buffer = data; //TODO: For loop over frames in flight
-        bufferInfo.offset = 0;
-        bufferInfo.range = size;
-        return bufferInfo;
-    }
+    VkDescriptorBufferInfo getBufferInfo();
 };
 
+
+void DestroyBuffer(VkDevice device, VkBuffer buffer);
+void FreeMemory(VkDevice device, VkDeviceMemory memory);
+void UnmapMemory(VkDevice device, VkDeviceMemory memory);
+
+
+void MapMemory(VkDevice device, VkDeviceMemory memory, VkDeviceSize size, void** data);
 
 namespace DescriptorDataUtilities
 {
@@ -38,44 +39,16 @@ namespace DescriptorDataUtilities
         std::vector<VkWriteDescriptorSet> descriptorsets;
         int i = 0;
 
-        WriteDescriptorSetsBuilder(int length)
-        {
-            descriptorsets.resize(length);
-        }
+        WriteDescriptorSetsBuilder(int length);
 
-        void Add(VkDescriptorType type, void* ptr, int count = 1)
-        {
-            descriptorsets[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            descriptorsets[i].dstBinding = i;
-            descriptorsets[i].descriptorCount = count;
-            descriptorsets[i].descriptorType = type;
-            if (type == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE || type == VK_DESCRIPTOR_TYPE_SAMPLER)
-            {
-                descriptorsets[i].pImageInfo = static_cast<VkDescriptorImageInfo*>(ptr);
-            }
-            else
-            {
-                descriptorsets[i].pBufferInfo = static_cast<VkDescriptorBufferInfo*>(ptr);
-            }
-            i++;
-        }
+        void Add(VkDescriptorType type, void* ptr, int count = 1);
+      
 
-        void AddStorageBuffer(dataBuffer storageBuffer)
-        {
-            auto bufferInfo = storageBuffer.getBufferInfo();
+        void AddStorageBuffer(dataBuffer storageBuffer);
 
-            Add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &bufferInfo);
-        }
+        VkWriteDescriptorSet* data();
 
-        VkWriteDescriptorSet* data()
-        {
-            return descriptorsets.data();
-        }
-
-        uint32_t size()
-        {
-            return descriptorsets.size();
-        }
+        uint32_t size();
     };
 }
 
@@ -102,9 +75,10 @@ namespace Capabilities
 
 namespace TextureUtilities
 {
+    //TODO JS: this -1 stuff is sketchy
     VkImageView createImageView(VkDevice device, VkImage image,
-                                VkFormat format, VkImageAspectFlags aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT,
-                                VkImageViewType type = VK_IMAGE_VIEW_TYPE_2D, uint32_t miplevels = 1,
+                                VkFormat format, VkImageAspectFlags aspectFlags = -1,
+                                VkImageViewType type = (VkImageViewType)-1, uint32_t miplevels = 1,
                                 uint32_t layerCount = 1);
 
     void createImage(RendererHandles rendererHandles, uint32_t width, uint32_t height, VkFormat format,
@@ -127,6 +101,16 @@ namespace TextureUtilities
 //TODO JS: may be better to bundle stuff like createUniformBuffers, and the buffers themselves, along with these fns ala commandpoolmanager
 namespace BufferUtilities
 {
+    void stageVertexBuffer(RendererHandles rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
+                                   VkDeviceMemory& bufferMemory, Vertex* data);
+
+    void stageIndexBuffer(RendererHandles rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
+                                  VkDeviceMemory& bufferMemory, uint32_t* data);
+
+    //TODO JS: move to cpp file?
+    void stageMeshDataBuffer(RendererHandles rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
+                                   VkDeviceMemory& bufferMemory, void* vertices, VkBufferUsageFlags dataTypeFlag);
+
     void copyBuffer(RendererHandles rendererHandles, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
     void createBuffer(RendererHandles rendererHandles, VkDeviceSize size, VkBufferUsageFlags usage,
                       VkMemoryPropertyFlags properties, VkBuffer& buffer,
