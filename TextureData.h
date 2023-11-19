@@ -2,6 +2,7 @@
 
 #pragma region forward declarations
 #include <cstdint>
+#include <vulkan/vulkan_core.h>
 
 #include "AppStruct.h"
 #include "vulkan-forwards.h"
@@ -21,6 +22,13 @@ public:
         LINEAR_DATA
     };
 
+    struct bufferAndMemory
+    {
+        VkBuffer buffer;
+        VkDeviceMemory bufferMemory;
+    };
+
+    bufferAndMemory stagingBuffer;
     VkImageView textureImageView;
     VkSampler textureSampler;
     RendererHandles rendererHandles;
@@ -30,7 +38,23 @@ public:
     uint32_t layerct = 1;
     int id;
 
+
+    //TODO JS: Specific to writing ktx
+    struct imageData
+    {
+        int width;
+        int height;
+        int mipLevels;
+        int depth = 1;
+        int layers = 1;
+        int dimension = 2;
+    };
+
+    imageData iData;
+
+    
     TextureData(RendererHandles rendererHandles, const char* path, TextureType type);
+    void GetOrLoadTexture(const char* path, VkFormat format, TextureType textureType, bool use_mipmaps);
 
     TextureData();
 
@@ -53,6 +77,6 @@ private:
     It's best to do this after the texture mapping works to check if the texture resources are still set up correctly.*/
 
 
-    void createTextureImage(const char* path, VkFormat format, bool mips = true);
+    TextureData::bufferAndMemory createTextureImage(const char* path, VkFormat format, bool mips = true);
     void createCubemapImageKTX(const char* path, VkFormat format);
 };

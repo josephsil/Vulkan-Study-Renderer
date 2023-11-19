@@ -7,6 +7,7 @@
 #define KHRONOS_STATIC
 //TODO: for cubemap loadingc
 #include <cassert>
+#include <format>
 #include <iostream>
 #include <ktxvulkan.h>
 
@@ -30,34 +31,335 @@ TextureData::TextureData(RendererHandles rendererHandles, const char* path, Text
     case DIFFUSE:
         {
             format = VK_FORMAT_R8G8B8A8_SRGB;
+            break;
         }
     case SPECULAR:
         {
             format = VK_FORMAT_R8G8B8A8_UNORM;
+            break;
         }
     case NORMAL:
         {
             format = VK_FORMAT_R8G8B8A8_UNORM;
+            break;
         }
     case LINEAR_DATA:
         {
             format = VK_FORMAT_R8G8B8A8_UNORM;
             mode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
             use_mipmaps = false;
+            break;
         }
     case CUBE:
         {
             format = VK_FORMAT_R8G8B8A8_UNORM;
             mode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+            break;
         }
     }
 
     //TODO JS: branch better
-    textureType == CUBE ? createCubemapImageKTX(path, format) : createTextureImage(path, format, use_mipmaps);
-
+    GetOrLoadTexture(path, format, textureType, use_mipmaps);
     createTextureImageView(format, textureType == CUBE ? VK_IMAGE_VIEW_TYPE_CUBE : VK_IMAGE_VIEW_TYPE_2D);
     createTextureSampler(mode);
     id = TEXTURE_INDEX++;
+}
+
+//TODO JS: Lifted from gltfiblsampler -- replace
+uint32_t getFormatSize(VkFormat f)
+{
+    switch (f)
+	{
+		// 1 BYTE
+	case VK_FORMAT_R4G4_UNORM_PACK8:
+
+	case VK_FORMAT_R8_UNORM:
+	case VK_FORMAT_R8_SNORM:
+	case VK_FORMAT_R8_UINT:
+	case VK_FORMAT_R8_SINT:
+	case VK_FORMAT_R8_SRGB:
+		return 1u;
+
+		// 2 BYTE
+	case VK_FORMAT_R4G4B4A4_UNORM_PACK16:
+	case VK_FORMAT_B4G4R4A4_UNORM_PACK16:
+	case VK_FORMAT_R5G6B5_UNORM_PACK16:
+	case VK_FORMAT_B5G6R5_UNORM_PACK16:
+	case VK_FORMAT_R5G5B5A1_UNORM_PACK16:
+	case VK_FORMAT_B5G5R5A1_UNORM_PACK16:
+	case VK_FORMAT_A1R5G5B5_UNORM_PACK16:
+
+	case VK_FORMAT_R8G8_UNORM:
+	case VK_FORMAT_R8G8_SNORM:
+	case VK_FORMAT_R8G8_UINT:
+	case VK_FORMAT_R8G8_SINT:
+	case VK_FORMAT_R8G8_SRGB:
+
+	case VK_FORMAT_R16_UNORM:
+	case VK_FORMAT_R16_SNORM:
+	case VK_FORMAT_R16_UINT:
+	case VK_FORMAT_R16_SINT:
+	case VK_FORMAT_R16_SFLOAT:
+		return 2u;
+
+		// 3 BYTE
+	case VK_FORMAT_R8G8B8_UNORM:
+	case VK_FORMAT_R8G8B8_SNORM:
+	case VK_FORMAT_R8G8B8_UINT:
+	case VK_FORMAT_R8G8B8_SINT:
+	case VK_FORMAT_R8G8B8_SRGB:
+
+	case VK_FORMAT_B8G8R8_UNORM:
+	case VK_FORMAT_B8G8R8_SNORM:
+	case VK_FORMAT_B8G8R8_UINT:
+	case VK_FORMAT_B8G8R8_SINT:
+	case VK_FORMAT_B8G8R8_SRGB:
+		return 3u;
+
+		// 4 BYTE
+	case VK_FORMAT_A2R10G10B10_UNORM_PACK32:
+	case VK_FORMAT_A2R10G10B10_SNORM_PACK32:
+
+	case VK_FORMAT_A2R10G10B10_UINT_PACK32:
+	case VK_FORMAT_A2R10G10B10_SINT_PACK32:
+	case VK_FORMAT_A2B10G10R10_UNORM_PACK32:
+	case VK_FORMAT_A2B10G10R10_SNORM_PACK32:
+
+	case VK_FORMAT_A2B10G10R10_UINT_PACK32:
+	case VK_FORMAT_A2B10G10R10_SINT_PACK32:
+
+	case VK_FORMAT_B10G11R11_UFLOAT_PACK32:
+
+	case VK_FORMAT_R8G8B8A8_UNORM:
+	case VK_FORMAT_R8G8B8A8_SNORM:
+	case VK_FORMAT_R8G8B8A8_UINT:
+	case VK_FORMAT_R8G8B8A8_SINT:
+	case VK_FORMAT_R8G8B8A8_SRGB:
+
+	case VK_FORMAT_B8G8R8A8_UNORM:
+	case VK_FORMAT_B8G8R8A8_SNORM:
+	case VK_FORMAT_B8G8R8A8_UINT:
+	case VK_FORMAT_B8G8R8A8_SINT:
+	case VK_FORMAT_B8G8R8A8_SRGB:
+
+	case VK_FORMAT_R16G16_UNORM:
+	case VK_FORMAT_R16G16_SNORM:
+	case VK_FORMAT_R16G16_UINT:
+	case VK_FORMAT_R16G16_SINT:
+	case VK_FORMAT_R16G16_SFLOAT:
+
+	case VK_FORMAT_R32_UINT:
+	case VK_FORMAT_R32_SINT:
+	case VK_FORMAT_R32_SFLOAT:
+		return 4u;
+
+		// 6 BYTE
+	case VK_FORMAT_R16G16B16_UNORM:
+	case VK_FORMAT_R16G16B16_SNORM:
+	case VK_FORMAT_R16G16B16_UINT:
+	case VK_FORMAT_R16G16B16_SINT:
+	case VK_FORMAT_R16G16B16_SFLOAT:
+		return 6u;
+
+		// 8 BYTE
+	case VK_FORMAT_R16G16B16A16_UNORM:
+	case VK_FORMAT_R16G16B16A16_SNORM:
+	case VK_FORMAT_R16G16B16A16_UINT:
+	case VK_FORMAT_R16G16B16A16_SINT:
+	case VK_FORMAT_R16G16B16A16_SFLOAT:
+
+	case VK_FORMAT_R32G32_UINT:
+	case VK_FORMAT_R32G32_SINT:
+	case VK_FORMAT_R32G32_SFLOAT:
+
+	case VK_FORMAT_R64_UINT:
+	case VK_FORMAT_R64_SINT:
+	case VK_FORMAT_R64_SFLOAT:
+		return 8u;
+
+		// 12 BYTE
+	case VK_FORMAT_R32G32B32_UINT:
+	case VK_FORMAT_R32G32B32_SINT:
+	case VK_FORMAT_R32G32B32_SFLOAT:
+		return 12u;
+
+		// 16 BYTE
+	case VK_FORMAT_R32G32B32A32_UINT:
+	case VK_FORMAT_R32G32B32A32_SINT:
+	case VK_FORMAT_R32G32B32A32_SFLOAT:
+
+	case VK_FORMAT_R64G64_UINT:
+	case VK_FORMAT_R64G64_SINT:
+	case VK_FORMAT_R64G64_SFLOAT:
+		return 16u;
+
+		// 24 BYTE
+	case VK_FORMAT_R64G64B64_UINT:
+	case VK_FORMAT_R64G64B64_SINT:
+	case VK_FORMAT_R64G64B64_SFLOAT:
+		return 24u;
+
+		// 32 BYTE
+	case VK_FORMAT_R64G64B64A64_UINT:
+	case VK_FORMAT_R64G64B64A64_SINT:
+	case VK_FORMAT_R64G64B64A64_SFLOAT:
+		return 32u;
+
+		// 64-bit 
+
+	case VK_FORMAT_BC1_RGB_UNORM_BLOCK:
+	case VK_FORMAT_BC1_RGB_SRGB_BLOCK:
+	case VK_FORMAT_BC1_RGBA_UNORM_BLOCK:
+	case VK_FORMAT_BC1_RGBA_SRGB_BLOCK:
+	case VK_FORMAT_BC4_UNORM_BLOCK:
+	case VK_FORMAT_BC4_SNORM_BLOCK:
+
+	case VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK:
+	case VK_FORMAT_ETC2_R8G8B8_SRGB_BLOCK:
+	case VK_FORMAT_ETC2_R8G8B8A1_UNORM_BLOCK:
+	case VK_FORMAT_ETC2_R8G8B8A1_SRGB_BLOCK:
+	case VK_FORMAT_EAC_R11_UNORM_BLOCK:
+	case VK_FORMAT_EAC_R11_SNORM_BLOCK:
+	case VK_FORMAT_PVRTC1_2BPP_UNORM_BLOCK_IMG:
+	case VK_FORMAT_PVRTC1_4BPP_UNORM_BLOCK_IMG:
+	case VK_FORMAT_PVRTC2_2BPP_UNORM_BLOCK_IMG:
+	case VK_FORMAT_PVRTC2_4BPP_UNORM_BLOCK_IMG:
+	case VK_FORMAT_PVRTC1_2BPP_SRGB_BLOCK_IMG:
+	case VK_FORMAT_PVRTC1_4BPP_SRGB_BLOCK_IMG:
+	case VK_FORMAT_PVRTC2_2BPP_SRGB_BLOCK_IMG:
+	case VK_FORMAT_PVRTC2_4BPP_SRGB_BLOCK_IMG:
+		return 8u;
+
+		// 128-bit
+	case VK_FORMAT_BC2_UNORM_BLOCK:
+	case VK_FORMAT_BC2_SRGB_BLOCK:
+	case VK_FORMAT_BC3_UNORM_BLOCK:
+	case VK_FORMAT_BC3_SRGB_BLOCK:
+	case VK_FORMAT_BC5_UNORM_BLOCK:
+	case VK_FORMAT_BC5_SNORM_BLOCK:
+	case VK_FORMAT_BC6H_UFLOAT_BLOCK:
+	case VK_FORMAT_BC6H_SFLOAT_BLOCK:
+	case VK_FORMAT_BC7_UNORM_BLOCK:
+	case VK_FORMAT_BC7_SRGB_BLOCK:
+
+	case VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK:
+	case VK_FORMAT_ETC2_R8G8B8A8_SRGB_BLOCK:
+	case VK_FORMAT_EAC_R11G11_UNORM_BLOCK:
+	case VK_FORMAT_EAC_R11G11_SNORM_BLOCK:
+	case VK_FORMAT_ASTC_4x4_UNORM_BLOCK:
+	case VK_FORMAT_ASTC_4x4_SRGB_BLOCK:
+		return 16u;
+
+	default:
+		return 0u; // invalid
+	}
+}
+
+
+void readImageData(RendererHandles rendererInfo, VkDeviceMemory memory, VkBuffer _buffer, void* data, size_t bytes,	size_t offset)
+{
+	void* tempData;
+	vkMapMemory(rendererInfo.device, memory, offset, bytes,0, &tempData);
+
+	memcpy(data, tempData, bytes);
+	vkUnmapMemory(rendererInfo.device, memory);
+}
+
+void TextureData::GetOrLoadTexture(const char* path,VkFormat format, TextureType textureType, bool use_mipmaps)
+{
+
+	//TODO JS: Figure out cubes later
+	if (textureType == CUBE)
+	{
+		maxmip = 6.0;
+		createCubemapImageKTX(path, format);
+		return; 
+	}
+
+	auto staging = createTextureImage(path, format, use_mipmaps);
+    VkImage image = this->textureImage;
+
+	
+	if (textureType != CUBE)
+	{
+			
+
+    ktxTexture2* texture;                   // For KTX2
+    //ktxTexture1* texture;                 // For KTX
+    ktxTextureCreateInfo createInfo;
+    KTX_error_code result;
+    FILE* src;
+    ktx_size_t srcSize;
+    
+    createInfo.vkFormat = format;   // Ignored if creating a ktxTexture1.
+    createInfo.baseWidth = iData.width;
+    createInfo.baseHeight = iData.height;
+    createInfo.baseDepth = 1; //TODO JS: ?????? I think only for 3d textures
+    createInfo.numDimensions = 2;
+    // Note: it is not necessary to provide a full mipmap pyramid.
+    createInfo.numLevels = 1; //TOOD JS: Get this when we load cube  iData.mipLevels;
+    createInfo.numLayers = 1; //TOOD JS: Get this when we load cube 
+    createInfo.numFaces = textureType == CUBE ? 6 : 1; //TOOD JS: Get this when we load cube 
+    createInfo.isArray = KTX_FALSE;
+    createInfo.generateMipmaps = KTX_TRUE; // TODO JS: Make false and save mipmaps
+    
+    result = ktxTexture2_Create(&createInfo,
+                            KTX_TEXTURE_CREATE_ALLOC_STORAGE,
+                            &texture);
+    
+    // for (int i = 0; i < createInfo.numLevels; i++)
+    // {
+		int i = 0;
+    
+        std::vector<uint8_t> _imageData;
+    
+        const size_t imageByteSize = (size_t) iData.width * (size_t)iData.height * (size_t)getFormatSize(format);
+        _imageData.resize(imageByteSize);
+		readImageData(this->rendererHandles, staging.bufferMemory, staging.buffer,_imageData.data(),imageByteSize, 0);
+
+		ktxTexture2_Create(&createInfo, KTX_TEXTURE_CREATE_ALLOC_STORAGE, &texture);
+        
+        // for (int j = 0; j < createInfo.numLayers; j++)
+        // {
+            // for (int k = 0; k < createInfo.numFaces; k++)
+            // {
+				int j = 0;
+				int k = 0;
+                int mipLevel = i;
+                int layer = j;
+                int faceSlice = k;
+                KTX_error_code r = ktxTexture_SetImageFromMemory(ktxTexture(texture),mipLevel, layer,faceSlice,_imageData.data(),_imageData.size());
+
+		vkDestroyBuffer(rendererHandles.device, staging.buffer, nullptr);
+		vkFreeMemory(rendererHandles.device,  staging.bufferMemory, nullptr);
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4996)
+#endif
+			
+		std::vector<char> name;
+		size_t ext = strcspn(path, ".");
+		name.resize(ext + 5);
+		strncpy(name.data(), path, ext);
+		strncpy(&name.data()[ext], ".ktx\0", 5); 
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
+				ktxTexture_WriteToNamedFile(ktxTexture(texture), name.data());
+				ktxTexture_Destroy(ktxTexture(texture));
+		
+				createCubemapImageKTX(name.data(), (VkFormat)0);
+            // }
+        // }
+    // }
+
+		TextureUtilities::generateMipmaps(rendererHandles, textureImage, format, iData.width, iData.height, iData.mipLevels);
+
+		
+	}
+
+    
 }
 
 TextureData::TextureData()
@@ -110,7 +412,7 @@ void TextureData::createTextureImageView(VkFormat format, VkImageViewType type)
 }
 
 
-void TextureData::createTextureImage(const char* path, VkFormat format, bool mips)
+TextureData::bufferAndMemory TextureData::createTextureImage(const char* path, VkFormat format, bool mips)
 {
     auto workingTextureBuffer = rendererHandles.commandPoolmanager->beginSingleTimeCommands(true);
     int texWidth, texHeight, texChannels;
@@ -124,6 +426,10 @@ void TextureData::createTextureImage(const char* path, VkFormat format, bool mip
          std::cerr << "failed to load texture image!";
         exit(-1);
     }
+
+    iData.width = texWidth;
+    iData.height = texHeight;
+    iData.mipLevels = mipLevels;
 
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
@@ -154,10 +460,10 @@ void TextureData::createTextureImage(const char* path, VkFormat format, bool mip
                                         static_cast<uint32_t>(texHeight), workingTextureBuffer.buffer);
     //JS: Prepare image to read in shaders
     rendererHandles.commandPoolmanager->endSingleTimeCommands(workingTextureBuffer);
-    vkDestroyBuffer(rendererHandles.device, stagingBuffer, nullptr);
-    vkFreeMemory(rendererHandles.device, stagingBufferMemory, nullptr);
-    TextureUtilities::generateMipmaps(rendererHandles, textureImage, format, texWidth, texHeight, mipLevels);
+    return bufferAndMemory(stagingBuffer, stagingBufferMemory);
+
 }
+
 
 
 void TextureData::createCubemapImageKTX(const char* path, VkFormat format)
@@ -169,7 +475,7 @@ void TextureData::createCubemapImageKTX(const char* path, VkFormat format)
     ktxTexture* kTexture;
     KTX_error_code ktxresult;
 
-    bufferAndPool workingTextureBuffer = rendererHandles.commandPoolmanager->beginSingleTimeCommands(true);
+    bufferAndPool workingTextureBuffer = rendererHandles.commandPoolmanager->beginSingleTimeCommands(false ); //TODO JS: Transfer pool doesnt work since ktx saving wor-- why?
 
     ktxVulkanDeviceInfo_Construct(&vdi, rendererHandles.physicalDevice, rendererHandles.device,
                                   workingTextureBuffer.queue, workingTextureBuffer.pool, nullptr);
@@ -193,7 +499,7 @@ void TextureData::createCubemapImageKTX(const char* path, VkFormat format)
     ktxTexture_Destroy(kTexture);
     //TODO JS: destroy vdi?
     //TODO JS: is it right to throw away the ktxVulkanTexture here without a free or w/e?
-    maxmip = 6.0;
+  
     layerct = texture.layerCount;
     textureImage = texture.image;
     textureImageMemory = texture.deviceMemory;
