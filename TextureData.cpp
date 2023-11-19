@@ -291,7 +291,7 @@ std::basic_string<char> replaceExt(const char* target, const char* extension)
 
 void TextureData::GetOrLoadTexture(const char* path,VkFormat format, TextureType textureType, bool use_mipmaps)
 {
-	//TODO JS: Figure out cubes later
+	//TODO JS: Figure out cubes later -- when we add compression we should cache cubes too
 	if (textureType == CUBE)
 	{
 		maxmip = 6.0;
@@ -302,7 +302,8 @@ void TextureData::GetOrLoadTexture(const char* path,VkFormat format, TextureType
 	auto ktxPath = replaceExt(path, ".ktx");
 
 	bool generateKTX = true;
-	//TODO JS: don't resave input ktxes, do caching
+	
+	//Don't regenerate ktx if image modified time is older than last ktx 
 	if (FileCaching::fileExists(ktxPath))
 	{
 		if (!FileCaching::assetOutOfDate(path))
@@ -318,12 +319,13 @@ void TextureData::GetOrLoadTexture(const char* path,VkFormat format, TextureType
 	}
 	
 	createImageKTX(ktxPath.data(), textureType, use_mipmaps);
+
+	//Somehow my saved KTX files already have mipmaps... is it because I save them saying they need it? Does libktx do it on load?
 	if (iData.generateMips)
+	{
+		maxmip = iData.mipLevels;
 		TextureUtilities::generateMipmaps(rendererHandles, textureImage, format, iData.width, iData.height, iData.mipLevels);
-
-		
-
-    
+	}
 }
 
 TextureData::TextureData()
@@ -369,6 +371,7 @@ void TextureData::createTextureSampler(VkSamplerAddressMode mode, float bias)
     }
 }
 
+
 void TextureData::cacheKTXFromSTB(const char* path, const char* outpath, VkFormat format, TextureType textureType, bool use_mipmaps)
 {
 	ktx_size_t srcSize;
@@ -407,10 +410,7 @@ void TextureData::cacheKTXFromSTB(const char* path, const char* outpath, VkForma
   
 		ktxTexture2_Create(&createInfo, KTX_TEXTURE_CREATE_ALLOC_STORAGE, &texture);
         
-        // for (int j = 0; j < createInfo.numLayers; j++)
-        // {
-            // for (int k = 0; k < createInfo.numFaces; k++)
-            // {
+        
 				int j = 0;
 				int k = 0;
                 int mipLevel = i;
@@ -434,6 +434,7 @@ void TextureData::createTextureImageView(VkFormat format, VkImageViewType type)
 }
 
 
+//TODO JS less side effects -- now that this is a interim step, it should be static
 TextureData::bufferAndMemory TextureData::createTextureImage(const char* path, VkFormat format, bool mips)
 {
     auto workingTextureBuffer = rendererHandles.commandPoolmanager->beginSingleTimeCommands(true);
@@ -533,7 +534,7 @@ void TextureData::createImageKTX(const char* path, TextureType type, bool mips)
 	}
 	iData.mipLevels = desiredMipLevels;
 	iData.generateMips == desiredMipLevels > texture.levelCount; //TODO JS idk how this will behave if true and levelcount > 1
-	
+	maxmip = texture.levelCount;
 	layerct = texture.layerCount;
 	textureImage = texture.image;
 	textureImageMemory = texture.deviceMemory;
