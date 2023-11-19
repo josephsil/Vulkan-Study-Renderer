@@ -22,13 +22,15 @@ public:
         LINEAR_DATA
     };
 
-    struct bufferAndMemory
+    struct temporaryTextureInfo
     {
         VkBuffer buffer;
         VkDeviceMemory bufferMemory;
+        int width;
+        int height;
     };
 
-    bufferAndMemory stagingBuffer;
+    temporaryTextureInfo tempTextureInfo;
     VkImageView textureImageView;
     VkSampler textureSampler;
     RendererHandles rendererHandles;
@@ -38,20 +40,6 @@ public:
     uint32_t layerct = 1;
     int id;
 
-
-    //TODO JS: Specific to writing ktx
-    struct imageData
-    {
-        int width;
-        int height;
-        int mipLevels;
-        bool generateMips = false;
-        int depth = 1;
-        int layers = 1;
-        int dimension = 2;
-    };
-
-    imageData iData;
 
     
     TextureData(RendererHandles rendererHandles, const char* path, TextureType type);
@@ -80,6 +68,6 @@ private:
     It's best to do this after the texture mapping works to check if the texture resources are still set up correctly.*/
 
 
-    TextureData::bufferAndMemory createTextureImage(const char* path, VkFormat format, bool mips = true);
+    TextureData::temporaryTextureInfo createTextureImage(const char* path, VkFormat format, bool mips = true);
     void createImageKTX(const char* path, TextureType type, bool mips);
 };
