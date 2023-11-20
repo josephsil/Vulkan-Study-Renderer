@@ -6,7 +6,8 @@
 
 #include "AppStruct.h"
 #include "vulkan-forwards.h"
-
+using ktxTexture2 =  struct ktxTexture2;
+using  ktxVulkanTexture = struct ktxVulkanTexture;
 
 #pragma endregion
 //TODO JS: obviously improve 
@@ -43,7 +44,7 @@ public:
 
     
     TextureData(RendererHandles rendererHandles, const char* path, TextureType type);
-    void GetOrLoadTexture(const char* path, VkFormat format, TextureType textureType, bool use_mipmaps);
+    VkFormat GetOrLoadTexture(const char* path, VkFormat format, TextureType textureType, bool use_mipmaps);
 
     TextureData();
 
@@ -52,6 +53,7 @@ public:
 private:
     // 0 = VK_SAMPLER_ADDRESS_MODE_REPEAT;
     void createTextureSampler(VkSamplerAddressMode mode = (VkSamplerAddressMode)0, float bias = 0);
+
     void cacheKTXFromSTB(const char* path, const char* outpath, VkFormat format, TextureType textureType,
                          bool use_mipmaps);
 
@@ -69,5 +71,5 @@ private:
 
 
     TextureData::temporaryTextureInfo createTextureImage(const char* path, VkFormat format, bool mips = true);
-    void createImageKTX(const char* path, TextureType type, bool mips);
+    VkFormat createImageKTX(const char* path, TextureType type, bool mips);
 };

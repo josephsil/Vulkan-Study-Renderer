@@ -330,6 +330,9 @@ void TextureUtilities::transitionImageLayout(RendererHandles rendererHandles, Vk
         rendererHandles.commandPoolmanager->endSingleTimeCommands(workingBuffer);
 }
 
+//TODO JS: Replace with something like https://arm-software.github.io/vulkan-sdk/mipmapping.html
+//TODO JS: And return temp buffers so we can use then when writing KTX 
+
 void TextureUtilities::generateMipmaps(RendererHandles rendererHandles, VkImage image, VkFormat imageFormat,
                                        int32_t texWidth,
                                        int32_t texHeight, uint32_t mipLevels)
