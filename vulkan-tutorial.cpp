@@ -11,6 +11,7 @@
 #include <fstream>
 #include <iostream>
 
+#include "vmaImplementation.h" //TODO JS: Remove when we wrap functionaltiy in memory.h
 
 #include "CommandPoolManager.h"
 #include "meshData.h"
@@ -170,7 +171,7 @@ void SET_UP_SCENE(HelloTriangleApplication* app);
 //TODO JS: replace phys device, device, etc members with a rendererhandles instance?
 RendererHandles HelloTriangleApplication::getHandles()
 {
-    return RendererHandles(physicalDevice, device, &commandPoolmanager);
+    return RendererHandles(physicalDevice, device, &commandPoolmanager, allocator);
 }
 
 void HelloTriangleApplication::initVulkan()
@@ -191,6 +192,9 @@ void HelloTriangleApplication::initVulkan()
     SDL_Vulkan_GetDrawableSize(_window, &WIDTH, &HEIGHT);
 
     
+    
+
+    
     //Get physical device
     vkb_physicalDevice = GET_GPU(vkb_instance);
     physicalDevice = vkb_physicalDevice.physical_device;
@@ -199,6 +203,17 @@ void HelloTriangleApplication::initVulkan()
     vkb_device = GET_DEVICE(vkb_physicalDevice);
     device = vkb_device.device;
 
+    //TODO JS: Move to memory.h ?
+    VmaAllocatorCreateInfo vmacreateInfo = {};
+    vmacreateInfo.device = device;
+    vmacreateInfo.physicalDevice = physicalDevice;
+    vmacreateInfo.instance = instance;
+    vmacreateInfo.vulkanApiVersion = VK_API_VERSION_1_3; 
+
+    allocator = {};
+    vmaCreateAllocator(&vmacreateInfo, &allocator);
+    
+    
     //Get push descriptor stuff
     //The push descriptor update function is part of an extension so it has to be manually loaded
     vkCmdPushDescriptorSetKHR = (PFN_vkCmdPushDescriptorSetKHR)vkGetDeviceProcAddr(device, "vkCmdPushDescriptorSetKHR");
@@ -304,11 +319,11 @@ void HelloTriangleApplication::createUniformBuffers()
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
         BufferUtilities::createBuffer(getHandles(), bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                                      shaderGlobalsBuffer[i].data,
-                                      shaderGlobalsMemory[i]);
+        &shaderGlobalsMemory[i],
+                                      shaderGlobalsBuffer[i].data
+                                      );
 
-        vkMapMemory(device, shaderGlobalsMemory[i], 0, bufferSize, 0, &shaderGlobalsMapped[i]);
+        vmaMapMemory(allocator, shaderGlobalsMemory[i], &shaderGlobalsMapped[i]);
     }
 
 
@@ -325,11 +340,11 @@ void HelloTriangleApplication::createUniformBuffers()
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
         BufferUtilities::createBuffer(getHandles(), bufferSize1, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                                      uniformBuffers[i].data,
-                                      uniformBuffersMemory[i]);
+        &uniformBuffersMemory[i],
+                                      uniformBuffers[i].data
+                                      );
 
-        vkMapMemory(device, uniformBuffersMemory[i], 0, bufferSize1, 0, &uniformBuffersMapped[i]);
+        vmaMapMemory(allocator, uniformBuffersMemory[i], &uniformBuffersMapped[i]);
     }
 
     VkDeviceSize bufferSize2 = sizeof(gpuvertex) * scene->getVertexCount();
@@ -345,11 +360,11 @@ void HelloTriangleApplication::createUniformBuffers()
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
         BufferUtilities::createBuffer(getHandles(), bufferSize2, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                                      meshBuffers[i].data,
-                                      meshBuffersMemory[i]);
+        &meshBuffersMemory[i],
+                                      meshBuffers[i].data
+                                      );
 
-        vkMapMemory(device, meshBuffersMemory[i], 0, bufferSize2, 0, &meshBuffersMapped[i]);
+        vmaMapMemory(allocator, meshBuffersMemory[i], &meshBuffersMapped[i]);
     }
 
     VkDeviceSize bufferSize3 = sizeof(gpulight) * scene->lightposandradius.size();
@@ -365,11 +380,11 @@ void HelloTriangleApplication::createUniformBuffers()
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
         BufferUtilities::createBuffer(getHandles(), bufferSize3, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                                      lightBuffers[i].data,
-                                      lightBuffersMemory[i]);
+                                      &lightBuffersMemory[i],
+                                      lightBuffers[i].data
+                                    );
 
-        vkMapMemory(device, lightBuffersMemory[i], 0, bufferSize3, 0, &lightBuffersMapped[i]);
+        vmaMapMemory(allocator, lightBuffersMemory[i], &lightBuffersMapped[i]);
     }
 }
 
@@ -500,7 +515,7 @@ void HelloTriangleApplication::updateUniformBuffer(uint32_t currentImage, glm::m
 
 //TODO is this doing extra work?
 void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex,
-                                                   VkPipeline graphicsPipeline, MeshData* _mesh)
+                                                   VkPipeline graphicsPipeline)
 {
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -962,7 +977,7 @@ void HelloTriangleApplication::drawFrame(inputData input)
 
     //TODO: draw multiple objects
     recordCommandBuffer(commandBuffers[currentFrame], imageIndex,
-                        _selectedShader == 0 ? graphicsPipeline_1 : graphicsPipeline_2, scene->meshes[1]);
+                        _selectedShader == 0 ? graphicsPipeline_1 : graphicsPipeline_2);
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -1015,11 +1030,9 @@ void HelloTriangleApplication::cleanup()
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        vkDestroyBuffer(device, uniformBuffers[i].data, nullptr);
-        vkFreeMemory(device, uniformBuffersMemory[i], nullptr);
-
-        vkFreeMemory(device, meshBuffersMemory[i], nullptr);
-        vkFreeMemory(device, lightBuffersMemory[i], nullptr);
+        vmaDestroyBuffer(allocator, uniformBuffers[i].data, uniformBuffersMemory[i]);
+        vmaDestroyBuffer(allocator, meshBuffers[i].data, meshBuffersMemory[i]);
+        vmaDestroyBuffer(allocator, lightBuffers[i].data, lightBuffersMemory[i]);
     }
 
     // vkDestroyDescriptorPool(device, descriptorPool, nullptr);

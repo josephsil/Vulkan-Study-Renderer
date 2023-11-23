@@ -26,7 +26,7 @@ public:
     struct temporaryTextureInfo
     {
         VkBuffer buffer;
-        VkDeviceMemory bufferMemory;
+        VmaAllocation alloc;
         int width;
         int height;
     };

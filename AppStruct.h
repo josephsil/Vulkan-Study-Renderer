@@ -7,5 +7,6 @@ struct RendererHandles
 {
     VkPhysicalDevice physicalDevice;
     VkDevice device; //Logical device
-    CommandPoolManager* commandPoolmanager; 
+    CommandPoolManager* commandPoolmanager;
+    VmaAllocator allocator;
 };

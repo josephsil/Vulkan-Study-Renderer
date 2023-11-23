@@ -8,6 +8,7 @@
 #include "TextureData.h"
 #include "Vulkan_Includes.h"
 #include "SceneObjectData.h"
+#include "vmaImplementation.h"
 
 
 void DestroyBuffer(VkDevice device, VkBuffer buffer)
@@ -495,33 +496,29 @@ void BufferUtilities::stageMeshDataBuffer(RendererHandles rendererHandles, VkDev
                                    VkDeviceMemory& bufferMemory, void* vertices, VkBufferUsageFlags dataTypeFlag)
 {
     VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
+
+    VmaAllocation allocation = {};
     
     BufferUtilities::createBuffer(rendererHandles, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                                  stagingBuffer, stagingBufferMemory);
+                                  &allocation, stagingBuffer);
 
     //Bind to memory buffer
     // TODO JS - Use amd memory allocator
     void* data;
-    MapMemory(rendererHandles.device, stagingBufferMemory, bufferSize, &data);
+    vmaMapMemory(rendererHandles.allocator, allocation,&data);
     memcpy(data, vertices, bufferSize);
-    UnmapMemory(rendererHandles.device, stagingBufferMemory);
+    vmaUnmapMemory(rendererHandles.allocator, allocation);
+
 
     BufferUtilities::createBuffer(rendererHandles, bufferSize,
-                                  VK_BUFFER_USAGE_TRANSFER_DST_BIT | dataTypeFlag,
-
-
-                                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, buffer, bufferMemory);
+                                  VK_BUFFER_USAGE_TRANSFER_DST_BIT | dataTypeFlag, &allocation, buffer);
 
     BufferUtilities::copyBuffer(rendererHandles, stagingBuffer, buffer, bufferSize);
 
-    DestroyBuffer(rendererHandles.device, stagingBuffer);
-    FreeMemory(rendererHandles.device, stagingBufferMemory);
+    vmaDestroyBuffer(rendererHandles.allocator, stagingBuffer, allocation);
 }
 void BufferUtilities::createBuffer(RendererHandles rendererHandles, VkDeviceSize size, VkBufferUsageFlags usage,
-                                   VkMemoryPropertyFlags properties, VkBuffer& buffer,
-                                   VkDeviceMemory& bufferMemory)
+                                   VmaAllocation* allocation, VkBuffer& buffer)
 {
     VkBufferCreateInfo bufferInfo{};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -529,25 +526,11 @@ void BufferUtilities::createBuffer(RendererHandles rendererHandles, VkDeviceSize
     bufferInfo.usage = usage;
     bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    if (vkCreateBuffer(rendererHandles.device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS)
-    {
-        throw std::runtime_error("failed to create buffer!");
-    }
+    VmaAllocator allocator = rendererHandles.allocator;
+    VmaAllocationCreateInfo allocInfo = {};
+    allocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU; //TODO JS: Pass in usage?
 
-    VkMemoryRequirements memRequirements;
-    vkGetBufferMemoryRequirements(rendererHandles.device, buffer, &memRequirements);
-
-    VkMemoryAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocInfo.allocationSize = memRequirements.size;
-    allocInfo.memoryTypeIndex = Capabilities::findMemoryType(rendererHandles, memRequirements.memoryTypeBits, properties);
-
-    if (vkAllocateMemory(rendererHandles.device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS)
-    {
-        throw std::runtime_error("failed to allocate buffer memory!");
-    }
-
-    vkBindBufferMemory(rendererHandles.device, buffer, bufferMemory, 0);
+    vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, allocation, nullptr);
 }
 
 void BufferUtilities::copyBuffer(RendererHandles rendererHandles, VkBuffer srcBuffer, VkBuffer dstBuffer,

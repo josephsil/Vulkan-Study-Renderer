@@ -1,5 +1,7 @@
 #pragma once
 #include <vector>
+#include <vk_mem_alloc.h>
+
 #include "vulkan-forwards.h"
 #include "common-structs.h"
 struct Vertex;
@@ -113,7 +115,6 @@ namespace BufferUtilities
 
     void copyBuffer(RendererHandles rendererHandles, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
     void createBuffer(RendererHandles rendererHandles, VkDeviceSize size, VkBufferUsageFlags usage,
-                      VkMemoryPropertyFlags properties, VkBuffer& buffer,
-                      VkDeviceMemory& bufferMemory);
+                      VmaAllocation* allocation, VkBuffer& buffer);
 }
     

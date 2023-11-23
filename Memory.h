@@ -1,6 +1,6 @@
 #pragma once
 
-struct MemoryArena
+struct memory
 {
     
 };

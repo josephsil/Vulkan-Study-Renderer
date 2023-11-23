@@ -8,7 +8,10 @@ struct VkPipelineShaderStageCreateInfo;
 
 using VkCommandPool = struct VkCommandPool_T*;
 using VkCommandBuffer = struct VkCommandBuffer_T*;
+using VkInstance = struct VkInstance_T*;
 
+using VmaAllocator = struct VmaAllocator_T*;
+using VmaAllocation = struct VmaAllocation_T*;
 
 struct VkPipelineShaderStageCreateInfo;
 using VkPhysicalDevice = struct VkPhysicalDevice_T*;

@@ -5,7 +5,7 @@
 #include "Vulkan_Includes.h"
 
 #define KHRONOS_STATIC
-//TODO: for cubemap loadingc
+//	TODO: for cubemap loadingc
 #include <cassert>
 #include <iostream>
 #include <ktxvulkan.h>
@@ -257,13 +257,13 @@ uint32_t getFormatSize(VkFormat f)
 }
 
 
-void readImageData(RendererHandles rendererInfo, VkDeviceMemory memory, VkBuffer _buffer, void* data, size_t bytes,	size_t offset)
+void readImageData(RendererHandles rendererInfo, VmaAllocation alloc, VkBuffer _buffer, void* data, size_t bytes,	size_t offset)
 {
 	void* tempData;
-	vkMapMemory(rendererInfo.device, memory, offset, bytes,0, &tempData);
+	vmaMapMemory(rendererInfo.allocator, alloc, &tempData);
 
 	memcpy(data, tempData, bytes);
-	vkUnmapMemory(rendererInfo.device, memory);
+	vmaUnmapMemory(rendererInfo.allocator, alloc);
 }
 
 std::basic_string<char> replaceExt(const char* target, const char* extension)
@@ -393,7 +393,7 @@ void TextureData::cacheKTXFromSTB(const char* path, const char* outpath, VkForma
 
     const size_t imageByteSize = (size_t) staging.width * (size_t)staging.height * (size_t)getFormatSize(format);
     _imageData.resize(imageByteSize);
-	readImageData(this->rendererHandles, staging.bufferMemory, staging.buffer,_imageData.data(),imageByteSize, 0);
+	readImageData(this->rendererHandles, staging.alloc, staging.buffer,_imageData.data(),imageByteSize, 0);
 
 	ktxTexture2_Create(&createInfo, KTX_TEXTURE_CREATE_ALLOC_STORAGE, &texture);
     
@@ -404,12 +404,10 @@ void TextureData::cacheKTXFromSTB(const char* path, const char* outpath, VkForma
     int layer = j;
     int faceSlice = k;
 
-	ktxTexture_()
 	//TODO JS: For mipmaps, I need to get buffers pointing to each mip and set w miplevel
     KTX_error_code r = ktxTexture_SetImageFromMemory(ktxTexture(texture),mipLevel, layer,faceSlice,_imageData.data(),_imageData.size());
 
-	vkDestroyBuffer(rendererHandles.device, staging.buffer, nullptr);
-	vkFreeMemory(rendererHandles.device,  staging.bufferMemory, nullptr);
+	vmaDestroyBuffer(rendererHandles.allocator, staging.buffer, staging.alloc);
 
 	//TODO JS: Can't generate mipmaps with uploadex() when using compressed formats
 	//TODO JS: Need to generate mipmaps myself and save them to ktx 
@@ -443,16 +441,17 @@ TextureData::temporaryTextureInfo TextureData::createTextureImage(const char* pa
 
 
     VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
+
+	VmaAllocation alloc = {};
 
     BufferUtilities::createBuffer(rendererHandles, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                                  stagingBuffer, stagingBufferMemory);
+                                  &alloc,
+                                  stagingBuffer);
 
     void* data;
-    vkMapMemory(rendererHandles.device, stagingBufferMemory, 0, imageSize, 0, &data);
+    vmaMapMemory(rendererHandles.allocator,alloc, &data);
     memcpy(data, pixels, imageSize);
-    vkUnmapMemory(rendererHandles.device, stagingBufferMemory);
+    vmaUnmapMemory(rendererHandles.allocator,alloc);
 
     stbi_image_free(pixels);
 
@@ -470,7 +469,7 @@ TextureData::temporaryTextureInfo TextureData::createTextureImage(const char* pa
                                         static_cast<uint32_t>(texHeight), workingTextureBuffer.buffer);
     //JS: Prepare image to read in shaders
     rendererHandles.commandPoolmanager->endSingleTimeCommands(workingTextureBuffer);
-    return temporaryTextureInfo(stagingBuffer, stagingBufferMemory, texWidth, texHeight);
+    return temporaryTextureInfo(stagingBuffer, alloc, texWidth, texHeight);
 
 }
 

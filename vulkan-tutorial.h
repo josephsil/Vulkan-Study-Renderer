@@ -18,6 +18,7 @@ struct MeshData; //Forward Declaration
 struct Vertex; //Forward Declaration
 struct ShaderLoader;
 struct TextureData;
+using VmaAllocator = struct VmaAllocator_T*;
 class Scene;
 //Include last
 
@@ -46,6 +47,8 @@ public:
 
 
     CommandPoolManager commandPoolmanager;
+
+    VmaAllocator allocator;
 
 
     struct inputData
@@ -185,19 +188,19 @@ private:
 
 
     std::vector<dataBuffer> shaderGlobalsBuffer;
-    std::vector<VkDeviceMemory> shaderGlobalsMemory;
+    std::vector<VmaAllocation> shaderGlobalsMemory;
     std::vector<void*> shaderGlobalsMapped;
     //TODO JS: Move the uniform buffer data and fns and ? This belongs to like, a "material" 
     std::vector<dataBuffer> uniformBuffers;
-    std::vector<VkDeviceMemory> uniformBuffersMemory;
+    std::vector<VmaAllocation> uniformBuffersMemory;
     std::vector<void*> uniformBuffersMapped;
 
     std::vector<dataBuffer> meshBuffers;
-    std::vector<VkDeviceMemory> meshBuffersMemory;
+    std::vector<VmaAllocation> meshBuffersMemory;
     std::vector<void*> meshBuffersMapped;
 
     std::vector<dataBuffer> lightBuffers;
-    std::vector<VkDeviceMemory> lightBuffersMemory;
+    std::vector<VmaAllocation> lightBuffersMemory;
     std::vector<void*> lightBuffersMapped;
 
 
@@ -247,8 +250,7 @@ because we won't come close to hitting any of these limits for now.*/
      * into a single VkBuffer and use offsets in commands like vkCmdBindVertexBuffers.*/
 
 
-    void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex, VkPipeline graphicsPipeline,
-                             MeshData* mesh);
+    void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex, VkPipeline graphicsPipeline);
 
     void createGraphicsCommandPool();
 
