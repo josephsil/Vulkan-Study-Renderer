@@ -12,6 +12,7 @@ using VkInstance = struct VkInstance_T*;
 
 using VmaAllocator = struct VmaAllocator_T*;
 using VmaAllocation = struct VmaAllocation_T*;
+struct VmaAllocationInfo;
 
 struct VkPipelineShaderStageCreateInfo;
 using VkPhysicalDevice = struct VkPhysicalDevice_T*;

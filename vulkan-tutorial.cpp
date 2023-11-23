@@ -33,7 +33,7 @@ vkb::Instance GET_INSTANCE()
 {
     vkb::InstanceBuilder instance_builder;
     auto instanceBuilderResult = instance_builder
-                                 .request_validation_layers()
+                                 // .request_validation_layers()
                                  .use_default_debug_messenger()
                                  .require_api_version(1, 3, 0)
                                  .build();
@@ -304,6 +304,7 @@ void HelloTriangleApplication::populateMeshBuffers()
 #pragma region descriptor sets
 
 //TODO JS: Move?
+//TODO JS: https://gpuopen-librariesandsdks.github.io/VulkanMemoryAllocator/html/usage_patterns.html advanced
 void HelloTriangleApplication::createUniformBuffers()
 {
     VkDeviceSize bufferSize = sizeof(ShaderGlobals);
@@ -318,12 +319,11 @@ void HelloTriangleApplication::createUniformBuffers()
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        BufferUtilities::createBuffer(getHandles(), bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-        &shaderGlobalsMemory[i],
-                                      shaderGlobalsBuffer[i].data
-                                      );
+       shaderGlobalsMapped[i] = BufferUtilities::createDynamicBuffer(getHandles(), bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                                             &shaderGlobalsMemory[i],
+                                             shaderGlobalsBuffer[i].data
+        );
 
-        vmaMapMemory(allocator, shaderGlobalsMemory[i], &shaderGlobalsMapped[i]);
     }
 
 
@@ -339,12 +339,12 @@ void HelloTriangleApplication::createUniformBuffers()
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        BufferUtilities::createBuffer(getHandles(), bufferSize1, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-        &uniformBuffersMemory[i],
-                                      uniformBuffers[i].data
-                                      );
+        uniformBuffersMapped[i] = BufferUtilities::createDynamicBuffer(getHandles(), bufferSize1, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+      
+                                             &uniformBuffersMemory[i],
+                                             uniformBuffers[i].data
+        );
 
-        vmaMapMemory(allocator, uniformBuffersMemory[i], &uniformBuffersMapped[i]);
     }
 
     VkDeviceSize bufferSize2 = sizeof(gpuvertex) * scene->getVertexCount();
@@ -359,12 +359,13 @@ void HelloTriangleApplication::createUniformBuffers()
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        BufferUtilities::createBuffer(getHandles(), bufferSize2, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-        &meshBuffersMemory[i],
-                                      meshBuffers[i].data
-                                      );
+       meshBuffersMapped[i] = BufferUtilities::createDynamicBuffer(getHandles(), bufferSize2, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+      
+                                             &meshBuffersMemory[i],
+                                             meshBuffers[i].data
+        );
 
-        vmaMapMemory(allocator, meshBuffersMemory[i], &meshBuffersMapped[i]);
+       
     }
 
     VkDeviceSize bufferSize3 = sizeof(gpulight) * scene->lightposandradius.size();
@@ -379,12 +380,12 @@ void HelloTriangleApplication::createUniformBuffers()
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        BufferUtilities::createBuffer(getHandles(), bufferSize3, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                                      &lightBuffersMemory[i],
-                                      lightBuffers[i].data
-                                    );
+        lightBuffersMapped[i] = BufferUtilities::createDynamicBuffer(getHandles(), bufferSize3, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
 
-        vmaMapMemory(allocator, lightBuffersMemory[i], &lightBuffersMapped[i]);
+                                             &lightBuffersMemory[i],
+                                             lightBuffers[i].data
+        );
+
     }
 }
 

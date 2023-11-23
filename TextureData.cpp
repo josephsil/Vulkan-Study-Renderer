@@ -12,6 +12,7 @@
 
 #include "CommandPoolManager.h"
 #include "FileCaching.h"
+#include "vmaImplementation.h"
 
 
 int TEXTURE_INDEX;
@@ -287,13 +288,15 @@ std::basic_string<char> replaceExt(const char* target, const char* extension)
 	
 }
 
+const uint32_t cubeMips = 6.0;
+
 
 VkFormat TextureData::GetOrLoadTexture(const char* path, VkFormat format, TextureType textureType, bool use_mipmaps)
 {
 	//TODO JS: Figure out cubes later -- when we add compression we should cache cubes too
 	if (textureType == CUBE)
 	{
-		maxmip = 6.0;
+		maxmip = cubeMips;
 		createImageKTX(path, textureType, true);
 		return format; 
 }
@@ -445,8 +448,8 @@ TextureData::temporaryTextureInfo TextureData::createTextureImage(const char* pa
 	VmaAllocation alloc = {};
 
     BufferUtilities::createBuffer(rendererHandles, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                                  &alloc,
-                                  stagingBuffer);
+    VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, &alloc,
+                                  stagingBuffer, nullptr);
 
     void* data;
     vmaMapMemory(rendererHandles.allocator,alloc, &data);
@@ -515,7 +518,7 @@ VkFormat TextureData::createImageKTX(const char* path, TextureType type, bool mi
 	vkimageinfo.imageType = kTexture->isCubemap ? VK_IMAGE_TYPE_3D : VK_IMAGE_TYPE_2D;
 	vkimageinfo.format = (VkFormat)kTexture->vkFormat;
 	vkimageinfo.extent = {kTexture->baseWidth, kTexture->baseHeight, kTexture->baseDepth};
-	vkimageinfo.mipLevels = mipCount;
+	vkimageinfo.mipLevels = kTexture->isCubemap ? cubeMips : mipCount;
 	vkimageinfo.arrayLayers = kTexture->numLayers;
 	vkimageinfo.tiling = VK_IMAGE_TILING_OPTIMAL;
 	vkimageinfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT;

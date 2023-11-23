@@ -1,6 +1,6 @@
 #pragma once
 #include <vector>
-#include <vk_mem_alloc.h>
+
 
 #include "vulkan-forwards.h"
 #include "common-structs.h"
@@ -100,7 +100,7 @@ namespace TextureUtilities
 }
 
 
-//TODO JS: may be better to bundle stuff like createUniformBuffers, and the buffers themselves, along with these fns ala commandpoolmanager
+
 namespace BufferUtilities
 {
     void stageVertexBuffer(RendererHandles rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
@@ -114,7 +114,9 @@ namespace BufferUtilities
                                    VkDeviceMemory& bufferMemory, void* vertices, VkBufferUsageFlags dataTypeFlag);
 
     void copyBuffer(RendererHandles rendererHandles, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
-    void createBuffer(RendererHandles rendererHandles, VkDeviceSize size, VkBufferUsageFlags usage,
-                      VmaAllocation* allocation, VkBuffer& buffer);
+    void* createDynamicBuffer(RendererHandles rendererHandles, VkDeviceSize size, VkBufferUsageFlags usage,
+                              VmaAllocation* allocation, VkBuffer& buffer);
+    void createBuffer(RendererHandles rendererHandles, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags flags,
+                      VmaAllocation* allocation, VkBuffer& buffer, VmaAllocationInfo* allocInfo);
 }
     

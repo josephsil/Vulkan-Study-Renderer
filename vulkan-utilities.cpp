@@ -1,3 +1,4 @@
+#include "vmaImplementation.h"
 #include "vulkan-utilities.h"
 
 #include <array>
@@ -8,7 +9,6 @@
 #include "TextureData.h"
 #include "Vulkan_Includes.h"
 #include "SceneObjectData.h"
-#include "vmaImplementation.h"
 
 
 void DestroyBuffer(VkDevice device, VkBuffer buffer)
@@ -204,7 +204,7 @@ VkImageView TextureUtilities::createImageView(VkDevice device, VkImage image, Vk
     viewInfo.format = format;
     viewInfo.subresourceRange.aspectMask = aspectFlags;
     viewInfo.subresourceRange.baseMipLevel = 0; //TODO JS: pass in something more robust?
-    viewInfo.subresourceRange.levelCount = miplevels;
+    viewInfo.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
     viewInfo.subresourceRange.baseArrayLayer = 0; //TODO JS: pass in something more robust?
     viewInfo.subresourceRange.layerCount = layerCount;
 
@@ -483,9 +483,9 @@ void BufferUtilities::stageMeshDataBuffer(RendererHandles rendererHandles, VkDev
     VkBuffer stagingBuffer;
 
     VmaAllocation allocation = {};
-    
-    BufferUtilities::createBuffer(rendererHandles, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                                  &allocation, stagingBuffer);
+  
+    BufferUtilities::createBuffer(rendererHandles, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
+                                  &allocation, stagingBuffer, nullptr);
 
     //Bind to memory buffer
     // TODO JS - Use amd memory allocator
@@ -496,14 +496,38 @@ void BufferUtilities::stageMeshDataBuffer(RendererHandles rendererHandles, VkDev
 
 
     BufferUtilities::createBuffer(rendererHandles, bufferSize,
-                                  VK_BUFFER_USAGE_TRANSFER_DST_BIT | dataTypeFlag, &allocation, buffer);
+                                  VK_BUFFER_USAGE_TRANSFER_DST_BIT | dataTypeFlag, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT, &allocation, buffer, nullptr);
 
     BufferUtilities::copyBuffer(rendererHandles, stagingBuffer, buffer, bufferSize);
 
     vmaDestroyBuffer(rendererHandles.allocator, stagingBuffer, allocation);
 }
-void BufferUtilities::createBuffer(RendererHandles rendererHandles, VkDeviceSize size, VkBufferUsageFlags usage,
-                                   VmaAllocation* allocation, VkBuffer& buffer)
+
+void* BufferUtilities::createDynamicBuffer(RendererHandles rendererHandles, VkDeviceSize size, VkBufferUsageFlags usage,
+                                           VmaAllocation* allocation, VkBuffer& buffer)
+{
+    VmaAllocationInfo allocInfo;
+    createBuffer(rendererHandles, size, usage,  VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
+   VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT |
+   VMA_ALLOCATION_CREATE_MAPPED_BIT,
+                                  allocation,  buffer, &allocInfo);
+
+    
+    VkMemoryPropertyFlags memPropFlags;
+    vmaGetAllocationMemoryProperties(rendererHandles.allocator, *allocation, &memPropFlags);
+ 
+    if(memPropFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
+    {
+       return allocInfo.pMappedData;
+    }
+    else
+    {
+        printf("NOT IMPLEMENTED: Allocation ended up in unmapped memory, see https://gpuopen-librariesandsdks.github.io/VulkanMemoryAllocator/html/usage_patterns.html advanced data uploading");
+        exit(-1);
+    }
+}
+void BufferUtilities::createBuffer(RendererHandles rendererHandles, VkDeviceSize size, VkBufferUsageFlags usage, VmaAllocationCreateFlags  flags,
+                                   VmaAllocation* allocation, VkBuffer& buffer, VmaAllocationInfo* outAllocInfo)
 {
 
     //TODO JS: Properties flags to vma -- check git history and see if i crushed and flags 
@@ -515,9 +539,10 @@ void BufferUtilities::createBuffer(RendererHandles rendererHandles, VkDeviceSize
 
     VmaAllocator allocator = rendererHandles.allocator;
     VmaAllocationCreateInfo allocInfo = {};
-    allocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU; //TODO JS: Pass in Properties flags?
+    allocInfo.usage = VMA_MEMORY_USAGE_AUTO; //TODO JS: Pass in Properties flags?
+    allocInfo.flags = flags;
 
-    vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, allocation, nullptr);
+    vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, allocation, outAllocInfo);
 }
 
 void BufferUtilities::copyBuffer(RendererHandles rendererHandles, VkBuffer srcBuffer, VkBuffer dstBuffer,
