@@ -8,7 +8,6 @@
 #include <vector>
 #include <unordered_map>
 #include "AppStruct.h"
-#include "vmaImplementation.h"
 #include "vulkan-utilities.h"
 
 
@@ -457,9 +456,9 @@ MeshData::MeshData(RendererHandles app, const char* path)
 
 void MeshData::cleanup()
 {
-    vmaDestroyBuffer(rendererHandles.allocator, vertBuffer, vertMemory);
+    BufferUtilities::DestroyBuffer(rendererHandles.allocator, vertBuffer, vertMemory);
 
-    vmaDestroyBuffer(rendererHandles.allocator, indexBuffer, indexMemory);
+    BufferUtilities::DestroyBuffer(rendererHandles.allocator, indexBuffer, indexMemory);
 }
 
 VkBuffer MeshData::meshDataCreateVertexBuffer()

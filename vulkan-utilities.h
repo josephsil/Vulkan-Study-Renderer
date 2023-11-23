@@ -103,6 +103,15 @@ namespace TextureUtilities
 
 namespace BufferUtilities
 {
+    void CreateImage(VmaAllocator allocator,
+                     VkImageCreateInfo* pImageCreateInfo,
+                     VkImage* pImage,
+                     VmaAllocation* pAllocation, VkDeviceMemory* deviceMemory);
+    void DestroyBuffer(VmaAllocator allocator, VkBuffer buffer, VmaAllocation allocation);
+    void DestroyImage(VmaAllocator allocator, VkImage image, VmaAllocation allocation);
+    void MapMemory(VmaAllocator allocator,  VmaAllocation allocation, void** data);
+    void UnmapMemory(VmaAllocator allocator,  VmaAllocation allocation);
+    
     void stageVertexBuffer(RendererHandles rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
                            VmaAllocation& allocation, Vertex* data);
 
@@ -116,7 +125,8 @@ namespace BufferUtilities
     void copyBuffer(RendererHandles rendererHandles, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
     void* createDynamicBuffer(RendererHandles rendererHandles, VkDeviceSize size, VkBufferUsageFlags usage,
                               VmaAllocation* allocation, VkBuffer& buffer);
-    void createBuffer(RendererHandles rendererHandles, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags flags,
-                      VmaAllocation* allocation, VkBuffer& buffer, VmaAllocationInfo* allocInfo);
+    void createStagingBuffer(RendererHandles rendererHandles, VkDeviceSize size,
+                                   VmaAllocation* allocation, VkBuffer& stagingBuffer);
+   
 }
     

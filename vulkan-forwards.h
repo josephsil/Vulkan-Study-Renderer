@@ -5,7 +5,7 @@ struct VkVertexInputAttributeDescription;
 
 struct VkPipelineShaderStageCreateInfo;
 struct VkPipelineShaderStageCreateInfo;
-
+struct VkImageCreateInfo;
 using VkCommandPool = struct VkCommandPool_T*;
 using VkCommandBuffer = struct VkCommandBuffer_T*;
 using VkInstance = struct VkInstance_T*;

@@ -10,25 +10,9 @@
 #include "Vulkan_Includes.h"
 #include "SceneObjectData.h"
 
+void createBuffer(RendererHandles rendererHandles, VkDeviceSize size, VkBufferUsageFlags usage, VmaAllocationCreateFlags  flags,
+                                   VmaAllocation* allocation, VkBuffer& buffer, VmaAllocationInfo* outAllocInfo);
 
-void DestroyBuffer(VkDevice device, VkBuffer buffer)
-{
-vkDestroyBuffer(device, buffer, nullptr);
-}
-void FreeMemory(VkDevice device, VkDeviceMemory memory)
-{
-    vkFreeMemory(device, memory, nullptr);
-}
-
-void MapMemory(VkDevice device, VkDeviceMemory memory, VkDeviceSize size, void** data)
-{
-    vkMapMemory(device, memory, 0, size, 0, data);
-}
-
-void UnmapMemory(VkDevice device, VkDeviceMemory memory)
-{
-    vkUnmapMemory(device, memory);
-}
 
 //TODO JS: Connect the two kinds of builders, so we like "fill slots" in the result of this one, and validate type/size?
 struct bindingBuilder
@@ -484,22 +468,21 @@ void BufferUtilities::stageMeshDataBuffer(RendererHandles rendererHandles, VkDev
 
     VmaAllocation stagingallocation = {};
   
-    BufferUtilities::createBuffer(rendererHandles, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
+    createBuffer(rendererHandles, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
                                   &stagingallocation, stagingBuffer, nullptr);
 
-    //Bind to memory buffer
-    // TODO JS - Use amd memory allocator
+
     void* data;
-    vmaMapMemory(rendererHandles.allocator, stagingallocation,&data);
+    BufferUtilities::MapMemory(rendererHandles.allocator, stagingallocation,&data);
     memcpy(data, vertices, bufferSize);
-    vmaUnmapMemory(rendererHandles.allocator, stagingallocation);
+    BufferUtilities::UnmapMemory(rendererHandles.allocator, stagingallocation);
     
 
 
-    BufferUtilities::createBuffer(rendererHandles, bufferSize,
+    createBuffer(rendererHandles, bufferSize,
                                   VK_BUFFER_USAGE_TRANSFER_DST_BIT | dataTypeFlag, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT, &allocation, buffer, nullptr);
 
-    BufferUtilities::copyBuffer(rendererHandles, stagingBuffer, buffer, bufferSize);
+    copyBuffer(rendererHandles, stagingBuffer, buffer, bufferSize);
 
     vmaDestroyBuffer(rendererHandles.allocator, stagingBuffer, stagingallocation);
 }
@@ -527,7 +510,50 @@ void* BufferUtilities::createDynamicBuffer(RendererHandles rendererHandles, VkDe
         exit(-1);
     }
 }
-void BufferUtilities::createBuffer(RendererHandles rendererHandles, VkDeviceSize size, VkBufferUsageFlags usage, VmaAllocationCreateFlags  flags,
+void BufferUtilities::createStagingBuffer(RendererHandles rendererHandles, VkDeviceSize size,
+                                   VmaAllocation* allocation, VkBuffer& stagingBuffer)
+{
+    createBuffer(rendererHandles, size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+   VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, allocation,
+                                 stagingBuffer, nullptr);
+    
+}
+
+void BufferUtilities::CreateImage( VmaAllocator allocator,
+    VkImageCreateInfo* pImageCreateInfo,
+    VkImage* pImage,
+    VmaAllocation* pAllocation,
+    VkDeviceMemory* deviceMemory)
+{
+    
+    VmaAllocationCreateInfo allocInfo = {};
+    VmaAllocationInfo AllocationInfo;
+    allocInfo.usage = VMA_MEMORY_USAGE_AUTO; //TODO JS: Pass in usage flags?
+    
+    vmaCreateImage(allocator, pImageCreateInfo, &allocInfo, pImage, pAllocation, &AllocationInfo);
+    deviceMemory = &AllocationInfo.deviceMemory;
+}
+
+void BufferUtilities::DestroyBuffer(VmaAllocator allocator, VkBuffer buffer, VmaAllocation allocation)
+{
+    vmaDestroyBuffer(allocator, buffer, allocation);
+}
+void BufferUtilities::DestroyImage(VmaAllocator allocator, VkImage image, VmaAllocation allocation)
+{
+    vmaDestroyImage(allocator, image, allocation);
+}
+
+void BufferUtilities::MapMemory(VmaAllocator allocator,  VmaAllocation allocation, void** data)
+{
+    vmaMapMemory(allocator,allocation, data);
+}
+
+void BufferUtilities::UnmapMemory(VmaAllocator allocator,  VmaAllocation allocation)
+{
+    vmaUnmapMemory(allocator, allocation);
+}
+
+void createBuffer(RendererHandles rendererHandles, VkDeviceSize size, VkBufferUsageFlags usage, VmaAllocationCreateFlags  flags,
                                    VmaAllocation* allocation, VkBuffer& buffer, VmaAllocationInfo* outAllocInfo)
 {
 

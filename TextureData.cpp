@@ -5,14 +5,13 @@
 #include "Vulkan_Includes.h"
 
 #define KHRONOS_STATIC
-//	TODO: for cubemap loadingc
+
 #include <cassert>
 #include <iostream>
 #include <ktxvulkan.h>
 
 #include "CommandPoolManager.h"
 #include "FileCaching.h"
-#include "vmaImplementation.h"
 
 
 int TEXTURE_INDEX;
@@ -261,10 +260,10 @@ uint32_t getFormatSize(VkFormat f)
 void readImageData(RendererHandles rendererInfo, VmaAllocation alloc, VkBuffer _buffer, void* data, size_t bytes,	size_t offset)
 {
 	void* tempData;
-	vmaMapMemory(rendererInfo.allocator, alloc, &tempData);
+	 BufferUtilities::MapMemory(rendererInfo.allocator, alloc, &tempData);
 
 	memcpy(data, tempData, bytes);
-	vmaUnmapMemory(rendererInfo.allocator, alloc);
+	 BufferUtilities::UnmapMemory(rendererInfo.allocator, alloc);
 }
 
 std::basic_string<char> replaceExt(const char* target, const char* extension)
@@ -329,7 +328,7 @@ void TextureData::cleanup()
 {
     vkDestroySampler(rendererHandles.device, textureSampler, nullptr);
     vkDestroyImageView(rendererHandles.device, textureImageView, nullptr);
-	vmaDestroyImage(rendererHandles.allocator, textureImage, textureImageMemory);
+	 BufferUtilities::DestroyImage(rendererHandles.allocator, textureImage, textureImageMemory);
 }
 
 void TextureData::createTextureSampler(VkSamplerAddressMode mode, float bias)
@@ -410,7 +409,7 @@ void TextureData::cacheKTXFromSTB(const char* path, const char* outpath, VkForma
 	//TODO JS: For mipmaps, I need to get buffers pointing to each mip and set w miplevel
     KTX_error_code r = ktxTexture_SetImageFromMemory(ktxTexture(texture),mipLevel, layer,faceSlice,_imageData.data(),_imageData.size());
 
-	vmaDestroyBuffer(rendererHandles.allocator, staging.buffer, staging.alloc);
+	 BufferUtilities::DestroyBuffer(rendererHandles.allocator, staging.buffer, staging.alloc);
 
 	//TODO JS: Can't generate mipmaps with uploadex() when using compressed formats
 	//TODO JS: Need to generate mipmaps myself and save them to ktx 
@@ -447,14 +446,14 @@ TextureData::temporaryTextureInfo TextureData::createTextureImage(const char* pa
 
 	VmaAllocation alloc = {};
 
-    BufferUtilities::createBuffer(rendererHandles, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-    VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, &alloc,
-                                  stagingBuffer, nullptr);
+    BufferUtilities::createStagingBuffer(rendererHandles, imageSize,
+                                         &alloc,
+                                         stagingBuffer);
 
     void* data;
-    vmaMapMemory(rendererHandles.allocator,alloc, &data);
+     BufferUtilities::MapMemory(rendererHandles.allocator,alloc, &data);
     memcpy(data, pixels, imageSize);
-    vmaUnmapMemory(rendererHandles.allocator,alloc);
+     BufferUtilities::UnmapMemory(rendererHandles.allocator,alloc);
 
     stbi_image_free(pixels);
 
@@ -507,8 +506,7 @@ VkFormat TextureData::createImageKTX(const char* path, TextureType type, bool mi
 		ktxTexture2_TranscodeBasis(kTexture, KTX_TTF_BC3_RGBA, 0);
 		kTexture->generateMipmaps = false;
 	}
-	//TODO JS: allocator memory for image
-	VmaAllocationInfo info;
+	
 	uint32_t fullMipPyramid = static_cast<uint32_t>(std::floor(std::log2(std::max(kTexture->baseWidth, kTexture->baseHeight)))) + 1;
 	uint32_t mipCount = kTexture->generateMipmaps ? fullMipPyramid : kTexture->numLevels;
 	VkImage image;
@@ -524,15 +522,9 @@ VkFormat TextureData::createImageKTX(const char* path, TextureType type, bool mi
 	vkimageinfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT;
 	vkimageinfo.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
 	vkimageinfo.samples = VK_SAMPLE_COUNT_1_BIT;
-
-	VmaAllocationCreateInfo allocInfo = {};
-	allocInfo.usage = VMA_MEMORY_USAGE_AUTO; //TODO JS: Pass in usage flags?
-
-    vmaCreateImage(rendererHandles.allocator, &vkimageinfo, &allocInfo,&image,&textureImageMemory,&info);
-
-	texture.deviceMemory = info.deviceMemory;
-	texture.image = image;
-
+	
+    BufferUtilities::CreateImage(rendererHandles.allocator, &vkimageinfo, &texture.image, &textureImageMemory, &texture.deviceMemory);
+	
 	outputFormat = (VkFormat)kTexture->vkFormat;
 	ktxresult = ktxTexture2_VkUploadEx(kTexture, &vdi, &texture,
 									  VK_IMAGE_TILING_OPTIMAL,
