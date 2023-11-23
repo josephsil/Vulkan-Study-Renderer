@@ -8,6 +8,7 @@
 #include <vector>
 #include <unordered_map>
 #include "AppStruct.h"
+#include "vmaImplementation.h"
 #include "vulkan-utilities.h"
 
 
@@ -151,11 +152,11 @@ int MESHID = 0;
 MeshData::MeshData(RendererHandles rendererHandles, std::vector<Vertex> vertices,
                    std::vector<uint32_t> indices)
 {
-    device = rendererHandles.device;
+    this->rendererHandles = rendererHandles;
     this->vertices = vertices;
     this->indices = indices;
-    vertBuffer = this->meshDataCreateVertexBuffer(rendererHandles);
-    indexBuffer = this->meshDataCreateIndexBuffer(rendererHandles);
+    vertBuffer = this->meshDataCreateVertexBuffer();
+    indexBuffer = this->meshDataCreateIndexBuffer();
     this->vertcount = indices.size();
     this->id = MESHID++;
 }
@@ -164,7 +165,7 @@ MeshData::MeshData(RendererHandles app, const char* path)
 {
     const char* ext = strrchr(path, '.');
     bool tangentsLoaded = false;
-
+    this->rendererHandles = app;
     std::vector<Vertex> _vertices;
     std::vector<uint32_t> _indices;
 
@@ -448,38 +449,34 @@ MeshData::MeshData(RendererHandles app, const char* path)
     //TODO: Dedupe verts
     this->vertices = _vertices;
     this->indices = _indices;
-    this->device = app.device;
-    this->vertBuffer = this->meshDataCreateVertexBuffer(app);
-    this->indexBuffer = this->meshDataCreateIndexBuffer(app);
+    this->vertBuffer = this->meshDataCreateVertexBuffer();
+    this->indexBuffer = this->meshDataCreateIndexBuffer();
     this->vertcount = indices.size();
     this->id = MESHID++;
 }
 
 void MeshData::cleanup()
 {
-    DestroyBuffer(device, vertBuffer);
-    DestroyBuffer(device, vertBuffer);
-    FreeMemory(device, vertMemory);
+    vmaDestroyBuffer(rendererHandles.allocator, vertBuffer, vertMemory);
 
-    DestroyBuffer(device, indexBuffer);
-    FreeMemory(device, indexMemory);
+    vmaDestroyBuffer(rendererHandles.allocator, indexBuffer, indexMemory);
 }
 
-VkBuffer MeshData::meshDataCreateVertexBuffer(RendererHandles renderer)
+VkBuffer MeshData::meshDataCreateVertexBuffer()
 {
     VkBuffer vertexBuffer;
     auto bufferSize = sizeof(this->vertices[0]) * this->vertices.size();
 
-    BufferUtilities::stageVertexBuffer(renderer, bufferSize, vertexBuffer, this->vertMemory,this->vertices.data());
+    BufferUtilities::stageVertexBuffer(rendererHandles, bufferSize, vertexBuffer, vertMemory,this->vertices.data());
 
     return vertexBuffer;
 }
 
-VkBuffer MeshData::meshDataCreateIndexBuffer(RendererHandles renderer)
+VkBuffer MeshData::meshDataCreateIndexBuffer()
 {
     VkBuffer indexBuffer;
     auto bufferSize = sizeof(this->indices[0]) * this->indices.size();
-    BufferUtilities::stageIndexBuffer(renderer, bufferSize, indexBuffer, this->indexMemory,this->indices.data());
+    BufferUtilities::stageIndexBuffer(rendererHandles, bufferSize, indexBuffer, indexMemory,this->indices.data());
     
 
     return indexBuffer;

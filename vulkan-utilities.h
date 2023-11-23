@@ -104,14 +104,14 @@ namespace TextureUtilities
 namespace BufferUtilities
 {
     void stageVertexBuffer(RendererHandles rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
-                                   VkDeviceMemory& bufferMemory, Vertex* data);
+                           VmaAllocation& allocation, Vertex* data);
 
     void stageIndexBuffer(RendererHandles rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
-                                  VkDeviceMemory& bufferMemory, uint32_t* data);
+                          VmaAllocation& allocation, uint32_t* data);
 
     //TODO JS: move to cpp file?
     void stageMeshDataBuffer(RendererHandles rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
-                                   VkDeviceMemory& bufferMemory, void* vertices, VkBufferUsageFlags dataTypeFlag);
+                             VmaAllocation& allocation, void* vertices, VkBufferUsageFlags dataTypeFlag);
 
     void copyBuffer(RendererHandles rendererHandles, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
     void* createDynamicBuffer(RendererHandles rendererHandles, VkDeviceSize size, VkBufferUsageFlags usage,

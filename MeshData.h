@@ -6,21 +6,21 @@
 
 #include <vector>
 #include "vertex.h"
-
+#include "AppStruct.h"
 
 #pragma region forward declarations
 #include "vulkan-forwards.h"
 #pragma endregion
 
-struct RendererHandles;
 
 struct MeshData
 {
 public:
     VkBuffer vertBuffer;
     VkBuffer indexBuffer;
-    VkDeviceMemory vertMemory;
-    VkDeviceMemory indexMemory;
+    RendererHandles rendererHandles;
+    VmaAllocation vertMemory;
+    VmaAllocation indexMemory;
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
     VkDevice device; //Device pointers
@@ -41,7 +41,7 @@ public:
     void cleanup();
 
 private:
-    VkBuffer meshDataCreateVertexBuffer(RendererHandles app);
+    VkBuffer meshDataCreateVertexBuffer();
 
-    VkBuffer meshDataCreateIndexBuffer(RendererHandles app);
+    VkBuffer meshDataCreateIndexBuffer();
 };

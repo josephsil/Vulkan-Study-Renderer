@@ -456,43 +456,44 @@ void TextureUtilities::copyBufferToImage(CommandPoolManager* commandPoolManager,
 }
 
 void BufferUtilities::stageVertexBuffer(RendererHandles rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
-                                   VkDeviceMemory& bufferMemory, Vertex* data)
+                                   VmaAllocation& allocation, Vertex* data)
 {
     BufferUtilities::stageMeshDataBuffer(rendererHandles,
-bufferSize,
-buffer,
-bufferMemory,
-data, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+                                         bufferSize,
+                                         buffer,
+                                         allocation,
+                                         data, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
     
 }
 
 void BufferUtilities::stageIndexBuffer(RendererHandles rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
-                                   VkDeviceMemory& bufferMemory, uint32_t* data)
+                                   VmaAllocation& allocation, uint32_t* data)
 {
     BufferUtilities::stageMeshDataBuffer(rendererHandles,
-bufferSize,
-buffer,
-bufferMemory,
-data, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+                                         bufferSize,
+                                         buffer,
+                                         allocation,
+                                         data, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
     
 }
 
 void BufferUtilities::stageMeshDataBuffer(RendererHandles rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
-                                   VkDeviceMemory& bufferMemory, void* vertices, VkBufferUsageFlags dataTypeFlag)
+                                   VmaAllocation& allocation, void* vertices, VkBufferUsageFlags dataTypeFlag)
 {
     VkBuffer stagingBuffer;
 
-    VmaAllocation allocation = {};
+    VmaAllocation stagingallocation = {};
   
     BufferUtilities::createBuffer(rendererHandles, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-                                  &allocation, stagingBuffer, nullptr);
+                                  &stagingallocation, stagingBuffer, nullptr);
 
     //Bind to memory buffer
     // TODO JS - Use amd memory allocator
     void* data;
-    vmaMapMemory(rendererHandles.allocator, allocation,&data);
+    vmaMapMemory(rendererHandles.allocator, stagingallocation,&data);
     memcpy(data, vertices, bufferSize);
-    vmaUnmapMemory(rendererHandles.allocator, allocation);
+    vmaUnmapMemory(rendererHandles.allocator, stagingallocation);
+    
 
 
     BufferUtilities::createBuffer(rendererHandles, bufferSize,
@@ -500,7 +501,7 @@ void BufferUtilities::stageMeshDataBuffer(RendererHandles rendererHandles, VkDev
 
     BufferUtilities::copyBuffer(rendererHandles, stagingBuffer, buffer, bufferSize);
 
-    vmaDestroyBuffer(rendererHandles.allocator, stagingBuffer, allocation);
+    vmaDestroyBuffer(rendererHandles.allocator, stagingBuffer, stagingallocation);
 }
 
 void* BufferUtilities::createDynamicBuffer(RendererHandles rendererHandles, VkDeviceSize size, VkBufferUsageFlags usage,
