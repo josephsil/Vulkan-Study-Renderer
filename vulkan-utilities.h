@@ -86,7 +86,7 @@ namespace TextureUtilities
     void createImage(RendererHandles rendererHandles, uint32_t width, uint32_t height, VkFormat format,
                      VkImageTiling tiling,
                      VkFlags usage, VkFlags properties, VkImage& image,
-                     VkDeviceMemory& imageMemory, uint32_t miplevels = 1);
+                     VmaAllocation& allocation, uint32_t miplevels = 1);
 
     void transitionImageLayout(RendererHandles rendererHandles, VkImage image, VkFormat format, VkImageLayout oldLayout,
                                VkImageLayout newLayout, VkCommandBuffer workingBuffer,

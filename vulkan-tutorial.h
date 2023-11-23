@@ -78,7 +78,7 @@ private:
     VkSwapchainKHR swapChain;
 
     VkImage depthImage;
-    VkDeviceMemory depthImageMemory;
+    VmaAllocation depthImageMemory;
     VkImageView depthImageView;
 
 

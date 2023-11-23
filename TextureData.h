@@ -36,7 +36,7 @@ public:
     VkSampler textureSampler;
     RendererHandles rendererHandles;
     VkImage textureImage;
-    VkDeviceMemory textureImageMemory;
+    VmaAllocation textureImageMemory;
     uint32_t maxmip = 1; //TODO JS: mutate less places
     uint32_t layerct = 1;
     int id;

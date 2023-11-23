@@ -221,8 +221,10 @@ VkImageView TextureUtilities::createImageView(VkDevice device, VkImage image, Vk
 void TextureUtilities::createImage(RendererHandles rendererHandles, uint32_t width, uint32_t height, VkFormat format,
                                    VkImageTiling tiling,
                                    VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image,
-                                   VkDeviceMemory& imageMemory, uint32_t miplevels)
+                                   VmaAllocation& allocation, uint32_t miplevels)
 {
+
+    //TODO JS: Properties flags to vma 
     VkImageCreateInfo imageInfo{};
     imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     imageInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -238,27 +240,10 @@ void TextureUtilities::createImage(RendererHandles rendererHandles, uint32_t wid
     imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
     imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    if (vkCreateImage(rendererHandles.device, &imageInfo, nullptr, &image) != VK_SUCCESS)
-    {
-        std::cerr << "failed to create image!" << "\n";
-        exit(1);
-    }
-
-    VkMemoryRequirements memRequirements;
-    vkGetImageMemoryRequirements(rendererHandles.device, image, &memRequirements);
-
-    VkMemoryAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocInfo.allocationSize = memRequirements.size;
-    allocInfo.memoryTypeIndex = Capabilities::findMemoryType(rendererHandles, memRequirements.memoryTypeBits, properties);
-
-    if (vkAllocateMemory(rendererHandles.device, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS)
-    {
-        std::cerr << "failed to allocate image memory!" << "\n";
-        exit(1);
-    }
-
-    vkBindImageMemory(rendererHandles.device, image, imageMemory, 0);
+    VmaAllocator allocator = rendererHandles.allocator;
+    VmaAllocationCreateInfo allocInfo = {};
+    allocInfo.usage = VMA_MEMORY_USAGE_AUTO; //TODO JS: Pass in usage flags?
+    vmaCreateImage(rendererHandles.allocator, &imageInfo, &allocInfo, &image, &allocation, nullptr);
 }
 
 void TextureUtilities::transitionImageLayout(RendererHandles rendererHandles, VkImage image, VkFormat format,
@@ -520,6 +505,8 @@ void BufferUtilities::stageMeshDataBuffer(RendererHandles rendererHandles, VkDev
 void BufferUtilities::createBuffer(RendererHandles rendererHandles, VkDeviceSize size, VkBufferUsageFlags usage,
                                    VmaAllocation* allocation, VkBuffer& buffer)
 {
+
+    //TODO JS: Properties flags to vma -- check git history and see if i crushed and flags 
     VkBufferCreateInfo bufferInfo{};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     bufferInfo.size = size;
@@ -528,7 +515,7 @@ void BufferUtilities::createBuffer(RendererHandles rendererHandles, VkDeviceSize
 
     VmaAllocator allocator = rendererHandles.allocator;
     VmaAllocationCreateInfo allocInfo = {};
-    allocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU; //TODO JS: Pass in usage?
+    allocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU; //TODO JS: Pass in Properties flags?
 
     vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, allocation, nullptr);
 }

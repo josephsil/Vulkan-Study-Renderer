@@ -326,8 +326,7 @@ void TextureData::cleanup()
 {
     vkDestroySampler(rendererHandles.device, textureSampler, nullptr);
     vkDestroyImageView(rendererHandles.device, textureImageView, nullptr);
-    vkDestroyImage(rendererHandles.device, textureImage, nullptr);
-    vkFreeMemory(rendererHandles.device, textureImageMemory, nullptr);
+	vmaDestroyImage(rendererHandles.allocator, textureImage, textureImageMemory);
 }
 
 void TextureData::createTextureSampler(VkSamplerAddressMode mode, float bias)
@@ -382,9 +381,10 @@ void TextureData::cacheKTXFromSTB(const char* path, const char* outpath, VkForma
     createInfo.numFaces = textureType == CUBE ? 6 : 1; 
     createInfo.isArray = KTX_FALSE;
     createInfo.generateMipmaps = KTX_TRUE; // TODO JS: Make false and save mipmaps?
-    
+
+	
     result = ktxTexture2_Create(&createInfo,
-                            KTX_TEXTURE_CREATE_ALLOC_STORAGE,
+                            KTX_TEXTURE_CREATE_NO_STORAGE,
                             &texture);
 	
 	int i = 0;
@@ -488,7 +488,7 @@ VkFormat TextureData::createImageKTX(const char* path, TextureType type, bool mi
 	ktxVulkanDeviceInfo_Construct(&vdi, rendererHandles.physicalDevice, rendererHandles.device,
 								  workingTextureBuffer.queue, workingTextureBuffer.pool, nullptr);
 
-	ktxresult = ktxTexture2_CreateFromNamedFile(path, KTX_TEXTURE_CREATE_NO_FLAGS, &kTexture);
+	ktxresult = ktxTexture2_CreateFromNamedFile(path, KTX_TEXTURE_CREATE_NO_STORAGE, &kTexture);
 
 	if (KTX_SUCCESS != ktxresult)
 	{
@@ -504,6 +504,31 @@ VkFormat TextureData::createImageKTX(const char* path, TextureType type, bool mi
 		ktxTexture2_TranscodeBasis(kTexture, KTX_TTF_BC3_RGBA, 0);
 		kTexture->generateMipmaps = false;
 	}
+	//TODO JS: allocator memory for image
+	VmaAllocationInfo info;
+	uint32_t fullMipPyramid = static_cast<uint32_t>(std::floor(std::log2(std::max(kTexture->baseWidth, kTexture->baseHeight)))) + 1;
+	uint32_t mipCount = kTexture->generateMipmaps ? fullMipPyramid : kTexture->numLevels;
+	VkImage image;
+	VkImageCreateInfo vkimageinfo = {};
+	// VkImageCreateFlags       flags;
+	vkimageinfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	vkimageinfo.imageType = kTexture->isCubemap ? VK_IMAGE_TYPE_3D : VK_IMAGE_TYPE_2D;
+	vkimageinfo.format = (VkFormat)kTexture->vkFormat;
+	vkimageinfo.extent = {kTexture->baseWidth, kTexture->baseHeight, kTexture->baseDepth};
+	vkimageinfo.mipLevels = mipCount;
+	vkimageinfo.arrayLayers = kTexture->numLayers;
+	vkimageinfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+	vkimageinfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT;
+	vkimageinfo.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
+	vkimageinfo.samples = VK_SAMPLE_COUNT_1_BIT;
+
+	VmaAllocationCreateInfo allocInfo = {};
+	allocInfo.usage = VMA_MEMORY_USAGE_AUTO; //TODO JS: Pass in usage flags?
+
+    vmaCreateImage(rendererHandles.allocator, &vkimageinfo, &allocInfo,&image,&textureImageMemory,&info);
+
+	texture.deviceMemory = info.deviceMemory;
+	texture.image = image;
 
 	outputFormat = (VkFormat)kTexture->vkFormat;
 	ktxresult = ktxTexture2_VkUploadEx(kTexture, &vdi, &texture,
@@ -521,8 +546,7 @@ VkFormat TextureData::createImageKTX(const char* path, TextureType type, bool mi
 	
 	layerct = texture.layerCount;
 	textureImage = texture.image;
-	textureImageMemory = texture.deviceMemory;
-
+	
 	rendererHandles.commandPoolmanager->endSingleTimeCommands(workingTextureBuffer);
 
 #ifdef DEBUG
