@@ -21,12 +21,6 @@ struct dataBuffer
 };
 
 
-void DestroyBuffer(VkDevice device, VkBuffer buffer);
-void FreeMemory(VkDevice device, VkDeviceMemory memory);
-void UnmapMemory(VkDevice device, VkDeviceMemory memory);
-
-
-void MapMemory(VkDevice device, VkDeviceMemory memory, VkDeviceSize size, void** data);
 
 namespace DescriptorDataUtilities
 {
@@ -107,10 +101,7 @@ namespace BufferUtilities
                      VkImageCreateInfo* pImageCreateInfo,
                      VkImage* pImage,
                      VmaAllocation* pAllocation, VkDeviceMemory* deviceMemory);
-    void DestroyBuffer(VmaAllocator allocator, VkBuffer buffer, VmaAllocation allocation);
-    void DestroyImage(VmaAllocator allocator, VkImage image, VmaAllocation allocation);
-    void MapMemory(VmaAllocator allocator,  VmaAllocation allocation, void** data);
-    void UnmapMemory(VmaAllocator allocator,  VmaAllocation allocation);
+  
     
     void stageVertexBuffer(RendererHandles rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
                            VmaAllocation& allocation, Vertex* data);

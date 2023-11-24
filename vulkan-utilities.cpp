@@ -6,6 +6,7 @@
 
 #include "AppStruct.h"
 #include "CommandPoolManager.h"
+#include "Memory.h"
 #include "TextureData.h"
 #include "Vulkan_Includes.h"
 #include "SceneObjectData.h"
@@ -473,9 +474,9 @@ void BufferUtilities::stageMeshDataBuffer(RendererHandles rendererHandles, VkDev
 
 
     void* data;
-    BufferUtilities::MapMemory(rendererHandles.allocator, stagingallocation,&data);
+    VulkanMemory::MapMemory(rendererHandles.allocator, stagingallocation,&data);
     memcpy(data, vertices, bufferSize);
-    BufferUtilities::UnmapMemory(rendererHandles.allocator, stagingallocation);
+    VulkanMemory::UnmapMemory(rendererHandles.allocator, stagingallocation);
     
 
 
@@ -491,18 +492,18 @@ void* BufferUtilities::createDynamicBuffer(RendererHandles rendererHandles, VkDe
                                            VmaAllocation* allocation, VkBuffer& buffer)
 {
     VmaAllocationInfo allocInfo;
-    createBuffer(rendererHandles, size, usage,  VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
-   VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT |
-   VMA_ALLOCATION_CREATE_MAPPED_BIT,
-                                  allocation,  buffer, &allocInfo);
+    createBuffer(rendererHandles, size, usage, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
+                 VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT |
+                 VMA_ALLOCATION_CREATE_MAPPED_BIT,
+                 allocation, buffer, &allocInfo);
 
-    
+
     VkMemoryPropertyFlags memPropFlags;
     vmaGetAllocationMemoryProperties(rendererHandles.allocator, *allocation, &memPropFlags);
- 
-    if(memPropFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
+
+    if (memPropFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
     {
-       return allocInfo.pMappedData;
+        return allocInfo.pMappedData;
     }
     else
     {
@@ -534,24 +535,6 @@ void BufferUtilities::CreateImage( VmaAllocator allocator,
     deviceMemory = &AllocationInfo.deviceMemory;
 }
 
-void BufferUtilities::DestroyBuffer(VmaAllocator allocator, VkBuffer buffer, VmaAllocation allocation)
-{
-    vmaDestroyBuffer(allocator, buffer, allocation);
-}
-void BufferUtilities::DestroyImage(VmaAllocator allocator, VkImage image, VmaAllocation allocation)
-{
-    vmaDestroyImage(allocator, image, allocation);
-}
-
-void BufferUtilities::MapMemory(VmaAllocator allocator,  VmaAllocation allocation, void** data)
-{
-    vmaMapMemory(allocator,allocation, data);
-}
-
-void BufferUtilities::UnmapMemory(VmaAllocator allocator,  VmaAllocation allocation)
-{
-    vmaUnmapMemory(allocator, allocation);
-}
 
 void createBuffer(RendererHandles rendererHandles, VkDeviceSize size, VkBufferUsageFlags usage, VmaAllocationCreateFlags  flags,
                                    VmaAllocation* allocation, VkBuffer& buffer, VmaAllocationInfo* outAllocInfo)

@@ -11,13 +11,13 @@
 #include <fstream>
 #include <iostream>
 
-#include "vmaImplementation.h" //TODO JS: Remove when we wrap functionaltiy in memory.h
 
 #include "CommandPoolManager.h"
 #include "meshData.h"
 #include "SceneObjectData.h"
 #include "Vertex.h"
 #include "ImageLibraryImplementations.h"
+#include "Memory.h"
 #include "ShaderLoading.h"
 #include "TextureData.h"
 #include "VkBootstrap.h"
@@ -204,14 +204,7 @@ void HelloTriangleApplication::initVulkan()
     device = vkb_device.device;
 
     //TODO JS: Move to memory.h ?
-    VmaAllocatorCreateInfo vmacreateInfo = {};
-    vmacreateInfo.device = device;
-    vmacreateInfo.physicalDevice = physicalDevice;
-    vmacreateInfo.instance = instance;
-    vmacreateInfo.vulkanApiVersion = VK_API_VERSION_1_3; 
-
-    allocator = {};
-    vmaCreateAllocator(&vmacreateInfo, &allocator);
+    allocator = VulkanMemory::GetAllocator(device, physicalDevice, instance);
     
     
     //Get push descriptor stuff
@@ -1031,9 +1024,9 @@ void HelloTriangleApplication::cleanup()
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        vmaDestroyBuffer(allocator, uniformBuffers[i].data, uniformBuffersMemory[i]);
-        vmaDestroyBuffer(allocator, meshBuffers[i].data, meshBuffersMemory[i]);
-        vmaDestroyBuffer(allocator, lightBuffers[i].data, lightBuffersMemory[i]);
+       VulkanMemory::DestroyBuffer(allocator, uniformBuffers[i].data, uniformBuffersMemory[i]);
+       VulkanMemory::DestroyBuffer(allocator, meshBuffers[i].data, meshBuffersMemory[i]);
+       VulkanMemory::DestroyBuffer(allocator, lightBuffers[i].data, lightBuffersMemory[i]);
     }
 
     // vkDestroyDescriptorPool(device, descriptorPool, nullptr);

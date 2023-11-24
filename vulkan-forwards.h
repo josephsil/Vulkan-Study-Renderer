@@ -38,7 +38,7 @@ typedef enum VkDescriptorType;
 typedef enum VkImageTiling;
 typedef uint32_t VkFlags;
 typedef VkFlags VkFormatFeatureFlags;
-typedef  VkFlags VkMemoryPropertyFlags;
+typedef VkFlags VkMemoryPropertyFlags;
 typedef VkFlags VkImageAspectFlags;
 typedef VkFlags VkBufferUsageFlags;
 typedef VkFlags VkBufferViewCreateFlags;

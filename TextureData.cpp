@@ -12,6 +12,7 @@
 
 #include "CommandPoolManager.h"
 #include "FileCaching.h"
+#include "Memory.h"
 
 
 int TEXTURE_INDEX;
@@ -260,10 +261,10 @@ uint32_t getFormatSize(VkFormat f)
 void readImageData(RendererHandles rendererInfo, VmaAllocation alloc, VkBuffer _buffer, void* data, size_t bytes,	size_t offset)
 {
 	void* tempData;
-	 BufferUtilities::MapMemory(rendererInfo.allocator, alloc, &tempData);
+	 VulkanMemory::MapMemory(rendererInfo.allocator, alloc, &tempData);
 
 	memcpy(data, tempData, bytes);
-	 BufferUtilities::UnmapMemory(rendererInfo.allocator, alloc);
+	 VulkanMemory::UnmapMemory(rendererInfo.allocator, alloc);
 }
 
 std::basic_string<char> replaceExt(const char* target, const char* extension)
@@ -328,7 +329,7 @@ void TextureData::cleanup()
 {
     vkDestroySampler(rendererHandles.device, textureSampler, nullptr);
     vkDestroyImageView(rendererHandles.device, textureImageView, nullptr);
-	 BufferUtilities::DestroyImage(rendererHandles.allocator, textureImage, textureImageMemory);
+	 VulkanMemory::DestroyImage(rendererHandles.allocator, textureImage, textureImageMemory);
 }
 
 void TextureData::createTextureSampler(VkSamplerAddressMode mode, float bias)
@@ -409,7 +410,7 @@ void TextureData::cacheKTXFromSTB(const char* path, const char* outpath, VkForma
 	//TODO JS: For mipmaps, I need to get buffers pointing to each mip and set w miplevel
     KTX_error_code r = ktxTexture_SetImageFromMemory(ktxTexture(texture),mipLevel, layer,faceSlice,_imageData.data(),_imageData.size());
 
-	 BufferUtilities::DestroyBuffer(rendererHandles.allocator, staging.buffer, staging.alloc);
+	VulkanMemory::DestroyBuffer(rendererHandles.allocator, staging.buffer, staging.alloc);
 
 	//TODO JS: Can't generate mipmaps with uploadex() when using compressed formats
 	//TODO JS: Need to generate mipmaps myself and save them to ktx 
@@ -451,9 +452,9 @@ TextureData::temporaryTextureInfo TextureData::createTextureImage(const char* pa
                                          stagingBuffer);
 
     void* data;
-     BufferUtilities::MapMemory(rendererHandles.allocator,alloc, &data);
+     VulkanMemory::MapMemory(rendererHandles.allocator,alloc, &data);
     memcpy(data, pixels, imageSize);
-     BufferUtilities::UnmapMemory(rendererHandles.allocator,alloc);
+     VulkanMemory::UnmapMemory(rendererHandles.allocator,alloc);
 
     stbi_image_free(pixels);
 
