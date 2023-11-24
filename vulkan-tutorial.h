@@ -35,7 +35,7 @@ public:
 
 private:
 
-    const int MAX_FRAMES_IN_FLIGHT = 1;
+    const int MAX_FRAMES_IN_FLIGHT = 3;
 
 #pragma region SDL
     uint32_t T;
@@ -95,26 +95,54 @@ private:
     VkDescriptorSetLayout perMaterialSetLayout;
     VkPipelineLayout pipelineLayout;
     
-    DescriptorSetSetup::DescriptorSetLayouts descriptorsetLayouts;
-    DescriptorSetSetup::DescriptorSets descriptor_sets;
+    DescriptorSetSetup::bindlessDescriptorSetLayouts descriptorsetLayouts;
 
+    
     void createDescriptorSetPool(RendererHandles handles, VkDescriptorPool* pool);
-    void createDescriptorSets(RendererHandles handles, VkDescriptorPool pool, DescriptorSetSetup::DescriptorSetLayouts descriptorsetLayouts);
-    void updateDescriptorSets(RendererHandles handles, VkDescriptorPool pool, DescriptorSetSetup::DescriptorSets sets);
+    void createDescriptorSets(RendererHandles handles, VkDescriptorPool pool, DescriptorSetSetup::bindlessDescriptorSetLayouts descriptorsetLayouts, DescriptorSetSetup::DescriptorSets* descriptor_sets);
+    void updateDescriptorSets(RendererHandles handles, VkDescriptorPool pool, DescriptorSetSetup::DescriptorSets* sets);
 
 #pragma endregion
 
+    struct per_frame_data
+    {
+        DescriptorSetSetup::DescriptorSets bindlessDescriptorSets {};
+
+        
+
+        VkSemaphore imageAvailableSemaphores {};
+        VkSemaphore renderFinishedSemaphores {};
+        VkFence inFlightFences {};
+
+#pragma region buffers
+        dataBuffer shaderGlobalsBuffer;
+        VmaAllocation shaderGlobalsMemory;
+        void* shaderGlobalsMapped;
+    
+        //TODO JS: Move the data buffer stuff?
+        dataBuffer uniformBuffers;
+        VmaAllocation uniformBuffersMemory;
+        void* uniformBuffersMapped;
+
+        dataBuffer meshBuffers;
+        VmaAllocation meshBuffersMemory;
+        void* meshBuffersMapped;
+
+        dataBuffer lightBuffers;
+        VmaAllocation lightBuffersMemory;
+        void* lightBuffersMapped;
+#pragma endregion
+        
+        
+    };
+    
+    std::vector<per_frame_data> FramesInFlightData;
+    std::vector<VkCommandBuffer> commandBuffers {};
     
     VkPipeline bindlessPipeline_1;
     VkPipeline bindlessPipeline_2;
 
     int cubemaplut_utilitytexture_index;
-
-    std::vector<VkCommandBuffer> commandBuffers;
-
-    std::vector<VkSemaphore> imageAvailableSemaphores;
-    std::vector<VkSemaphore> renderFinishedSemaphores;
-    std::vector<VkFence> inFlightFences;
 
     struct UniformBufferObject
     {
@@ -147,8 +175,6 @@ private:
         //Unused
         alignas(16) glm::mat4 padding2;
     };
-
-
    
     uint32_t currentFrame = 0;
 
@@ -164,24 +190,7 @@ private:
     void initWindow();
     void initVulkan();
 
-#pragma region buffers
-    std::vector<dataBuffer> shaderGlobalsBuffer;
-    std::vector<VmaAllocation> shaderGlobalsMemory;
-    std::vector<void*> shaderGlobalsMapped;
-    
-    //TODO JS: Move the data buffer stuff?
-    std::vector<dataBuffer> uniformBuffers;
-    std::vector<VmaAllocation> uniformBuffersMemory;
-    std::vector<void*> uniformBuffersMapped;
 
-    std::vector<dataBuffer> meshBuffers;
-    std::vector<VmaAllocation> meshBuffersMemory;
-    std::vector<void*> meshBuffersMapped;
-
-    std::vector<dataBuffer> lightBuffers;
-    std::vector<VmaAllocation> lightBuffersMemory;
-    std::vector<void*> lightBuffersMapped;
-#pragma endregion 
 
 
     void updateLightBuffers(uint32_t currentImage);

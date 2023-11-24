@@ -172,6 +172,7 @@ RendererHandles HelloTriangleApplication::getHandles()
 
 void HelloTriangleApplication::initVulkan()
 {
+    FramesInFlightData.resize(MAX_FRAMES_IN_FLIGHT);
     //Get instance
     vkb_instance = GET_INSTANCE();
     instance = vkb_instance.instance;
@@ -243,7 +244,10 @@ void HelloTriangleApplication::initVulkan()
     bindlessPipeline_2 = createGraphicsPipeline("triangle_alt", renderPass, nullptr,  descriptorsetLayouts.get());
     
     createDescriptorSetPool(getHandles(),  &descriptorPool);
-    createDescriptorSets(getHandles(), descriptorPool,descriptorsetLayouts);
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    {
+        createDescriptorSets(getHandles(), descriptorPool,descriptorsetLayouts,&FramesInFlightData[i].bindlessDescriptorSets);
+    }
 
     createUniformBuffers();
     createSyncObjects();
@@ -276,7 +280,7 @@ void HelloTriangleApplication::populateMeshBuffers()
     }
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        memcpy(meshBuffersMapped[i], verts.data(), sizeof(gpuvertex) * scene->getVertexCount());
+        memcpy(FramesInFlightData[i].meshBuffersMapped, verts.data(), sizeof(gpuvertex) * scene->getVertexCount());
     }
 }
 
@@ -286,78 +290,36 @@ void HelloTriangleApplication::populateMeshBuffers()
 //TODO JS: https://gpuopen-librariesandsdks.github.io/VulkanMemoryAllocator/html/usage_patterns.html advanced
 void HelloTriangleApplication::createUniformBuffers()
 {
-    VkDeviceSize bufferSize = sizeof(ShaderGlobals);
-
-    shaderGlobalsBuffer.resize(MAX_FRAMES_IN_FLIGHT);
-    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-    {
-        shaderGlobalsBuffer[i].size = bufferSize;
-    }
-    shaderGlobalsMemory.resize(MAX_FRAMES_IN_FLIGHT);
-    shaderGlobalsMapped.resize(MAX_FRAMES_IN_FLIGHT);
+    VkDeviceSize globalsSize = sizeof(ShaderGlobals);
+    VkDeviceSize ubosSize = sizeof(UniformBufferObject) * scene->matrices.size();
+    VkDeviceSize vertsSize = sizeof(gpuvertex) * scene->getVertexCount();
+    VkDeviceSize lightdataSize = sizeof(gpulight) * scene->lightposandradius.size();
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-       shaderGlobalsMapped[i] = BufferUtilities::createDynamicBuffer(getHandles(), bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                                             &shaderGlobalsMemory[i],
-                                             shaderGlobalsBuffer[i].data
-        );
+        FramesInFlightData[i].shaderGlobalsBuffer.size = globalsSize;
+        FramesInFlightData[i].shaderGlobalsMapped = BufferUtilities::createDynamicBuffer(
+            getHandles(), globalsSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+            &FramesInFlightData[i].shaderGlobalsMemory,
+            FramesInFlightData[i].shaderGlobalsBuffer.data);
+        
+        FramesInFlightData[i].uniformBuffers.size = ubosSize;
+        FramesInFlightData[i].uniformBuffersMapped = BufferUtilities::createDynamicBuffer(
+            getHandles(), ubosSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+            &FramesInFlightData[i].uniformBuffersMemory,
+            FramesInFlightData[i].uniformBuffers.data);
+        
+        FramesInFlightData[i].meshBuffers.size = vertsSize;
+        FramesInFlightData[i].meshBuffersMapped = BufferUtilities::createDynamicBuffer(
+            getHandles(), vertsSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+            &FramesInFlightData[i].meshBuffersMemory,
+            FramesInFlightData[i].meshBuffers.data);
 
-    }
-
-
-    VkDeviceSize bufferSize1 = sizeof(UniformBufferObject) * scene->matrices.size();
-
-    uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-    {
-        uniformBuffers[i].size = bufferSize1;
-    }
-    uniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
-    uniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
-
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-    {
-        uniformBuffersMapped[i] = BufferUtilities::createDynamicBuffer(getHandles(), bufferSize1, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                                             &uniformBuffersMemory[i],
-                                             uniformBuffers[i].data);
-
-    }
-
-    VkDeviceSize bufferSize2 = sizeof(gpuvertex) * scene->getVertexCount();
-
-    meshBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-    {
-        meshBuffers[i].size = bufferSize2;
-    }
-    meshBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
-    meshBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
-
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-    {
-       meshBuffersMapped[i] = BufferUtilities::createDynamicBuffer(getHandles(), bufferSize2, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                                             &meshBuffersMemory[i],
-                                             meshBuffers[i].data);
-
-       
-    }
-
-    VkDeviceSize bufferSize3 = sizeof(gpulight) * scene->lightposandradius.size();
-
-    lightBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-    {
-        lightBuffers[i].size = bufferSize3;
-    }
-    lightBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
-    lightBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
-
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-    {
-        lightBuffersMapped[i] = BufferUtilities::createDynamicBuffer(getHandles(), bufferSize3, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                                             &lightBuffersMemory[i],
-                                             lightBuffers[i].data);
+        FramesInFlightData[i].lightBuffers.size = lightdataSize;
+        FramesInFlightData[i].lightBuffersMapped = BufferUtilities::createDynamicBuffer(
+            getHandles(), lightdataSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+            &FramesInFlightData[i].lightBuffersMemory,
+            FramesInFlightData[i].lightBuffers.data);
 
     }
 }
@@ -377,7 +339,6 @@ void HelloTriangleApplication::createDescriptorSetPool(RendererHandles handles, 
         { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 20 },
         { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 20 },
         { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 20 },
-        //add combined-image-sampler descriptor types to the pool
         { VK_DESCRIPTOR_TYPE_SAMPLER, 20 },
         { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 20 },
         { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 20 },
@@ -395,77 +356,63 @@ void HelloTriangleApplication::createDescriptorSetPool(RendererHandles handles, 
     
 }
 
-void HelloTriangleApplication::createDescriptorSets(RendererHandles handles, VkDescriptorPool pool, DescriptorSetSetup::DescriptorSetLayouts descriptorsetLayouts)
+void HelloTriangleApplication::createDescriptorSets(RendererHandles handles, VkDescriptorPool pool, DescriptorSetSetup::bindlessDescriptorSetLayouts descriptorsetLayouts, DescriptorSetSetup::DescriptorSets* descriptor_sets)
 {
-    descriptor_sets.imageDescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
-    descriptor_sets.samplerDescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
-    descriptor_sets.uniformDescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
-    descriptor_sets.storageDescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
-    for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ )
-    {
-        DescriptorSetSetup::AllocateDescriptorSet(handles, pool,  &descriptorsetLayouts.imageDescriptorLayout, &descriptor_sets.imageDescriptorSets[i]);
-        DescriptorSetSetup::AllocateDescriptorSet(handles, pool,  &descriptorsetLayouts.samplerDescriptorLayout, &descriptor_sets.samplerDescriptorSets[i]);
-        DescriptorSetSetup::AllocateDescriptorSet(handles, pool,  &descriptorsetLayouts.uniformDescriptorLayout, &descriptor_sets.uniformDescriptorSets[i]);
-        DescriptorSetSetup::AllocateDescriptorSet(handles, pool,  &descriptorsetLayouts.storageDescriptorLayout, &descriptor_sets.storageDescriptorSets[i]);
-    }
+        DescriptorSetSetup::AllocateDescriptorSet(handles, pool,  &descriptorsetLayouts.imageDescriptorLayout, &descriptor_sets->imageDescriptorSets);
+        DescriptorSetSetup::AllocateDescriptorSet(handles, pool,  &descriptorsetLayouts.samplerDescriptorLayout, &descriptor_sets->samplerDescriptorSets);
+        DescriptorSetSetup::AllocateDescriptorSet(handles, pool,  &descriptorsetLayouts.uniformDescriptorLayout, &descriptor_sets->uniformDescriptorSets);
+        DescriptorSetSetup::AllocateDescriptorSet(handles, pool,  &descriptorsetLayouts.storageDescriptorLayout, &descriptor_sets->storageDescriptorSets);
 }
 
-void HelloTriangleApplication::updateDescriptorSets(RendererHandles handles, VkDescriptorPool pool, DescriptorSetSetup::DescriptorSets sets)
+void HelloTriangleApplication::updateDescriptorSets(RendererHandles handles, VkDescriptorPool pool, DescriptorSetSetup::DescriptorSets* sets)
 {
 
-    for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ )
-    {
         auto writeDescriptorSetBuilder = DescriptorDataUtilities::WriteDescriptorSetsBuilder();
 
-        VkDescriptorBufferInfo shaderglobalsinfo = shaderGlobalsBuffer[currentFrame].getBufferInfo();
-        writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, sets.uniformDescriptorSets[i], &shaderglobalsinfo);
+        VkDescriptorBufferInfo shaderglobalsinfo = FramesInFlightData[currentFrame].shaderGlobalsBuffer.getBufferInfo();
+        writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, sets->uniformDescriptorSets, &shaderglobalsinfo);
 
         auto [imageInfos, samplerInfos] = scene->getBindlessTextureInfos();
-        writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, sets.imageDescriptorSets[i], imageInfos.data(), imageInfos.size());
-        writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_SAMPLER, sets.samplerDescriptorSets[i], samplerInfos.data(), samplerInfos.size());
+        writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, sets->imageDescriptorSets, imageInfos.data(), imageInfos.size());
+        writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_SAMPLER, sets->samplerDescriptorSets, samplerInfos.data(), samplerInfos.size());
 
-        VkDescriptorBufferInfo meshBufferinfo = meshBuffers[currentFrame].getBufferInfo();
-        writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,sets.storageDescriptorSets[i], &meshBufferinfo);
+        VkDescriptorBufferInfo meshBufferinfo = FramesInFlightData[currentFrame].meshBuffers.getBufferInfo();
+        writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,sets->storageDescriptorSets, &meshBufferinfo);
 
-        VkDescriptorBufferInfo lightbufferinfo = lightBuffers[currentFrame].getBufferInfo();
-        writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,sets.storageDescriptorSets[i], &lightbufferinfo);
+        VkDescriptorBufferInfo lightbufferinfo = FramesInFlightData[currentFrame].lightBuffers.getBufferInfo();
+        writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,sets->storageDescriptorSets, &lightbufferinfo);
 
-        VkDescriptorBufferInfo uniformbufferinfo = uniformBuffers[currentFrame].getBufferInfo();
-        writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,sets.storageDescriptorSets[i], &uniformbufferinfo);
+        VkDescriptorBufferInfo uniformbufferinfo = FramesInFlightData[currentFrame].uniformBuffers.getBufferInfo();
+        writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,sets->storageDescriptorSets, &uniformbufferinfo);
 
         auto [cubeImageInfos, cubeSamplerInfos] = DescriptorDataUtilities::ImageInfoFromImageDataVec({
-            cube_irradiance, cube_specular
-        });
-        writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, sets.imageDescriptorSets[i], cubeImageInfos.data(), cubeImageInfos.size());
-        writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_SAMPLER, sets.samplerDescriptorSets[i], cubeSamplerInfos.data(), cubeSamplerInfos.size());
+            cube_irradiance, cube_specular});
+    
+        writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, sets->imageDescriptorSets, cubeImageInfos.data(), cubeImageInfos.size());
+        writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_SAMPLER, sets->samplerDescriptorSets, cubeSamplerInfos.data(), cubeSamplerInfos.size());
         vkUpdateDescriptorSets(handles.device, writeDescriptorSetBuilder.size(), writeDescriptorSetBuilder.data(), 0, nullptr);
-    }
-        
+    
 }
 #pragma endregion
 
 
 void HelloTriangleApplication::createSyncObjects()
 {
-    imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-    renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-    inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
-
     VkSemaphoreCreateInfo semaphoreInfo{};
     semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
     VkFenceCreateInfo fenceInfo{};
     fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &imageAvailableSemaphores[i]) != VK_SUCCESS ||
-            vkCreateSemaphore(device, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]) != VK_SUCCESS ||
-            vkCreateFence(device, &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS)
-        {
-            printf("failed to create synchronization objects for a frame!");
-            exit(-1);
-        }
+            if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &FramesInFlightData[i].imageAvailableSemaphores) != VK_SUCCESS ||
+                vkCreateSemaphore(device, &semaphoreInfo, nullptr, &FramesInFlightData[i].renderFinishedSemaphores) != VK_SUCCESS ||
+                vkCreateFence(device, &fenceInfo, nullptr, &FramesInFlightData[i].inFlightFences) != VK_SUCCESS)
+            {
+                printf("failed to create synchronization objects for a frame!");
+                exit(-1);
+            }
     }
 }
 
@@ -482,7 +429,7 @@ void HelloTriangleApplication::updateLightBuffers(uint32_t currentImage)
         lights[i] = {scene->lightposandradius[i], scene->lightcolorAndIntensity[i], glm::vec4(1), glm::vec4(1)};
     }
 
-    memcpy(lightBuffersMapped[currentImage], lights.data(), sizeof(gpulight) * lights.size());
+    memcpy(FramesInFlightData[currentImage].lightBuffersMapped, lights.data(), sizeof(gpulight) * lights.size());
 }
 
 //TODO JS: This is like, per object uniforms -- it should belong to the scene and get passed a buffer directly to the render loop
@@ -508,7 +455,7 @@ void HelloTriangleApplication::updateUniformBuffers(uint32_t currentImage, std::
     globals.cubemaplutidx_cubemaplutsampleridx_paddingzw = glm::vec4(
         scene->materialTextureCount() + cubemaplut_utilitytexture_index,
         scene->materialTextureCount() + cubemaplut_utilitytexture_index, 0, 0);
-    memcpy(shaderGlobalsMapped[currentImage], &globals, sizeof(ShaderGlobals));
+    memcpy(FramesInFlightData[currentImage].shaderGlobalsMapped, &globals, sizeof(ShaderGlobals));
     std::vector<UniformBufferObject> ubos;
 
     if (ubos.size() != models.size())
@@ -521,14 +468,7 @@ void HelloTriangleApplication::updateUniformBuffers(uint32_t currentImage, std::
         ubos[i].model = models[i];
         ubos[i].Normal = transpose(inverse(glm::mat3(*model)));
     }
-    memcpy(uniformBuffersMapped[currentImage], ubos.data(), sizeof(UniformBufferObject) * models.size());
-}
-
-void HelloTriangleApplication::updateUniformBuffer(uint32_t currentImage, glm::mat4 model)
-{
-    UniformBufferObject ubo{};
-    ubo.model = model;
-    memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(UniformBufferObject));
+    memcpy(FramesInFlightData[currentImage].uniformBuffersMapped, ubos.data(), sizeof(UniformBufferObject) * models.size());
 }
 
 
@@ -585,13 +525,13 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
     //************
     //** Fill data Descriptor Sets
     //
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptor_sets.uniformDescriptorSets[currentFrame], 0, nullptr);
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &descriptor_sets.storageDescriptorSets[currentFrame], 0, nullptr);
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 2, 1, &descriptor_sets.imageDescriptorSets[currentFrame], 0, nullptr);
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 3, 1, &descriptor_sets.samplerDescriptorSets[currentFrame], 0, nullptr);
+    updateDescriptorSets(getHandles(), descriptorPool, &FramesInFlightData[currentFrame].bindlessDescriptorSets);
 
-    updateDescriptorSets(getHandles(), descriptorPool, descriptor_sets);
-
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &FramesInFlightData[currentFrame].bindlessDescriptorSets.uniformDescriptorSets, 0, nullptr);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &FramesInFlightData[currentFrame].bindlessDescriptorSets.storageDescriptorSets, 0, nullptr);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 2, 1, &FramesInFlightData[currentFrame].bindlessDescriptorSets.imageDescriptorSets, 0, nullptr);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 3, 1, &FramesInFlightData[currentFrame].bindlessDescriptorSets.samplerDescriptorSets, 0, nullptr);
+    
     int meshct = scene->meshes.size();
     //Per-Object data, then draw
     for (int i = 0; i <meshct; i++)
@@ -693,11 +633,6 @@ VkPipeline HelloTriangleApplication::createGraphicsPipeline(const char* shaderNa
     auto shaders = shaderLoader->compiledShaders[shaderName];
 
     VkPipelineShaderStageCreateInfo shaderStages[] = {shaders[0], shaders[1]};
-
-
-    auto bindingDescription = Vertex::getBindingDescription();
-    auto attributeDescriptions = Vertex::getAttributeDescriptions();
-
 
     VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
     vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -941,10 +876,10 @@ void HelloTriangleApplication::UpdateRotations()
 
 void HelloTriangleApplication::drawFrame(inputData input)
 {
-    vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
+    vkWaitForFences(device, 1, &FramesInFlightData[currentFrame].inFlightFences, VK_TRUE, UINT64_MAX);
 
     uint32_t imageIndex;
-    vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE,
+    vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, FramesInFlightData[currentFrame].imageAvailableSemaphores, VK_NULL_HANDLE,
                           &imageIndex);
 
     vkResetCommandBuffer(commandBuffers[currentFrame], 0);
@@ -958,7 +893,7 @@ void HelloTriangleApplication::drawFrame(inputData input)
     updateLightBuffers(currentFrame);
 
 
-    vkResetFences(device, 1, &inFlightFences[currentFrame]);
+    vkResetFences(device, 1, &FramesInFlightData[currentFrame].inFlightFences);
     //TODO JS: properly manage multiple objects with vertex buffer + corresponding pipeline object
     //VkBuffer vertexBuffers[] = { vertexBuffer };
 
@@ -971,7 +906,7 @@ void HelloTriangleApplication::drawFrame(inputData input)
 
     //TODO JS: understand better 
 
-    VkSemaphore waitSemaphores[] = {imageAvailableSemaphores[currentFrame]};
+    VkSemaphore waitSemaphores[] = {FramesInFlightData[currentFrame].imageAvailableSemaphores};
     VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
     submitInfo.waitSemaphoreCount = 1;
     submitInfo.pWaitSemaphores = waitSemaphores;
@@ -980,11 +915,11 @@ void HelloTriangleApplication::drawFrame(inputData input)
     submitInfo.pCommandBuffers = &commandBuffers[currentFrame];
 
 
-    VkSemaphore signalSemaphores[] = {renderFinishedSemaphores[currentFrame]};
+    VkSemaphore signalSemaphores[] = {FramesInFlightData[currentFrame].renderFinishedSemaphores};
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = signalSemaphores;
 
-    auto result = vkQueueSubmit(commandPoolmanager.Queues.graphicsQueue, 1, &submitInfo, inFlightFences[currentFrame]);
+    auto result = vkQueueSubmit(commandPoolmanager.Queues.graphicsQueue, 1, &submitInfo, FramesInFlightData[currentFrame].inFlightFences);
     if (result != VK_SUCCESS)
     {
         printf("failed to submit draw command buffer!");
@@ -1017,9 +952,9 @@ void HelloTriangleApplication::cleanup()
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-       VulkanMemory::DestroyBuffer(allocator, uniformBuffers[i].data, uniformBuffersMemory[i]);
-       VulkanMemory::DestroyBuffer(allocator, meshBuffers[i].data, meshBuffersMemory[i]);
-       VulkanMemory::DestroyBuffer(allocator, lightBuffers[i].data, lightBuffersMemory[i]);
+       VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].uniformBuffers.data, FramesInFlightData[i].uniformBuffersMemory);
+       VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].meshBuffers.data, FramesInFlightData[i].meshBuffersMemory);
+       VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].lightBuffers.data, FramesInFlightData[i].lightBuffersMemory);
     }
 
     vkDestroyDescriptorPool(device, descriptorPool, nullptr);
@@ -1030,9 +965,9 @@ void HelloTriangleApplication::cleanup()
     scene->Cleanup();
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        vkDestroySemaphore(device, renderFinishedSemaphores[i], nullptr);
-        vkDestroySemaphore(device, imageAvailableSemaphores[i], nullptr);
-        vkDestroyFence(device, inFlightFences[i], nullptr);
+        vkDestroySemaphore(device, FramesInFlightData[i].renderFinishedSemaphores, nullptr);
+        vkDestroySemaphore(device, FramesInFlightData[i].imageAvailableSemaphores, nullptr);
+        vkDestroyFence(device, FramesInFlightData[i].inFlightFences, nullptr);
     }
 
     vkDestroyCommandPool(device, commandPoolmanager.commandPool, nullptr);

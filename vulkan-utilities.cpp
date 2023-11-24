@@ -38,7 +38,7 @@ struct bindingBuilder
         i++;
     }
 };
-void DescriptorSetSetup::createBindlessLayout(RendererHandles rendererHandles, Scene* scene, DescriptorSetLayouts* layout)
+void DescriptorSetSetup::createBindlessLayout(RendererHandles rendererHandles, Scene* scene, bindlessDescriptorSetLayouts* layout)
 {
     auto uniformbuilder = bindingBuilder(1);
     auto samplerbuilder = bindingBuilder(2);

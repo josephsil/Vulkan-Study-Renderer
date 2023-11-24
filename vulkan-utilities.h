@@ -51,13 +51,13 @@ namespace DescriptorSetSetup
     
     struct DescriptorSets
     {
-        std::vector<VkDescriptorSet> uniformDescriptorSets = {};
-        std::vector<VkDescriptorSet> storageDescriptorSets = {};
-        std::vector<VkDescriptorSet> imageDescriptorSets = {};
-        std::vector<VkDescriptorSet> samplerDescriptorSets = {};
+        VkDescriptorSet uniformDescriptorSets = {};
+        VkDescriptorSet storageDescriptorSets = {};
+        VkDescriptorSet imageDescriptorSets = {};
+        VkDescriptorSet samplerDescriptorSets = {};
     };
 
-    struct DescriptorSetLayouts
+    struct bindlessDescriptorSetLayouts
     {
         VkDescriptorSetLayout uniformDescriptorLayout;
         VkDescriptorSetLayout storageDescriptorLayout;
@@ -72,7 +72,7 @@ namespace DescriptorSetSetup
         }
     };
 
-     void createBindlessLayout(RendererHandles rendererHandles, Scene* scene, DescriptorSetLayouts* layout);
+     void createBindlessLayout(RendererHandles rendererHandles, Scene* scene, bindlessDescriptorSetLayouts* layout);
 }
 
 namespace RenderingSetup
