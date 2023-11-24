@@ -48,8 +48,7 @@ namespace DescriptorDataUtilities
 namespace DescriptorSetSetup
 {
     void AllocateDescriptorSet(RendererHandles handles, VkDescriptorPool pool, VkDescriptorSetLayout* pdescriptorsetLayout, VkDescriptorSet* pset);
-
-
+    
     struct DescriptorSets
     {
         std::vector<VkDescriptorSet> uniformDescriptorSets = {};
@@ -60,10 +59,17 @@ namespace DescriptorSetSetup
 
     struct DescriptorSetLayouts
     {
-        VkDescriptorSetLayout uniformDescriptorSets;
-        VkDescriptorSetLayout storageDescriptorSets;
-        VkDescriptorSetLayout imageDescriptorSets;
-        VkDescriptorSetLayout samplerDescriptorSets;
+        VkDescriptorSetLayout uniformDescriptorLayout;
+        VkDescriptorSetLayout storageDescriptorLayout;
+        VkDescriptorSetLayout imageDescriptorLayout;
+        VkDescriptorSetLayout samplerDescriptorLayout;
+
+        std::vector<VkDescriptorSetLayout> get()
+        {
+            return {
+                uniformDescriptorLayout,storageDescriptorLayout,imageDescriptorLayout,samplerDescriptorLayout
+            };
+        }
     };
 
      void createBindlessLayout(RendererHandles rendererHandles, Scene* scene, DescriptorSetLayouts* layout);
@@ -117,7 +123,6 @@ namespace BufferUtilities
                      VkImageCreateInfo* pImageCreateInfo,
                      VkImage* pImage,
                      VmaAllocation* pAllocation, VkDeviceMemory* deviceMemory);
-  
     
     void stageVertexBuffer(RendererHandles rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
                            VmaAllocation& allocation, Vertex* data);

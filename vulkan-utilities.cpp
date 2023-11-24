@@ -53,7 +53,7 @@ void DescriptorSetSetup::createBindlessLayout(RendererHandles rendererHandles, S
     uniformDescriptorLayout.bindingCount = static_cast<uint32_t>(uniformbuilder.data.size());
     uniformDescriptorLayout.pBindings =  uniformbuilder.data.data();
 
-    VK_CHECK(vkCreateDescriptorSetLayout(rendererHandles.device, &uniformDescriptorLayout, nullptr, &layout->uniformDescriptorSets));
+    VK_CHECK(vkCreateDescriptorSetLayout(rendererHandles.device, &uniformDescriptorLayout, nullptr, &layout->uniformDescriptorLayout));
 
     imagebuilder.addBinding(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_FRAGMENT_BIT,  scene->materialTextureCount()  + scene->utilityTextureCount() + 1);
     imagebuilder.addBinding(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_FRAGMENT_BIT,  2);
@@ -64,7 +64,7 @@ void DescriptorSetSetup::createBindlessLayout(RendererHandles rendererHandles, S
     imageDescriptorLayout.bindingCount = static_cast<uint32_t>(imagebuilder.data.size());
     imageDescriptorLayout.pBindings =  imagebuilder.data.data();
 
-    VK_CHECK(vkCreateDescriptorSetLayout(rendererHandles.device, &imageDescriptorLayout, nullptr, &layout->imageDescriptorSets));
+    VK_CHECK(vkCreateDescriptorSetLayout(rendererHandles.device, &imageDescriptorLayout, nullptr, &layout->imageDescriptorLayout));
 
 
     samplerbuilder.addBinding(VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT , 2);
@@ -76,7 +76,7 @@ void DescriptorSetSetup::createBindlessLayout(RendererHandles rendererHandles, S
     samplerDescriptorLayout.bindingCount = static_cast<uint32_t>(samplerbuilder.data.size());
     samplerDescriptorLayout.pBindings =  samplerbuilder.data.data();
     
-    VK_CHECK(vkCreateDescriptorSetLayout(rendererHandles.device, &samplerDescriptorLayout, nullptr, &layout->samplerDescriptorSets));
+    VK_CHECK(vkCreateDescriptorSetLayout(rendererHandles.device, &samplerDescriptorLayout, nullptr, &layout->samplerDescriptorLayout));
     
     storagebuilder.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
     storagebuilder.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
@@ -89,7 +89,7 @@ void DescriptorSetSetup::createBindlessLayout(RendererHandles rendererHandles, S
     storageDescriptorLayout.bindingCount = static_cast<uint32_t>(storagebuilder.data.size());
     storageDescriptorLayout.pBindings =  storagebuilder.data.data();
 
-    VK_CHECK(vkCreateDescriptorSetLayout(rendererHandles.device, &storageDescriptorLayout, nullptr, &layout->storageDescriptorSets));
+    VK_CHECK(vkCreateDescriptorSetLayout(rendererHandles.device, &storageDescriptorLayout, nullptr, &layout->storageDescriptorLayout));
 }
 
 //TODO JS: VK_KHR_dynamic_rendering gets rid of render pass types and just lets you vkBeginRenderPass
@@ -506,8 +506,6 @@ void BufferUtilities::stageMeshDataBuffer(RendererHandles rendererHandles, VkDev
     VulkanMemory::MapMemory(rendererHandles.allocator, stagingallocation,&data);
     memcpy(data, vertices, bufferSize);
     VulkanMemory::UnmapMemory(rendererHandles.allocator, stagingallocation);
-    
-
 
     createBuffer(rendererHandles, bufferSize,
                                   VK_BUFFER_USAGE_TRANSFER_DST_BIT | dataTypeFlag, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT, &allocation, buffer, nullptr);
@@ -558,7 +556,7 @@ void BufferUtilities::CreateImage( VmaAllocator allocator,
     
     VmaAllocationCreateInfo allocInfo = {};
     VmaAllocationInfo AllocationInfo;
-    allocInfo.usage = VMA_MEMORY_USAGE_AUTO; //TODO JS: Pass in usage flags?
+    allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
     
     vmaCreateImage(allocator, pImageCreateInfo, &allocInfo, pImage, pAllocation, &AllocationInfo);
     deviceMemory = &AllocationInfo.deviceMemory;
@@ -569,7 +567,6 @@ void createBuffer(RendererHandles rendererHandles, VkDeviceSize size, VkBufferUs
                                    VmaAllocation* allocation, VkBuffer& buffer, VmaAllocationInfo* outAllocInfo)
 {
 
-    //TODO JS: Properties flags to vma -- check git history and see if i crushed and flags 
     VkBufferCreateInfo bufferInfo{};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     bufferInfo.size = size;
@@ -614,8 +611,6 @@ DescriptorDataUtilities::ImageInfoFromImageDataVec(std::vector<TextureData> text
 
     return std::make_pair(imageinfos, samplerinfos);
 }
-
-//TODO JS: Move to textureData? Just return a 
 
 std::pair<VkDescriptorImageInfo, VkDescriptorImageInfo> DescriptorDataUtilities::ImageInfoFromImageData(
     TextureData texture)

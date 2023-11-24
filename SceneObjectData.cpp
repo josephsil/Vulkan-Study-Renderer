@@ -12,7 +12,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/quaternion.hpp>
 
-#include "Vulkan_Includes.h" //TODO JS: only needed to specify pair -- fix
+#include "Vulkan_Includes.h" 
 #include "vulkan-utilities.h"
 
 

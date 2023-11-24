@@ -139,7 +139,6 @@ void HelloTriangleApplication::initWindow()
 {
     // We initialize SDL and create a window with it. 
     SDL_Init(SDL_INIT_VIDEO);
-
     auto window_flags = SDL_WINDOW_VULKAN;
 
     //create blank SDL window for our application
@@ -153,17 +152,12 @@ void HelloTriangleApplication::initWindow()
     );
 }
 
-
 TextureData cube_irradiance;
 TextureData cube_specular;
 
-
 vkb::Instance vkb_instance;
-
 vkb::PhysicalDevice vkb_physicalDevice;
-
 vkb::Device vkb_device;
-
 vkb::Swapchain vkb_swapchain;
 
 void SET_UP_SCENE(HelloTriangleApplication* app);
@@ -174,81 +168,7 @@ RendererHandles HelloTriangleApplication::getHandles()
     return RendererHandles(physicalDevice, device, &commandPoolmanager, allocator);
 }
 
-void HelloTriangleApplication::createDescriptorSetPool(RendererHandles handles, VkDescriptorPool* pool)
-{
-    std::vector<VkDescriptorPoolSize> sizes =
-    {
-        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 20 },
-        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 20 },
-        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 20 },
-        //add combined-image-sampler descriptor types to the pool
-        { VK_DESCRIPTOR_TYPE_SAMPLER, 20 },
-        { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 20 },
-        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 20 },
-        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 20 }
-    };
 
-    VkDescriptorPoolCreateInfo pool_info = {};
-    pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    pool_info.flags = 0;
-    pool_info.poolSizeCount = (uint32_t)sizes.size();
-    pool_info.pPoolSizes = sizes.data();
-
-
-    pool_info.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * 4;
-
-    //TODO JS: allocation callbacks
-    VK_CHECK( vkCreateDescriptorPool(handles.device, &pool_info, nullptr, pool));
-    
-}
-
-
-void HelloTriangleApplication::createDescriptorSets(RendererHandles handles, VkDescriptorPool pool, DescriptorSetSetup::DescriptorSetLayouts  descriptorsetLayouts)
-{
-    descriptor_sets.imageDescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
-    descriptor_sets.samplerDescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
-    descriptor_sets.uniformDescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
-    descriptor_sets.storageDescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
-    for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ )
-    {
-        DescriptorSetSetup::AllocateDescriptorSet(handles, pool,  &descriptorsetLayouts.imageDescriptorSets, &descriptor_sets.imageDescriptorSets[i]);
-        DescriptorSetSetup::AllocateDescriptorSet(handles, pool,  &descriptorsetLayouts.samplerDescriptorSets, &descriptor_sets.samplerDescriptorSets[i]);
-        DescriptorSetSetup::AllocateDescriptorSet(handles, pool,  &descriptorsetLayouts.uniformDescriptorSets, &descriptor_sets.uniformDescriptorSets[i]);
-        DescriptorSetSetup::AllocateDescriptorSet(handles, pool,  &descriptorsetLayouts.storageDescriptorSets, &descriptor_sets.storageDescriptorSets[i]);
-    }
-}
-void HelloTriangleApplication::updateDescriptorSets(RendererHandles handles, VkDescriptorPool pool, DescriptorSetSetup::DescriptorSets sets)
-{
-
-    for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ )
-    {
-        auto writeDescriptorSetBuilder = DescriptorDataUtilities::WriteDescriptorSetsBuilder();
-
-        VkDescriptorBufferInfo shaderglobalsinfo = shaderGlobalsBuffer[currentFrame].getBufferInfo();
-        writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, sets.uniformDescriptorSets[i], &shaderglobalsinfo);
-
-        auto [imageInfos, samplerInfos] = scene->getBindlessTextureInfos();
-        writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, sets.imageDescriptorSets[i], imageInfos.data(), imageInfos.size());
-        writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_SAMPLER, sets.samplerDescriptorSets[i], samplerInfos.data(), samplerInfos.size());
-
-        VkDescriptorBufferInfo meshBufferinfo = meshBuffers[currentFrame].getBufferInfo();
-        writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,sets.storageDescriptorSets[i], &meshBufferinfo);
-
-        VkDescriptorBufferInfo lightbufferinfo = lightBuffers[currentFrame].getBufferInfo();
-        writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,sets.storageDescriptorSets[i], &lightbufferinfo);
-
-        VkDescriptorBufferInfo uniformbufferinfo = uniformBuffers[currentFrame].getBufferInfo();
-        writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,sets.storageDescriptorSets[i], &uniformbufferinfo);
-
-        auto [cubeImageInfos, cubeSamplerInfos] = DescriptorDataUtilities::ImageInfoFromImageDataVec({
-            cube_irradiance, cube_specular
-        });
-        writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, sets.imageDescriptorSets[i], cubeImageInfos.data(), cubeImageInfos.size());
-        writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_SAMPLER, sets.samplerDescriptorSets[i], cubeSamplerInfos.data(), cubeSamplerInfos.size());
-        vkUpdateDescriptorSets(handles.device, writeDescriptorSetBuilder.size(), writeDescriptorSetBuilder.data(), 0, nullptr);
-    }
-        
-}
 
 void HelloTriangleApplication::initVulkan()
 {
@@ -267,10 +187,6 @@ void HelloTriangleApplication::initVulkan()
 
     SDL_Vulkan_GetDrawableSize(_window, &WIDTH, &HEIGHT);
 
-    
-    
-
-    
     //Get physical device
     vkb_physicalDevice = GET_GPU(vkb_instance);
     physicalDevice = vkb_physicalDevice.physical_device;
@@ -281,12 +197,6 @@ void HelloTriangleApplication::initVulkan()
 
     allocator = VulkanMemory::GetAllocator(device, physicalDevice, instance);
     
-    //Get push descriptor stuff
-    //The push descriptor update function is part of an extension so it has to be manually loaded
-    vkCmdPushDescriptorSetKHR = (PFN_vkCmdPushDescriptorSetKHR)vkGetDeviceProcAddr(device, "vkCmdPushDescriptorSetKHR");
-
-    // Get device push descriptor properties (to display them)
-
     //Get queues and queue families and command pools
     commandPoolmanager = CommandPoolManager(vkb_device);
 
@@ -308,10 +218,10 @@ void HelloTriangleApplication::initVulkan()
 
     //Load shaders 
     shaderLoader = new ShaderLoader(device);
-    compileShaders();
+    shaderLoader->AddShader("triangle", L"./Shaders/Shader1.hlsl");
+    shaderLoader->AddShader("triangle_alt", L"./Shaders/shader2.hlsl");
     
     RenderingSetup::createRenderPass(getHandles(), {swapChainImageFormat, Capabilities::findDepthFormat(getHandles())}, &renderPass);
-
 
     //Command buffer stuff
     createCommandBuffers();
@@ -327,24 +237,13 @@ void HelloTriangleApplication::initVulkan()
     cube_specular = TextureData(getHandles(), "textures/output_cubemap2_spec8.ktx2", TextureData::TextureType::CUBE);
 
    
-    //Only one dsl right now -- for the bindless ubershader
     DescriptorSetSetup::createBindlessLayout(getHandles(), scene.get(), &descriptorsetLayouts);
-
     
-    std::vector<VkDescriptorSetLayout> layouts = {
-        descriptorsetLayouts.uniformDescriptorSets,
-    descriptorsetLayouts.storageDescriptorSets,
-    descriptorsetLayouts.imageDescriptorSets,
-    descriptorsetLayouts.samplerDescriptorSets};
-    graphicsPipeline_1 = createGraphicsPipeline("triangle", renderPass, nullptr,  layouts);
-    graphicsPipeline_2 = createGraphicsPipeline("triangle_alt", renderPass, nullptr,  layouts);
+    bindlessPipeline_1 = createGraphicsPipeline("triangle", renderPass, nullptr,  descriptorsetLayouts.get());
+    bindlessPipeline_2 = createGraphicsPipeline("triangle_alt", renderPass, nullptr,  descriptorsetLayouts.get());
     
-    //Only one dsl right now -- for the bindless ubershader
     createDescriptorSetPool(getHandles(),  &descriptorPool);
-    
     createDescriptorSets(getHandles(), descriptorPool,descriptorsetLayouts);
-
-
 
     createUniformBuffers();
     createSyncObjects();
@@ -355,8 +254,6 @@ void HelloTriangleApplication::initVulkan()
     //TODO JS: Move... Run when meshes change?
     populateMeshBuffers();
 }
-
-
 
 void HelloTriangleApplication::populateMeshBuffers()
 {
@@ -422,10 +319,8 @@ void HelloTriangleApplication::createUniformBuffers()
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
         uniformBuffersMapped[i] = BufferUtilities::createDynamicBuffer(getHandles(), bufferSize1, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-      
                                              &uniformBuffersMemory[i],
-                                             uniformBuffers[i].data
-        );
+                                             uniformBuffers[i].data);
 
     }
 
@@ -442,10 +337,8 @@ void HelloTriangleApplication::createUniformBuffers()
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
        meshBuffersMapped[i] = BufferUtilities::createDynamicBuffer(getHandles(), bufferSize2, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-      
                                              &meshBuffersMemory[i],
-                                             meshBuffers[i].data
-        );
+                                             meshBuffers[i].data);
 
        
     }
@@ -463,16 +356,12 @@ void HelloTriangleApplication::createUniformBuffers()
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
         lightBuffersMapped[i] = BufferUtilities::createDynamicBuffer(getHandles(), bufferSize3, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-
                                              &lightBuffersMemory[i],
-                                             lightBuffers[i].data
-        );
+                                             lightBuffers[i].data);
 
     }
 }
 
-
-//TODO JS: Better understand what needs to be done at startup
 void HelloTriangleApplication::createDescriptorSetLayout(VkDescriptorSetLayoutCreateInfo layoutinfo,
                                                          VkDescriptorSetLayout* layout)
 {
@@ -480,30 +369,81 @@ void HelloTriangleApplication::createDescriptorSetLayout(VkDescriptorSetLayoutCr
 }
 #pragma endregion
 
-//TODO JS: ??
-#pragma region buffer creation and tools
-
-
-#pragma endregion
-
-#pragma region Begin/End commands
-
-
-#pragma endregion
-
-#pragma region utility
-
-
-void HelloTriangleApplication::compileShaders()
+#pragma region descriptorsets
+void HelloTriangleApplication::createDescriptorSetPool(RendererHandles handles, VkDescriptorPool* pool)
 {
-    shaderLoader = new ShaderLoader(device);
+    std::vector<VkDescriptorPoolSize> sizes =
+    {
+        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 20 },
+        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 20 },
+        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 20 },
+        //add combined-image-sampler descriptor types to the pool
+        { VK_DESCRIPTOR_TYPE_SAMPLER, 20 },
+        { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 20 },
+        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 20 },
+        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 20 }
+    };
 
-    shaderLoader->AddShader("triangle", L"./Shaders/Shader1.hlsl");
-    shaderLoader->AddShader("triangle_alt", L"./Shaders/shader2.hlsl");
+    VkDescriptorPoolCreateInfo pool_info = {};
+    pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    pool_info.flags = 0;
+    pool_info.poolSizeCount = (uint32_t)sizes.size();
+    pool_info.pPoolSizes = sizes.data();
+    
+    pool_info.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * 4; //4 here is the number of descriptorsets 
+    VK_CHECK( vkCreateDescriptorPool(handles.device, &pool_info, nullptr, pool));
+    
 }
 
+void HelloTriangleApplication::createDescriptorSets(RendererHandles handles, VkDescriptorPool pool, DescriptorSetSetup::DescriptorSetLayouts descriptorsetLayouts)
+{
+    descriptor_sets.imageDescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
+    descriptor_sets.samplerDescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
+    descriptor_sets.uniformDescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
+    descriptor_sets.storageDescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
+    for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ )
+    {
+        DescriptorSetSetup::AllocateDescriptorSet(handles, pool,  &descriptorsetLayouts.imageDescriptorLayout, &descriptor_sets.imageDescriptorSets[i]);
+        DescriptorSetSetup::AllocateDescriptorSet(handles, pool,  &descriptorsetLayouts.samplerDescriptorLayout, &descriptor_sets.samplerDescriptorSets[i]);
+        DescriptorSetSetup::AllocateDescriptorSet(handles, pool,  &descriptorsetLayouts.uniformDescriptorLayout, &descriptor_sets.uniformDescriptorSets[i]);
+        DescriptorSetSetup::AllocateDescriptorSet(handles, pool,  &descriptorsetLayouts.storageDescriptorLayout, &descriptor_sets.storageDescriptorSets[i]);
+    }
+}
 
+void HelloTriangleApplication::updateDescriptorSets(RendererHandles handles, VkDescriptorPool pool, DescriptorSetSetup::DescriptorSets sets)
+{
+
+    for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ )
+    {
+        auto writeDescriptorSetBuilder = DescriptorDataUtilities::WriteDescriptorSetsBuilder();
+
+        VkDescriptorBufferInfo shaderglobalsinfo = shaderGlobalsBuffer[currentFrame].getBufferInfo();
+        writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, sets.uniformDescriptorSets[i], &shaderglobalsinfo);
+
+        auto [imageInfos, samplerInfos] = scene->getBindlessTextureInfos();
+        writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, sets.imageDescriptorSets[i], imageInfos.data(), imageInfos.size());
+        writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_SAMPLER, sets.samplerDescriptorSets[i], samplerInfos.data(), samplerInfos.size());
+
+        VkDescriptorBufferInfo meshBufferinfo = meshBuffers[currentFrame].getBufferInfo();
+        writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,sets.storageDescriptorSets[i], &meshBufferinfo);
+
+        VkDescriptorBufferInfo lightbufferinfo = lightBuffers[currentFrame].getBufferInfo();
+        writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,sets.storageDescriptorSets[i], &lightbufferinfo);
+
+        VkDescriptorBufferInfo uniformbufferinfo = uniformBuffers[currentFrame].getBufferInfo();
+        writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,sets.storageDescriptorSets[i], &uniformbufferinfo);
+
+        auto [cubeImageInfos, cubeSamplerInfos] = DescriptorDataUtilities::ImageInfoFromImageDataVec({
+            cube_irradiance, cube_specular
+        });
+        writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, sets.imageDescriptorSets[i], cubeImageInfos.data(), cubeImageInfos.size());
+        writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_SAMPLER, sets.samplerDescriptorSets[i], cubeSamplerInfos.data(), cubeSamplerInfos.size());
+        vkUpdateDescriptorSets(handles.device, writeDescriptorSetBuilder.size(), writeDescriptorSetBuilder.data(), 0, nullptr);
+    }
+        
+}
 #pragma endregion
+
 
 void HelloTriangleApplication::createSyncObjects()
 {
@@ -561,7 +501,6 @@ void HelloTriangleApplication::updateUniformBuffers(uint32_t currentImage, std::
                                       1000.0f);
 
     proj[1][1] *= -1;
-
     globals.view = view;
     globals.proj = proj;
     globals.viewPos = glm::vec4(eyePos.x, eyePos.y, eyePos.z, 1);
@@ -570,10 +509,7 @@ void HelloTriangleApplication::updateUniformBuffers(uint32_t currentImage, std::
         scene->materialTextureCount() + cubemaplut_utilitytexture_index,
         scene->materialTextureCount() + cubemaplut_utilitytexture_index, 0, 0);
     memcpy(shaderGlobalsMapped[currentImage], &globals, sizeof(ShaderGlobals));
-
-
     std::vector<UniformBufferObject> ubos;
-
 
     if (ubos.size() != models.size())
     {
@@ -596,7 +532,7 @@ void HelloTriangleApplication::updateUniformBuffer(uint32_t currentImage, glm::m
 }
 
 
-//TODO is this doing extra work?
+//command buffer to draw the frame 
 void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex,
                                                    VkPipeline graphicsPipeline)
 {
@@ -647,10 +583,8 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
 
     //*************
     //************
-    //** Fill data for Push Descriptor Sets
-
-    
-
+    //** Fill data Descriptor Sets
+    //
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptor_sets.uniformDescriptorSets[currentFrame], 0, nullptr);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &descriptor_sets.storageDescriptorSets[currentFrame], 0, nullptr);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 2, 1, &descriptor_sets.imageDescriptorSets[currentFrame], 0, nullptr);
@@ -685,17 +619,8 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
 
 
     frames ++;
-    // for(int j = 0; j < frames; j++)
-    // {
-    //     averageCbTime += pastTimes[j];
-    // }
-    // averageCbTime /= frames;
+   
 }
-#pragma endregion
-
-#pragma region Command Pools/Queues
-
-
 #pragma endregion
 
 void HelloTriangleApplication::createCommandBuffers()
@@ -738,8 +663,6 @@ void HelloTriangleApplication::createFramebuffers()
     }
 }
 
-
-//TODO JS: What's this for
 bool HelloTriangleApplication::hasStencilComponent(VkFormat format)
 {
     return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
@@ -760,14 +683,13 @@ void HelloTriangleApplication::createDepthResources()
         TextureUtilities::createImageView(this->device, depthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
 }
 
-
 #pragma endregion
 
 
 VkPipeline HelloTriangleApplication::createGraphicsPipeline(const char* shaderName, VkRenderPass renderPass,
                                                             VkPipelineCache pipelineCache, std::vector<VkDescriptorSetLayout> layouts)
 {
-    VkPipeline newGraphicsPipeline; //This guy is getting initialized and returned 
+    VkPipeline newGraphicsPipeline; 
     auto shaders = shaderLoader->compiledShaders[shaderName];
 
     VkPipelineShaderStageCreateInfo shaderStages[] = {shaders[0], shaders[1]};
@@ -914,7 +836,7 @@ VkPipeline HelloTriangleApplication::createGraphicsPipeline(const char* shaderNa
 
 
     auto val = shaderLoader->compiledShaders[shaderName];
-    //Destroy frag and vert for a given shadername 
+
     for (auto v : val)
     {
         vkDestroyShaderModule(device, v.module, nullptr);
@@ -1042,7 +964,7 @@ void HelloTriangleApplication::drawFrame(inputData input)
 
     //TODO: draw multiple objects
     recordCommandBuffer(commandBuffers[currentFrame], imageIndex,
-                        _selectedShader == 0 ? graphicsPipeline_1 : graphicsPipeline_2);
+                        _selectedShader == 0 ? bindlessPipeline_1 : bindlessPipeline_2);
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -1122,7 +1044,7 @@ void HelloTriangleApplication::cleanup()
         vkDestroyFramebuffer(device, framebuffer, nullptr);
     }
 
-    vkDestroyPipeline(device, graphicsPipeline_1, nullptr);
+    vkDestroyPipeline(device, bindlessPipeline_1, nullptr);
     vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
 
     vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
@@ -1137,11 +1059,8 @@ void HelloTriangleApplication::cleanup()
 
     destroy_swapchain(vkb_swapchain);
     vkDestroySwapchainKHR(device, swapChain, nullptr);
-
     vkDestroyDevice(device, nullptr);
-
     vkDestroySurfaceKHR(instance, surface, nullptr);
-
     vkDestroyInstance(instance, nullptr);
 
     // vkb::destroy_surface(vkb_surface);
@@ -1238,25 +1157,3 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
     }
 }
 
-
-//TODO JS: This shouldn't be in the class
-std::vector<char> HelloTriangleApplication::readFile(const char* filename)
-{
-    std::ifstream file(filename, std::ios::ate | std::ios::binary);
-
-    if (!file.is_open())
-    {
-        printf("failed to open file!");
-        exit(-1);
-    }
-
-    size_t fileSize = file.tellg();
-    std::vector<char> buffer(fileSize);
-
-    file.seekg(0);
-    file.read(buffer.data(), fileSize);
-
-    file.close();
-
-    return buffer;
-}
