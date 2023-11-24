@@ -1,5 +1,5 @@
 #pragma once
-#include "vulkan-forwards.h"
+#include "forward-declarations-renderer.h"
 
 struct RenderTextureFormat
 {

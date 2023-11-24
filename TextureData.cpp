@@ -10,9 +10,11 @@
 #include <iostream>
 #include <ktxvulkan.h>
 
+#include "bufferCreation.h"
 #include "CommandPoolManager.h"
 #include "FileCaching.h"
 #include "Memory.h"
+#include "textureCreation.h"
 
 
 int TEXTURE_INDEX;

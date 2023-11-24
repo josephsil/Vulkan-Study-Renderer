@@ -95,21 +95,16 @@ private:
     VkDescriptorSetLayout perMaterialSetLayout;
     VkPipelineLayout pipelineLayout;
     
-    DescriptorSetSetup::bindlessDescriptorSetLayouts descriptorsetLayouts;
+    DescriptorSets::bindlessDescriptorSetData descriptorsetLayoutsData;
 
     
-    void createDescriptorSetPool(RendererHandles handles, VkDescriptorPool* pool);
-    void createDescriptorSets(RendererHandles handles, VkDescriptorPool pool, DescriptorSetSetup::bindlessDescriptorSetLayouts descriptorsetLayouts, DescriptorSetSetup::DescriptorSets* descriptor_sets);
-    void updateDescriptorSets(RendererHandles handles, VkDescriptorPool pool, DescriptorSetSetup::DescriptorSets* sets);
+    void createDescriptorSetPool(RendererHandles handles, VkDescriptorPool* pool, std::vector<DescriptorSets::layoutInfo> infos);
+    void updateDescriptorSets(RendererHandles handles, VkDescriptorPool pool, DescriptorSets::bindlessDescriptorSetData* layoutData);
 
 #pragma endregion
 
     struct per_frame_data
     {
-        DescriptorSetSetup::DescriptorSets bindlessDescriptorSets {};
-
-        
-
         VkSemaphore imageAvailableSemaphores {};
         VkSemaphore renderFinishedSemaphores {};
         VkFence inFlightFences {};

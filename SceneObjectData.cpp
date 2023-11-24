@@ -133,6 +133,20 @@ void Scene::Cleanup()
     }
 }
 
+std::pair<VkDescriptorImageInfo, VkDescriptorImageInfo> ImageInfoFromImageData(
+    TextureData texture)
+{
+    return std::make_pair(
+        VkDescriptorImageInfo{
+            .imageView = texture.textureImageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+        },
+        VkDescriptorImageInfo{
+            .sampler = texture.textureSampler, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+        }
+    );
+}
+
+
 std::pair<std::vector<VkDescriptorImageInfo>, std::vector<VkDescriptorImageInfo>> Scene::getBindlessTextureInfos()
 {
     //TODO JS: Don't do this every frame
@@ -141,17 +155,17 @@ std::pair<std::vector<VkDescriptorImageInfo>, std::vector<VkDescriptorImageInfo>
     //Material textures
     for (int texture_i = 0; texture_i < materialCount(); texture_i++)
     {
-        auto [imageInfo, samplerInfo] = DescriptorDataUtilities::ImageInfoFromImageData(
+        auto [imageInfo, samplerInfo] = ImageInfoFromImageData(
             backing_diffuse_textures[texture_i]);
         imageInfos.push_back(imageInfo);
         samplerInfos.push_back(samplerInfo);
 
-        auto [imageInfo2, samplerInfo2] = DescriptorDataUtilities::ImageInfoFromImageData(
+        auto [imageInfo2, samplerInfo2] = ImageInfoFromImageData(
             backing_specular_textures[texture_i]);
         imageInfos.push_back(imageInfo2);
         samplerInfos.push_back(samplerInfo2);
 
-        auto [imageInfo3, samplerInfo3] = DescriptorDataUtilities::ImageInfoFromImageData(
+        auto [imageInfo3, samplerInfo3] = ImageInfoFromImageData(
             backing_normal_textures[texture_i]);
         imageInfos.push_back(imageInfo3);
         samplerInfos.push_back(samplerInfo3);
@@ -159,7 +173,7 @@ std::pair<std::vector<VkDescriptorImageInfo>, std::vector<VkDescriptorImageInfo>
 
     for (int texture_i = 0; texture_i < backing_utility_textures.size(); texture_i++)
     {
-        auto [imageInfo, samplerInfo] = DescriptorDataUtilities::ImageInfoFromImageData(
+        auto [imageInfo, samplerInfo] = ImageInfoFromImageData(
             backing_utility_textures[texture_i]);
         imageInfos.push_back(imageInfo);
         samplerInfos.push_back(samplerInfo);

@@ -8,6 +8,7 @@
 #include <vector>
 #include <unordered_map>
 #include "AppStruct.h"
+#include "bufferCreation.h"
 #include "Memory.h"
 #include "vulkan-utilities.h"
 
