@@ -99,7 +99,7 @@ private:
 
     void createDescriptorSetPool(RendererHandles handles, VkDescriptorPool* pool);
     void createDescriptorSets(RendererHandles handles, VkDescriptorPool pool, DescriptorSetSetup::DescriptorSetLayouts descriptorsetLayouts);
-    void updateDescriptorSets(RendererHandles handles, VkDescriptorPool pool);
+    void updateDescriptorSets(RendererHandles handles, VkDescriptorPool pool, DescriptorSetSetup::DescriptorSets sets);
 
     VkPipeline graphicsPipeline_1;
     VkPipeline graphicsPipeline_2;
@@ -211,7 +211,6 @@ private:
 
     void updateLightBuffers(uint32_t currentImage);
     void populateMeshBuffers();
-    void updateDescriptorSet(Scene* scene, int idx);
 
 
     void createUniformBuffers();
@@ -273,7 +272,7 @@ because we won't come close to hitting any of these limits for now.*/
 
     //TODO JS Collapse this? zoux niagra stream seems to do way less 
     VkPipeline createGraphicsPipeline(const char* shaderName, VkRenderPass renderPass,
-                                      VkPipelineCache pipelineCache, VkDescriptorSetLayout layout);
+                                      VkPipelineCache pipelineCache, std::vector<VkDescriptorSetLayout> layouts);
     void createInstance();
 
     int _selectedShader{0};

@@ -2,7 +2,6 @@
 
 #pragma region forward declarations
 #include <cstdint>
-#include <vulkan/vulkan_core.h>
 
 #include "AppStruct.h"
 #include "vulkan-forwards.h"

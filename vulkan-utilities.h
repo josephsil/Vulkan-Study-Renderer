@@ -1,7 +1,6 @@
 #pragma once
+#include <unordered_map>
 #include <vector>
-
-
 #include "vulkan-forwards.h"
 #include "common-structs.h"
 struct Vertex;
@@ -24,8 +23,7 @@ struct dataBuffer
 
 namespace DescriptorDataUtilities
 {
-    std::pair<std::vector<VkDescriptorImageInfo>, std::vector<VkDescriptorImageInfo>> ImageInfoFromImageDataVec(
-        std::vector<TextureData> textures);
+    std::pair<std::vector<VkDescriptorImageInfo>, std::vector<VkDescriptorImageInfo>> ImageInfoFromImageDataVec(std::vector<TextureData> textures);
     //TODO JS: Move to textureData? 
     std::pair<VkDescriptorImageInfo, VkDescriptorImageInfo> ImageInfoFromImageData(TextureData texture);
 
@@ -33,14 +31,13 @@ namespace DescriptorDataUtilities
     struct WriteDescriptorSetsBuilder
     {
         std::vector<VkWriteDescriptorSet> descriptorsets;
-        int i = 0;
+        std::unordered_map<VkDescriptorSet, int> descriptorSetIndices;
 
-        WriteDescriptorSetsBuilder(int length);
+        WriteDescriptorSetsBuilder();
 
         void Add(VkDescriptorType type, VkDescriptorSet set, void* ptr, int count = 1);
       
 
-        void AddStorageBuffer(dataBuffer storageBuffer);
 
         VkWriteDescriptorSet* data();
 
@@ -50,7 +47,7 @@ namespace DescriptorDataUtilities
 
 namespace DescriptorSetSetup
 {
-    void AllocateDescriptorSet(RendererHandles handles, VkDescriptorPool pool, VkDescriptorSetLayout* pdescriptorsetLayout, VkDescriptorSet* pset)
+    void AllocateDescriptorSet(RendererHandles handles, VkDescriptorPool pool, VkDescriptorSetLayout* pdescriptorsetLayout, VkDescriptorSet* pset);
 
 
     struct DescriptorSets

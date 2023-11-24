@@ -71,29 +71,33 @@ struct FSOutput
 
 cbuffer globals : register(b0) { ShaderGlobals globals; }
 // ShaderGlobals globals;
+// uniformDescriptorSets
+// storageDescriptorSets
+// imageDescriptorSets
+// samplerDescriptorSets
 
-[[vk::binding(1)]]
+[[vk::binding(0, 2)]]
 Texture2D<float4> bindless_textures[];
 
-[[vk::binding(2)]]
+[[vk::binding(0, 3)]]
 SamplerState bindless_samplers[];
 
-[[vk::binding(3)]]
+[[vk::binding(0,1)]]
 #ifdef USE_RW
 RWStructuredBuffer<MyVertexStructure> BufferTable;
 #else
 ByteAddressBuffer BufferTable;
 #endif
-[[vk::binding(4)]]
+[[vk::binding(1,1)]]
 RWStructuredBuffer<MyLightStructure> lights;
-
-[[vk::binding(5)]]
+[[vk::binding(2, 1)]]
 RWStructuredBuffer<UBO> uboarr;
 
-[[vk::binding(6)]]
+
+[[vk::binding(1,2)]]
 TextureCube cubes[];
 
-[[vk::binding(7)]]
+[[vk::binding(1,3)]]
 SamplerState cubeSamplers[];
 
 [[vk::push_constant]]
@@ -111,6 +115,7 @@ struct VSOutput
     [[vk::location(6)]] float3 BiTangent : TEXCOORD3;
     [[vk::location(7)]] float3x3 TBN : TEXCOORD4;
 };
+
 
 static float2 positions[3] = {
     float2(0.0, -0.5),

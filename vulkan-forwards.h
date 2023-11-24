@@ -28,6 +28,10 @@ using VkDescriptorSetLayout = struct VkDescriptorSetLayout_T*;
 using VkRenderPass = struct VkRenderPass_T*;
 using VkSampler = struct VkSampler_T*;
 
+using VkDescriptorSet = struct VkDescriptorSet_T*;
+using VkDescriptorPool = struct VkDescriptorPool_T*;
+using VkDescriptorSet = struct VkDescriptorSet_T*;
+
 enum VkSamplerAddressMode;
 enum VkImageViewType; 
 

@@ -33,7 +33,7 @@ vkb::Instance GET_INSTANCE()
 {
     vkb::InstanceBuilder instance_builder;
     auto instanceBuilderResult = instance_builder
-                                 // .request_validation_layers()
+                                  .request_validation_layers()
                                  .use_default_debug_messenger()
                                  .require_api_version(1, 3, 0)
                                  .build();
@@ -49,7 +49,7 @@ vkb::Instance GET_INSTANCE()
 vkb::PhysicalDevice GET_GPU(vkb::Instance instance)
 {
     const std::vector<const char*> deviceExtensions = {
-        VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME, VK_KHR_MAINTENANCE_4_EXTENSION_NAME
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_MAINTENANCE_4_EXTENSION_NAME, VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME
     };
 
     vkb::PhysicalDeviceSelector phys_device_selector(instance);
@@ -178,13 +178,14 @@ void HelloTriangleApplication::createDescriptorSetPool(RendererHandles handles, 
 {
     std::vector<VkDescriptorPoolSize> sizes =
     {
-        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 10 },
-        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 10 },
-        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 10 },
+        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 20 },
+        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 20 },
+        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 20 },
         //add combined-image-sampler descriptor types to the pool
-        { VK_DESCRIPTOR_TYPE_SAMPLER, 10 },
-        { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 10 },
-        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 10 }
+        { VK_DESCRIPTOR_TYPE_SAMPLER, 20 },
+        { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 20 },
+        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 20 },
+        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 20 }
     };
 
     VkDescriptorPoolCreateInfo pool_info = {};
@@ -194,7 +195,7 @@ void HelloTriangleApplication::createDescriptorSetPool(RendererHandles handles, 
     pool_info.pPoolSizes = sizes.data();
 
 
-    pool_info.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+    pool_info.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * 4;
 
     //TODO JS: allocation callbacks
     VK_CHECK( vkCreateDescriptorPool(handles.device, &pool_info, nullptr, pool));
@@ -204,6 +205,10 @@ void HelloTriangleApplication::createDescriptorSetPool(RendererHandles handles, 
 
 void HelloTriangleApplication::createDescriptorSets(RendererHandles handles, VkDescriptorPool pool, DescriptorSetSetup::DescriptorSetLayouts  descriptorsetLayouts)
 {
+    descriptor_sets.imageDescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
+    descriptor_sets.samplerDescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
+    descriptor_sets.uniformDescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
+    descriptor_sets.storageDescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
     for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ )
     {
         DescriptorSetSetup::AllocateDescriptorSet(handles, pool,  &descriptorsetLayouts.imageDescriptorSets, &descriptor_sets.imageDescriptorSets[i]);
@@ -212,34 +217,34 @@ void HelloTriangleApplication::createDescriptorSets(RendererHandles handles, VkD
         DescriptorSetSetup::AllocateDescriptorSet(handles, pool,  &descriptorsetLayouts.storageDescriptorSets, &descriptor_sets.storageDescriptorSets[i]);
     }
 }
-void HelloTriangleApplication::updateDescriptorSets(RendererHandles handles, VkDescriptorPool pool)
+void HelloTriangleApplication::updateDescriptorSets(RendererHandles handles, VkDescriptorPool pool, DescriptorSetSetup::DescriptorSets sets)
 {
 
     for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ )
     {
-        auto writeDescriptorSetBuilder = DescriptorDataUtilities::WriteDescriptorSetsBuilder(8);
+        auto writeDescriptorSetBuilder = DescriptorDataUtilities::WriteDescriptorSetsBuilder();
 
         VkDescriptorBufferInfo shaderglobalsinfo = shaderGlobalsBuffer[currentFrame].getBufferInfo();
-        writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, descriptor_sets.uniformDescriptorSets[i], &shaderglobalsinfo);
+        writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, sets.uniformDescriptorSets[i], &shaderglobalsinfo);
 
         auto [imageInfos, samplerInfos] = scene->getBindlessTextureInfos();
-        writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, descriptor_sets.imageDescriptorSets[i], imageInfos.data(), imageInfos.size());
-        writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_SAMPLER, descriptor_sets.samplerDescriptorSets[i], samplerInfos.data(), imageInfos.size());
+        writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, sets.imageDescriptorSets[i], imageInfos.data(), imageInfos.size());
+        writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_SAMPLER, sets.samplerDescriptorSets[i], samplerInfos.data(), samplerInfos.size());
 
         VkDescriptorBufferInfo meshBufferinfo = meshBuffers[currentFrame].getBufferInfo();
-        writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,descriptor_sets.storageDescriptorSets[i], &meshBufferinfo);
+        writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,sets.storageDescriptorSets[i], &meshBufferinfo);
 
         VkDescriptorBufferInfo lightbufferinfo = lightBuffers[currentFrame].getBufferInfo();
-        writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,descriptor_sets.storageDescriptorSets[i], &lightbufferinfo);
+        writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,sets.storageDescriptorSets[i], &lightbufferinfo);
 
         VkDescriptorBufferInfo uniformbufferinfo = uniformBuffers[currentFrame].getBufferInfo();
-        writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,descriptor_sets.storageDescriptorSets[i], &uniformbufferinfo);
+        writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,sets.storageDescriptorSets[i], &uniformbufferinfo);
 
         auto [cubeImageInfos, cubeSamplerInfos] = DescriptorDataUtilities::ImageInfoFromImageDataVec({
             cube_irradiance, cube_specular
         });
-        writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, descriptor_sets.imageDescriptorSets[i], cubeImageInfos.data(), cubeImageInfos.size());
-        writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_SAMPLER, descriptor_sets.samplerDescriptorSets[i], cubeSamplerInfos.data(), cubeSamplerInfos.size());
+        writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, sets.imageDescriptorSets[i], cubeImageInfos.data(), cubeImageInfos.size());
+        writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_SAMPLER, sets.samplerDescriptorSets[i], cubeSamplerInfos.data(), cubeSamplerInfos.size());
         vkUpdateDescriptorSets(handles.device, writeDescriptorSetBuilder.size(), writeDescriptorSetBuilder.data(), 0, nullptr);
     }
         
@@ -325,8 +330,14 @@ void HelloTriangleApplication::initVulkan()
     //Only one dsl right now -- for the bindless ubershader
     DescriptorSetSetup::createBindlessLayout(getHandles(), scene.get(), &descriptorsetLayouts);
 
-    graphicsPipeline_1 = createGraphicsPipeline("triangle", renderPass, nullptr, pushDescriptorSetLayout);
-    graphicsPipeline_2 = createGraphicsPipeline("triangle_alt", renderPass, nullptr, pushDescriptorSetLayout);
+    
+    std::vector<VkDescriptorSetLayout> layouts = {
+        descriptorsetLayouts.uniformDescriptorSets,
+    descriptorsetLayouts.storageDescriptorSets,
+    descriptorsetLayouts.imageDescriptorSets,
+    descriptorsetLayouts.samplerDescriptorSets};
+    graphicsPipeline_1 = createGraphicsPipeline("triangle", renderPass, nullptr,  layouts);
+    graphicsPipeline_2 = createGraphicsPipeline("triangle_alt", renderPass, nullptr,  layouts);
     
     //Only one dsl right now -- for the bindless ubershader
     createDescriptorSetPool(getHandles(),  &descriptorPool);
@@ -638,35 +649,18 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
     //************
     //** Fill data for Push Descriptor Sets
 
-    auto writeDescriptorSetBuilder = DescriptorDataUtilities::WriteDescriptorSetsBuilder(8);
+    
 
-    VkDescriptorBufferInfo shaderglobalsinfo = shaderGlobalsBuffer[currentFrame].getBufferInfo();
-    writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,, &shaderglobalsinfo);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptor_sets.uniformDescriptorSets[currentFrame], 0, nullptr);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &descriptor_sets.storageDescriptorSets[currentFrame], 0, nullptr);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 2, 1, &descriptor_sets.imageDescriptorSets[currentFrame], 0, nullptr);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 3, 1, &descriptor_sets.samplerDescriptorSets[currentFrame], 0, nullptr);
 
-    auto [imageInfos, samplerInfos] = scene->getBindlessTextureInfos();
-    writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, , imageInfos.data(), imageInfos.size());
-    writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_SAMPLER, , samplerInfos.data(), imageInfos.size());
+    updateDescriptorSets(getHandles(), descriptorPool, descriptor_sets);
 
-    VkDescriptorBufferInfo meshBufferinfo = meshBuffers[currentFrame].getBufferInfo();
-    writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,, &meshBufferinfo);
-
-    VkDescriptorBufferInfo lightbufferinfo = lightBuffers[currentFrame].getBufferInfo();
-    writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,, &lightbufferinfo);
-
-    VkDescriptorBufferInfo uniformbufferinfo = uniformBuffers[currentFrame].getBufferInfo();
-    writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,, &uniformbufferinfo);
-
-    auto [cubeImageInfos, cubeSamplerInfos] = DescriptorDataUtilities::ImageInfoFromImageDataVec({
-        cube_irradiance, cube_specular
-    });
-    writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, , cubeImageInfos.data(), cubeImageInfos.size());
-    writeDescriptorSetBuilder.Add(VK_DESCRIPTOR_TYPE_SAMPLER, , cubeSamplerInfos.data(), cubeSamplerInfos.size());
-
-    vkCmdPushDescriptorSetKHR(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0,
-                              writeDescriptorSetBuilder.size(), writeDescriptorSetBuilder.data());
-
+    int meshct = scene->meshes.size();
     //Per-Object data, then draw
-    for (int i = 0; i < scene->meshes.size(); i++)
+    for (int i = 0; i <meshct; i++)
     {
         per_object_data constants;
         //Light count, vert offset, texture index, and object data index
@@ -675,7 +669,7 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
 
         constants.materialprops = glm::vec4(scene->materials[i].roughness, scene->materials[i].metallic, 0, 0);
 
-        vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT || VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+        vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                            sizeof(per_object_data), &constants);
 
         vkCmdDraw(commandBuffer, static_cast<uint32_t>(scene->meshes[i]->vertcount), 1, 0, 0);
@@ -771,7 +765,7 @@ void HelloTriangleApplication::createDepthResources()
 
 
 VkPipeline HelloTriangleApplication::createGraphicsPipeline(const char* shaderName, VkRenderPass renderPass,
-                                                            VkPipelineCache pipelineCache, VkDescriptorSetLayout layout)
+                                                            VkPipelineCache pipelineCache, std::vector<VkDescriptorSetLayout> layouts)
 {
     VkPipeline newGraphicsPipeline; //This guy is getting initialized and returned 
     auto shaders = shaderLoader->compiledShaders[shaderName];
@@ -865,10 +859,9 @@ VkPipeline HelloTriangleApplication::createGraphicsPipeline(const char* shaderNa
 
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutInfo.setLayoutCount = 1; // Optional
+    pipelineLayoutInfo.setLayoutCount = layouts.size(); // Optional
     //TODO JS: These always use the same descriptor set layout currently
-    VkDescriptorSetLayout setLayouts[] = {layout};
-    pipelineLayoutInfo.pSetLayouts = setLayouts;
+    pipelineLayoutInfo.pSetLayouts = layouts.data();
 
     //setup push constants
     VkPushConstantRange push_constant;
@@ -876,8 +869,8 @@ VkPipeline HelloTriangleApplication::createGraphicsPipeline(const char* shaderNa
     push_constant.offset = 0;
     //this push constant range takes up the size of a MeshPushConstants struct
     push_constant.size = sizeof(per_object_data);
-    //this push constant range is accessible only in the vertex shader
-    push_constant.stageFlags = VK_SHADER_STAGE_VERTEX_BIT || VK_SHADER_STAGE_FRAGMENT_BIT;
+    
+    push_constant.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 
     pipelineLayoutInfo.pPushConstantRanges = &push_constant;
     pipelineLayoutInfo.pushConstantRangeCount = 1;
