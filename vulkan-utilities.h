@@ -37,7 +37,7 @@ namespace DescriptorDataUtilities
 
         WriteDescriptorSetsBuilder(int length);
 
-        void Add(VkDescriptorType type, void* ptr, int count = 1);
+        void Add(VkDescriptorType type, VkDescriptorSet set, void* ptr, int count = 1);
       
 
         void AddStorageBuffer(dataBuffer storageBuffer);
@@ -50,7 +50,26 @@ namespace DescriptorDataUtilities
 
 namespace DescriptorSetSetup
 {
-    static void createBindlessLayout(RendererHandles rendererHandles, Scene* scene, VkDescriptorSetLayout* layout);
+    void AllocateDescriptorSet(RendererHandles handles, VkDescriptorPool pool, VkDescriptorSetLayout* pdescriptorsetLayout, VkDescriptorSet* pset)
+
+
+    struct DescriptorSets
+    {
+        std::vector<VkDescriptorSet> uniformDescriptorSets = {};
+        std::vector<VkDescriptorSet> storageDescriptorSets = {};
+        std::vector<VkDescriptorSet> imageDescriptorSets = {};
+        std::vector<VkDescriptorSet> samplerDescriptorSets = {};
+    };
+
+    struct DescriptorSetLayouts
+    {
+        VkDescriptorSetLayout uniformDescriptorSets;
+        VkDescriptorSetLayout storageDescriptorSets;
+        VkDescriptorSetLayout imageDescriptorSets;
+        VkDescriptorSetLayout samplerDescriptorSets;
+    };
+
+     void createBindlessLayout(RendererHandles rendererHandles, Scene* scene, DescriptorSetLayouts* layout);
 }
 
 namespace RenderingSetup

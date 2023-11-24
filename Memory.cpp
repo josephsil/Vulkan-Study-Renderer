@@ -9,6 +9,7 @@ VmaAllocator VulkanMemory::GetAllocator(VkDevice device, VkPhysicalDevice
     vmacreateInfo.device = device;
     vmacreateInfo.physicalDevice = physicalDevice;
     vmacreateInfo.instance = instance;
+
     vmacreateInfo.vulkanApiVersion = VK_API_VERSION_1_3; 
 
     VmaAllocator allocator = {};

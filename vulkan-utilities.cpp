@@ -3,6 +3,7 @@
 
 #include <array>
 #include <iostream>
+#include <unordered_map>
 
 #include "AppStruct.h"
 #include "CommandPoolManager.h"
@@ -13,11 +14,13 @@
 
 void createBuffer(RendererHandles rendererHandles, VkDeviceSize size, VkBufferUsageFlags usage, VmaAllocationCreateFlags  flags,
                                    VmaAllocation* allocation, VkBuffer& buffer, VmaAllocationInfo* outAllocInfo);
+
+
 //TODO JS: Connect the two kinds of builders, so we like "fill slots" in the result of this one, and validate type/size?
 struct bindingBuilder
 {
     int i = 0;
-    std::vector<VkDescriptorSetLayoutBinding> data;
+   std::vector<VkDescriptorSetLayoutBinding> data;
 
     bindingBuilder(int size)
     {
@@ -30,35 +33,64 @@ struct bindingBuilder
         binding.descriptorCount = count;
         binding.descriptorType = type;
         binding.stageFlags = stageflags;
+
         data[i] = binding;
         i++;
     }
 };
-static void DescriptorSetSetup::createBindlessLayout(RendererHandles rendererHandles, Scene* scene, VkDescriptorSetLayout* layout)
+static void DescriptorSetSetup::createBindlessLayout(RendererHandles rendererHandles, Scene* scene, DescriptorSetLayouts* layout)
 {
-    auto builder = bindingBuilder(8);
-    builder.addBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL );
-    builder.addBinding(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_FRAGMENT_BIT,  scene->materialTextureCount()  + scene->utilityTextureCount());
-    builder.addBinding(VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT , scene->materialTextureCount()  + scene->utilityTextureCount());
-    builder.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
-    builder.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
-    builder.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
-    builder.addBinding(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_FRAGMENT_BIT,  2);
-    builder.addBinding(VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT , 2);
+    auto uniformbuilder = bindingBuilder(1);
+    auto samplerbuilder = bindingBuilder(2);
+    auto imagebuilder = bindingBuilder(2);
+    auto storagebuilder = bindingBuilder(3);
+
+    uniformbuilder.addBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL );
+
+    VkDescriptorSetLayoutCreateInfo uniformDescriptorLayout{};
+    uniformDescriptorLayout.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    uniformDescriptorLayout.flags = 0;
+    uniformDescriptorLayout.bindingCount = static_cast<uint32_t>(uniformbuilder.data.size());
+    uniformDescriptorLayout.pBindings =  uniformbuilder.data.data();
+
+    VK_CHECK(vkCreateDescriptorSetLayout(rendererHandles.device, &uniformDescriptorLayout, nullptr, &layout->uniformDescriptorSets));
+
+    imagebuilder.addBinding(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_FRAGMENT_BIT,  scene->materialTextureCount()  + scene->utilityTextureCount());
+    imagebuilder.addBinding(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_FRAGMENT_BIT,  2);
+
+    VkDescriptorSetLayoutCreateInfo imageDescriptorLayout{};
+    imageDescriptorLayout.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    imageDescriptorLayout.flags = 0;
+    imageDescriptorLayout.bindingCount = static_cast<uint32_t>(imagebuilder.data.size());
+    imageDescriptorLayout.pBindings =  imagebuilder.data.data();
+
+    VK_CHECK(vkCreateDescriptorSetLayout(rendererHandles.device, &imageDescriptorLayout, nullptr, &layout->imageDescriptorSets));
 
 
-    //TODO JS: !!!! Over push descriptor set layout max !!!!!!
+    samplerbuilder.addBinding(VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT , 2);
+    samplerbuilder.addBinding(VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT , scene->materialTextureCount()  + scene->utilityTextureCount());
 
-    VkDescriptorSetLayoutCreateInfo pushDescriptorLayout{};
-    pushDescriptorLayout.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    //Set flag to use push descriptors
-    pushDescriptorLayout.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR |
-        VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
-    pushDescriptorLayout.bindingCount = static_cast<uint32_t>(builder.data.size());
-    pushDescriptorLayout.pBindings = builder.data.data();
+    VkDescriptorSetLayoutCreateInfo samplerDescriptorLayout{};
+    samplerDescriptorLayout.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    samplerDescriptorLayout.flags = 0;
+    samplerDescriptorLayout.bindingCount = static_cast<uint32_t>(samplerbuilder.data.size());
+    samplerDescriptorLayout.pBindings =  samplerbuilder.data.data();
 
 
-    VK_CHECK(vkCreateDescriptorSetLayout(rendererHandles.device, &pushDescriptorLayout, nullptr, layout));
+    VK_CHECK(vkCreateDescriptorSetLayout(rendererHandles.device, &samplerDescriptorLayout, nullptr, &layout->samplerDescriptorSets));
+    
+    storagebuilder.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
+    storagebuilder.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    storagebuilder.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
+
+
+    VkDescriptorSetLayoutCreateInfo storageDescriptorLayout{};
+    storageDescriptorLayout.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    storageDescriptorLayout.flags = 0;
+    storageDescriptorLayout.bindingCount = static_cast<uint32_t>(storagebuilder.data.size());
+    storageDescriptorLayout.pBindings =  storagebuilder.data.data();
+
+    VK_CHECK(vkCreateDescriptorSetLayout(rendererHandles.device, &storageDescriptorLayout, nullptr, &layout->storageDescriptorSets));
 }
 
 //TODO JS: VK_KHR_dynamic_rendering gets rid of render pass types and just lets you vkBeginRenderPass
@@ -613,14 +645,26 @@ uint32_t DescriptorDataUtilities::WriteDescriptorSetsBuilder::size()
 {
     return descriptorsets.size();
 }
+void DescriptorSetSetup::AllocateDescriptorSet(RendererHandles handles, VkDescriptorPool pool, VkDescriptorSetLayout* pdescriptorsetLayout, VkDescriptorSet* pset)
+{
+    VkDescriptorSetAllocateInfo allocInfo ={};
+    allocInfo.pNext = nullptr;
+    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo.descriptorPool = pool;
+    allocInfo.descriptorSetCount = 1;
+    allocInfo.pSetLayouts = pdescriptorsetLayout;
+    vkAllocateDescriptorSets(handles.device, &allocInfo, pset);
+}
 
-void DescriptorDataUtilities::WriteDescriptorSetsBuilder::Add(VkDescriptorType type, void* ptr, int count )
+void DescriptorDataUtilities::WriteDescriptorSetsBuilder::Add(VkDescriptorType type, VkDescriptorSet set, void* ptr, int count )
 {
       {
           descriptorsets[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
           descriptorsets[i].dstBinding = i;
+          descriptorsets[i].dstSet = set;
           descriptorsets[i].descriptorCount = count;
           descriptorsets[i].descriptorType = type;
+          
           if (type == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE || type == VK_DESCRIPTOR_TYPE_SAMPLER)
           {
               descriptorsets[i].pImageInfo = static_cast<VkDescriptorImageInfo*>(ptr);
@@ -636,7 +680,7 @@ void DescriptorDataUtilities::WriteDescriptorSetsBuilder::AddStorageBuffer(dataB
 {
     auto bufferInfo = storageBuffer.getBufferInfo();
 
-    Add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &bufferInfo);
+    Add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,, &bufferInfo);
 }
 
 VkDescriptorBufferInfo dataBuffer::getBufferInfo()

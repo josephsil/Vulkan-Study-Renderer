@@ -11,6 +11,7 @@
 
 #include "AppStruct.h"
 #include "CommandPoolManager.h"
+#include "vulkan-utilities.h"
 // My stuff 
 
 struct dataBuffer;
@@ -91,12 +92,15 @@ private:
 
     VkRenderPass renderPass;
 
+    VkDescriptorPool descriptorPool;
     VkDescriptorSetLayout pushDescriptorSetLayout;
     VkDescriptorSetLayout perMaterialSetLayout;
     VkPipelineLayout pipelineLayout;
 
-    void createDescriptorPool();
-    void createDescriptorSets(TextureData tex);
+    void createDescriptorSetPool(RendererHandles handles, VkDescriptorPool* pool);
+    void createDescriptorSets(RendererHandles handles, VkDescriptorPool pool, DescriptorSetSetup::DescriptorSetLayouts descriptorsetLayouts);
+    void updateDescriptorSets(RendererHandles handles, VkDescriptorPool pool);
+
     VkPipeline graphicsPipeline_1;
     VkPipeline graphicsPipeline_2;
     VkPipeline testSkyPipeline;
@@ -181,8 +185,9 @@ private:
 
     void initVulkan();
 
+    DescriptorSetSetup::DescriptorSetLayouts descriptorsetLayouts;
 
-    VkDescriptorPool descriptorPool;
+    DescriptorSetSetup::DescriptorSets descriptor_sets;
     std::vector<VkDescriptorSet> perMaterialDescriptorSets;
     std::vector<VkDescriptorSet> pushDescriptorSets;
 
