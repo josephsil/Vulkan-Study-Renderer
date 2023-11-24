@@ -203,9 +203,7 @@ void HelloTriangleApplication::initVulkan()
     vkb_device = GET_DEVICE(vkb_physicalDevice);
     device = vkb_device.device;
 
-    //TODO JS: Move to memory.h ?
     allocator = VulkanMemory::GetAllocator(device, physicalDevice, instance);
-    
     
     //Get push descriptor stuff
     //The push descriptor update function is part of an extension so it has to be manually loaded

@@ -13,8 +13,6 @@
 
 void createBuffer(RendererHandles rendererHandles, VkDeviceSize size, VkBufferUsageFlags usage, VmaAllocationCreateFlags  flags,
                                    VmaAllocation* allocation, VkBuffer& buffer, VmaAllocationInfo* outAllocInfo);
-
-
 //TODO JS: Connect the two kinds of builders, so we like "fill slots" in the result of this one, and validate type/size?
 struct bindingBuilder
 {
@@ -36,7 +34,7 @@ struct bindingBuilder
         i++;
     }
 };
-void DescriptorSetSetup::createBindlessLayout(RendererHandles rendererHandles, Scene* scene, VkDescriptorSetLayout* layout)
+static void DescriptorSetSetup::createBindlessLayout(RendererHandles rendererHandles, Scene* scene, VkDescriptorSetLayout* layout)
 {
     auto builder = bindingBuilder(8);
     builder.addBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL );

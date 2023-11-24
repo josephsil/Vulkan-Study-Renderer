@@ -452,9 +452,9 @@ TextureData::temporaryTextureInfo TextureData::createTextureImage(const char* pa
                                          stagingBuffer);
 
     void* data;
-     VulkanMemory::MapMemory(rendererHandles.allocator,alloc, &data);
-    memcpy(data, pixels, imageSize);
-     VulkanMemory::UnmapMemory(rendererHandles.allocator,alloc);
+ 	VulkanMemory::MapMemory(rendererHandles.allocator,alloc, &data);
+ 	memcpy(data, pixels, imageSize);
+ 	VulkanMemory::UnmapMemory(rendererHandles.allocator,alloc);
 
     stbi_image_free(pixels);
 

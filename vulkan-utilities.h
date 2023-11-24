@@ -50,7 +50,7 @@ namespace DescriptorDataUtilities
 
 namespace DescriptorSetSetup
 {
-    void createBindlessLayout(RendererHandles rendererHandles, Scene* scene, VkDescriptorSetLayout* layout);
+    static void createBindlessLayout(RendererHandles rendererHandles, Scene* scene, VkDescriptorSetLayout* layout);
 }
 
 namespace RenderingSetup
