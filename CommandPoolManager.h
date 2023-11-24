@@ -11,7 +11,7 @@ namespace vkb
     struct Device;
 }
 
-struct bufferAndPool; //TODO JS: can i move to cpp?
+struct bufferAndPool; 
 
 struct QueueData
 {

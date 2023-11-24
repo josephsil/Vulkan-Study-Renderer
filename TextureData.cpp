@@ -5,14 +5,14 @@
 #include "Vulkan_Includes.h"
 
 #define KHRONOS_STATIC
-//TODO: for cubemap loadingc
+
 #include <cassert>
-#include <format>
 #include <iostream>
 #include <ktxvulkan.h>
 
 #include "CommandPoolManager.h"
 #include "FileCaching.h"
+#include "Memory.h"
 
 
 int TEXTURE_INDEX;
@@ -23,7 +23,7 @@ TextureData::TextureData(RendererHandles rendererHandles, const char* path, Text
 
     this->rendererHandles = rendererHandles;
 
-    VkFormat format;
+    VkFormat inputFormat;
     VkSamplerAddressMode mode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 
     bool use_mipmaps = true;
@@ -31,29 +31,29 @@ TextureData::TextureData(RendererHandles rendererHandles, const char* path, Text
     {
     case DIFFUSE:
         {
-            format = VK_FORMAT_R8G8B8A8_SRGB;
+            inputFormat = VK_FORMAT_R8G8B8A8_SRGB;
             break;
         }
     case SPECULAR:
         {
-            format = VK_FORMAT_R8G8B8A8_UNORM;
+            inputFormat = VK_FORMAT_R8G8B8A8_UNORM;
             break;
         }
     case NORMAL:
         {
-            format = VK_FORMAT_R8G8B8A8_UNORM;
+            inputFormat = VK_FORMAT_R8G8B8A8_UNORM;
             break;
         }
     case LINEAR_DATA:
         {
-            format = VK_FORMAT_R8G8B8A8_UNORM;
+            inputFormat = VK_FORMAT_R8G8B8A8_UNORM;
             mode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
             use_mipmaps = false;
             break;
         }
     case CUBE:
         {
-            format = VK_FORMAT_R8G8B8A8_UNORM;
+            inputFormat = VK_FORMAT_R8G8B8A8_UNORM;
             mode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
             break;
         }
@@ -61,8 +61,8 @@ TextureData::TextureData(RendererHandles rendererHandles, const char* path, Text
 
     //TODO JS: branch better
 	
-    GetOrLoadTexture(path, format, textureType, use_mipmaps);
-    createTextureImageView(format, textureType == CUBE ? VK_IMAGE_VIEW_TYPE_CUBE : VK_IMAGE_VIEW_TYPE_2D);
+    VkFormat loadedFormat = GetOrLoadTexture(path, inputFormat, textureType, use_mipmaps);
+    createTextureImageView(loadedFormat, textureType == CUBE ? VK_IMAGE_VIEW_TYPE_CUBE : VK_IMAGE_VIEW_TYPE_2D);
     createTextureSampler(mode);
     id = TEXTURE_INDEX++;
 }
@@ -258,13 +258,13 @@ uint32_t getFormatSize(VkFormat f)
 }
 
 
-void readImageData(RendererHandles rendererInfo, VkDeviceMemory memory, VkBuffer _buffer, void* data, size_t bytes,	size_t offset)
+void readImageData(RendererHandles rendererInfo, VmaAllocation alloc, VkBuffer _buffer, void* data, size_t bytes,	size_t offset)
 {
 	void* tempData;
-	vkMapMemory(rendererInfo.device, memory, offset, bytes,0, &tempData);
+	 VulkanMemory::MapMemory(rendererInfo.allocator, alloc, &tempData);
 
 	memcpy(data, tempData, bytes);
-	vkUnmapMemory(rendererInfo.device, memory);
+	 VulkanMemory::UnmapMemory(rendererInfo.allocator, alloc);
 }
 
 std::basic_string<char> replaceExt(const char* target, const char* extension)
@@ -288,21 +288,21 @@ std::basic_string<char> replaceExt(const char* target, const char* extension)
 	
 }
 
+const uint32_t cubeMips = 6.0;
 
-void TextureData::GetOrLoadTexture(const char* path,VkFormat format, TextureType textureType, bool use_mipmaps)
+
+VkFormat TextureData::GetOrLoadTexture(const char* path, VkFormat format, TextureType textureType, bool use_mipmaps)
 {
 	//TODO JS: Figure out cubes later -- when we add compression we should cache cubes too
 	if (textureType == CUBE)
 	{
-		maxmip = 6.0;
+		maxmip = cubeMips;
 		createImageKTX(path, textureType, true);
-		return; 
+		return format; 
 }
 	
 	auto ktxPath = replaceExt(path, ".ktx");
-
 	bool generateKTX = true;
-	
 	//Don't regenerate ktx if image modified time is older than last ktx 
 	if (FileCaching::fileExists(ktxPath))
 	{
@@ -311,21 +311,14 @@ void TextureData::GetOrLoadTexture(const char* path,VkFormat format, TextureType
 			generateKTX = false;
 		}
 	}
-	
+	 //generateKTX = true;
 	if (generateKTX)
 	{
 		cacheKTXFromSTB(path, ktxPath.data(), format, textureType, use_mipmaps);
 		FileCaching::saveAssetChangedTime(path);
 	}
 	
-	createImageKTX(ktxPath.data(), textureType, use_mipmaps);
-
-	//Somehow my saved KTX files already have mipmaps... is it because I save them saying they need it? Does libktx do it on load?
-	if (iData.generateMips)
-	{
-		maxmip = iData.mipLevels;
-		TextureUtilities::generateMipmaps(rendererHandles, textureImage, format, iData.width, iData.height, iData.mipLevels);
-	}
+	return createImageKTX(ktxPath.data(), textureType, use_mipmaps);
 }
 
 TextureData::TextureData()
@@ -336,8 +329,7 @@ void TextureData::cleanup()
 {
     vkDestroySampler(rendererHandles.device, textureSampler, nullptr);
     vkDestroyImageView(rendererHandles.device, textureImageView, nullptr);
-    vkDestroyImage(rendererHandles.device, textureImage, nullptr);
-    vkFreeMemory(rendererHandles.device, textureImageMemory, nullptr);
+	 VulkanMemory::DestroyImage(rendererHandles.allocator, textureImage, textureImageMemory);
 }
 
 void TextureData::createTextureSampler(VkSamplerAddressMode mode, float bias)
@@ -371,7 +363,6 @@ void TextureData::createTextureSampler(VkSamplerAddressMode mode, float bias)
     }
 }
 
-
 void TextureData::cacheKTXFromSTB(const char* path, const char* outpath, VkFormat format, TextureType textureType, bool use_mipmaps)
 {
 	ktx_size_t srcSize;
@@ -383,48 +374,51 @@ void TextureData::cacheKTXFromSTB(const char* path, const char* outpath, VkForma
         KTX_error_code result;
         FILE* src;
     createInfo.vkFormat = format;   // Ignored if creating a ktxTexture1.
-    createInfo.baseWidth = iData.width;
-    createInfo.baseHeight = iData.height;
+    createInfo.baseWidth = staging.width;
+    createInfo.baseHeight = staging.height;
     createInfo.baseDepth = 1; //TODO JS: ?????? I think only for 3d textures
     createInfo.numDimensions = 2;
     // Note: it is not necessary to provide a full mipmap pyramid.
     createInfo.numLevels = 1; //TOOD JS: Get this when we load cube  iData.mipLevels;
     createInfo.numLayers = 1; //TOOD JS: Get this when we load cube 
-    createInfo.numFaces = textureType == CUBE ? 6 : 1; //TOOD JS: Get this when we load cube 
+    createInfo.numFaces = textureType == CUBE ? 6 : 1; 
     createInfo.isArray = KTX_FALSE;
-    createInfo.generateMipmaps = KTX_TRUE; // TODO JS: Make false and save mipmaps
-    
-    result = ktxTexture2_Create(&createInfo,
-                            KTX_TEXTURE_CREATE_ALLOC_STORAGE,
-                            &texture);
-    
-    // for (int i = 0; i < createInfo.numLevels; i++)
-    // {
-		int i = 0;
-    
-        std::vector<uint8_t> _imageData;
-    
-        const size_t imageByteSize = (size_t) iData.width * (size_t)iData.height * (size_t)getFormatSize(format);
-        _imageData.resize(imageByteSize);
-		readImageData(this->rendererHandles, staging.bufferMemory, staging.buffer,_imageData.data(),imageByteSize, 0);
-  
-		ktxTexture2_Create(&createInfo, KTX_TEXTURE_CREATE_ALLOC_STORAGE, &texture);
-        
-        
-				int j = 0;
-				int k = 0;
-                int mipLevel = i;
-                int layer = j;
-                int faceSlice = k;
-		
-                KTX_error_code r = ktxTexture_SetImageFromMemory(ktxTexture(texture),mipLevel, layer,faceSlice,_imageData.data(),_imageData.size());
-  
-		vkDestroyBuffer(rendererHandles.device, staging.buffer, nullptr);
-		vkFreeMemory(rendererHandles.device,  staging.bufferMemory, nullptr);
+    createInfo.generateMipmaps = KTX_TRUE; // TODO JS: Make false and save mipmaps?
 
-				ktxTexture_WriteToNamedFile(ktxTexture(texture), outpath);
-				ktxTexture_Destroy(ktxTexture(texture));
 	
+    result = ktxTexture2_Create(&createInfo,
+                            KTX_TEXTURE_CREATE_NO_STORAGE,
+                            &texture);
+	
+	int i = 0;
+
+    std::vector<uint8_t> _imageData;
+
+    const size_t imageByteSize = (size_t) staging.width * (size_t)staging.height * (size_t)getFormatSize(format);
+    _imageData.resize(imageByteSize);
+	readImageData(this->rendererHandles, staging.alloc, staging.buffer,_imageData.data(),imageByteSize, 0);
+
+	ktxTexture2_Create(&createInfo, KTX_TEXTURE_CREATE_ALLOC_STORAGE, &texture);
+    
+    
+	int j = 0;
+	int k = 0;
+    int mipLevel = i;
+    int layer = j;
+    int faceSlice = k;
+
+	//TODO JS: For mipmaps, I need to get buffers pointing to each mip and set w miplevel
+    KTX_error_code r = ktxTexture_SetImageFromMemory(ktxTexture(texture),mipLevel, layer,faceSlice,_imageData.data(),_imageData.size());
+
+	VulkanMemory::DestroyBuffer(rendererHandles.allocator, staging.buffer, staging.alloc);
+
+	//TODO JS: Can't generate mipmaps with uploadex() when using compressed formats
+	//TODO JS: Need to generate mipmaps myself and save them to ktx 
+	//ktxTexture2_CompressBasis(texture, 0);
+
+	ktxTexture_WriteToNamedFile(ktxTexture(texture), outpath);
+	ktxTexture_Destroy(ktxTexture(texture));
+
 }
 
 void TextureData::createTextureImageView(VkFormat format, VkImageViewType type)
@@ -435,14 +429,12 @@ void TextureData::createTextureImageView(VkFormat format, VkImageViewType type)
 
 
 //TODO JS less side effects -- now that this is a interim step, it should be static
-TextureData::bufferAndMemory TextureData::createTextureImage(const char* path, VkFormat format, bool mips)
+TextureData::temporaryTextureInfo TextureData::createTextureImage(const char* path, VkFormat format, bool mips)
 {
     auto workingTextureBuffer = rendererHandles.commandPoolmanager->beginSingleTimeCommands(true);
     int texWidth, texHeight, texChannels;
     stbi_uc* pixels = stbi_load(path, &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
     VkDeviceSize imageSize = texWidth * texHeight * 4;
-    uint32_t mipLevels = !mips ? 1.0 : static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
-    maxmip = mipLevels;
 
     if (!pixels)
     {
@@ -450,21 +442,19 @@ TextureData::bufferAndMemory TextureData::createTextureImage(const char* path, V
         exit(-1);
     }
 
-    iData.width = texWidth;
-    iData.height = texHeight;
-    iData.mipLevels = mipLevels;
 
     VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
 
-    BufferUtilities::createBuffer(rendererHandles, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                                  stagingBuffer, stagingBufferMemory);
+	VmaAllocation alloc = {};
+
+    BufferUtilities::createStagingBuffer(rendererHandles, imageSize,
+                                         &alloc,
+                                         stagingBuffer);
 
     void* data;
-    vkMapMemory(rendererHandles.device, stagingBufferMemory, 0, imageSize, 0, &data);
-    memcpy(data, pixels, imageSize);
-    vkUnmapMemory(rendererHandles.device, stagingBufferMemory);
+ 	VulkanMemory::MapMemory(rendererHandles.allocator,alloc, &data);
+ 	memcpy(data, pixels, imageSize);
+ 	VulkanMemory::UnmapMemory(rendererHandles.allocator,alloc);
 
     stbi_image_free(pixels);
 
@@ -472,27 +462,28 @@ TextureData::bufferAndMemory TextureData::createTextureImage(const char* path, V
                                   VK_IMAGE_TILING_OPTIMAL,
                                   VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT |
                                   VK_IMAGE_USAGE_SAMPLED_BIT,
-                                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory, mipLevels);
+                                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
 
     TextureUtilities::transitionImageLayout(rendererHandles, textureImage, format, VK_IMAGE_LAYOUT_UNDEFINED,
-                                            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, workingTextureBuffer.buffer,
-                                            mipLevels);
+                                            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, workingTextureBuffer.buffer);
 
     TextureUtilities::copyBufferToImage(rendererHandles.commandPoolmanager, stagingBuffer, textureImage,
                                         static_cast<uint32_t>(texWidth),
                                         static_cast<uint32_t>(texHeight), workingTextureBuffer.buffer);
     //JS: Prepare image to read in shaders
     rendererHandles.commandPoolmanager->endSingleTimeCommands(workingTextureBuffer);
-    return bufferAndMemory(stagingBuffer, stagingBufferMemory);
+    return temporaryTextureInfo(stagingBuffer, alloc, texWidth, texHeight);
 
 }
 
-void TextureData::createImageKTX(const char* path, TextureType type, bool mips)
+
+
+VkFormat TextureData::createImageKTX(const char* path, TextureType type, bool mips)
 {
 	ktxVulkanDeviceInfo vdi;
 	ktxVulkanTexture texture;
 
-	ktxTexture* kTexture;
+	ktxTexture2* kTexture;
 	KTX_error_code ktxresult;
 
 	bufferAndPool workingTextureBuffer = rendererHandles.commandPoolmanager->beginSingleTimeCommands(false ); //TODO JS: Transfer pool doesnt work since ktx saving wor-- why?
@@ -500,44 +491,59 @@ void TextureData::createImageKTX(const char* path, TextureType type, bool mips)
 	ktxVulkanDeviceInfo_Construct(&vdi, rendererHandles.physicalDevice, rendererHandles.device,
 								  workingTextureBuffer.queue, workingTextureBuffer.pool, nullptr);
 
-	ktxresult = ktxTexture_CreateFromNamedFile(path, KTX_TEXTURE_CREATE_NO_FLAGS, &kTexture);
+	ktxresult = ktxTexture2_CreateFromNamedFile(path, KTX_TEXTURE_CREATE_NO_STORAGE, &kTexture);
 
 	if (KTX_SUCCESS != ktxresult)
 	{
 		std::cerr << "Creation of ktxTexture from \"" << path << "\" failed: " << ktxErrorString(ktxresult);
 		exit(-1);
 	}
+	bool debugnomips = false;
+	VkFormat outputFormat;
 
-
-	//TODO JS: Should i use this helper elsewhere?
-	ktxresult = ktxTexture_VkUploadEx(kTexture, &vdi, &texture,
+	//If it's a basis texture, we need to transcode (and also can't generate mipmaps) 
+	if (ktxTexture2_NeedsTranscoding(kTexture))
+	{
+		ktxTexture2_TranscodeBasis(kTexture, KTX_TTF_BC3_RGBA, 0);
+		kTexture->generateMipmaps = false;
+	}
+	
+	uint32_t fullMipPyramid = static_cast<uint32_t>(std::floor(std::log2(std::max(kTexture->baseWidth, kTexture->baseHeight)))) + 1;
+	uint32_t mipCount = kTexture->generateMipmaps ? fullMipPyramid : kTexture->numLevels;
+	VkImage image;
+	VkImageCreateInfo vkimageinfo = {};
+	// VkImageCreateFlags       flags;
+	vkimageinfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	vkimageinfo.imageType = kTexture->isCubemap ? VK_IMAGE_TYPE_3D : VK_IMAGE_TYPE_2D;
+	vkimageinfo.format = (VkFormat)kTexture->vkFormat;
+	vkimageinfo.extent = {kTexture->baseWidth, kTexture->baseHeight, kTexture->baseDepth};
+	vkimageinfo.mipLevels = kTexture->isCubemap ? cubeMips : mipCount;
+	vkimageinfo.arrayLayers = kTexture->numLayers;
+	vkimageinfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+	vkimageinfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT;
+	vkimageinfo.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
+	vkimageinfo.samples = VK_SAMPLE_COUNT_1_BIT;
+	
+    BufferUtilities::CreateImage(rendererHandles.allocator, &vkimageinfo, &texture.image, &textureImageMemory, &texture.deviceMemory);
+	
+	outputFormat = (VkFormat)kTexture->vkFormat;
+	ktxresult = ktxTexture2_VkUploadEx(kTexture, &vdi, &texture,
 									  VK_IMAGE_TILING_OPTIMAL,
 									  VK_IMAGE_USAGE_SAMPLED_BIT,
 									  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 
-	ktxTexture_Destroy(kTexture);
-	//TODO JS: destroy vdi?
-	//TODO JS: is it right to throw away the ktxVulkanTexture here without a free or w/e?
-
-	iData.width = texture.width; //TODO 
-	iData.height = texture.height; //TODO
+	ktxTexture_Destroy((ktxTexture*)kTexture);
 	
-	uint32_t desiredMipLevels;
-	if (type == CUBE)
+	if (type != CUBE)
 	{
-		desiredMipLevels = 6.0;
+		maxmip = texture.levelCount;
 	}
-	else
-	{
-		desiredMipLevels =  !mips ? 1.0 : static_cast<uint32_t>(std::floor(std::log2(std::max(texture.width,  texture.height)))) + 1;
-	}
-	iData.mipLevels = desiredMipLevels;
-	iData.generateMips == desiredMipLevels > texture.levelCount; //TODO JS idk how this will behave if true and levelcount > 1
-	maxmip = texture.levelCount;
+	
 	layerct = texture.layerCount;
 	textureImage = texture.image;
-	textureImageMemory = texture.deviceMemory;
+	
+	rendererHandles.commandPoolmanager->endSingleTimeCommands(workingTextureBuffer);
 
 #ifdef DEBUG
 	if (KTX_SUCCESS != ktxresult)
@@ -547,6 +553,7 @@ void TextureData::createImageKTX(const char* path, TextureType type, bool mips)
 	}
 
 #endif
+return outputFormat;
 }
 
 

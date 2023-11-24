@@ -5,10 +5,14 @@ struct VkVertexInputAttributeDescription;
 
 struct VkPipelineShaderStageCreateInfo;
 struct VkPipelineShaderStageCreateInfo;
-
+struct VkImageCreateInfo;
 using VkCommandPool = struct VkCommandPool_T*;
 using VkCommandBuffer = struct VkCommandBuffer_T*;
+using VkInstance = struct VkInstance_T*;
 
+using VmaAllocator = struct VmaAllocator_T*;
+using VmaAllocation = struct VmaAllocation_T*;
+struct VmaAllocationInfo;
 
 struct VkPipelineShaderStageCreateInfo;
 using VkPhysicalDevice = struct VkPhysicalDevice_T*;
@@ -24,6 +28,10 @@ using VkDescriptorSetLayout = struct VkDescriptorSetLayout_T*;
 using VkRenderPass = struct VkRenderPass_T*;
 using VkSampler = struct VkSampler_T*;
 
+using VkDescriptorSet = struct VkDescriptorSet_T*;
+using VkDescriptorPool = struct VkDescriptorPool_T*;
+using VkDescriptorSet = struct VkDescriptorSet_T*;
+
 enum VkSamplerAddressMode;
 enum VkImageViewType; 
 
@@ -34,7 +42,7 @@ typedef enum VkDescriptorType;
 typedef enum VkImageTiling;
 typedef uint32_t VkFlags;
 typedef VkFlags VkFormatFeatureFlags;
-typedef  VkFlags VkMemoryPropertyFlags;
+typedef VkFlags VkMemoryPropertyFlags;
 typedef VkFlags VkImageAspectFlags;
 typedef VkFlags VkBufferUsageFlags;
 typedef VkFlags VkBufferViewCreateFlags;

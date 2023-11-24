@@ -2,11 +2,11 @@
 
 #pragma region forward declarations
 #include <cstdint>
-#include <vulkan/vulkan_core.h>
 
 #include "AppStruct.h"
 #include "vulkan-forwards.h"
-
+using ktxTexture2 =  struct ktxTexture2;
+using  ktxVulkanTexture = struct ktxVulkanTexture;
 
 #pragma endregion
 //TODO JS: obviously improve 
@@ -22,40 +22,28 @@ public:
         LINEAR_DATA
     };
 
-    struct bufferAndMemory
+    struct temporaryTextureInfo
     {
         VkBuffer buffer;
-        VkDeviceMemory bufferMemory;
+        VmaAllocation alloc;
+        int width;
+        int height;
     };
 
-    bufferAndMemory stagingBuffer;
+    temporaryTextureInfo tempTextureInfo;
     VkImageView textureImageView;
     VkSampler textureSampler;
     RendererHandles rendererHandles;
     VkImage textureImage;
-    VkDeviceMemory textureImageMemory;
+    VmaAllocation textureImageMemory;
     uint32_t maxmip = 1; //TODO JS: mutate less places
     uint32_t layerct = 1;
     int id;
 
 
-    //TODO JS: Specific to writing ktx
-    struct imageData
-    {
-        int width;
-        int height;
-        int mipLevels;
-        bool generateMips = false;
-        int depth = 1;
-        int layers = 1;
-        int dimension = 2;
-    };
-
-    imageData iData;
-
     
     TextureData(RendererHandles rendererHandles, const char* path, TextureType type);
-    void GetOrLoadTexture(const char* path, VkFormat format, TextureType textureType, bool use_mipmaps);
+    VkFormat GetOrLoadTexture(const char* path, VkFormat format, TextureType textureType, bool use_mipmaps);
 
     TextureData();
 
@@ -64,6 +52,7 @@ public:
 private:
     // 0 = VK_SAMPLER_ADDRESS_MODE_REPEAT;
     void createTextureSampler(VkSamplerAddressMode mode = (VkSamplerAddressMode)0, float bias = 0);
+
     void cacheKTXFromSTB(const char* path, const char* outpath, VkFormat format, TextureType textureType,
                          bool use_mipmaps);
 
@@ -80,6 +69,6 @@ private:
     It's best to do this after the texture mapping works to check if the texture resources are still set up correctly.*/
 
 
-    TextureData::bufferAndMemory createTextureImage(const char* path, VkFormat format, bool mips = true);
-    void createImageKTX(const char* path, TextureType type, bool mips);
+    TextureData::temporaryTextureInfo createTextureImage(const char* path, VkFormat format, bool mips = true);
+    VkFormat createImageKTX(const char* path, TextureType type, bool mips);
 };

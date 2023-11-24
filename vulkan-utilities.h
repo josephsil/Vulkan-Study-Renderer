@@ -1,4 +1,5 @@
 #pragma once
+#include <unordered_map>
 #include <vector>
 #include "vulkan-forwards.h"
 #include "common-structs.h"
@@ -19,17 +20,10 @@ struct dataBuffer
 };
 
 
-void DestroyBuffer(VkDevice device, VkBuffer buffer);
-void FreeMemory(VkDevice device, VkDeviceMemory memory);
-void UnmapMemory(VkDevice device, VkDeviceMemory memory);
-
-
-void MapMemory(VkDevice device, VkDeviceMemory memory, VkDeviceSize size, void** data);
 
 namespace DescriptorDataUtilities
 {
-    std::pair<std::vector<VkDescriptorImageInfo>, std::vector<VkDescriptorImageInfo>> ImageInfoFromImageDataVec(
-        std::vector<TextureData> textures);
+    std::pair<std::vector<VkDescriptorImageInfo>, std::vector<VkDescriptorImageInfo>> ImageInfoFromImageDataVec(std::vector<TextureData> textures);
     //TODO JS: Move to textureData? 
     std::pair<VkDescriptorImageInfo, VkDescriptorImageInfo> ImageInfoFromImageData(TextureData texture);
 
@@ -37,14 +31,13 @@ namespace DescriptorDataUtilities
     struct WriteDescriptorSetsBuilder
     {
         std::vector<VkWriteDescriptorSet> descriptorsets;
-        int i = 0;
+        std::unordered_map<VkDescriptorSet, int> descriptorSetIndices;
 
-        WriteDescriptorSetsBuilder(int length);
+        WriteDescriptorSetsBuilder();
 
-        void Add(VkDescriptorType type, void* ptr, int count = 1);
+        void Add(VkDescriptorType type, VkDescriptorSet set, void* ptr, int count = 1);
       
 
-        void AddStorageBuffer(dataBuffer storageBuffer);
 
         VkWriteDescriptorSet* data();
 
@@ -54,7 +47,32 @@ namespace DescriptorDataUtilities
 
 namespace DescriptorSetSetup
 {
-    void createBindlessLayout(RendererHandles rendererHandles, Scene* scene, VkDescriptorSetLayout* layout);
+    void AllocateDescriptorSet(RendererHandles handles, VkDescriptorPool pool, VkDescriptorSetLayout* pdescriptorsetLayout, VkDescriptorSet* pset);
+    
+    struct DescriptorSets
+    {
+        std::vector<VkDescriptorSet> uniformDescriptorSets = {};
+        std::vector<VkDescriptorSet> storageDescriptorSets = {};
+        std::vector<VkDescriptorSet> imageDescriptorSets = {};
+        std::vector<VkDescriptorSet> samplerDescriptorSets = {};
+    };
+
+    struct DescriptorSetLayouts
+    {
+        VkDescriptorSetLayout uniformDescriptorLayout;
+        VkDescriptorSetLayout storageDescriptorLayout;
+        VkDescriptorSetLayout imageDescriptorLayout;
+        VkDescriptorSetLayout samplerDescriptorLayout;
+
+        std::vector<VkDescriptorSetLayout> get()
+        {
+            return {
+                uniformDescriptorLayout,storageDescriptorLayout,imageDescriptorLayout,samplerDescriptorLayout
+            };
+        }
+    };
+
+     void createBindlessLayout(RendererHandles rendererHandles, Scene* scene, DescriptorSetLayouts* layout);
 }
 
 namespace RenderingSetup
@@ -84,7 +102,7 @@ namespace TextureUtilities
     void createImage(RendererHandles rendererHandles, uint32_t width, uint32_t height, VkFormat format,
                      VkImageTiling tiling,
                      VkFlags usage, VkFlags properties, VkImage& image,
-                     VkDeviceMemory& imageMemory, uint32_t miplevels = 1);
+                     VmaAllocation& allocation, uint32_t miplevels = 1);
 
     void transitionImageLayout(RendererHandles rendererHandles, VkImage image, VkFormat format, VkImageLayout oldLayout,
                                VkImageLayout newLayout, VkCommandBuffer workingBuffer,
@@ -98,22 +116,29 @@ namespace TextureUtilities
 }
 
 
-//TODO JS: may be better to bundle stuff like createUniformBuffers, and the buffers themselves, along with these fns ala commandpoolmanager
+
 namespace BufferUtilities
 {
+    void CreateImage(VmaAllocator allocator,
+                     VkImageCreateInfo* pImageCreateInfo,
+                     VkImage* pImage,
+                     VmaAllocation* pAllocation, VkDeviceMemory* deviceMemory);
+    
     void stageVertexBuffer(RendererHandles rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
-                                   VkDeviceMemory& bufferMemory, Vertex* data);
+                           VmaAllocation& allocation, Vertex* data);
 
     void stageIndexBuffer(RendererHandles rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
-                                  VkDeviceMemory& bufferMemory, uint32_t* data);
+                          VmaAllocation& allocation, uint32_t* data);
 
     //TODO JS: move to cpp file?
     void stageMeshDataBuffer(RendererHandles rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
-                                   VkDeviceMemory& bufferMemory, void* vertices, VkBufferUsageFlags dataTypeFlag);
+                             VmaAllocation& allocation, void* vertices, VkBufferUsageFlags dataTypeFlag);
 
     void copyBuffer(RendererHandles rendererHandles, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
-    void createBuffer(RendererHandles rendererHandles, VkDeviceSize size, VkBufferUsageFlags usage,
-                      VkMemoryPropertyFlags properties, VkBuffer& buffer,
-                      VkDeviceMemory& bufferMemory);
+    void* createDynamicBuffer(RendererHandles rendererHandles, VkDeviceSize size, VkBufferUsageFlags usage,
+                              VmaAllocation* allocation, VkBuffer& buffer);
+    void createStagingBuffer(RendererHandles rendererHandles, VkDeviceSize size,
+                                   VmaAllocation* allocation, VkBuffer& stagingBuffer);
+   
 }
     
