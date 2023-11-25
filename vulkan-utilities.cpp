@@ -149,10 +149,7 @@ DescriptorSets::bindlessDrawData::bindlessDrawData(RendererHandles handles, Scen
     VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &storageDescriptorLayout, nullptr, &this->storageDescriptorLayout));
     slots = builder.bindings;
     device = handles.device;
-
-
 }
-
 
 void DescriptorSets::bindlessDrawData::bindToCommandBuffer(VkCommandBuffer cmd, uint32_t currentFrame)
 {

@@ -35,7 +35,7 @@ vkb::Instance GET_INSTANCE()
 {
     vkb::InstanceBuilder instance_builder;
     auto instanceBuilderResult = instance_builder
-                                 // .request_validation_layers()
+                                 .request_validation_layers()
                                  .use_default_debug_messenger()
                                  .require_api_version(1, 3, 0)
                                  .build();
@@ -357,17 +357,6 @@ void HelloTriangleApplication::createDescriptorSetPool(RendererHandles handles, 
     
 }
 
-//Descriptor setup has five steps:
-//TODO JS: Simploify descriptors
-//1- Layout Creation
-//  1a Layout is provided to pipeline
-//2- This is kinda async, but pool needs to be created and needs descriptor count
-//3- Descriptor set allocation/creation - alloc a set per layout
-//4- At runtime: update the sets. A write descriptor buffer info for each descriptor is created and filled, then vkUpdateDescriptorSets
-//5- maybe it was only four steps?
-//I think I can get rid of writedescriptorsetbuilder. 
-
-
 void HelloTriangleApplication::updateDescriptorSets(RendererHandles handles, VkDescriptorPool pool, DescriptorSets::bindlessDrawData* layoutData)
 {
 
@@ -382,8 +371,7 @@ void HelloTriangleApplication::updateDescriptorSets(RendererHandles handles, VkD
 
     std::vector<descriptorUpdateData> descriptorUpdates;
     //Update descriptor sets with data
-   // auto writeDescriptorSetBuilder = DescriptorSets::WriteDescriptorSetsBuilder(layoutData->slots);
-
+ 
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &shaderglobalsinfo});
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, imageInfos.data(),  (uint32_t)imageInfos.size()});
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, cubeImageInfos.data(), (uint32_t)cubeImageInfos.size()});
@@ -393,9 +381,8 @@ void HelloTriangleApplication::updateDescriptorSets(RendererHandles handles, VkD
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &lightbufferinfo});
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &uniformbufferinfo});
 
-
     layoutData->updateDescriptorSets(descriptorUpdates, currentFrame);
-    //writeDescriptorSetBuilder.update(handles.device);
+
     
 }
 #pragma endregion

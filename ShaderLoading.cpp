@@ -25,12 +25,12 @@ ShaderLoader::ShaderLoader(VkDevice device)
 {
     device_ = device;
 }
-
+//TODO JS: Do includes -- parse includes and check modifieds for them too
 void SaveShaderCompilationTime(std::wstring shaderPath)
 {
     FileCaching::saveAssetChangedTime(shaderPath);
 }
-
+//TODO JS: Do includes -- parse includes and check modifieds for them too
 bool ShaderNeedsReciompiled(std::wstring shaderPath)
 {
     return FileCaching::assetOutOfDate(shaderPath);
@@ -174,6 +174,7 @@ void ShaderLoader::shaderCompile(std::wstring shaderFilename, bool is_frag)
         L"-E", (is_frag) ? L"Frag" : L"Vert",
         // Shader target profile
         L"-T", targetProfile,
+        L"-I", L"./Shaders/Includes",
         // Compile to SPIRV
         L"-spirv"
     };
@@ -184,13 +185,14 @@ void ShaderLoader::shaderCompile(std::wstring shaderFilename, bool is_frag)
     buffer.Encoding = DXC_CP_ACP;
     buffer.Ptr = sourceBlob->GetBufferPointer();
     buffer.Size = sourceBlob->GetBufferSize();
-
+    IDxcIncludeHandler* includeHandler;
+    utils->CreateDefaultIncludeHandler(&includeHandler);
     CComPtr<IDxcResult> result{nullptr};
-    hres = compiler->Compile(
+        hres = compiler->Compile(
         &buffer,
         arguments.data(),
         static_cast<uint32_t>(arguments.size()),
-        nullptr,
+        includeHandler ,
         IID_PPV_ARGS(&result));
 
     if (SUCCEEDED(hres))
