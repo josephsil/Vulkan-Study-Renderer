@@ -55,7 +55,7 @@ namespace DescriptorSets
         //Initialization
         void createDescriptorSets( VkDescriptorPool pool,  int MAX_FRAMES_IN_FLIGHT);
         void createPipelineLayout();
-        void createGraphicsPipeline(std::vector<VkPipelineShaderStageCreateInfo> shaders, VkRenderPass renderPass);
+        void createGraphicsPipeline(std::vector<VkPipelineShaderStageCreateInfo> shaders, VkFormat* swapchainFormat, VkFormat* depthFormat);
 
         //Runtime
         void updateDescriptorSets(std::vector<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame);
@@ -113,11 +113,6 @@ namespace DescriptorSets
         
     };
 
-}
-
-namespace RenderingSetup
-{
-    void createRenderPass(RendererHandles rendererHandles, RenderTextureFormat passformat, VkRenderPass* pass);
 }
 
 namespace Capabilities

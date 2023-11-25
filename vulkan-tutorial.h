@@ -79,16 +79,15 @@ private:
     };
 
     VkSwapchainKHR swapChain;
-    VkFormat swapChainImageFormat;
+    VkFormat swapChainColorFormat;
     VkExtent2D swapChainExtent;
     std::vector<VkImageView> swapChainImageViews;
     std::vector<VkImage> swapChainImages;
-    std::vector<VkFramebuffer> swapChainFramebuffers;
     
     VkImage depthImage;
     VmaAllocation depthImageMemory;
+    VkFormat depthFormat;
     VkImageView depthImageView;
-    VkRenderPass renderPass;
 
 #pragma region  descriptor sets 
     VkDescriptorPool descriptorPool;
@@ -183,13 +182,12 @@ private:
     void createTransferCommandPool();
 
     void createDepthResources();
-    void createFramebuffers();
 
 
     bool hasStencilComponent(VkFormat format);
 
 
-    void createGraphicsPipeline(const char* shaderName, VkRenderPass renderPass,
+    void createGraphicsPipeline(const char* shaderName,
                                        DescriptorSets::bindlessDrawData* descriptorsetdata);
     void createInstance();
 

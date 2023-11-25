@@ -50,20 +50,29 @@ vkb::Instance GET_INSTANCE()
 
 vkb::PhysicalDevice GET_GPU(vkb::Instance instance)
 {
+
     const std::vector<const char*> deviceExtensions = {
-        VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_MAINTENANCE_4_EXTENSION_NAME, VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_MAINTENANCE_4_EXTENSION_NAME, VK_KHR_MAINTENANCE_3_EXTENSION_NAME, VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME, VK_EXT_MUTABLE_DESCRIPTOR_TYPE_EXTENSION_NAME
     };
+    VkPhysicalDeviceFeatures features{};
+    VkPhysicalDeviceVulkan11Features features11{};
+    VkPhysicalDeviceVulkan12Features features12{};
+    VkPhysicalDeviceVulkan13Features features13{};
+    features12.descriptorIndexing = VK_TRUE;
+    features12.runtimeDescriptorArray = VK_TRUE;
+    features13.dynamicRendering = VK_TRUE;
+
 
     vkb::PhysicalDeviceSelector phys_device_selector(instance);
     auto physicalDeviceBuilderResult = phys_device_selector
                                        .set_minimum_version(1, 3)
                                        .set_surface(surface)
                                        .require_separate_transfer_queue()
+                                       .set_required_features_12(features12)
+    // .set_required_features({.})
+    .set_required_features_13(features13)
                                        //NOTE: Not supporting gpus without dedicated queue 
                                        .require_separate_compute_queue()
-                                       .set_required_features({
-                                           VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES
-                                       })
                                        .add_required_extensions(deviceExtensions)
                                        .select();
     if (!physicalDeviceBuilderResult)
@@ -217,15 +226,15 @@ void HelloTriangleApplication::initVulkan()
     swapChainImages = vkb_swapchain.get_images().value();
     swapChainImageViews = vkb_swapchain.get_image_views().value();
     swapChainExtent = vkb_swapchain.extent;
-    swapChainImageFormat = vkb_swapchain.image_format;
+    swapChainColorFormat = vkb_swapchain.image_format;
+    
+    createDepthResources();
 
     //Load shaders 
     shaderLoader = new ShaderLoader(device);
     shaderLoader->AddShader("triangle", L"./Shaders/Shader1.hlsl");
     shaderLoader->AddShader("triangle_alt", L"./Shaders/shader2.hlsl");
     shaderLoader->AddShader("triangle", L"./Shaders/bindlessShadow.hlsl");
-    
-    RenderingSetup::createRenderPass(getHandles(), {swapChainImageFormat, Capabilities::findDepthFormat(getHandles())}, &renderPass);
 
     //Command buffer stuff
     createCommandBuffers();
@@ -240,11 +249,11 @@ void HelloTriangleApplication::initVulkan()
     cube_irradiance = TextureData(getHandles(), "textures/output_cubemap2_diff8.ktx2", TextureData::TextureType::CUBE);
     cube_specular = TextureData(getHandles(), "textures/output_cubemap2_spec8.ktx2", TextureData::TextureType::CUBE);
 
-   
+    
     descriptorsetLayoutsData = DescriptorSets::bindlessDrawData(getHandles(), scene.get());
     
-    createGraphicsPipeline("triangle", renderPass,   &descriptorsetLayoutsData);
-    createGraphicsPipeline("triangle_alt", renderPass,   &descriptorsetLayoutsData);
+    createGraphicsPipeline("triangle",  &descriptorsetLayoutsData);
+    createGraphicsPipeline("triangle_alt",  &descriptorsetLayoutsData);
     
     createDescriptorSetPool(getHandles(), &descriptorPool);
 
@@ -252,9 +261,6 @@ void HelloTriangleApplication::initVulkan()
 
     createUniformBuffers();
     createSyncObjects();
-
-    createDepthResources();
-    createFramebuffers();
 
     //TODO JS: Move... Run when meshes change?
     populateMeshBuffers();
@@ -538,22 +544,34 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
         exit(-1);
     }
 
-    VkRenderPassBeginInfo renderPassInfo{};
-    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    renderPassInfo.renderPass = renderPass;
-    renderPassInfo.framebuffer = swapChainFramebuffers[imageIndex];
+    const VkRenderingAttachmentInfoKHR dynamicRenderingColorAttatchment {
+        .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
+        .imageView = swapChainImageViews[imageIndex],
+        .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        .clearValue =  {0.0f, 0.0f, 0.0f, 1.0f}
+    };
 
-    renderPassInfo.renderArea.offset = {0, 0};
+    const VkRenderingAttachmentInfoKHR dynamicRenderingDepthAttatchment {
+        .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
+        .imageView = depthImageView,
+        .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        .clearValue =  {1.0f, 0}
+    };
+
+    VkRenderingInfo renderPassInfo{};
+    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
     renderPassInfo.renderArea.extent = swapChainExtent;
+    renderPassInfo.renderArea.offset = {0, 0};
+    renderPassInfo.layerCount =1;
+    renderPassInfo.colorAttachmentCount = 1;
+    renderPassInfo.pColorAttachments = &dynamicRenderingColorAttatchment;
+    renderPassInfo.pDepthAttachment = &dynamicRenderingDepthAttatchment;
 
-    std::array<VkClearValue, 2> clearValues{};
-    clearValues[0].color = {{0.0f, 0.0f, 0.0f, 1.0f}};
-    clearValues[1].depthStencil = {1.0f, 0};
-
-    renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
-    renderPassInfo.pClearValues = clearValues.data();
-
-    vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBeginRendering(commandBuffer, &renderPassInfo);
 
 
   
@@ -611,7 +629,7 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
         vkCmdDraw(commandBuffer, static_cast<uint32_t>(scene->meshes[i]->vertcount), 1, 0, 0);
     }
 
-    vkCmdEndRenderPass(commandBuffer);
+    vkCmdEndRendering(commandBuffer);
 
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
     {
@@ -639,34 +657,6 @@ void HelloTriangleApplication::createCommandBuffers()
     }
 }
 
-void HelloTriangleApplication::createFramebuffers()
-{
-    swapChainFramebuffers.resize(swapChainImageViews.size());
-
-    for (size_t i = 0; i < swapChainImageViews.size(); i++)
-    {
-        std::array<VkImageView, 2> attachments = {
-            swapChainImageViews[i],
-            depthImageView
-        };
-
-        VkFramebufferCreateInfo framebufferInfo{};
-        framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-        framebufferInfo.renderPass = renderPass;
-        framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
-        framebufferInfo.pAttachments = attachments.data();
-        framebufferInfo.width = swapChainExtent.width;
-        framebufferInfo.height = swapChainExtent.height;
-        framebufferInfo.layers = 1;
-
-        if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, &swapChainFramebuffers[i]) != VK_SUCCESS)
-        {
-            printf("failed to create framebuffer!");
-            exit(-1);
-        }
-    }
-}
-
 bool HelloTriangleApplication::hasStencilComponent(VkFormat format)
 {
     return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
@@ -676,7 +666,7 @@ bool HelloTriangleApplication::hasStencilComponent(VkFormat format)
 
 void HelloTriangleApplication::createDepthResources()
 {
-    VkFormat depthFormat = Capabilities::findDepthFormat(getHandles());
+    depthFormat = Capabilities::findDepthFormat(getHandles());
 
     TextureUtilities::createImage(getHandles(), swapChainExtent.width, swapChainExtent.height, depthFormat,
                                   VK_IMAGE_TILING_OPTIMAL,
@@ -690,12 +680,12 @@ void HelloTriangleApplication::createDepthResources()
 #pragma endregion
 
 
-void HelloTriangleApplication::createGraphicsPipeline(const char* shaderName, VkRenderPass renderpass, DescriptorSets::bindlessDrawData* descriptorsetdata)
+void HelloTriangleApplication::createGraphicsPipeline(const char* shaderName, DescriptorSets::bindlessDrawData* descriptorsetdata)
 {
     VkPipeline newGraphicsPipeline; 
     auto shaders = shaderLoader->compiledShaders[shaderName];
     
-    descriptorsetdata->createGraphicsPipeline(shaders, renderpass);
+    descriptorsetdata->createGraphicsPipeline(shaders,&swapChainColorFormat, &depthFormat);
 
     auto val = shaderLoader->compiledShaders[shaderName];
 
@@ -896,14 +886,6 @@ void HelloTriangleApplication::cleanup()
 
     vkDestroyCommandPool(device, commandPoolmanager.commandPool, nullptr);
     vkDestroyCommandPool(device, commandPoolmanager.transferCommandPool, nullptr);
-
-
-    for (auto framebuffer : swapChainFramebuffers)
-    {
-        vkDestroyFramebuffer(device, framebuffer, nullptr);
-    }
-
-    vkDestroyRenderPass(device, renderPass, nullptr);
 
     for (auto imageView : swapChainImageViews)
     {
