@@ -461,24 +461,12 @@ void HelloTriangleApplication::createSyncObjects()
 
 void HelloTriangleApplication::updateLightBuffers(uint32_t currentImage)
 {
-    std::vector<gpulight> lights;
+ }
 
-    lights.resize(scene->lightposandradius.size());
-
-    for (int i = 0; i < scene->lightposandradius.size(); i++)
-    {
-        lights[i] = {scene->lightposandradius[i], scene->lightcolorAndIntensity[i], glm::vec4(1), glm::vec4(1)};
-    }
-
-    memcpy(FramesInFlightData[currentImage].lightBuffersMapped, lights.data(), sizeof(gpulight) * lights.size());
-}
-
-//TODO JS: This is like, per object uniforms -- it should belong to the scene and get passed a buffer directly to the render loop
-//TODO: Separate the per model xforms from the camera xform
-
-void HelloTriangleApplication::updateUniformBuffers(uint32_t currentImage, std::vector<glm::mat4> models,
+void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentImage, std::vector<glm::mat4> models,
                                                     inputData input)
 {
+    //Opaque globals
     ShaderGlobals globals;
     eyePos += (input.translate * deltaTime);
 
@@ -497,6 +485,7 @@ void HelloTriangleApplication::updateUniformBuffers(uint32_t currentImage, std::
         scene->materialTextureCount() + cubemaplut_utilitytexture_index, 0, 0);
     memcpy(FramesInFlightData[currentImage].opaqueShaderGlobalsMapped, &globals, sizeof(ShaderGlobals));
 
+    //Shadow globals
     int shadowcount = scene->lightCount > MAX_SHADOWCASTERS ? MAX_SHADOWCASTERS : scene->lightCount;
     for(int i =0; i <shadowcount; i++)
     {
@@ -513,7 +502,8 @@ void HelloTriangleApplication::updateUniformBuffers(uint32_t currentImage, std::
 
         memcpy(FramesInFlightData[currentImage].perLightShadowShaderGlobalsMapped[i], &globals, sizeof(ShaderGlobals));
     }
-    
+
+    //Ubos 
     std::vector<UniformBufferObject> ubos;
 
     if (ubos.size() != models.size())
@@ -527,6 +517,19 @@ void HelloTriangleApplication::updateUniformBuffers(uint32_t currentImage, std::
         ubos[i].Normal = transpose(inverse(glm::mat3(*model)));
     }
     memcpy(FramesInFlightData[currentImage].uniformBuffersMapped, ubos.data(), sizeof(UniformBufferObject) * models.size());
+
+    //Lights
+    std::vector<gpulight> lights;
+
+    lights.resize(scene->lightposandradius.size());
+
+    for (int i = 0; i < scene->lightposandradius.size(); i++)
+    {
+        lights[i] = {scene->lightposandradius[i], scene->lightcolorAndIntensity[i], glm::vec4(1), glm::vec4(1)};
+    }
+
+    memcpy(FramesInFlightData[currentImage].lightBuffersMapped, lights.data(), sizeof(gpulight) * lights.size());
+
 }
 
 
@@ -788,70 +791,66 @@ void HelloTriangleApplication::UpdateRotations()
 
 void HelloTriangleApplication::drawFrame(inputData input)
 {
+    //Update per frame data
+    updatePerFrameBuffers(currentFrame, scene->matrices, input); // TODO JS: Figure out
+    //Prepare for pass
     vkWaitForFences(device, 1, &FramesInFlightData[currentFrame].inFlightFences, VK_TRUE, UINT64_MAX);
-
-    uint32_t imageIndex;
+    uint32_t imageIndex; 
     vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, FramesInFlightData[currentFrame].imageAvailableSemaphores, VK_NULL_HANDLE,
                           &imageIndex);
-
     vkResetCommandBuffer(FramesInFlightData[currentFrame].commandBuffers, 0);
-
-
-    //TODO: draw multiple objects
-    // updateUniformBuffer(currentFrame, scene->matrices[0]);
-    updateUniformBuffers(currentFrame, scene->matrices, input); // TODO JS: Figure out
-
-    updateLightBuffers(currentFrame);
-
-
     vkResetFences(device, 1, &FramesInFlightData[currentFrame].inFlightFences);
-    //TODO JS: properly manage multiple objects with vertex buffer + corresponding pipeline object
-    //VkBuffer vertexBuffers[] = { vertexBuffer };
 
-    //TODO: draw multiple objects
+    VkSemaphore shadowPassWaitSemaphores[] = {FramesInFlightData[currentFrame].shadowAvailableSemaphores};
+    VkSemaphore shadowpasssignalSemaphores[] = {FramesInFlightData[currentFrame].shadowFinishedSemaphores};
+    // renderShadowPass(currentFrame,imageIndex, shadowPassWaitSemaphores,shadowpasssignalSemaphores);
+
+
+
+    //TODO JS: Enable shadow semaphore
+    VkSemaphore opaquePassWaitSemaphores[] = {FramesInFlightData[currentFrame].imageAvailableSemaphores /*,FramesInFlightData[currentFrame].shadowFinishedSemaphores*/};
+    VkSemaphore opaquepasssignalSemaphores[] = {FramesInFlightData[currentFrame].renderFinishedSemaphores};
+    renderOpaquePass(currentFrame,imageIndex, opaquePassWaitSemaphores,opaquepasssignalSemaphores);
+
+    
+    VkPresentInfoKHR presentInfo{};
+    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+    presentInfo.waitSemaphoreCount = 1;
+    presentInfo.pWaitSemaphores = opaquepasssignalSemaphores;
+    presentInfo.swapchainCount = 1;
+    presentInfo.pSwapchains = {&swapChain};
+    presentInfo.pImageIndices = &imageIndex;
+    presentInfo.pResults = nullptr; // Optional
+
+    //Present frame
+    vkQueuePresentKHR(commandPoolmanager.Queues.presentQueue, &presentInfo);
+
+    currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+}
+
+void HelloTriangleApplication::renderOpaquePass(uint32_t currentFrame, uint32_t imageIndex, VkSemaphore* waitsemaphores, VkSemaphore*signalsemaphores)
+{   
+    //Record command buffer for pass
     recordCommandBuffer(FramesInFlightData[currentFrame].commandBuffers, imageIndex);
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-    //TODO JS: understand better 
-
-    VkSemaphore waitSemaphores[] = {FramesInFlightData[currentFrame].imageAvailableSemaphores};
+  
     VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
     submitInfo.waitSemaphoreCount = 1;
-    submitInfo.pWaitSemaphores = waitSemaphores;
+    submitInfo.pWaitSemaphores = waitsemaphores;
     submitInfo.pWaitDstStageMask = waitStages;
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &FramesInFlightData[currentFrame].commandBuffers;
-
-
-    VkSemaphore signalSemaphores[] = {FramesInFlightData[currentFrame].renderFinishedSemaphores};
+    
+   
     submitInfo.signalSemaphoreCount = 1;
-    submitInfo.pSignalSemaphores = signalSemaphores;
+    submitInfo.pSignalSemaphores = signalsemaphores;
 
-    auto result = vkQueueSubmit(commandPoolmanager.Queues.graphicsQueue, 1, &submitInfo, FramesInFlightData[currentFrame].inFlightFences);
-    if (result != VK_SUCCESS)
-    {
-        printf("failed to submit draw command buffer!");
-        exit(-1);
-    }
-
-    VkPresentInfoKHR presentInfo{};
-    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-
-    presentInfo.waitSemaphoreCount = 1;
-    presentInfo.pWaitSemaphores = signalSemaphores;
-
-    VkSwapchainKHR swapChains[] = {swapChain};
-    presentInfo.swapchainCount = 1;
-    presentInfo.pSwapchains = swapChains;
-    presentInfo.pImageIndices = &imageIndex;
-
-    presentInfo.pResults = nullptr; // Optional
-
-    vkQueuePresentKHR(commandPoolmanager.Queues.presentQueue, &presentInfo);
-
-    currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+    //Submit pass 
+    VK_CHECK(vkQueueSubmit(commandPoolmanager.Queues.graphicsQueue, 1, &submitInfo, FramesInFlightData[currentFrame].inFlightFences));
+    
 }
 
 void HelloTriangleApplication::cleanup()

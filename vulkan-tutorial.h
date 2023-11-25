@@ -106,6 +106,8 @@ private:
 
     struct per_frame_data
     {
+        VkSemaphore shadowAvailableSemaphores {};
+        VkSemaphore shadowFinishedSemaphores {};
         VkSemaphore imageAvailableSemaphores {};
         VkSemaphore renderFinishedSemaphores {};
         
@@ -166,7 +168,8 @@ private:
     void createUniformBuffers();
 
     void updateUniformBuffer(uint32_t currentImage, glm::mat4 model);
-    void updateUniformBuffers(uint32_t currentImage, std::vector<glm::mat4> models, inputData input);
+    //Globals per pass, ubos, and lights are updated every frame
+    void updatePerFrameBuffers(uint32_t currentImage, std::vector<glm::mat4> models, inputData input);
 
 
     void createDescriptorSetLayout(VkDescriptorSetLayoutCreateInfo layoutinfo, VkDescriptorSetLayout* layout);
@@ -198,6 +201,7 @@ private:
     void UpdateRotations();
 
     void drawFrame(inputData input);
+    void renderOpaquePass(uint32_t currentFrame, uint32_t imageIndex, VkSemaphore* waitsemaphores, VkSemaphore* signalsemaphores);
 
     void cleanup();
 
