@@ -240,14 +240,14 @@ void HelloTriangleApplication::initVulkan()
     cube_specular = TextureData(getHandles(), "textures/output_cubemap2_spec8.ktx2", TextureData::TextureType::CUBE);
 
    
-    descriptorsetLayoutsData = DescriptorSets::createBindlessLayout(getHandles(), scene.get());
+    descriptorsetLayoutsData = DescriptorSets::bindlessDrawData(getHandles(), scene.get());
     
-    bindlessPipeline_1 = createGraphicsPipeline("triangle", renderPass, nullptr,  descriptorsetLayoutsData.getLayouts());
-    bindlessPipeline_2 = createGraphicsPipeline("triangle_alt", renderPass, nullptr,  descriptorsetLayoutsData.getLayouts());
+    createGraphicsPipeline("triangle", renderPass,   &descriptorsetLayoutsData);
+    createGraphicsPipeline("triangle_alt", renderPass,   &descriptorsetLayoutsData);
     
-    createDescriptorSetPool(getHandles(),  &descriptorPool, descriptorsetLayoutsData.slots);
+    createDescriptorSetPool(getHandles(), &descriptorPool);
 
-    descriptorsetLayoutsData.createDescriptorSets(getHandles(), descriptorPool, MAX_FRAMES_IN_FLIGHT);
+    descriptorsetLayoutsData.createDescriptorSets(descriptorPool, MAX_FRAMES_IN_FLIGHT);
 
     createUniformBuffers();
     createSyncObjects();
@@ -332,7 +332,7 @@ void HelloTriangleApplication::createDescriptorSetLayout(VkDescriptorSetLayoutCr
 #pragma endregion
 
 #pragma region descriptorsets
-void HelloTriangleApplication::createDescriptorSetPool(RendererHandles handles, VkDescriptorPool* pool, std::vector<DescriptorSets::layoutInfo> infos)
+void HelloTriangleApplication::createDescriptorSetPool(RendererHandles handles, VkDescriptorPool* pool)
 {
     
     std::vector<VkDescriptorPoolSize> sizes =
@@ -368,7 +368,7 @@ void HelloTriangleApplication::createDescriptorSetPool(RendererHandles handles, 
 //I think I can get rid of writedescriptorsetbuilder. 
 
 
-void HelloTriangleApplication::updateDescriptorSets(RendererHandles handles, VkDescriptorPool pool, DescriptorSets::bindlessDescriptorSetData* layoutData)
+void HelloTriangleApplication::updateDescriptorSets(RendererHandles handles, VkDescriptorPool pool, DescriptorSets::bindlessDrawData* layoutData)
 {
 
     //Get data
@@ -394,7 +394,7 @@ void HelloTriangleApplication::updateDescriptorSets(RendererHandles handles, VkD
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &uniformbufferinfo});
 
 
-    layoutData->updateDescriptorSets(handles.device, descriptorUpdates, currentFrame);
+    layoutData->updateDescriptorSets(descriptorUpdates, currentFrame);
     //writeDescriptorSetBuilder.update(handles.device);
     
 }
@@ -478,8 +478,7 @@ void HelloTriangleApplication::updateUniformBuffers(uint32_t currentImage, std::
 
 
 //command buffer to draw the frame 
-void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex,
-                                                   VkPipeline graphicsPipeline)
+void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex)
 {
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -510,8 +509,7 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
     vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
 
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-
+  
     VkViewport viewport{};
     viewport.x = 0.0f;
     viewport.y = 0.0f;
@@ -526,28 +524,41 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
     scissor.extent = swapChainExtent;
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
+    uint32_t debugpipelineindexoverride = _selectedShader == 0 ? 0 : 1;
+// #define DEBUG_SHADERS
+    
     //*************
     //************
     //** Descriptor Sets update and binding
-    //
+    // This could change sometimes
     updateDescriptorSets(getHandles(), descriptorPool, &descriptorsetLayoutsData);
-    descriptorsetLayoutsData.bindToCommandBuffer(commandBuffer, pipelineLayout, currentFrame);
-
-    //*************
-    //************
-    //** Descriptor
-    //
+    descriptorsetLayoutsData.bindToCommandBuffer(commandBuffer, currentFrame);
+    VkPipelineLayout layout = descriptorsetLayoutsData.getLayout();
+    
     int meshct = scene->meshes.size();
+    int lastPipelineIndex = -1;
     for (int i = 0; i <meshct; i++)
     {
+        Material material = scene->materials[i];
+        int pipelineIndex = material.pipelineidx;
+#ifdef DEBUG_SHADERS
+        pipelineIndex = debugpipelineindexoverride;
+#endif
+        if (pipelineIndex != lastPipelineIndex)
+        {
+            vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, descriptorsetLayoutsData.getPipeline(pipelineIndex));
+        }
+        
+        lastPipelineIndex = pipelineIndex;
+        
         per_object_data constants;
         //Light count, vert offset, texture index, and object data index
-        constants.indexInfo = glm::vec4(scene->materials[i].backingTextureidx, (scene->meshOffsets[i]),
-                                        scene->materials[i].backingTextureidx, i);
+        constants.indexInfo = glm::vec4(material.backingTextureidx, (scene->meshOffsets[i]),
+                                        material.backingTextureidx, i);
 
-        constants.materialprops = glm::vec4(scene->materials[i].roughness, scene->materials[i].metallic, 0, 0);
+        constants.materialprops = glm::vec4(material.roughness, scene->materials[i].metallic, 0, 0);
 
-        vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+        vkCmdPushConstants(commandBuffer, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                            sizeof(per_object_data), &constants);
 
         vkCmdDraw(commandBuffer, static_cast<uint32_t>(scene->meshes[i]->vertcount), 1, 0, 0);
@@ -630,149 +641,12 @@ void HelloTriangleApplication::createDepthResources()
 #pragma endregion
 
 
-VkPipeline HelloTriangleApplication::createGraphicsPipeline(const char* shaderName, VkRenderPass renderPass,
-                                                            VkPipelineCache pipelineCache, std::vector<VkDescriptorSetLayout> layouts)
+void HelloTriangleApplication::createGraphicsPipeline(const char* shaderName, VkRenderPass renderpass, DescriptorSets::bindlessDrawData* descriptorsetdata)
 {
     VkPipeline newGraphicsPipeline; 
     auto shaders = shaderLoader->compiledShaders[shaderName];
-
-    VkPipelineShaderStageCreateInfo shaderStages[] = {shaders[0], shaders[1]};
-
-    VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
-    vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vertexInputInfo.vertexBindingDescriptionCount = 0;
-    vertexInputInfo.vertexAttributeDescriptionCount = 0;
-    vertexInputInfo.pVertexBindingDescriptions = nullptr;
-    vertexInputInfo.pVertexAttributeDescriptions = nullptr;
-
-    VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
-    inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    inputAssembly.primitiveRestartEnable = VK_FALSE;
-
-    VkPipelineViewportStateCreateInfo viewportState{};
-    viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-    viewportState.viewportCount = 1;
-    viewportState.scissorCount = 1;
-
-    VkPipelineRasterizationStateCreateInfo rasterizer{};
-    rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    rasterizer.depthClampEnable = VK_FALSE;
-    rasterizer.rasterizerDiscardEnable = VK_FALSE;
-    rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
-    rasterizer.lineWidth = 1.0f;
-    rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-    rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-    rasterizer.depthBiasEnable = VK_FALSE;
-
-    VkPipelineMultisampleStateCreateInfo multisampling{};
-    multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    multisampling.sampleShadingEnable = VK_FALSE;
-    multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-    multisampling.minSampleShading = 1.0f; // Optional
-    multisampling.pSampleMask = nullptr; // Optional
-    multisampling.alphaToCoverageEnable = VK_FALSE; // Optional
-    multisampling.alphaToOneEnable = VK_FALSE; // Optional
-
-    VkPipelineColorBlendAttachmentState colorBlendAttachment{};
-    colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
-        VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    colorBlendAttachment.blendEnable = VK_FALSE;
-    colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE; // Optional
-    colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO; // Optional
-    colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD; // Optional
-    colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE; // Optional
-    colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO; // Optional
-    colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD; // Optional
-
-    VkPipelineDepthStencilStateCreateInfo depthStencil{};
-    depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    depthStencil.depthTestEnable = VK_TRUE;
-    depthStencil.depthWriteEnable = VK_TRUE;
-    depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
-    depthStencil.depthBoundsTestEnable = VK_FALSE;
-    depthStencil.minDepthBounds = 0.0f; // Optional
-    depthStencil.maxDepthBounds = 1.0f; // Optional
-    depthStencil.stencilTestEnable = VK_FALSE;
-    depthStencil.front = {}; // Optional
-    depthStencil.back = {}; // Optional
-
-    VkPipelineColorBlendStateCreateInfo colorBlending{};
-    colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    colorBlending.logicOpEnable = VK_FALSE;
-    colorBlending.logicOp = VK_LOGIC_OP_COPY; // Optional
-    colorBlending.attachmentCount = 1;
-    colorBlending.pAttachments = &colorBlendAttachment;
-    colorBlending.blendConstants[0] = 0.0f; // Optional
-    colorBlending.blendConstants[1] = 0.0f; // Optional
-    colorBlending.blendConstants[2] = 0.0f; // Optional
-    colorBlending.blendConstants[3] = 0.0f; // Optional
-
-    std::vector<VkDynamicState> dynamicStates = {
-        VK_DYNAMIC_STATE_VIEWPORT,
-        VK_DYNAMIC_STATE_SCISSOR
-    };
-    VkPipelineDynamicStateCreateInfo dynamicState{};
-    dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-    dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
-    dynamicState.pDynamicStates = dynamicStates.data();
-
-
-    VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
-    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutInfo.setLayoutCount = layouts.size(); // Optional
-    //TODO JS: These always use the same descriptor set layout currently
-    pipelineLayoutInfo.pSetLayouts = layouts.data();
-
-    //setup push constants
-    VkPushConstantRange push_constant;
-    //this push constant range starts at the beginning
-    push_constant.offset = 0;
-    //this push constant range takes up the size of a MeshPushConstants struct
-    push_constant.size = sizeof(per_object_data);
     
-    push_constant.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-
-    pipelineLayoutInfo.pPushConstantRanges = &push_constant;
-    pipelineLayoutInfo.pushConstantRangeCount = 1;
-
-    if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS)
-    {
-        printf("failed to create pipeline layout!");
-        exit(-1);
-    }
-
-    VkGraphicsPipelineCreateInfo pipelineInfo{};
-    pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    pipelineInfo.stageCount = 2;
-    pipelineInfo.pStages = shaderStages;
-
-    pipelineInfo.pVertexInputState = &vertexInputInfo;
-    pipelineInfo.pInputAssemblyState = &inputAssembly;
-    pipelineInfo.pViewportState = &viewportState;
-    pipelineInfo.pRasterizationState = &rasterizer;
-    pipelineInfo.pMultisampleState = &multisampling;
-
-    pipelineInfo.pDepthStencilState = &depthStencil;
-    pipelineInfo.pColorBlendState = &colorBlending;
-    pipelineInfo.pDynamicState = &dynamicState;
-
-
-    pipelineInfo.layout = pipelineLayout;
-
-    pipelineInfo.renderPass = renderPass;
-    pipelineInfo.subpass = 0;
-
-    pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
-    pipelineInfo.basePipelineIndex = -1; // Optional
-
-    if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &newGraphicsPipeline) !=
-        VK_SUCCESS)
-    {
-        printf("failed to create graphics pipeline!");
-        exit(-1);
-    }
-
+    descriptorsetdata->createGraphicsPipeline(shaders, renderpass);
 
     auto val = shaderLoader->compiledShaders[shaderName];
 
@@ -781,7 +655,6 @@ VkPipeline HelloTriangleApplication::createGraphicsPipeline(const char* shaderNa
         vkDestroyShaderModule(device, v.module, nullptr);
     }
 
-    return newGraphicsPipeline;
 }
 
 
@@ -902,8 +775,7 @@ void HelloTriangleApplication::drawFrame(inputData input)
     //VkBuffer vertexBuffers[] = { vertexBuffer };
 
     //TODO: draw multiple objects
-    recordCommandBuffer(commandBuffers[currentFrame], imageIndex,
-                        _selectedShader == 0 ? bindlessPipeline_1 : bindlessPipeline_2);
+    recordCommandBuffer(commandBuffers[currentFrame], imageIndex);
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -963,7 +835,7 @@ void HelloTriangleApplication::cleanup()
 
     vkDestroyDescriptorPool(device, descriptorPool, nullptr);
 
-    vkDestroyDescriptorSetLayout(device, pushDescriptorSetLayout, nullptr);
+    descriptorsetLayoutsData.cleanup();
 
 
     scene->Cleanup();
@@ -983,13 +855,8 @@ void HelloTriangleApplication::cleanup()
         vkDestroyFramebuffer(device, framebuffer, nullptr);
     }
 
-    vkDestroyPipeline(device, bindlessPipeline_1, nullptr);
-    vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
-
-    vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
     vkDestroyRenderPass(device, renderPass, nullptr);
 
-    vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
     for (auto imageView : swapChainImageViews)
     {
         vkDestroyImageView(device, imageView, nullptr);

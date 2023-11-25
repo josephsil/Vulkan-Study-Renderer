@@ -46,7 +46,7 @@ int Scene::AddObject(MeshData* mesh, int textureidx, float material_roughness, b
     //TODD JS: version that can add 
     meshes.push_back(mesh);
     materials.push_back(Material{
-        .backingTextureidx = textureidx, .metallic = material_metallic, .roughness = material_roughness
+        .pipelineidx = (uint32_t)(ct % 20 > 10 ? 0 : 1), .backingTextureidx = textureidx, .metallic = material_metallic, .roughness = material_roughness
     });
     translations.push_back(position);
     rotations.push_back(rotation);

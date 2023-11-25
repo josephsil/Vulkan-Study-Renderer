@@ -1,5 +1,6 @@
 #pragma once
 
+using VkPipeline = struct VkPipeline_T*; 
 struct VkVertexInputBindingDescription;
 struct VkVertexInputAttributeDescription;
 

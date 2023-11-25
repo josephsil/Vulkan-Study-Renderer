@@ -43,33 +43,42 @@ namespace DescriptorSets
         uint32_t descriptorCount = 1;
     };
 
-    void AllocateDescriptorSet(RendererHandles handles, VkDescriptorPool pool, VkDescriptorSetLayout* pdescriptorsetLayout, VkDescriptorSet* pset);
+    void AllocateDescriptorSet(VkDevice device, VkDescriptorPool pool, VkDescriptorSetLayout* pdescriptorsetLayout, VkDescriptorSet* pset);
 
     //Sorta material-esque -- should this grow, and own information about the corresponding pipeline?
-    class bindlessDescriptorSetData
+    class bindlessDrawData
     {
     public:
-        VkDescriptorSetLayout uniformDescriptorLayout;
-        VkDescriptorSetLayout storageDescriptorLayout;
-        VkDescriptorSetLayout imageDescriptorLayout;
-        VkDescriptorSetLayout samplerDescriptorLayout;
+        bindlessDrawData()
+        {}
+        bindlessDrawData(RendererHandles handles, Scene* pscene);
+        //Initialization
+        void createDescriptorSets( VkDescriptorPool pool,  int MAX_FRAMES_IN_FLIGHT);
+        void createPipelineLayout();
+        void createGraphicsPipeline(std::vector<VkPipelineShaderStageCreateInfo> shaders, VkRenderPass renderPass);
+
+        //Runtime
+        void updateDescriptorSets(std::vector<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame);
+        void bindToCommandBuffer(VkCommandBuffer cmd, uint32_t currentFrame);
+        VkPipeline getPipeline(int index);
+        VkPipelineLayout getLayout();
         
-        std::vector<layoutInfo> slots;
-
-        std::vector<VkDescriptorSetLayout> getLayouts()
-        {
-            return {
-                uniformDescriptorLayout,storageDescriptorLayout,imageDescriptorLayout,samplerDescriptorLayout
-            };
-        }
-
-        void bindToCommandBuffer(VkCommandBuffer cmd, VkPipelineLayout layout, uint32_t currentFrame);
-        void updateDescriptorSets(VkDevice device, std::vector<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame);
-        void createDescriptorSets(RendererHandles handles, VkDescriptorPool pool,  int MAX_FRAMES_IN_FLIGHT);
+        void cleanup();
 
     private:
+        std::vector<layoutInfo> slots;
+        VkDevice device;
+        bool pipelineLayoutInitialized = false;
+        bool pipelinesInitialized = false;
         bool descriptorSetsInitialized = false;
       
+        std::vector<VkPipeline> bindlesspipelineObjects;
+        VkPipelineLayout bindlessPipelineLayout;
+
+        VkDescriptorSetLayout uniformDescriptorLayout = {};
+        VkDescriptorSetLayout storageDescriptorLayout = {};
+        VkDescriptorSetLayout imageDescriptorLayout = {};
+        VkDescriptorSetLayout samplerDescriptorLayout = {};
         
         std::vector<VkDescriptorSet> uniformDescriptorSetForFrame = {};
         std::vector<VkDescriptorSet> storageDescriptorSetForFrame = {};
@@ -104,7 +113,6 @@ namespace DescriptorSets
         
     };
 
-    bindlessDescriptorSetData createBindlessLayout(RendererHandles rendererHandles, Scene* scene);
 }
 
 namespace RenderingSetup

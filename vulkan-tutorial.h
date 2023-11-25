@@ -93,13 +93,12 @@ private:
     VkDescriptorPool descriptorPool;
     VkDescriptorSetLayout pushDescriptorSetLayout;
     VkDescriptorSetLayout perMaterialSetLayout;
-    VkPipelineLayout pipelineLayout;
     
-    DescriptorSets::bindlessDescriptorSetData descriptorsetLayoutsData;
+    DescriptorSets::bindlessDrawData descriptorsetLayoutsData;
 
     
-    void createDescriptorSetPool(RendererHandles handles, VkDescriptorPool* pool, std::vector<DescriptorSets::layoutInfo> infos);
-    void updateDescriptorSets(RendererHandles handles, VkDescriptorPool pool, DescriptorSets::bindlessDescriptorSetData* layoutData);
+    void createDescriptorSetPool(RendererHandles handles, VkDescriptorPool* pool);
+    void updateDescriptorSets(RendererHandles handles, VkDescriptorPool pool, DescriptorSets::bindlessDrawData* layoutData);
 
 #pragma endregion
 
@@ -134,43 +133,9 @@ private:
     std::vector<per_frame_data> FramesInFlightData;
     std::vector<VkCommandBuffer> commandBuffers {};
     
-    VkPipeline bindlessPipeline_1;
-    VkPipeline bindlessPipeline_2;
 
     int cubemaplut_utilitytexture_index;
 
-    struct UniformBufferObject
-    {
-        alignas(16) glm::mat4 model;
-        alignas(16) glm::mat4 Normal;
-        alignas(16) glm::mat4 padding1;
-        alignas(16) glm::mat4 padding2;
-    };
-
-    struct ShaderGlobals
-    {
-        alignas(16) glm::mat4 view;
-        alignas(16) glm::mat4 proj;
-        alignas(16) glm::vec4 viewPos;
-        alignas(16) glm::vec4 lightcountx_modey_paddingzw;
-        alignas(16) glm::vec4 cubemaplutidx_cubemaplutsampleridx_paddingzw;
-    };
-
-    struct per_object_data
-    {
-        //Light count, vertex offset, texture index, ubo index
-        alignas(16) glm::vec4 indexInfo;
-
-        alignas(16) glm::vec4 materialprops; //roughness, metalness, padding, padding
-        alignas(16) glm::vec4 padding_1;
-        alignas(16) glm::vec4 padding_2;
-        alignas(16) glm::vec4 padding_3;
-        //Unused
-        alignas(16) glm::mat4 padding1;
-        //Unused
-        alignas(16) glm::mat4 padding2;
-    };
-   
     uint32_t currentFrame = 0;
 
 #ifdef NDEBUG
@@ -203,7 +168,7 @@ private:
     void createSyncObjects();
 
     void createCommandBuffers();
-    void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex, VkPipeline graphicsPipeline);
+    void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 
     void createGraphicsCommandPool();
     void createTransferCommandPool();
@@ -215,8 +180,8 @@ private:
     bool hasStencilComponent(VkFormat format);
 
 
-    VkPipeline createGraphicsPipeline(const char* shaderName, VkRenderPass renderPass,
-                                      VkPipelineCache pipelineCache, std::vector<VkDescriptorSetLayout> layouts);
+    void createGraphicsPipeline(const char* shaderName, VkRenderPass renderPass,
+                                       DescriptorSets::bindlessDrawData* descriptorsetdata);
     void createInstance();
 
     int _selectedShader{0};
