@@ -36,6 +36,7 @@ public:
 private:
 
     const int MAX_FRAMES_IN_FLIGHT = 3;
+    const int MAX_SHADOWCASTERS = 1;
 
 #pragma region SDL
     uint32_t T;
@@ -98,7 +99,9 @@ private:
 
     
     void createDescriptorSetPool(RendererHandles handles, VkDescriptorPool* pool);
-    void updateDescriptorSets(RendererHandles handles, VkDescriptorPool pool, DescriptorSets::bindlessDrawData* layoutData);
+    void updateOpaqueDescriptorSets(RendererHandles handles, VkDescriptorPool pool, DescriptorSets::bindlessDrawData* layoutData);
+    void updateShadowDescriptorSets(RendererHandles handles, VkDescriptorPool pool,
+                                    DescriptorSets::bindlessDrawData* layoutData, uint32_t shadowIndex);
 
 #pragma endregion
 
@@ -106,12 +109,20 @@ private:
     {
         VkSemaphore imageAvailableSemaphores {};
         VkSemaphore renderFinishedSemaphores {};
+        
         VkFence inFlightFences {};
+        VkCommandBuffer commandBuffers {};
 
 #pragma region buffers
-        dataBuffer shaderGlobalsBuffer;
-        VmaAllocation shaderGlobalsMemory;
-        void* shaderGlobalsMapped;
+
+        //TODO JS: More expressive pass system
+        std::vector<dataBuffer> perLightShadowShaderGlobalsBuffer;
+        std::vector<VmaAllocation> perLightShadowShaderGlobalsMemory;
+        std::vector<void*> perLightShadowShaderGlobalsMapped;
+        
+        dataBuffer opaqueShaderGlobalsBuffer;
+        VmaAllocation opaqueShaderGlobalsMemory;
+        void* opaqueShaderGlobalsMapped;
     
         //TODO JS: Move the data buffer stuff?
         dataBuffer uniformBuffers;
@@ -126,12 +137,10 @@ private:
         VmaAllocation lightBuffersMemory;
         void* lightBuffersMapped;
 #pragma endregion
-        
-        
     };
     
     std::vector<per_frame_data> FramesInFlightData;
-    std::vector<VkCommandBuffer> commandBuffers {};
+    
     
 
     int cubemaplut_utilitytexture_index;

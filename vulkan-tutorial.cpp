@@ -223,6 +223,7 @@ void HelloTriangleApplication::initVulkan()
     shaderLoader = new ShaderLoader(device);
     shaderLoader->AddShader("triangle", L"./Shaders/Shader1.hlsl");
     shaderLoader->AddShader("triangle_alt", L"./Shaders/shader2.hlsl");
+    shaderLoader->AddShader("triangle", L"./Shaders/bindlessShadow.hlsl");
     
     RenderingSetup::createRenderPass(getHandles(), {swapChainImageFormat, Capabilities::findDepthFormat(getHandles())}, &renderPass);
 
@@ -297,11 +298,24 @@ void HelloTriangleApplication::createUniformBuffers()
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        FramesInFlightData[i].shaderGlobalsBuffer.size = globalsSize;
-        FramesInFlightData[i].shaderGlobalsMapped = BufferUtilities::createDynamicBuffer(
+        FramesInFlightData[i].perLightShadowShaderGlobalsBuffer.resize(MAX_SHADOWCASTERS);
+        FramesInFlightData[i].perLightShadowShaderGlobalsMapped.resize(MAX_SHADOWCASTERS);
+        FramesInFlightData[i].perLightShadowShaderGlobalsMemory.resize(MAX_SHADOWCASTERS);
+
+        for (size_t j = 0; j < MAX_SHADOWCASTERS ; j++)
+        {
+            FramesInFlightData[i].perLightShadowShaderGlobalsBuffer[j].size = globalsSize;
+            FramesInFlightData[i].perLightShadowShaderGlobalsMapped[j] = BufferUtilities::createDynamicBuffer(
+                getHandles(), globalsSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                &FramesInFlightData[i].perLightShadowShaderGlobalsMemory[j],
+                FramesInFlightData[i].perLightShadowShaderGlobalsBuffer[j].data);
+        }
+        
+        FramesInFlightData[i].opaqueShaderGlobalsBuffer.size = globalsSize;
+        FramesInFlightData[i].opaqueShaderGlobalsMapped = BufferUtilities::createDynamicBuffer(
             getHandles(), globalsSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-            &FramesInFlightData[i].shaderGlobalsMemory,
-            FramesInFlightData[i].shaderGlobalsBuffer.data);
+            &FramesInFlightData[i].opaqueShaderGlobalsMemory,
+            FramesInFlightData[i].opaqueShaderGlobalsBuffer.data);
         
         FramesInFlightData[i].uniformBuffers.size = ubosSize;
         FramesInFlightData[i].uniformBuffersMapped = BufferUtilities::createDynamicBuffer(
@@ -357,7 +371,7 @@ void HelloTriangleApplication::createDescriptorSetPool(RendererHandles handles, 
     
 }
 
-void HelloTriangleApplication::updateDescriptorSets(RendererHandles handles, VkDescriptorPool pool, DescriptorSets::bindlessDrawData* layoutData)
+void HelloTriangleApplication::updateOpaqueDescriptorSets(RendererHandles handles, VkDescriptorPool pool, DescriptorSets::bindlessDrawData* layoutData)
 {
 
     //Get data
@@ -367,7 +381,36 @@ void HelloTriangleApplication::updateDescriptorSets(RendererHandles handles, VkD
     VkDescriptorBufferInfo meshBufferinfo = FramesInFlightData[currentFrame].meshBuffers.getBufferInfo();
     VkDescriptorBufferInfo lightbufferinfo = FramesInFlightData[currentFrame].lightBuffers.getBufferInfo();
     VkDescriptorBufferInfo uniformbufferinfo = FramesInFlightData[currentFrame].uniformBuffers.getBufferInfo();
-    VkDescriptorBufferInfo shaderglobalsinfo = FramesInFlightData[currentFrame].shaderGlobalsBuffer.getBufferInfo();
+    VkDescriptorBufferInfo shaderglobalsinfo = FramesInFlightData[currentFrame].opaqueShaderGlobalsBuffer.getBufferInfo();
+
+    std::vector<descriptorUpdateData> descriptorUpdates;
+    //Update descriptor sets with data
+ 
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &shaderglobalsinfo});
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, imageInfos.data(),  (uint32_t)imageInfos.size()});
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, cubeImageInfos.data(), (uint32_t)cubeImageInfos.size()});
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, samplerInfos.data(), (uint32_t)samplerInfos.size()});
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, cubeSamplerInfos.data(), (uint32_t)cubeSamplerInfos.size()});
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &meshBufferinfo});
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &lightbufferinfo});
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &uniformbufferinfo});
+
+    layoutData->updateDescriptorSets(descriptorUpdates, currentFrame);
+}
+
+
+//TODO JS: Probably want to duplicate less code
+void HelloTriangleApplication::updateShadowDescriptorSets(RendererHandles handles,  VkDescriptorPool pool, DescriptorSets::bindlessDrawData* layoutData, uint32_t shadowIndex)
+{
+
+    //Get data
+    auto [imageInfos, samplerInfos] = scene->getBindlessTextureInfos();
+    auto [cubeImageInfos, cubeSamplerInfos] = DescriptorSets::ImageInfoFromImageDataVec({
+        cube_irradiance, cube_specular});
+    VkDescriptorBufferInfo meshBufferinfo = FramesInFlightData[currentFrame].meshBuffers.getBufferInfo();
+    VkDescriptorBufferInfo lightbufferinfo = FramesInFlightData[currentFrame].lightBuffers.getBufferInfo();
+    VkDescriptorBufferInfo uniformbufferinfo = FramesInFlightData[currentFrame].uniformBuffers.getBufferInfo();
+    VkDescriptorBufferInfo shaderglobalsinfo = FramesInFlightData[currentFrame].perLightShadowShaderGlobalsBuffer[shadowIndex].getBufferInfo();
 
     std::vector<descriptorUpdateData> descriptorUpdates;
     //Update descriptor sets with data
@@ -438,7 +481,6 @@ void HelloTriangleApplication::updateUniformBuffers(uint32_t currentImage, std::
     glm::mat4 proj = glm::perspective(glm::radians(70.0f),
                                       swapChainExtent.width / static_cast<float>(swapChainExtent.height), 0.1f,
                                       1000.0f);
-
     proj[1][1] *= -1;
     globals.view = view;
     globals.proj = proj;
@@ -447,7 +489,25 @@ void HelloTriangleApplication::updateUniformBuffers(uint32_t currentImage, std::
     globals.cubemaplutidx_cubemaplutsampleridx_paddingzw = glm::vec4(
         scene->materialTextureCount() + cubemaplut_utilitytexture_index,
         scene->materialTextureCount() + cubemaplut_utilitytexture_index, 0, 0);
-    memcpy(FramesInFlightData[currentImage].shaderGlobalsMapped, &globals, sizeof(ShaderGlobals));
+    memcpy(FramesInFlightData[currentImage].opaqueShaderGlobalsMapped, &globals, sizeof(ShaderGlobals));
+
+    int shadowcount = scene->lightCount > MAX_SHADOWCASTERS ? MAX_SHADOWCASTERS : scene->lightCount;
+    for(int i =0; i <shadowcount; i++)
+    {
+        ShaderGlobals shadowGlobals = {};
+        
+        float near_plane = 1.0f, far_plane = 7.5f;
+        glm::mat4 lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane); 
+        glm::mat4 lightView = glm::lookAt((glm::vec3)scene->lightposandradius[i],
+                                  glm::vec3( 0.0f, 0.0f,  0.0f), 
+                                  glm::vec3( 0.0f, 1.0f,  0.0f));
+        shadowGlobals.view = lightView;
+        shadowGlobals.proj = lightProjection;
+        shadowGlobals.viewPos = glm::vec4((glm::vec3)scene->lightposandradius[i],1);
+
+        memcpy(FramesInFlightData[currentImage].perLightShadowShaderGlobalsMapped[i], &globals, sizeof(ShaderGlobals));
+    }
+    
     std::vector<UniformBufferObject> ubos;
 
     if (ubos.size() != models.size())
@@ -518,7 +578,7 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
     //************
     //** Descriptor Sets update and binding
     // This could change sometimes
-    updateDescriptorSets(getHandles(), descriptorPool, &descriptorsetLayoutsData);
+    updateOpaqueDescriptorSets(getHandles(), descriptorPool, &descriptorsetLayoutsData);
     descriptorsetLayoutsData.bindToCommandBuffer(commandBuffer, currentFrame);
     VkPipelineLayout layout = descriptorsetLayoutsData.getLayout();
     
@@ -567,14 +627,16 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
 
 void HelloTriangleApplication::createCommandBuffers()
 {
-    commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-    VkCommandBufferAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.commandPool = commandPoolmanager.commandPool;
-    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandBufferCount = static_cast<uint32_t>(commandBuffers.size());
+    for (int i = 0; i < FramesInFlightData.size(); i++)
+    {
+        VkCommandBufferAllocateInfo allocInfo{};
+        allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+        allocInfo.commandPool = commandPoolmanager.commandPool;
+        allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        allocInfo.commandBufferCount = 1;
 
-    VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, commandBuffers.data()));
+        VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, &FramesInFlightData[i].commandBuffers));
+    }
 }
 
 void HelloTriangleApplication::createFramebuffers()
@@ -746,13 +808,12 @@ void HelloTriangleApplication::drawFrame(inputData input)
     vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, FramesInFlightData[currentFrame].imageAvailableSemaphores, VK_NULL_HANDLE,
                           &imageIndex);
 
-    vkResetCommandBuffer(commandBuffers[currentFrame], 0);
+    vkResetCommandBuffer(FramesInFlightData[currentFrame].commandBuffers, 0);
 
 
     //TODO: draw multiple objects
     // updateUniformBuffer(currentFrame, scene->matrices[0]);
     updateUniformBuffers(currentFrame, scene->matrices, input); // TODO JS: Figure out
-
 
     updateLightBuffers(currentFrame);
 
@@ -762,7 +823,7 @@ void HelloTriangleApplication::drawFrame(inputData input)
     //VkBuffer vertexBuffers[] = { vertexBuffer };
 
     //TODO: draw multiple objects
-    recordCommandBuffer(commandBuffers[currentFrame], imageIndex);
+    recordCommandBuffer(FramesInFlightData[currentFrame].commandBuffers, imageIndex);
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -775,7 +836,7 @@ void HelloTriangleApplication::drawFrame(inputData input)
     submitInfo.pWaitSemaphores = waitSemaphores;
     submitInfo.pWaitDstStageMask = waitStages;
     submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &commandBuffers[currentFrame];
+    submitInfo.pCommandBuffers = &FramesInFlightData[currentFrame].commandBuffers;
 
 
     VkSemaphore signalSemaphores[] = {FramesInFlightData[currentFrame].renderFinishedSemaphores};
