@@ -537,13 +537,12 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     beginInfo.flags = 0; // Optional
     beginInfo.pInheritanceInfo = nullptr; // Optional
+    //Transition swapchain for rendering
+    TextureUtilities::transitionImageLayout(getHandles(),swapChainImages[imageIndex],swapChainColorFormat,VK_IMAGE_LAYOUT_UNDEFINED,VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,nullptr,1, false);
+    
+    VK_CHECK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
 
-    if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS)
-    {
-        printf("failed to begin recording command buffer!");
-        exit(-1);
-    }
-
+    
     const VkRenderingAttachmentInfoKHR dynamicRenderingColorAttatchment {
         .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
         .imageView = swapChainImageViews[imageIndex],
@@ -572,8 +571,6 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
     renderPassInfo.pDepthAttachment = &dynamicRenderingDepthAttatchment;
 
     vkCmdBeginRendering(commandBuffer, &renderPassInfo);
-
-
   
     VkViewport viewport{};
     viewport.x = 0.0f;
@@ -629,14 +626,13 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
         vkCmdDraw(commandBuffer, static_cast<uint32_t>(scene->meshes[i]->vertcount), 1, 0, 0);
     }
 
+
     vkCmdEndRendering(commandBuffer);
 
-    if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
-    {
-        printf("failed to record command buffer!");
-        exit(-1);
-    }
+    VK_CHECK(vkEndCommandBuffer(commandBuffer));
 
+    //Transition swapchain for present
+    TextureUtilities::transitionImageLayout(getHandles(),swapChainImages[imageIndex],swapChainColorFormat,VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,nullptr,1, false);
 
     frames ++;
    

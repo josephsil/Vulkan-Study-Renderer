@@ -50,15 +50,15 @@ bufferAndPool CommandPoolManager::beginSingleTimeCommands(
 
 void CommandPoolManager::endSingleTimeCommands(VkCommandBuffer buffer)
 {
-    vkEndCommandBuffer(buffer);
+   VK_CHECK( vkEndCommandBuffer(buffer));
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &buffer;
 
-    vkQueueSubmit(Queues.transferQueue, 1, &submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(Queues.transferQueue);
+    VK_CHECK(vkQueueSubmit(Queues.transferQueue, 1, &submitInfo, VK_NULL_HANDLE));
+    VK_CHECK(vkQueueWaitIdle(Queues.transferQueue));
 
     vkFreeCommandBuffers(device, transferCommandPool, 1, &buffer);
 }
