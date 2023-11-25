@@ -35,7 +35,7 @@ public:
 
 private:
 
-    const int MAX_FRAMES_IN_FLIGHT = 1;
+    const int MAX_FRAMES_IN_FLIGHT = 3;
 
 #pragma region SDL
     uint32_t T;
@@ -93,63 +93,49 @@ private:
     VkDescriptorPool descriptorPool;
     VkDescriptorSetLayout pushDescriptorSetLayout;
     VkDescriptorSetLayout perMaterialSetLayout;
-    VkPipelineLayout pipelineLayout;
     
-    DescriptorSetSetup::DescriptorSetLayouts descriptorsetLayouts;
-    DescriptorSetSetup::DescriptorSets descriptor_sets;
+    DescriptorSets::bindlessDrawData descriptorsetLayoutsData;
 
+    
     void createDescriptorSetPool(RendererHandles handles, VkDescriptorPool* pool);
-    void createDescriptorSets(RendererHandles handles, VkDescriptorPool pool, DescriptorSetSetup::DescriptorSetLayouts descriptorsetLayouts);
-    void updateDescriptorSets(RendererHandles handles, VkDescriptorPool pool, DescriptorSetSetup::DescriptorSets sets);
+    void updateDescriptorSets(RendererHandles handles, VkDescriptorPool pool, DescriptorSets::bindlessDrawData* layoutData);
 
 #pragma endregion
 
+    struct per_frame_data
+    {
+        VkSemaphore imageAvailableSemaphores {};
+        VkSemaphore renderFinishedSemaphores {};
+        VkFence inFlightFences {};
+
+#pragma region buffers
+        dataBuffer shaderGlobalsBuffer;
+        VmaAllocation shaderGlobalsMemory;
+        void* shaderGlobalsMapped;
     
-    VkPipeline bindlessPipeline_1;
-    VkPipeline bindlessPipeline_2;
+        //TODO JS: Move the data buffer stuff?
+        dataBuffer uniformBuffers;
+        VmaAllocation uniformBuffersMemory;
+        void* uniformBuffersMapped;
+
+        dataBuffer meshBuffers;
+        VmaAllocation meshBuffersMemory;
+        void* meshBuffersMapped;
+
+        dataBuffer lightBuffers;
+        VmaAllocation lightBuffersMemory;
+        void* lightBuffersMapped;
+#pragma endregion
+        
+        
+    };
+    
+    std::vector<per_frame_data> FramesInFlightData;
+    std::vector<VkCommandBuffer> commandBuffers {};
+    
 
     int cubemaplut_utilitytexture_index;
 
-    std::vector<VkCommandBuffer> commandBuffers;
-
-    std::vector<VkSemaphore> imageAvailableSemaphores;
-    std::vector<VkSemaphore> renderFinishedSemaphores;
-    std::vector<VkFence> inFlightFences;
-
-    struct UniformBufferObject
-    {
-        alignas(16) glm::mat4 model;
-        alignas(16) glm::mat4 Normal;
-        alignas(16) glm::mat4 padding1;
-        alignas(16) glm::mat4 padding2;
-    };
-
-    struct ShaderGlobals
-    {
-        alignas(16) glm::mat4 view;
-        alignas(16) glm::mat4 proj;
-        alignas(16) glm::vec4 viewPos;
-        alignas(16) glm::vec4 lightcountx_modey_paddingzw;
-        alignas(16) glm::vec4 cubemaplutidx_cubemaplutsampleridx_paddingzw;
-    };
-
-    struct per_object_data
-    {
-        //Light count, vertex offset, texture index, ubo index
-        alignas(16) glm::vec4 indexInfo;
-
-        alignas(16) glm::vec4 materialprops; //roughness, metalness, padding, padding
-        alignas(16) glm::vec4 padding_1;
-        alignas(16) glm::vec4 padding_2;
-        alignas(16) glm::vec4 padding_3;
-        //Unused
-        alignas(16) glm::mat4 padding1;
-        //Unused
-        alignas(16) glm::mat4 padding2;
-    };
-
-
-   
     uint32_t currentFrame = 0;
 
 #ifdef NDEBUG
@@ -164,24 +150,7 @@ private:
     void initWindow();
     void initVulkan();
 
-#pragma region buffers
-    std::vector<dataBuffer> shaderGlobalsBuffer;
-    std::vector<VmaAllocation> shaderGlobalsMemory;
-    std::vector<void*> shaderGlobalsMapped;
-    
-    //TODO JS: Move the data buffer stuff?
-    std::vector<dataBuffer> uniformBuffers;
-    std::vector<VmaAllocation> uniformBuffersMemory;
-    std::vector<void*> uniformBuffersMapped;
 
-    std::vector<dataBuffer> meshBuffers;
-    std::vector<VmaAllocation> meshBuffersMemory;
-    std::vector<void*> meshBuffersMapped;
-
-    std::vector<dataBuffer> lightBuffers;
-    std::vector<VmaAllocation> lightBuffersMemory;
-    std::vector<void*> lightBuffersMapped;
-#pragma endregion 
 
 
     void updateLightBuffers(uint32_t currentImage);
@@ -199,7 +168,7 @@ private:
     void createSyncObjects();
 
     void createCommandBuffers();
-    void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex, VkPipeline graphicsPipeline);
+    void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 
     void createGraphicsCommandPool();
     void createTransferCommandPool();
@@ -211,8 +180,8 @@ private:
     bool hasStencilComponent(VkFormat format);
 
 
-    VkPipeline createGraphicsPipeline(const char* shaderName, VkRenderPass renderPass,
-                                      VkPipelineCache pipelineCache, std::vector<VkDescriptorSetLayout> layouts);
+    void createGraphicsPipeline(const char* shaderName, VkRenderPass renderPass,
+                                       DescriptorSets::bindlessDrawData* descriptorsetdata);
     void createInstance();
 
     int _selectedShader{0};

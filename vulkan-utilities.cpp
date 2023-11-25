@@ -1,4 +1,4 @@
-#include "vmaImplementation.h"
+
 #include "vulkan-utilities.h"
 
 #include <array>
@@ -7,13 +7,9 @@
 
 #include "AppStruct.h"
 #include "CommandPoolManager.h"
-#include "Memory.h"
 #include "TextureData.h"
 #include "Vulkan_Includes.h"
 #include "SceneObjectData.h"
-
-void createBuffer(RendererHandles rendererHandles, VkDeviceSize size, VkBufferUsageFlags usage, VmaAllocationCreateFlags  flags,
-                                   VmaAllocation* allocation, VkBuffer& buffer, VmaAllocationInfo* outAllocInfo);
 
 
 //TODO JS: Connect the two kinds of builders, so we like "fill slots" in the result of this one, and validate type/size?
@@ -38,58 +34,389 @@ struct bindingBuilder
         i++;
     }
 };
-void DescriptorSetSetup::createBindlessLayout(RendererHandles rendererHandles, Scene* scene, DescriptorSetLayouts* layout)
+
+struct layoutsBuilder //What do you call the aggregate of several layouts?
 {
-    auto uniformbuilder = bindingBuilder(1);
-    auto samplerbuilder = bindingBuilder(2);
-    auto imagebuilder = bindingBuilder(2);
-    auto storagebuilder = bindingBuilder(3);
-
-    uniformbuilder.addBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL );
-
-    VkDescriptorSetLayoutCreateInfo uniformDescriptorLayout{};
-    uniformDescriptorLayout.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    uniformDescriptorLayout.flags =   VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
-    uniformDescriptorLayout.bindingCount = static_cast<uint32_t>(uniformbuilder.data.size());
-    uniformDescriptorLayout.pBindings =  uniformbuilder.data.data();
-
-    VK_CHECK(vkCreateDescriptorSetLayout(rendererHandles.device, &uniformDescriptorLayout, nullptr, &layout->uniformDescriptorLayout));
-
-    imagebuilder.addBinding(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_FRAGMENT_BIT,  scene->materialTextureCount()  + scene->utilityTextureCount() + 1);
-    imagebuilder.addBinding(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_FRAGMENT_BIT,  2);
-
-    VkDescriptorSetLayoutCreateInfo imageDescriptorLayout{};
-    imageDescriptorLayout.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    imageDescriptorLayout.flags =   VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
-    imageDescriptorLayout.bindingCount = static_cast<uint32_t>(imagebuilder.data.size());
-    imageDescriptorLayout.pBindings =  imagebuilder.data.data();
-
-    VK_CHECK(vkCreateDescriptorSetLayout(rendererHandles.device, &imageDescriptorLayout, nullptr, &layout->imageDescriptorLayout));
-
-
-    samplerbuilder.addBinding(VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT , 2);
-    samplerbuilder.addBinding(VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT , scene->materialTextureCount()  + scene->utilityTextureCount() + 1);
-
-    VkDescriptorSetLayoutCreateInfo samplerDescriptorLayout{};
-    samplerDescriptorLayout.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    samplerDescriptorLayout.flags =   VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
-    samplerDescriptorLayout.bindingCount = static_cast<uint32_t>(samplerbuilder.data.size());
-    samplerDescriptorLayout.pBindings =  samplerbuilder.data.data();
+    bindingBuilder uniformbuilder = {0};
+    bindingBuilder samplerbuilder = {0};
+    bindingBuilder imagebuilder = {0};
+    bindingBuilder storagebuilder = {0};
     
-    VK_CHECK(vkCreateDescriptorSetLayout(rendererHandles.device, &samplerDescriptorLayout, nullptr, &layout->samplerDescriptorLayout));
+    std::vector<DescriptorSets::layoutInfo> bindings;
+
+    layoutsBuilder(int uniformCt, int imageCt, int storageCt)
+    {
+        uniformbuilder = bindingBuilder(uniformCt);
+        samplerbuilder = bindingBuilder(imageCt);
+        imagebuilder = bindingBuilder(imageCt);
+        storagebuilder = bindingBuilder(storageCt);
+        bindings = {};
+    }
+
+    void addBinding(VkDescriptorType type, VkShaderStageFlags stage, uint32_t descriptorCount = 1)
+    {
+        uint32_t ct;
+        switch (type)
+        {
+        case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
+            ct = uniformbuilder.i;
+            uniformbuilder.addBinding(type, stage, descriptorCount);
+            break;
+        case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
+            ct = samplerbuilder.i;
+            samplerbuilder.addBinding(type, stage, descriptorCount);
+            break;
+        case VK_DESCRIPTOR_TYPE_SAMPLER:
+            ct = imagebuilder.i;
+            imagebuilder.addBinding(type, stage, descriptorCount);
+            break;
+        case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
+            ct = storagebuilder.i;
+            storagebuilder.addBinding(type, stage, descriptorCount);
+            break;
+        default:
+            exit(-1);
+        }
+
+        bindings.push_back({type, ct, descriptorCount});
+      
+    }
+    VkDescriptorSetLayoutCreateInfo getCreateInfo(VkDescriptorType type)
+    {
+        
+        std::vector<VkDescriptorSetLayoutBinding>* bindings;
+        bindings = &uniformbuilder.data;
+        switch (type)
+        {
+        case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
+             bindings = &uniformbuilder.data;
+            break;
+        case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
+             bindings = &samplerbuilder.data;
+            break;
+        case VK_DESCRIPTOR_TYPE_SAMPLER:
+            bindings =  &imagebuilder.data;
+            break;
+        case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
+             bindings = &storagebuilder.data;
+            break;
+
+        }
+
+        VkDescriptorSetLayoutCreateInfo _createInfo = {};
+        _createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+        _createInfo.flags =   VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
+        _createInfo.bindingCount = static_cast<uint32_t>(bindings->size());
+        _createInfo.pBindings = bindings->data();
+
+        return _createInfo;
+    }
     
-    storagebuilder.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
-    storagebuilder.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
-    storagebuilder.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
+    
+};
+
+layoutsBuilder createBindlessLayout(
+    RendererHandles rendererHandles, Scene* scene)
+{
+    auto builder =layoutsBuilder(1, 2, 3);
+  
+    builder.addBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL );
+  
+    builder.addBinding(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_FRAGMENT_BIT,  scene->materialTextureCount()  + scene->utilityTextureCount());
+    builder.addBinding(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_FRAGMENT_BIT,  2);
+    
+    builder.addBinding(VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT , scene->materialTextureCount()  + scene->utilityTextureCount());
+    builder.addBinding(VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT , 2);
+    
+    builder.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
+    builder.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    builder.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
+    return builder;
+}
 
 
-    VkDescriptorSetLayoutCreateInfo storageDescriptorLayout{};
-    storageDescriptorLayout.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    storageDescriptorLayout.flags =   VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
-    storageDescriptorLayout.bindingCount = static_cast<uint32_t>(storagebuilder.data.size());
-    storageDescriptorLayout.pBindings =  storagebuilder.data.data();
+DescriptorSets::bindlessDrawData::bindlessDrawData(RendererHandles handles, Scene* pscene)
+{
+ layoutsBuilder builder = createBindlessLayout(handles,  pscene);
+    VkDescriptorSetLayoutCreateInfo uniformDescriptorLayout =  builder.getCreateInfo(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+    VkDescriptorSetLayoutCreateInfo imageDescriptorLayout = builder.getCreateInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE);
+    VkDescriptorSetLayoutCreateInfo samplerDescriptorLayout = builder.getCreateInfo(VK_DESCRIPTOR_TYPE_SAMPLER);
+    VkDescriptorSetLayoutCreateInfo storageDescriptorLayout = builder.getCreateInfo(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 
-    VK_CHECK(vkCreateDescriptorSetLayout(rendererHandles.device, &storageDescriptorLayout, nullptr, &layout->storageDescriptorLayout));
+    VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &uniformDescriptorLayout, nullptr, &this->uniformDescriptorLayout));
+    VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &imageDescriptorLayout, nullptr, &this->imageDescriptorLayout));
+    VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &samplerDescriptorLayout, nullptr, &this->samplerDescriptorLayout));
+    VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &storageDescriptorLayout, nullptr, &this->storageDescriptorLayout));
+    slots = builder.bindings;
+    device = handles.device;
+
+
+}
+
+
+void DescriptorSets::bindlessDrawData::bindToCommandBuffer(VkCommandBuffer cmd, uint32_t currentFrame)
+{
+    assert(descriptorSetsInitialized && pipelinesInitialized);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, bindlessPipelineLayout, 0, 1, &uniformDescriptorSetForFrame[currentFrame], 0, nullptr);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, bindlessPipelineLayout, 1, 1, &storageDescriptorSetForFrame[currentFrame], 0, nullptr);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, bindlessPipelineLayout, 2, 1, &imageDescriptorSetForFrame[currentFrame], 0, nullptr);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, bindlessPipelineLayout, 3, 1, &samplerDescriptorSetForFrame[currentFrame], 0, nullptr);
+    
+}
+//updates descriptor sets based on vector of descriptorupdatedata, with some light validation that we're binding the right stuff
+void DescriptorSets::bindlessDrawData::updateDescriptorSets(std::vector<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame)
+{
+    writeDescriptorSets.clear();
+    writeDescriptorSetsBindingIndices.clear();
+    
+    for(int i = 0; i < descriptorUpdates.size(); i++)
+    {
+        descriptorUpdateData update = descriptorUpdates[i];
+        VkDescriptorSet set = getSetFromType(descriptorUpdates[i].type, currentFrame);
+        
+        if (!writeDescriptorSetsBindingIndices.contains(set))
+        {
+            writeDescriptorSetsBindingIndices[set] = 0;
+        }
+        
+        layoutInfo info = slots[writeDescriptorSets.size()];
+
+        int bindingIndex = writeDescriptorSetsBindingIndices[set];
+        VkWriteDescriptorSet newSet = {};
+        newSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        newSet.dstBinding = bindingIndex;
+        newSet.dstSet = set;
+        newSet.descriptorCount = update.count;
+        newSet.descriptorType = update.type;
+
+        assert(update.type == info.type);
+        assert(update.count == info.descriptorCount);
+        assert(bindingIndex == info.slot);
+
+        if (update.type == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE || update.type == VK_DESCRIPTOR_TYPE_SAMPLER)
+        {
+            newSet.pImageInfo = static_cast<VkDescriptorImageInfo*>(update.ptr);
+        }
+        else
+        {
+            newSet.pBufferInfo = static_cast<VkDescriptorBufferInfo*>(update.ptr);
+        }
+    
+        writeDescriptorSets.push_back(newSet);
+    
+        writeDescriptorSetsBindingIndices[set]++;
+    }
+    
+    assert(writeDescriptorSets.size() == slots.size());
+    
+    vkUpdateDescriptorSets(device, writeDescriptorSets.size(), writeDescriptorSets.data(), 0, nullptr);
+    
+}
+
+void DescriptorSets::bindlessDrawData::createDescriptorSets(VkDescriptorPool pool, int MAX_FRAMES_IN_FLIGHT)
+{
+    assert(!descriptorSetsInitialized); // Don't double initialize
+    uniformDescriptorSetForFrame.resize(MAX_FRAMES_IN_FLIGHT);
+    imageDescriptorSetForFrame.resize(MAX_FRAMES_IN_FLIGHT);
+    samplerDescriptorSetForFrame.resize(MAX_FRAMES_IN_FLIGHT);
+    storageDescriptorSetForFrame.resize(MAX_FRAMES_IN_FLIGHT);
+    for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    {
+        AllocateDescriptorSet(device, pool,  &uniformDescriptorLayout, &uniformDescriptorSetForFrame[i]);
+        AllocateDescriptorSet(device, pool,  &imageDescriptorLayout, &imageDescriptorSetForFrame[i]);
+        AllocateDescriptorSet(device, pool,  &samplerDescriptorLayout, &samplerDescriptorSetForFrame[i]);
+        AllocateDescriptorSet(device, pool,  &storageDescriptorLayout, &storageDescriptorSetForFrame[i]);
+    }
+    descriptorSetsInitialized = true;
+            
+}
+
+VkPipeline DescriptorSets::bindlessDrawData::getPipeline(int index)
+{
+    assert(pipelinesInitialized && pipelineLayoutInitialized);
+    assert(index < bindlesspipelineObjects.size());
+    return bindlesspipelineObjects[index];
+}
+
+VkPipelineLayout DescriptorSets::bindlessDrawData::getLayout()
+{
+    return bindlessPipelineLayout;
+}
+
+void DescriptorSets::bindlessDrawData::createPipelineLayout()
+{
+
+    if(pipelineLayoutInitialized)
+    {
+        return;
+    }
+    
+    std::vector<VkDescriptorSetLayout> layouts = {
+        uniformDescriptorLayout,storageDescriptorLayout,imageDescriptorLayout,samplerDescriptorLayout
+    };
+    
+    VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipelineLayoutInfo.setLayoutCount = layouts.size(); // Optional
+    pipelineLayoutInfo.pSetLayouts = layouts.data();
+
+    //setup push constants
+    VkPushConstantRange push_constant;
+    //this push constant range starts at the beginning
+    push_constant.offset = 0;
+    //this push constant range takes up the size of a MeshPushConstants struct
+    push_constant.size = sizeof(per_object_data);
+    
+    push_constant.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    pipelineLayoutInfo.pPushConstantRanges = &push_constant;
+    pipelineLayoutInfo.pushConstantRangeCount = 1;
+
+    if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &bindlessPipelineLayout) != VK_SUCCESS)
+    {
+        printf("failed to create pipeline layout!");
+        exit(-1);
+    }
+    pipelineLayoutInitialized = true;
+}
+
+void DescriptorSets::bindlessDrawData::createGraphicsPipeline(std::vector<VkPipelineShaderStageCreateInfo> shaders, VkRenderPass renderPass)
+{
+    createPipelineLayout();
+    assert(pipelineLayoutInitialized);
+    VkPipeline newGraphicsPipeline {}; 
+
+    VkPipelineShaderStageCreateInfo shaderStages[] = {shaders[0], shaders[1]};
+
+    VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
+    vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    vertexInputInfo.vertexBindingDescriptionCount = 0;
+    vertexInputInfo.vertexAttributeDescriptionCount = 0;
+    vertexInputInfo.pVertexBindingDescriptions = nullptr;
+    vertexInputInfo.pVertexAttributeDescriptions = nullptr;
+
+    VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
+    inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    inputAssembly.primitiveRestartEnable = VK_FALSE;
+
+    VkPipelineViewportStateCreateInfo viewportState{};
+    viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    viewportState.viewportCount = 1;
+    viewportState.scissorCount = 1;
+
+    VkPipelineRasterizationStateCreateInfo rasterizer{};
+    rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    rasterizer.depthClampEnable = VK_FALSE;
+    rasterizer.rasterizerDiscardEnable = VK_FALSE;
+    rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
+    rasterizer.lineWidth = 1.0f;
+    rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+    rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    rasterizer.depthBiasEnable = VK_FALSE;
+
+    VkPipelineMultisampleStateCreateInfo multisampling{};
+    multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    multisampling.sampleShadingEnable = VK_FALSE;
+    multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+    multisampling.minSampleShading = 1.0f; // Optional
+    multisampling.pSampleMask = nullptr; // Optional
+    multisampling.alphaToCoverageEnable = VK_FALSE; // Optional
+    multisampling.alphaToOneEnable = VK_FALSE; // Optional
+
+    VkPipelineColorBlendAttachmentState colorBlendAttachment{};
+    colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+        VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    colorBlendAttachment.blendEnable = VK_FALSE;
+    colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE; // Optional
+    colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO; // Optional
+    colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD; // Optional
+    colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE; // Optional
+    colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO; // Optional
+    colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD; // Optional
+
+    VkPipelineDepthStencilStateCreateInfo depthStencil{};
+    depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    depthStencil.depthTestEnable = VK_TRUE;
+    depthStencil.depthWriteEnable = VK_TRUE;
+    depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
+    depthStencil.depthBoundsTestEnable = VK_FALSE;
+    depthStencil.minDepthBounds = 0.0f; // Optional
+    depthStencil.maxDepthBounds = 1.0f; // Optional
+    depthStencil.stencilTestEnable = VK_FALSE;
+    depthStencil.front = {}; // Optional
+    depthStencil.back = {}; // Optional
+
+    VkPipelineColorBlendStateCreateInfo colorBlending{};
+    colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    colorBlending.logicOpEnable = VK_FALSE;
+    colorBlending.logicOp = VK_LOGIC_OP_COPY; // Optional
+    colorBlending.attachmentCount = 1;
+    colorBlending.pAttachments = &colorBlendAttachment;
+    colorBlending.blendConstants[0] = 0.0f; // Optional
+    colorBlending.blendConstants[1] = 0.0f; // Optional
+    colorBlending.blendConstants[2] = 0.0f; // Optional
+    colorBlending.blendConstants[3] = 0.0f; // Optional
+
+    std::vector<VkDynamicState> dynamicStates = {
+        VK_DYNAMIC_STATE_VIEWPORT,
+        VK_DYNAMIC_STATE_SCISSOR
+    };
+    VkPipelineDynamicStateCreateInfo dynamicState{};
+    dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+    dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
+    dynamicState.pDynamicStates = dynamicStates.data();
+    
+    VkGraphicsPipelineCreateInfo pipelineInfo{};
+    pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    pipelineInfo.stageCount = 2;
+    pipelineInfo.pStages = shaderStages;
+
+    pipelineInfo.pVertexInputState = &vertexInputInfo;
+    pipelineInfo.pInputAssemblyState = &inputAssembly;
+    pipelineInfo.pViewportState = &viewportState;
+    pipelineInfo.pRasterizationState = &rasterizer;
+    pipelineInfo.pMultisampleState = &multisampling;
+
+    pipelineInfo.pDepthStencilState = &depthStencil;
+    pipelineInfo.pColorBlendState = &colorBlending;
+    pipelineInfo.pDynamicState = &dynamicState;
+
+
+    pipelineInfo.layout = bindlessPipelineLayout;
+
+    pipelineInfo.renderPass = renderPass;
+    pipelineInfo.subpass = 0;
+
+    pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
+    pipelineInfo.basePipelineIndex = -1; // Optional
+
+    if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &newGraphicsPipeline) !=
+        VK_SUCCESS)
+    {
+        printf("failed to create graphics pipeline!");
+        exit(-1);
+    }
+
+    pipelinesInitialized = true;
+    bindlesspipelineObjects.push_back(newGraphicsPipeline);
+}
+   
+
+
+void DescriptorSets::bindlessDrawData::cleanup()
+{
+    
+    vkDestroyPipelineLayout(device, bindlessPipelineLayout, nullptr);
+    for(int i = 0; i < bindlesspipelineObjects.size(); i++)
+    {
+        vkDestroyPipeline(device, bindlesspipelineObjects[i], nullptr);
+    }
+    
+    vkDestroyDescriptorSetLayout(device, uniformDescriptorLayout, nullptr);
+    vkDestroyDescriptorSetLayout(device, imageDescriptorLayout, nullptr);
+    vkDestroyDescriptorSetLayout(device, samplerDescriptorLayout, nullptr);
+    vkDestroyDescriptorSetLayout(device, storageDescriptorLayout, nullptr);
 }
 
 //TODO JS: VK_KHR_dynamic_rendering gets rid of render pass types and just lets you vkBeginRenderPass
@@ -205,397 +532,10 @@ uint32_t Capabilities::findMemoryType(RendererHandles rendererHandles, uint32_t 
     throw std::runtime_error("failed to find suitable memory type!");
 }
 
-VkImageView TextureUtilities::createImageView(VkDevice device, VkImage image, VkFormat format,
-                                              VkImageAspectFlags aspectFlags,
-                                              VkImageViewType type, uint32_t miplevels, uint32_t layerCount)
-{
-    aspectFlags = aspectFlags == -1 ? VK_IMAGE_ASPECT_COLOR_BIT : aspectFlags;
-    type = (int)type == -1 ? VK_IMAGE_VIEW_TYPE_2D : type; 
-    VkImageViewCreateInfo viewInfo{};
-    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    viewInfo.image = image;
-    viewInfo.viewType = type;
-    viewInfo.format = format;
-    viewInfo.subresourceRange.aspectMask = aspectFlags;
-    viewInfo.subresourceRange.baseMipLevel = 0; //TODO JS: pass in something more robust?
-    viewInfo.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
-    viewInfo.subresourceRange.baseArrayLayer = 0; //TODO JS: pass in something more robust?
-    viewInfo.subresourceRange.layerCount = layerCount;
 
-    VkImageView imageView;
-    if (vkCreateImageView(device, &viewInfo, nullptr, &imageView) != VK_SUCCESS)
-    {
-        throw std::runtime_error("failed to create texture image view!");
-    }
-
-    return imageView;
-}
-
-
-void TextureUtilities::createImage(RendererHandles rendererHandles, uint32_t width, uint32_t height, VkFormat format,
-                                   VkImageTiling tiling,
-                                   VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image,
-                                   VmaAllocation& allocation, uint32_t miplevels)
-{
-
-    //TODO JS: Properties flags to vma 
-    VkImageCreateInfo imageInfo{};
-    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    imageInfo.imageType = VK_IMAGE_TYPE_2D;
-    imageInfo.extent.width = width;
-    imageInfo.extent.height = height;
-    imageInfo.extent.depth = 1;
-    imageInfo.mipLevels = miplevels;
-    imageInfo.arrayLayers = 1;
-    imageInfo.format = format;
-    imageInfo.tiling = tiling;
-    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    imageInfo.usage = usage;
-    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-    VmaAllocator allocator = rendererHandles.allocator;
-    VmaAllocationCreateInfo allocInfo = {};
-    allocInfo.usage = VMA_MEMORY_USAGE_AUTO; //TODO JS: Pass in usage flags?
-    vmaCreateImage(rendererHandles.allocator, &imageInfo, &allocInfo, &image, &allocation, nullptr);
-}
-
-void TextureUtilities::transitionImageLayout(RendererHandles rendererHandles, VkImage image, VkFormat format,
-                                             VkImageLayout oldLayout,
-                                             VkImageLayout newLayout, VkCommandBuffer workingBuffer, uint32_t miplevels)
-{
-    bool endNow = false;
-    if (workingBuffer == nullptr)
-    {
-        //Optional buffer for if the caller wants to submit the command to an existing buffer and manually end it later
-        workingBuffer = rendererHandles.commandPoolmanager->beginSingleTimeCommands_transfer();
-        endNow = true;
-    }
-
-
-    VkImageMemoryBarrier barrier{};
-    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    barrier.oldLayout = oldLayout;
-    barrier.newLayout = newLayout;
-
-    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-
-    barrier.image = image;
-    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    barrier.subresourceRange.baseMipLevel = 0; //TODO JS! 
-    barrier.subresourceRange.levelCount = miplevels;
-    barrier.subresourceRange.baseArrayLayer = 0;
-    barrier.subresourceRange.layerCount = 1;
-
-    barrier.srcAccessMask = 0; // TODO
-    barrier.dstAccessMask = 0; // TODO
-
-    VkPipelineStageFlags sourceStage;
-    VkPipelineStageFlags destinationStage;
-
-    if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
-    {
-        barrier.srcAccessMask = 0;
-        barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-
-        sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-        destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-    }
-    else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout ==
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
-    {
-        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-        sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-        destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-    }
-    else
-    {
-        throw std::invalid_argument("unsupported layout transition!");
-    }
-
-
-    vkCmdPipelineBarrier(
-        workingBuffer,
-        sourceStage, destinationStage,
-        0,
-        0, nullptr,
-        0, nullptr,
-        1, &barrier
-    );
-
-    if (endNow)
-        rendererHandles.commandPoolmanager->endSingleTimeCommands(workingBuffer);
-}
-
-//TODO JS: Replace with something like https://arm-software.github.io/vulkan-sdk/mipmapping.html
-//TODO JS: And return temp buffers so we can use then when writing KTX 
-
-void TextureUtilities::generateMipmaps(RendererHandles rendererHandles, VkImage image, VkFormat imageFormat,
-                                       int32_t texWidth,
-                                       int32_t texHeight, uint32_t mipLevels)
-{
-    // Check if image format supports linear blitting
-    VkFormatProperties formatProperties;
-    vkGetPhysicalDeviceFormatProperties(rendererHandles.physicalDevice, imageFormat, &formatProperties);
-
-    if (!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT))
-    {
-        throw std::runtime_error("texture image format does not support linear blitting!");
-    }
-
-    bufferAndPool bandp = rendererHandles.commandPoolmanager->beginSingleTimeCommands(false);
-
-    auto commandBuffer = bandp.buffer;
-
-    VkImageMemoryBarrier barrier{};
-    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    barrier.image = image;
-    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    barrier.subresourceRange.baseArrayLayer = 0;
-    barrier.subresourceRange.layerCount = 1;
-    barrier.subresourceRange.levelCount = mipLevels;
-
-    int32_t mipWidth = texWidth;
-    int32_t mipHeight = texHeight;
-
-    for (uint32_t i = 1; i < mipLevels; i++)
-    {
-        barrier.subresourceRange.baseMipLevel = i - 1;
-        barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-
-        vkCmdPipelineBarrier(commandBuffer,
-                             VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
-                             0, nullptr,
-                             0, nullptr,
-                             1, &barrier);
-
-        VkImageBlit blit{};
-        blit.srcOffsets[0] = {0, 0, 0};
-        blit.srcOffsets[1] = {mipWidth, mipHeight, 1};
-        blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        blit.srcSubresource.mipLevel = i - 1;
-        blit.srcSubresource.baseArrayLayer = 0;
-        blit.srcSubresource.layerCount = 1;
-        blit.dstOffsets[0] = {0, 0, 0};
-        blit.dstOffsets[1] = {mipWidth > 1 ? mipWidth / 2 : 1, mipHeight > 1 ? mipHeight / 2 : 1, 1};
-        blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        blit.dstSubresource.mipLevel = i;
-        blit.dstSubresource.baseArrayLayer = 0;
-        blit.dstSubresource.layerCount = 1;
-
-        vkCmdBlitImage(commandBuffer,
-                       image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                       image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                       1, &blit,
-                       VK_FILTER_LINEAR);
-
-        barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-        barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-        vkCmdPipelineBarrier(commandBuffer,
-                             VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0,
-                             0, nullptr,
-                             0, nullptr,
-                             1, &barrier);
-
-        if (mipWidth > 1) mipWidth /= 2;
-        if (mipHeight > 1) mipHeight /= 2;
-    }
-
-    barrier.subresourceRange.baseMipLevel = mipLevels - 1;
-    barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-    vkCmdPipelineBarrier(commandBuffer,
-                         VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0,
-                         0, nullptr,
-                         0, nullptr,
-                         1, &barrier);
-
-    rendererHandles.commandPoolmanager->endSingleTimeCommands(bandp);
-}
-
-void TextureUtilities::copyBufferToImage(CommandPoolManager* commandPoolManager, VkBuffer buffer, VkImage image,
-                                         uint32_t width, uint32_t height,
-                                         VkCommandBuffer workingBuffer)
-{
-    bool endNow = false;
-    if (workingBuffer == nullptr)
-    {
-        //Optional buffer for if the caller wants to submit the command to an existing buffer and manually end it later
-        workingBuffer = commandPoolManager->beginSingleTimeCommands_transfer();
-        endNow = true;
-    }
-
-    VkBufferImageCopy region{};
-    region.bufferOffset = 0;
-    region.bufferRowLength = 0;
-    region.bufferImageHeight = 0;
-
-    region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    region.imageSubresource.mipLevel = 0; //TODO JS
-    region.imageSubresource.baseArrayLayer = 0;
-    region.imageSubresource.layerCount = 1;
-
-    region.imageOffset = {0, 0, 0};
-    region.imageExtent = {
-        width,
-        height,
-        1
-    };
-
-    vkCmdCopyBufferToImage(
-        workingBuffer,
-        buffer,
-        image,
-        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        1,
-        &region
-    );
-
-    if (endNow)
-        commandPoolManager->endSingleTimeCommands(workingBuffer);
-}
-
-void BufferUtilities::stageVertexBuffer(RendererHandles rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
-                                   VmaAllocation& allocation, Vertex* data)
-{
-    BufferUtilities::stageMeshDataBuffer(rendererHandles,
-                                         bufferSize,
-                                         buffer,
-                                         allocation,
-                                         data, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-    
-}
-
-void BufferUtilities::stageIndexBuffer(RendererHandles rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
-                                   VmaAllocation& allocation, uint32_t* data)
-{
-    BufferUtilities::stageMeshDataBuffer(rendererHandles,
-                                         bufferSize,
-                                         buffer,
-                                         allocation,
-                                         data, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
-    
-}
-
-void BufferUtilities::stageMeshDataBuffer(RendererHandles rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
-                                   VmaAllocation& allocation, void* vertices, VkBufferUsageFlags dataTypeFlag)
-{
-    VkBuffer stagingBuffer;
-
-    VmaAllocation stagingallocation = {};
-  
-    createBuffer(rendererHandles, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-                                  &stagingallocation, stagingBuffer, nullptr);
-
-
-    void* data;
-    VulkanMemory::MapMemory(rendererHandles.allocator, stagingallocation,&data);
-    memcpy(data, vertices, bufferSize);
-    VulkanMemory::UnmapMemory(rendererHandles.allocator, stagingallocation);
-
-    createBuffer(rendererHandles, bufferSize,
-                                  VK_BUFFER_USAGE_TRANSFER_DST_BIT | dataTypeFlag, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT, &allocation, buffer, nullptr);
-
-    copyBuffer(rendererHandles, stagingBuffer, buffer, bufferSize);
-
-    vmaDestroyBuffer(rendererHandles.allocator, stagingBuffer, stagingallocation);
-}
-
-void* BufferUtilities::createDynamicBuffer(RendererHandles rendererHandles, VkDeviceSize size, VkBufferUsageFlags usage,
-                                           VmaAllocation* allocation, VkBuffer& buffer)
-{
-    VmaAllocationInfo allocInfo;
-    createBuffer(rendererHandles, size, usage, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
-                 VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT |
-                 VMA_ALLOCATION_CREATE_MAPPED_BIT,
-                 allocation, buffer, &allocInfo);
-
-
-    VkMemoryPropertyFlags memPropFlags;
-    vmaGetAllocationMemoryProperties(rendererHandles.allocator, *allocation, &memPropFlags);
-
-    if (memPropFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
-    {
-        return allocInfo.pMappedData;
-    }
-    else
-    {
-        printf("NOT IMPLEMENTED: Allocation ended up in unmapped memory, see https://gpuopen-librariesandsdks.github.io/VulkanMemoryAllocator/html/usage_patterns.html advanced data uploading");
-        exit(-1);
-    }
-}
-void BufferUtilities::createStagingBuffer(RendererHandles rendererHandles, VkDeviceSize size,
-                                   VmaAllocation* allocation, VkBuffer& stagingBuffer)
-{
-    createBuffer(rendererHandles, size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-   VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, allocation,
-                                 stagingBuffer, nullptr);
-    
-}
-
-void BufferUtilities::CreateImage( VmaAllocator allocator,
-    VkImageCreateInfo* pImageCreateInfo,
-    VkImage* pImage,
-    VmaAllocation* pAllocation,
-    VkDeviceMemory* deviceMemory)
-{
-    
-    VmaAllocationCreateInfo allocInfo = {};
-    VmaAllocationInfo AllocationInfo;
-    allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
-    
-    vmaCreateImage(allocator, pImageCreateInfo, &allocInfo, pImage, pAllocation, &AllocationInfo);
-    deviceMemory = &AllocationInfo.deviceMemory;
-}
-
-
-void createBuffer(RendererHandles rendererHandles, VkDeviceSize size, VkBufferUsageFlags usage, VmaAllocationCreateFlags  flags,
-                                   VmaAllocation* allocation, VkBuffer& buffer, VmaAllocationInfo* outAllocInfo)
-{
-
-    VkBufferCreateInfo bufferInfo{};
-    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufferInfo.size = size;
-    bufferInfo.usage = usage;
-    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-    VmaAllocator allocator = rendererHandles.allocator;
-    VmaAllocationCreateInfo allocInfo = {};
-    allocInfo.usage = VMA_MEMORY_USAGE_AUTO; //TODO JS: Pass in Properties flags?
-    allocInfo.flags = flags;
-
-    vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, allocation, outAllocInfo);
-}
-
-void BufferUtilities::copyBuffer(RendererHandles rendererHandles, VkBuffer srcBuffer, VkBuffer dstBuffer,
-                                 VkDeviceSize size)
-{
-    VkCommandBuffer commandBuffer = rendererHandles.commandPoolmanager->beginSingleTimeCommands_transfer();
-
-    VkBufferCopy copyRegion{};
-    copyRegion.size = size;
-    vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
-
-    rendererHandles.commandPoolmanager->endSingleTimeCommands(commandBuffer);
-}
-
-
+//This probably doesnt need to exisdt
 std::pair<std::vector<VkDescriptorImageInfo>, std::vector<VkDescriptorImageInfo>>
-DescriptorDataUtilities::ImageInfoFromImageDataVec(std::vector<TextureData> textures)
+DescriptorSets::ImageInfoFromImageDataVec(std::vector<TextureData> textures)
 {
     std::vector<VkDescriptorImageInfo> imageinfos(textures.size());
     std::vector<VkDescriptorImageInfo> samplerinfos(textures.size());
@@ -612,72 +552,18 @@ DescriptorDataUtilities::ImageInfoFromImageDataVec(std::vector<TextureData> text
     return std::make_pair(imageinfos, samplerinfos);
 }
 
-std::pair<VkDescriptorImageInfo, VkDescriptorImageInfo> DescriptorDataUtilities::ImageInfoFromImageData(
-    TextureData texture)
+void DescriptorSets::AllocateDescriptorSet(VkDevice device, VkDescriptorPool pool, VkDescriptorSetLayout* pdescriptorsetLayout, VkDescriptorSet* pset)
 {
-    return std::make_pair(
-        VkDescriptorImageInfo{
-            .imageView = texture.textureImageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-        },
-        VkDescriptorImageInfo{
-            .sampler = texture.textureSampler, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-        }
-    );
-}
-
-DescriptorDataUtilities::WriteDescriptorSetsBuilder::WriteDescriptorSetsBuilder()
-{
-    descriptorsets = {};
-    descriptorSetIndices = {};
-}
-
-VkWriteDescriptorSet* DescriptorDataUtilities::WriteDescriptorSetsBuilder::data()
-{
-    return descriptorsets.data();
-}
-
-uint32_t DescriptorDataUtilities::WriteDescriptorSetsBuilder::size()
-{
-    return descriptorsets.size();
-}
-void DescriptorSetSetup::AllocateDescriptorSet(RendererHandles handles, VkDescriptorPool pool, VkDescriptorSetLayout* pdescriptorsetLayout, VkDescriptorSet* pset)
-{
-    VkDescriptorSetAllocateInfo allocInfo ={};
+    VkDescriptorSetAllocateInfo allocInfo = {};
     allocInfo.pNext = nullptr;
     allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     allocInfo.descriptorPool = pool;
     allocInfo.descriptorSetCount = 1;
     allocInfo.pSetLayouts = pdescriptorsetLayout;
-    VK_CHECK(vkAllocateDescriptorSets(handles.device, &allocInfo, pset));
+    VK_CHECK(vkAllocateDescriptorSets(device, &allocInfo, pset));
   
 }
 
-void DescriptorDataUtilities::WriteDescriptorSetsBuilder::Add(VkDescriptorType type, VkDescriptorSet set,  void* ptr, int count )
-{
-         if (!descriptorSetIndices.contains(set))
-         {
-             descriptorSetIndices[set] = 0;
-         }
-
-          int bindingIndex = descriptorSetIndices[set];
-        VkWriteDescriptorSet newSet = {};
-          newSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-          newSet.dstBinding = bindingIndex;
-          newSet.dstSet = set;
-          newSet.descriptorCount = count;
-          newSet.descriptorType = type;
-          
-          if (type == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE || type == VK_DESCRIPTOR_TYPE_SAMPLER)
-          {
-              newSet.pImageInfo = static_cast<VkDescriptorImageInfo*>(ptr);
-          }
-          else
-          {
-              newSet.pBufferInfo = static_cast<VkDescriptorBufferInfo*>(ptr);
-          }
-          descriptorsets.push_back(newSet);
-          descriptorSetIndices[set]++;
-      }
 
 VkDescriptorBufferInfo dataBuffer::getBufferInfo()
 {

@@ -152,6 +152,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="bufferCreation.cpp" />
     <ClCompile Include="CommandPoolManager.cpp" />
     <ClCompile Include="FileCaching.cpp" />
     <ClCompile Include="ImageLibraryImplementations.cpp" />
@@ -161,20 +162,23 @@
     <ClCompile Include="mikktspace.c" />
     <ClCompile Include="SceneObjectData.cpp" />
     <ClCompile Include="ShaderLoading.cpp" />
+    <ClCompile Include="textureCreation.cpp" />
     <ClCompile Include="TextureData.cpp" />
     <ClCompile Include="Vertex.cpp" />
     <ClCompile Include="vkbootstrap\VkBootstrap.cpp" />
     <ClCompile Include="vmaImplementation.cpp" />
     <ClCompile Include="vulkan-tutorial.cpp" />
     <ClInclude Include="AppStruct.h" />
+    <ClInclude Include="bufferCreation.h" />
     <ClInclude Include="CommandPoolManager.h" />
     <ClInclude Include="common-structs.h" />
     <ClInclude Include="FileCaching.h" />
     <ClInclude Include="ImageLibraryImplementations.h" />
     <ClInclude Include="Memory.h" />
     <ClInclude Include="MeshLibraryImplementations.h" />
+    <ClInclude Include="textureCreation.h" />
     <ClInclude Include="vmaImplementation.h" />
-    <ClInclude Include="vulkan-forwards.h" />
+    <ClInclude Include="forward-declarations-renderer.h" />
     <ClInclude Include="vulkan-utilities.h" />
     <ClCompile Include="vulkan-utilities.cpp" />
     <ClCompile Include="weldmesh.c" />

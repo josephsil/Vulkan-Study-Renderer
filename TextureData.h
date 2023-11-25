@@ -4,7 +4,7 @@
 #include <cstdint>
 
 #include "AppStruct.h"
-#include "vulkan-forwards.h"
+#include "forward-declarations-renderer.h"
 using ktxTexture2 =  struct ktxTexture2;
 using  ktxVulkanTexture = struct ktxVulkanTexture;
 

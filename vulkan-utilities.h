@@ -1,8 +1,12 @@
 #pragma once
 #include <unordered_map>
 #include <vector>
-#include "vulkan-forwards.h"
+#include <vulkan/vulkan_core.h>
+
+#include "forward-declarations-renderer.h"
 #include "common-structs.h"
+
+
 struct Vertex;
 class Scene;
 //Forward declaration
@@ -10,6 +14,13 @@ struct RendererHandles;
 struct CommandPoolManager;
 struct TextureData;
 
+
+struct descriptorUpdateData
+{
+    VkDescriptorType type;
+    void* ptr;
+    uint32_t count = 1;
+};
 
 struct dataBuffer
 {
@@ -19,60 +30,89 @@ struct dataBuffer
     VkDescriptorBufferInfo getBufferInfo();
 };
 
-
-
-namespace DescriptorDataUtilities
+namespace DescriptorSets
 {
+    struct layoutInfo;
     std::pair<std::vector<VkDescriptorImageInfo>, std::vector<VkDescriptorImageInfo>> ImageInfoFromImageDataVec(std::vector<TextureData> textures);
-    //TODO JS: Move to textureData? 
-    std::pair<VkDescriptorImageInfo, VkDescriptorImageInfo> ImageInfoFromImageData(TextureData texture);
-
-    //TODO JS: move
-    struct WriteDescriptorSetsBuilder
-    {
-        std::vector<VkWriteDescriptorSet> descriptorsets;
-        std::unordered_map<VkDescriptorSet, int> descriptorSetIndices;
-
-        WriteDescriptorSetsBuilder();
-
-        void Add(VkDescriptorType type, VkDescriptorSet set, void* ptr, int count = 1);
-      
-
-
-        VkWriteDescriptorSet* data();
-
-        uint32_t size();
-    };
-}
-
-namespace DescriptorSetSetup
-{
-    void AllocateDescriptorSet(RendererHandles handles, VkDescriptorPool pool, VkDescriptorSetLayout* pdescriptorsetLayout, VkDescriptorSet* pset);
     
-    struct DescriptorSets
+    //Passing around a vector of these to enforce binding for a pipeline
+    struct layoutInfo
     {
-        std::vector<VkDescriptorSet> uniformDescriptorSets = {};
-        std::vector<VkDescriptorSet> storageDescriptorSets = {};
-        std::vector<VkDescriptorSet> imageDescriptorSets = {};
-        std::vector<VkDescriptorSet> samplerDescriptorSets = {};
+        VkDescriptorType type;
+        uint32_t slot;
+        uint32_t descriptorCount = 1;
     };
 
-    struct DescriptorSetLayouts
-    {
-        VkDescriptorSetLayout uniformDescriptorLayout;
-        VkDescriptorSetLayout storageDescriptorLayout;
-        VkDescriptorSetLayout imageDescriptorLayout;
-        VkDescriptorSetLayout samplerDescriptorLayout;
+    void AllocateDescriptorSet(VkDevice device, VkDescriptorPool pool, VkDescriptorSetLayout* pdescriptorsetLayout, VkDescriptorSet* pset);
 
-        std::vector<VkDescriptorSetLayout> get()
+    //Sorta material-esque -- should this grow, and own information about the corresponding pipeline?
+    class bindlessDrawData
+    {
+    public:
+        bindlessDrawData()
+        {}
+        bindlessDrawData(RendererHandles handles, Scene* pscene);
+        //Initialization
+        void createDescriptorSets( VkDescriptorPool pool,  int MAX_FRAMES_IN_FLIGHT);
+        void createPipelineLayout();
+        void createGraphicsPipeline(std::vector<VkPipelineShaderStageCreateInfo> shaders, VkRenderPass renderPass);
+
+        //Runtime
+        void updateDescriptorSets(std::vector<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame);
+        void bindToCommandBuffer(VkCommandBuffer cmd, uint32_t currentFrame);
+        VkPipeline getPipeline(int index);
+        VkPipelineLayout getLayout();
+        
+        void cleanup();
+
+    private:
+        std::vector<layoutInfo> slots;
+        VkDevice device;
+        bool pipelineLayoutInitialized = false;
+        bool pipelinesInitialized = false;
+        bool descriptorSetsInitialized = false;
+      
+        std::vector<VkPipeline> bindlesspipelineObjects;
+        VkPipelineLayout bindlessPipelineLayout;
+
+        VkDescriptorSetLayout uniformDescriptorLayout = {};
+        VkDescriptorSetLayout storageDescriptorLayout = {};
+        VkDescriptorSetLayout imageDescriptorLayout = {};
+        VkDescriptorSetLayout samplerDescriptorLayout = {};
+        
+        std::vector<VkDescriptorSet> uniformDescriptorSetForFrame = {};
+        std::vector<VkDescriptorSet> storageDescriptorSetForFrame = {};
+        std::vector<VkDescriptorSet> imageDescriptorSetForFrame = {};
+        std::vector<VkDescriptorSet> samplerDescriptorSetForFrame = {};
+
+
+        //Descriptor set update
+        std::vector<VkWriteDescriptorSet> writeDescriptorSets;
+        std::unordered_map<VkDescriptorSet, int> writeDescriptorSetsBindingIndices;
+        
+        VkDescriptorSet getSetFromType(VkDescriptorType type, int currentFrame)
         {
-            return {
-                uniformDescriptorLayout,storageDescriptorLayout,imageDescriptorLayout,samplerDescriptorLayout
-            };
+            switch (type)
+            {
+            case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
+                return uniformDescriptorSetForFrame[currentFrame];
+                break;
+            case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
+                return imageDescriptorSetForFrame[currentFrame];
+                break;
+            case VK_DESCRIPTOR_TYPE_SAMPLER:
+                return samplerDescriptorSetForFrame[currentFrame];
+                break;
+            case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
+                return storageDescriptorSetForFrame[currentFrame];
+                break;
+            default:
+                exit(-1);
+            }
         }
+        
     };
 
-     void createBindlessLayout(RendererHandles rendererHandles, Scene* scene, DescriptorSetLayouts* layout);
 }
 
 namespace RenderingSetup
@@ -86,59 +126,9 @@ namespace Capabilities
 
     VkFormat findSupportedFormat(RendererHandles rendererHandles, const std::vector<VkFormat>& candidates,
                                  VkImageTiling tiling,
-                                 VkFormatFeatureFlags features);
-
+                                 VkFormatFeatureFlags features);    
     uint32_t findMemoryType(RendererHandles rendererHandles, uint32_t typeFilter, VkMemoryPropertyFlags properties);
 }
 
-namespace TextureUtilities
-{
-    //TODO JS: this -1 stuff is sketchy
-    VkImageView createImageView(VkDevice device, VkImage image,
-                                VkFormat format, VkImageAspectFlags aspectFlags = -1,
-                                VkImageViewType type = (VkImageViewType)-1, uint32_t miplevels = 1,
-                                uint32_t layerCount = 1);
 
-    void createImage(RendererHandles rendererHandles, uint32_t width, uint32_t height, VkFormat format,
-                     VkImageTiling tiling,
-                     VkFlags usage, VkFlags properties, VkImage& image,
-                     VmaAllocation& allocation, uint32_t miplevels = 1);
-
-    void transitionImageLayout(RendererHandles rendererHandles, VkImage image, VkFormat format, VkImageLayout oldLayout,
-                               VkImageLayout newLayout, VkCommandBuffer workingBuffer,
-                               uint32_t miplevels = 1);
-
-    void generateMipmaps(RendererHandles rendererHandles, VkImage image, VkFormat imageFormat, int32_t texWidth,
-                         int32_t texHeight, uint32_t mipLevels);
-    void copyBufferToImage(CommandPoolManager* commandPoolManager, VkBuffer buffer, VkImage image, uint32_t width,
-                           uint32_t height,
-                           VkCommandBuffer workingBuffer = nullptr);
-}
-
-
-
-namespace BufferUtilities
-{
-    void CreateImage(VmaAllocator allocator,
-                     VkImageCreateInfo* pImageCreateInfo,
-                     VkImage* pImage,
-                     VmaAllocation* pAllocation, VkDeviceMemory* deviceMemory);
-    
-    void stageVertexBuffer(RendererHandles rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
-                           VmaAllocation& allocation, Vertex* data);
-
-    void stageIndexBuffer(RendererHandles rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
-                          VmaAllocation& allocation, uint32_t* data);
-
-    //TODO JS: move to cpp file?
-    void stageMeshDataBuffer(RendererHandles rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
-                             VmaAllocation& allocation, void* vertices, VkBufferUsageFlags dataTypeFlag);
-
-    void copyBuffer(RendererHandles rendererHandles, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
-    void* createDynamicBuffer(RendererHandles rendererHandles, VkDeviceSize size, VkBufferUsageFlags usage,
-                              VmaAllocation* allocation, VkBuffer& buffer);
-    void createStagingBuffer(RendererHandles rendererHandles, VkDeviceSize size,
-                                   VmaAllocation* allocation, VkBuffer& stagingBuffer);
-   
-}
     

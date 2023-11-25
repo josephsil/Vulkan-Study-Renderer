@@ -1,5 +1,5 @@
 #pragma once
-#include "vulkan-forwards.h"
+#include "forward-declarations-renderer.h"
 struct CommandPoolManager;
 
 //This is stuff that I (currently) have to pass around a lot
