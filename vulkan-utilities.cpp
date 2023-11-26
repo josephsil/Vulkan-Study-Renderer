@@ -137,46 +137,76 @@ layoutsBuilder createBindlessLayout(
 
 DescriptorSets::bindlessDrawData::bindlessDrawData(RendererHandles handles, Scene* pscene)
 {
- layoutsBuilder builder = createBindlessLayout(handles,  pscene);
+    device = handles.device;
+    createOpaqueLayout(handles , pscene);
+    createShadowLayout(handles , pscene);
+}
+
+void DescriptorSets::bindlessDrawData::createOpaqueLayout(RendererHandles handles, Scene* pscene)
+{
+    layoutsBuilder builder = createBindlessLayout(handles,  pscene);
     VkDescriptorSetLayoutCreateInfo uniformDescriptorLayout =  builder.getCreateInfo(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
     VkDescriptorSetLayoutCreateInfo imageDescriptorLayout = builder.getCreateInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE);
     VkDescriptorSetLayoutCreateInfo samplerDescriptorLayout = builder.getCreateInfo(VK_DESCRIPTOR_TYPE_SAMPLER);
     VkDescriptorSetLayoutCreateInfo storageDescriptorLayout = builder.getCreateInfo(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 
-    VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &uniformDescriptorLayout, nullptr, &this->uniformDescriptorLayout));
-    VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &imageDescriptorLayout, nullptr, &this->imageDescriptorLayout));
-    VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &samplerDescriptorLayout, nullptr, &this->samplerDescriptorLayout));
-    VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &storageDescriptorLayout, nullptr, &this->storageDescriptorLayout));
-    slots = builder.bindings;
-    device = handles.device;
+    VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &uniformDescriptorLayout, nullptr, &this->opaquePipelineData.uniformDescriptorLayout));
+    VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &imageDescriptorLayout, nullptr, &this->opaquePipelineData.imageDescriptorLayout));
+    VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &samplerDescriptorLayout, nullptr, &this->opaquePipelineData.samplerDescriptorLayout));
+    VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &storageDescriptorLayout, nullptr, &this->opaquePipelineData.storageDescriptorLayout));
+    this->opaquePipelineData.slots = builder.bindings;
+}
+void DescriptorSets::bindlessDrawData::createShadowLayout(RendererHandles handles, Scene* pscene)
+{
+    layoutsBuilder builder = createBindlessLayout(handles,  pscene); //TODO JS: different layout
+    VkDescriptorSetLayoutCreateInfo uniformDescriptorLayout =  builder.getCreateInfo(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+    VkDescriptorSetLayoutCreateInfo imageDescriptorLayout = builder.getCreateInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE);
+    VkDescriptorSetLayoutCreateInfo samplerDescriptorLayout = builder.getCreateInfo(VK_DESCRIPTOR_TYPE_SAMPLER);
+    VkDescriptorSetLayoutCreateInfo storageDescriptorLayout = builder.getCreateInfo(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+
+    VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &uniformDescriptorLayout, nullptr, &this->shadowPipelineData.uniformDescriptorLayout));
+    VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &imageDescriptorLayout, nullptr, &this->shadowPipelineData.imageDescriptorLayout));
+    VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &samplerDescriptorLayout, nullptr, &this->shadowPipelineData.samplerDescriptorLayout));
+    VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &storageDescriptorLayout, nullptr, &this->shadowPipelineData.storageDescriptorLayout));
+    this->shadowPipelineData.slots = builder.bindings;
 }
 
-void DescriptorSets::bindlessDrawData::bindToCommandBuffer(VkCommandBuffer cmd, uint32_t currentFrame)
+void DescriptorSets::bindlessDrawData::bindToCommandBufferOpaque(VkCommandBuffer cmd, uint32_t currentFrame)
 {
-    assert(descriptorSetsInitialized && pipelinesInitialized);
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, bindlessPipelineLayout, 0, 1, &uniformDescriptorSetForFrame[currentFrame], 0, nullptr);
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, bindlessPipelineLayout, 1, 1, &storageDescriptorSetForFrame[currentFrame], 0, nullptr);
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, bindlessPipelineLayout, 2, 1, &imageDescriptorSetForFrame[currentFrame], 0, nullptr);
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, bindlessPipelineLayout, 3, 1, &samplerDescriptorSetForFrame[currentFrame], 0, nullptr);
+    bindToCommandBuffer(cmd, currentFrame, &opaquePipelineData);
+}
+
+void DescriptorSets::bindlessDrawData::bindToCommandBufferShadow(VkCommandBuffer cmd, uint32_t currentFrame)
+{
+    bindToCommandBuffer(cmd, currentFrame, &shadowPipelineData);
+}
+void DescriptorSets::bindlessDrawData::bindToCommandBuffer(VkCommandBuffer cmd, uint32_t currentFrame, perPipelineData* pipelinedata)
+{
+    assert(pipelinedata->descriptorSetsInitialized && pipelinedata->pipelinesInitialized);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelinedata->bindlessPipelineLayout, 0, 1, &pipelinedata->uniformDescriptorSetForFrame[currentFrame], 0, nullptr);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelinedata->bindlessPipelineLayout, 1, 1, &pipelinedata->storageDescriptorSetForFrame[currentFrame], 0, nullptr);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelinedata->bindlessPipelineLayout, 2, 1, &pipelinedata->imageDescriptorSetForFrame[currentFrame], 0, nullptr);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelinedata->bindlessPipelineLayout, 3, 1, &pipelinedata->samplerDescriptorSetForFrame[currentFrame], 0, nullptr);
     
 }
-//updates descriptor sets based on vector of descriptorupdatedata, with some light validation that we're binding the right stuff
-void DescriptorSets::bindlessDrawData::updateDescriptorSets(std::vector<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame)
+
+void DescriptorSets::bindlessDrawData::updateDescriptorSetsForPipeline(std::vector<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame, perPipelineData* perPipelineData)
 {
+    
     writeDescriptorSets.clear();
     writeDescriptorSetsBindingIndices.clear();
     
     for(int i = 0; i < descriptorUpdates.size(); i++)
     {
         descriptorUpdateData update = descriptorUpdates[i];
-        VkDescriptorSet set = getSetFromType(descriptorUpdates[i].type, currentFrame);
+        VkDescriptorSet set = perPipelineData->getSetFromType(descriptorUpdates[i].type, currentFrame);
         
         if (!writeDescriptorSetsBindingIndices.contains(set))
         {
             writeDescriptorSetsBindingIndices[set] = 0;
         }
         
-        layoutInfo info = slots[writeDescriptorSets.size()];
+        layoutInfo info = perPipelineData->slots[writeDescriptorSets.size()];
 
         int bindingIndex = writeDescriptorSetsBindingIndices[set];
         VkWriteDescriptorSet newSet = {};
@@ -204,52 +234,87 @@ void DescriptorSets::bindlessDrawData::updateDescriptorSets(std::vector<descript
         writeDescriptorSetsBindingIndices[set]++;
     }
     
-    assert(writeDescriptorSets.size() == slots.size());
+    assert(writeDescriptorSets.size() == perPipelineData->slots.size());
     
     vkUpdateDescriptorSets(device, writeDescriptorSets.size(), writeDescriptorSets.data(), 0, nullptr);
-    
 }
 
-void DescriptorSets::bindlessDrawData::createDescriptorSets(VkDescriptorPool pool, int MAX_FRAMES_IN_FLIGHT)
+//updates descriptor sets based on vector of descriptorupdatedata, with some light validation that we're binding the right stuff
+void DescriptorSets::bindlessDrawData::updateOpaqueDescriptorSets(std::vector<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame)
 {
-    assert(!descriptorSetsInitialized); // Don't double initialize
-    uniformDescriptorSetForFrame.resize(MAX_FRAMES_IN_FLIGHT);
-    imageDescriptorSetForFrame.resize(MAX_FRAMES_IN_FLIGHT);
-    samplerDescriptorSetForFrame.resize(MAX_FRAMES_IN_FLIGHT);
-    storageDescriptorSetForFrame.resize(MAX_FRAMES_IN_FLIGHT);
+   updateDescriptorSetsForPipeline(descriptorUpdates, currentFrame, &opaquePipelineData);
+}
+
+void DescriptorSets::bindlessDrawData::updateShadowDescriptorSets(std::vector<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame)
+{
+    updateDescriptorSetsForPipeline(descriptorUpdates, currentFrame, &shadowPipelineData);
+}
+
+
+void DescriptorSets::bindlessDrawData::createDescriptorSetsOpaque(VkDescriptorPool pool, int MAX_FRAMES_IN_FLIGHT)
+{
+    createDescriptorSetsforPipeline(pool, MAX_FRAMES_IN_FLIGHT, &opaquePipelineData);
+}
+
+void DescriptorSets::bindlessDrawData::createDescriptorSetsShadow(VkDescriptorPool pool, int MAX_FRAMES_IN_FLIGHT)
+{
+    createDescriptorSetsforPipeline(pool, MAX_FRAMES_IN_FLIGHT, &shadowPipelineData);
+}
+void DescriptorSets::bindlessDrawData::createDescriptorSetsforPipeline(VkDescriptorPool pool, int MAX_FRAMES_IN_FLIGHT, perPipelineData* perPipelineData)
+{
+    assert(!perPipelineData->descriptorSetsInitialized); // Don't double initialize
+    perPipelineData->uniformDescriptorSetForFrame.resize(MAX_FRAMES_IN_FLIGHT);
+    perPipelineData->imageDescriptorSetForFrame.resize(MAX_FRAMES_IN_FLIGHT);
+    perPipelineData->samplerDescriptorSetForFrame.resize(MAX_FRAMES_IN_FLIGHT);
+    perPipelineData->storageDescriptorSetForFrame.resize(MAX_FRAMES_IN_FLIGHT);
     for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        AllocateDescriptorSet(device, pool,  &uniformDescriptorLayout, &uniformDescriptorSetForFrame[i]);
-        AllocateDescriptorSet(device, pool,  &imageDescriptorLayout, &imageDescriptorSetForFrame[i]);
-        AllocateDescriptorSet(device, pool,  &samplerDescriptorLayout, &samplerDescriptorSetForFrame[i]);
-        AllocateDescriptorSet(device, pool,  &storageDescriptorLayout, &storageDescriptorSetForFrame[i]);
+        AllocateDescriptorSet(device, pool,  &perPipelineData->uniformDescriptorLayout, &perPipelineData->uniformDescriptorSetForFrame[i]);
+        AllocateDescriptorSet(device, pool,  &perPipelineData->imageDescriptorLayout, &perPipelineData->imageDescriptorSetForFrame[i]);
+        AllocateDescriptorSet(device, pool,  &perPipelineData->samplerDescriptorLayout, &perPipelineData->samplerDescriptorSetForFrame[i]);
+        AllocateDescriptorSet(device, pool,  &perPipelineData->storageDescriptorLayout, &perPipelineData->storageDescriptorSetForFrame[i]);
     }
-    descriptorSetsInitialized = true;
+    perPipelineData->descriptorSetsInitialized = true;
             
 }
 
 VkPipeline DescriptorSets::bindlessDrawData::getPipeline(int index)
 {
-    assert(pipelinesInitialized && pipelineLayoutInitialized);
+    //TODO JS
+    // assert(pipelinesInitialized && pipelineLayoutInitialized);
     assert(index < bindlesspipelineObjects.size());
     return bindlesspipelineObjects[index];
 }
 
-VkPipelineLayout DescriptorSets::bindlessDrawData::getLayout()
+VkPipelineLayout DescriptorSets::bindlessDrawData::getLayoutOpaque()
 {
-    return bindlessPipelineLayout;
+    return opaquePipelineData.bindlessPipelineLayout;
 }
 
-void DescriptorSets::bindlessDrawData::createPipelineLayout()
+VkPipelineLayout DescriptorSets::bindlessDrawData::getLayoutShadow()
+{
+    return shadowPipelineData.bindlessPipelineLayout;
+}
+
+void DescriptorSets::bindlessDrawData::createPipelineLayoutShadow()
+{
+    createPipelineLayoutForPipeline(&shadowPipelineData);
+}
+void DescriptorSets::bindlessDrawData::createPipelineLayoutOpaque()
+{
+    createPipelineLayoutForPipeline(&opaquePipelineData);
+}
+
+void DescriptorSets::bindlessDrawData::createPipelineLayoutForPipeline(perPipelineData* perPipelineData)
 {
 
-    if(pipelineLayoutInitialized)
+    if(perPipelineData->pipelineLayoutInitialized)
     {
         return;
     }
     
     std::vector<VkDescriptorSetLayout> layouts = {
-        uniformDescriptorLayout,storageDescriptorLayout,imageDescriptorLayout,samplerDescriptorLayout
+        perPipelineData->uniformDescriptorLayout,perPipelineData->storageDescriptorLayout,perPipelineData->imageDescriptorLayout,perPipelineData->samplerDescriptorLayout
     };
     
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
@@ -269,18 +334,21 @@ void DescriptorSets::bindlessDrawData::createPipelineLayout()
     pipelineLayoutInfo.pPushConstantRanges = &push_constant;
     pipelineLayoutInfo.pushConstantRangeCount = 1;
 
-    if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &bindlessPipelineLayout) != VK_SUCCESS)
+    if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &perPipelineData->bindlessPipelineLayout) != VK_SUCCESS)
     {
         printf("failed to create pipeline layout!");
         exit(-1);
     }
-    pipelineLayoutInitialized = true;
+    perPipelineData->pipelineLayoutInitialized = true;
 }
 
-void DescriptorSets::bindlessDrawData::createGraphicsPipeline(std::vector<VkPipelineShaderStageCreateInfo> shaders, VkFormat* swapchainFormat, VkFormat* depthFormat, bool color, bool depth)
+void DescriptorSets::bindlessDrawData::createGraphicsPipeline(std::vector<VkPipelineShaderStageCreateInfo> shaders, VkFormat* swapchainFormat, VkFormat* depthFormat, bool shadow, bool color, bool depth)
 {
-    createPipelineLayout();
-    assert(pipelineLayoutInitialized);
+
+    auto pipeline = shadow ? &shadowPipelineData : &opaquePipelineData;
+    createPipelineLayoutForPipeline(pipeline);
+    
+    assert(pipeline->pipelineLayoutInitialized);
     VkPipeline newGraphicsPipeline {}; 
 
     VkPipelineShaderStageCreateInfo shaderStages[] = {shaders[0], shaders[1]};
@@ -379,7 +447,7 @@ void DescriptorSets::bindlessDrawData::createGraphicsPipeline(std::vector<VkPipe
     pipelineInfo.pColorBlendState = &colorBlending;
     pipelineInfo.pDynamicState = &dynamicState;
     
-    pipelineInfo.layout = bindlessPipelineLayout;
+    pipelineInfo.layout = pipeline->bindlessPipelineLayout;
     pipelineInfo.renderPass = VK_NULL_HANDLE;
     pipelineInfo.subpass = 0;
 
@@ -401,7 +469,7 @@ void DescriptorSets::bindlessDrawData::createGraphicsPipeline(std::vector<VkPipe
         exit(-1);
     }
 
-    pipelinesInitialized = true;
+    pipeline->pipelinesInitialized = true;
     bindlesspipelineObjects.push_back(newGraphicsPipeline);
 }
    
@@ -410,16 +478,38 @@ void DescriptorSets::bindlessDrawData::createGraphicsPipeline(std::vector<VkPipe
 void DescriptorSets::bindlessDrawData::cleanup()
 {
     
-    vkDestroyPipelineLayout(device, bindlessPipelineLayout, nullptr);
+   
     for(int i = 0; i < bindlesspipelineObjects.size(); i++)
     {
         vkDestroyPipeline(device, bindlesspipelineObjects[i], nullptr);
     }
+
+    opaquePipelineData.cleanup(device);
+    shadowPipelineData.cleanup(device);
     
-    vkDestroyDescriptorSetLayout(device, uniformDescriptorLayout, nullptr);
-    vkDestroyDescriptorSetLayout(device, imageDescriptorLayout, nullptr);
-    vkDestroyDescriptorSetLayout(device, samplerDescriptorLayout, nullptr);
-    vkDestroyDescriptorSetLayout(device, storageDescriptorLayout, nullptr);
+ 
+}
+
+VkDescriptorSet DescriptorSets::bindlessDrawData::perPipelineData::getSetFromType(VkDescriptorType type,
+    int currentFrame)
+{
+    switch (type)
+    {
+    case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
+        return uniformDescriptorSetForFrame[currentFrame];
+        break;
+    case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
+        return imageDescriptorSetForFrame[currentFrame];
+        break;
+    case VK_DESCRIPTOR_TYPE_SAMPLER:
+        return samplerDescriptorSetForFrame[currentFrame];
+        break;
+    case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
+        return storageDescriptorSetForFrame[currentFrame];
+        break;
+    default:
+        exit(-1);
+    }
 }
 
 VkFormat Capabilities::findDepthFormat(RendererHandles rendererHandles)
@@ -500,7 +590,8 @@ void DescriptorSets::AllocateDescriptorSet(VkDevice device, VkDescriptorPool poo
     allocInfo.descriptorPool = pool;
     allocInfo.descriptorSetCount = 1;
     allocInfo.pSetLayouts = pdescriptorsetLayout;
-    VK_CHECK(vkAllocateDescriptorSets(device, &allocInfo, pset));
+    VkResult result = vkAllocateDescriptorSets(device, &allocInfo, pset);
+    VK_CHECK(result);
   
 }
 

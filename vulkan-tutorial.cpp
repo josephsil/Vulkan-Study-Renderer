@@ -35,7 +35,7 @@ vkb::Instance GET_INSTANCE()
 {
     vkb::InstanceBuilder instance_builder;
     auto instanceBuilderResult = instance_builder
-                                  // .request_validation_layers()
+                                  .request_validation_layers()
                                  .use_default_debug_messenger()
                                  .require_api_version(1, 3, 0)
                                  .build();
@@ -264,7 +264,9 @@ void HelloTriangleApplication::initVulkan()
 
     
     descriptorsetLayoutsData = DescriptorSets::bindlessDrawData(getHandles(), scene.get());
-    
+
+
+    //TODO JS: Make pipelines belong to the perPipelineLayout members
     createGraphicsPipeline("triangle",  &descriptorsetLayoutsData);
     createGraphicsPipeline("triangle_alt",  &descriptorsetLayoutsData);
     //TODO JS: separate shadow layout?
@@ -272,7 +274,8 @@ void HelloTriangleApplication::initVulkan()
     
     createDescriptorSetPool(getHandles(), &descriptorPool);
 
-    descriptorsetLayoutsData.createDescriptorSets(descriptorPool, MAX_FRAMES_IN_FLIGHT);
+    descriptorsetLayoutsData.createDescriptorSetsOpaque(descriptorPool, MAX_FRAMES_IN_FLIGHT);
+    descriptorsetLayoutsData.createDescriptorSetsShadow(descriptorPool, MAX_FRAMES_IN_FLIGHT);
 
     createUniformBuffers();
     createSyncObjects();
@@ -387,7 +390,7 @@ void HelloTriangleApplication::createDescriptorSetPool(RendererHandles handles, 
     pool_info.poolSizeCount = (uint32_t)sizes.size();
     pool_info.pPoolSizes = sizes.data();
     
-    pool_info.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * 4; //4 here is the number of descriptorsets 
+    pool_info.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * 4 * 3; //4 here is the number of descriptorsets  * 3 pipelines
     VK_CHECK( vkCreateDescriptorPool(handles.device, &pool_info, nullptr, pool));
     
 }
@@ -416,10 +419,11 @@ void HelloTriangleApplication::updateOpaqueDescriptorSets(RendererHandles handle
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &lightbufferinfo});
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &uniformbufferinfo});
 
-    layoutData->updateDescriptorSets(descriptorUpdates, currentFrame);
+    layoutData->updateOpaqueDescriptorSets(descriptorUpdates, currentFrame);
 }
 
 
+//TODO JS: Need to use separate descriptors  
 //TODO JS: Probably want to duplicate less code
 void HelloTriangleApplication::updateShadowDescriptorSets(RendererHandles handles,  VkDescriptorPool pool, DescriptorSets::bindlessDrawData* layoutData, uint32_t shadowIndex)
 {
@@ -445,7 +449,7 @@ void HelloTriangleApplication::updateShadowDescriptorSets(RendererHandles handle
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &lightbufferinfo});
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &uniformbufferinfo});
 
-    layoutData->updateDescriptorSets(descriptorUpdates, currentFrame);
+    layoutData->updateShadowDescriptorSets(descriptorUpdates, currentFrame);
 
     
 }
@@ -566,6 +570,7 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentImage, std:
 
 }
 
+
 void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer commandBuffer, uint32_t imageIndex)
 {
     uint32_t shadowSize = 512; //TODO JS: make const
@@ -620,8 +625,8 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
 
     uint32_t SHADOW_INDEX = 0; //TODO JS: loop over shadowcasters
      updateShadowDescriptorSets(getHandles(), descriptorPool, &descriptorsetLayoutsData,SHADOW_INDEX);
-     descriptorsetLayoutsData.bindToCommandBuffer(commandBuffer, currentFrame);
-     VkPipelineLayout layout = descriptorsetLayoutsData.getLayout();
+     descriptorsetLayoutsData.bindToCommandBufferShadow(commandBuffer, currentFrame);
+     VkPipelineLayout layout = descriptorsetLayoutsData.getLayoutOpaque();
 
     //TODO JS: Something other than hardcoded index 2 for shadow pipeline
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, descriptorsetLayoutsData.getPipeline(2));
@@ -711,8 +716,8 @@ void HelloTriangleApplication::recordCommandBufferOpaquePass(VkCommandBuffer com
     //** Descriptor Sets update and binding
     // This could change sometimes
     updateOpaqueDescriptorSets(getHandles(), descriptorPool, &descriptorsetLayoutsData);
-    descriptorsetLayoutsData.bindToCommandBuffer(commandBuffer, currentFrame);
-    VkPipelineLayout layout = descriptorsetLayoutsData.getLayout();
+    descriptorsetLayoutsData.bindToCommandBufferOpaque(commandBuffer, currentFrame);
+    VkPipelineLayout layout = descriptorsetLayoutsData.getLayoutOpaque();
     
     int meshct = scene->meshes.size();
     int lastPipelineIndex = -1;
@@ -799,9 +804,9 @@ void HelloTriangleApplication::createGraphicsPipeline(const char* shaderName, De
     auto shaders = shaderLoader->compiledShaders[shaderName];
 
     if (!shadow)
-    descriptorsetdata->createGraphicsPipeline(shaders,&swapChainColorFormat, &depthFormat);
+    descriptorsetdata->createGraphicsPipeline(shaders,&swapChainColorFormat, &depthFormat, false);
     else
-        descriptorsetdata->createGraphicsPipeline(shaders,&swapChainColorFormat, &depthFormat, false, true);
+        descriptorsetdata->createGraphicsPipeline(shaders,&swapChainColorFormat, &depthFormat,  true, false, true);
         
 
     auto val = shaderLoader->compiledShaders[shaderName];
@@ -907,14 +912,18 @@ void HelloTriangleApplication::UpdateRotations()
     scene->Update();
 }
 
+
 void HelloTriangleApplication::drawFrame(inputData input)
 {
+
+    
     //Update per frame data
     updatePerFrameBuffers(currentFrame, scene->matrices, input); // TODO JS: Figure out
     //Prepare for pass
     uint32_t imageIndex; 
     vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, FramesInFlightData[currentFrame].imageAvailableSemaphores, VK_NULL_HANDLE,
                           &imageIndex);
+
 
     vkWaitForFences(device, 1, &FramesInFlightData[imageIndex].inFlightFences, VK_TRUE, UINT64_MAX);
     vkResetCommandBuffer(FramesInFlightData[imageIndex].opaqueCommandBuffers, 0);
@@ -934,9 +943,11 @@ void HelloTriangleApplication::drawFrame(inputData input)
     TextureUtilities::transitionImageLayout(getHandles(),swapChainImages[imageIndex],swapChainColorFormat,VK_IMAGE_LAYOUT_UNDEFINED,VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,FramesInFlightData[imageIndex].swapchainTransitionInCommandBuffer,1, false);
     vkEndCommandBuffer(FramesInFlightData[imageIndex].swapchainTransitionInCommandBuffer);
 
+    VkPipelineStageFlags swapchainWaitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
     VkSubmitInfo swapChainInSubmitInfo{};
     swapChainInSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     swapChainInSubmitInfo.commandBufferCount = 1;
+    swapChainInSubmitInfo.pWaitDstStageMask = swapchainWaitStages;
     swapChainInSubmitInfo.pCommandBuffers = &FramesInFlightData[imageIndex].swapchainTransitionInCommandBuffer;
     swapChainInSubmitInfo.waitSemaphoreCount = 1;
     swapChainInSubmitInfo.pWaitSemaphores = &FramesInFlightData[currentFrame].imageAvailableSemaphores;
@@ -979,6 +990,7 @@ void HelloTriangleApplication::drawFrame(inputData input)
     VkSubmitInfo swapchainOutsubmitInfo{};
     swapchainOutsubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     swapchainOutsubmitInfo.commandBufferCount = 1;
+    swapchainOutsubmitInfo.pWaitDstStageMask = swapchainWaitStages;
     swapchainOutsubmitInfo.pCommandBuffers = &FramesInFlightData[imageIndex].swapchainTransitionOutCommandBuffer;
     swapchainOutsubmitInfo.waitSemaphoreCount = opaquepasssignalSemaphores.size();
     swapchainOutsubmitInfo.pWaitSemaphores =  opaquepasssignalSemaphores.data();
