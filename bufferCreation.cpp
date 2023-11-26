@@ -1,16 +1,9 @@
 #include "bufferCreation.h"
 
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-    
 #include "Memory.h"
 #include "vmaImplementation.h"
 #include "AppStruct.h"
 #include "CommandPoolManager.h"
-
-void createBuffer(RendererHandles rendererHandles, VkDeviceSize size, VkBufferUsageFlags usage, VmaAllocationCreateFlags  flags,
-                  VmaAllocation* allocation, VkBuffer& buffer, VmaAllocationInfo* outAllocInfo);
 
 void createBuffer(RendererHandles rendererHandles, VkDeviceSize size, VkBufferUsageFlags usage, VmaAllocationCreateFlags  flags,
                                    VmaAllocation* allocation, VkBuffer& buffer, VmaAllocationInfo* outAllocInfo)

@@ -11,6 +11,7 @@
 
 #include "AppStruct.h"
 #include "CommandPoolManager.h"
+#include "PipelineDataObject.h"
 #include "vulkan-utilities.h"
 // My stuff 
 
@@ -99,13 +100,13 @@ private:
     VkDescriptorSetLayout pushDescriptorSetLayout;
     VkDescriptorSetLayout perMaterialSetLayout;
     
-    DescriptorSets::bindlessDrawData descriptorsetLayoutsData;
+    PipelineDataObject descriptorsetLayoutsData;
 
     
     void createDescriptorSetPool(RendererHandles handles, VkDescriptorPool* pool);
-    void updateOpaqueDescriptorSets(RendererHandles handles, VkDescriptorPool pool, DescriptorSets::bindlessDrawData* layoutData);
+    void updateOpaqueDescriptorSets(RendererHandles handles, VkDescriptorPool pool, PipelineDataObject* layoutData);
     void updateShadowDescriptorSets(RendererHandles handles, VkDescriptorPool pool,
-                                    DescriptorSets::bindlessDrawData* layoutData, uint32_t shadowIndex);
+                                    PipelineDataObject* layoutData, uint32_t shadowIndex);
 
 #pragma endregion
 
@@ -203,7 +204,7 @@ private:
 
 
     void createGraphicsPipeline(const char* shaderName,
-                                DescriptorSets::bindlessDrawData* descriptorsetdata, bool shadow = false);
+                                PipelineDataObject* descriptorsetdata, bool shadow = false);
     void createInstance();
 
     int _selectedShader{0};

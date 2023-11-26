@@ -35,6 +35,7 @@ using VkDescriptorSet = struct VkDescriptorSet_T*;
 using VkDescriptorPool = struct VkDescriptorPool_T*;
 using VkDescriptorSet = struct VkDescriptorSet_T*;
 
+using VkPipelineLayout = struct VkPipelineLayout_T*;
 enum VkSamplerAddressMode;
 enum VkImageViewType; 
 
@@ -49,6 +50,7 @@ typedef VkFlags VkMemoryPropertyFlags;
 typedef VkFlags VkImageAspectFlags;
 typedef VkFlags VkBufferUsageFlags;
 typedef VkFlags VkBufferViewCreateFlags;
+typedef VkFlags VkShaderStageFlags;
 typedef uint64_t VkDeviceSize;
 
 typedef struct VkDescriptorBufferInfo ;

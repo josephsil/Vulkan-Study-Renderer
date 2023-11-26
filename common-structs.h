@@ -50,5 +50,22 @@ struct per_object_data
     //Unused
     alignas(16) glm::mat4 padding2;
 };
-   
+
+
+
+
+struct descriptorUpdateData
+{
+    VkDescriptorType type;
+    void* ptr;
+    uint32_t count = 1;
+};
+
+struct dataBuffer
+{
+    VkBuffer data;
+    uint32_t size;
+
+    VkDescriptorBufferInfo getBufferInfo();
+};
 

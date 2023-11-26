@@ -35,7 +35,7 @@ vkb::Instance GET_INSTANCE()
 {
     vkb::InstanceBuilder instance_builder;
     auto instanceBuilderResult = instance_builder
-                                  .request_validation_layers()
+                                  // .request_validation_layers()
                                  .use_default_debug_messenger()
                                  .require_api_version(1, 3, 0)
                                  .build();
@@ -263,7 +263,7 @@ void HelloTriangleApplication::initVulkan()
     cube_specular = TextureData(getHandles(), "textures/output_cubemap2_spec8.ktx2", TextureData::TextureType::CUBE);
 
     
-    descriptorsetLayoutsData = DescriptorSets::bindlessDrawData(getHandles(), scene.get());
+    descriptorsetLayoutsData = PipelineDataObject(getHandles(), scene.get());
 
 
     //TODO JS: Make pipelines belong to the perPipelineLayout members
@@ -395,7 +395,7 @@ void HelloTriangleApplication::createDescriptorSetPool(RendererHandles handles, 
     
 }
 
-void HelloTriangleApplication::updateOpaqueDescriptorSets(RendererHandles handles, VkDescriptorPool pool, DescriptorSets::bindlessDrawData* layoutData)
+void HelloTriangleApplication::updateOpaqueDescriptorSets(RendererHandles handles, VkDescriptorPool pool, PipelineDataObject* layoutData)
 {
 
     //Get data
@@ -425,7 +425,7 @@ void HelloTriangleApplication::updateOpaqueDescriptorSets(RendererHandles handle
 
 //TODO JS: Need to use separate descriptors  
 //TODO JS: Probably want to duplicate less code
-void HelloTriangleApplication::updateShadowDescriptorSets(RendererHandles handles,  VkDescriptorPool pool, DescriptorSets::bindlessDrawData* layoutData, uint32_t shadowIndex)
+void HelloTriangleApplication::updateShadowDescriptorSets(RendererHandles handles,  VkDescriptorPool pool, PipelineDataObject* layoutData, uint32_t shadowIndex)
 {
 
     //Get data
@@ -798,7 +798,7 @@ void HelloTriangleApplication::createDepthResources()
 #pragma endregion
 
 
-void HelloTriangleApplication::createGraphicsPipeline(const char* shaderName, DescriptorSets::bindlessDrawData* descriptorsetdata, bool shadow)
+void HelloTriangleApplication::createGraphicsPipeline(const char* shaderName, PipelineDataObject* descriptorsetdata, bool shadow)
 {
     VkPipeline newGraphicsPipeline; 
     auto shaders = shaderLoader->compiledShaders[shaderName];
