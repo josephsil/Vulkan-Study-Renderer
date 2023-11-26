@@ -146,6 +146,10 @@ void TextureUtilities::transitionImageLayout(RendererHandles rendererHandles, Vk
 
     if (usingTempBuffer)
         rendererHandles.commandPoolmanager->endSingleTimeCommands(tempBufferAndPool);
+    else
+    {
+        
+    }
 }
 
 void TextureUtilities::generateMipmaps(RendererHandles rendererHandles, VkImage image, VkFormat imageFormat,

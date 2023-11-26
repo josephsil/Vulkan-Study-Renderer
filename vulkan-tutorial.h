@@ -83,6 +83,11 @@ private:
     VkExtent2D swapChainExtent;
     std::vector<VkImageView> swapChainImageViews;
     std::vector<VkImage> swapChainImages;
+
+    std::vector<VkImageView> shadowImageViews;
+    std::vector<VkImage> shadowImages;
+    std::vector<VmaAllocation> shadowMemory;
+    VkFormat shadowFormat;
     
     VkImage depthImage;
     VmaAllocation depthImageMemory;
@@ -110,9 +115,15 @@ private:
         VkSemaphore shadowFinishedSemaphores {};
         VkSemaphore imageAvailableSemaphores {};
         VkSemaphore renderFinishedSemaphores {};
+
+        VkSemaphore swapchaintransitionedOutSemaphores {};
+        VkSemaphore swapchaintransitionedInSemaphores {};
         
         VkFence inFlightFences {};
-        VkCommandBuffer commandBuffers {};
+        VkCommandBuffer opaqueCommandBuffers {};
+        VkCommandBuffer shadowCommandBuffers {};
+        VkCommandBuffer swapchainTransitionInCommandBuffer {};
+        VkCommandBuffer swapchainTransitionOutCommandBuffer {};
 
 #pragma region buffers
 
@@ -170,6 +181,7 @@ private:
     void updateUniformBuffer(uint32_t currentImage, glm::mat4 model);
     //Globals per pass, ubos, and lights are updated every frame
     void updatePerFrameBuffers(uint32_t currentImage, std::vector<glm::mat4> models, inputData input);
+    void recordCommandBufferShadowPass(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 
 
     void createDescriptorSetLayout(VkDescriptorSetLayoutCreateInfo layoutinfo, VkDescriptorSetLayout* layout);
@@ -179,7 +191,7 @@ private:
     void createSyncObjects();
 
     void createCommandBuffers();
-    void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+    void recordCommandBufferOpaquePass(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 
     void createGraphicsCommandPool();
     void createTransferCommandPool();
@@ -191,7 +203,7 @@ private:
 
 
     void createGraphicsPipeline(const char* shaderName,
-                                       DescriptorSets::bindlessDrawData* descriptorsetdata);
+                                DescriptorSets::bindlessDrawData* descriptorsetdata, bool shadow = false);
     void createInstance();
 
     int _selectedShader{0};
@@ -201,7 +213,10 @@ private:
     void UpdateRotations();
 
     void drawFrame(inputData input);
-    void renderOpaquePass(uint32_t currentFrame, uint32_t imageIndex, VkSemaphore* waitsemaphores, VkSemaphore* signalsemaphores);
+    void renderShadowPass(uint32_t currentFrame, uint32_t imageIndex, std::vector<VkSemaphore> waitsemaphores,
+                          std::vector<VkSemaphore> signalsemaphores);
+    void renderOpaquePass(uint32_t currentFrame, uint32_t imageIndex, std::vector<VkSemaphore> waitsemaphores, std::vector<VkSemaphore>
+                          signalsemaphores);
 
     void cleanup();
 

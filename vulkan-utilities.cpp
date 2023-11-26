@@ -277,7 +277,7 @@ void DescriptorSets::bindlessDrawData::createPipelineLayout()
     pipelineLayoutInitialized = true;
 }
 
-void DescriptorSets::bindlessDrawData::createGraphicsPipeline(std::vector<VkPipelineShaderStageCreateInfo> shaders, VkFormat* swapchainFormat, VkFormat* depthFormat)
+void DescriptorSets::bindlessDrawData::createGraphicsPipeline(std::vector<VkPipelineShaderStageCreateInfo> shaders, VkFormat* swapchainFormat, VkFormat* depthFormat, bool color, bool depth)
 {
     createPipelineLayout();
     assert(pipelineLayoutInitialized);
@@ -385,9 +385,9 @@ void DescriptorSets::bindlessDrawData::createGraphicsPipeline(std::vector<VkPipe
 
     const VkPipelineRenderingCreateInfo dynamicRenderingInfo {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR,
-        .colorAttachmentCount = 1,
-        .pColorAttachmentFormats = swapchainFormat,
-        .depthAttachmentFormat =  *depthFormat
+        .colorAttachmentCount = (uint32_t)(color ? 1 : 0),
+        .pColorAttachmentFormats = color ? swapchainFormat : VK_NULL_HANDLE ,
+        .depthAttachmentFormat =  (VkFormat) (depth ? *depthFormat : 0)
     };
 
     pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional

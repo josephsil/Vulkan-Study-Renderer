@@ -55,7 +55,8 @@ namespace DescriptorSets
         //Initialization
         void createDescriptorSets( VkDescriptorPool pool,  int MAX_FRAMES_IN_FLIGHT);
         void createPipelineLayout();
-        void createGraphicsPipeline(std::vector<VkPipelineShaderStageCreateInfo> shaders, VkFormat* swapchainFormat, VkFormat* depthFormat);
+        void createGraphicsPipeline(std::vector<VkPipelineShaderStageCreateInfo> shaders, VkFormat* swapchainFormat, VkFormat* depthFormat, bool color = true, bool
+                                    depth = true);
 
         //Runtime
         void updateDescriptorSets(std::vector<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame);
