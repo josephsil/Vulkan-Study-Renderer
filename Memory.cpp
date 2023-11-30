@@ -51,6 +51,7 @@ void* MemoryArena::alloc(memoryArena* a, ptrdiff_t allocSize, ptrdiff_t allocAli
     size_t sizeLeft = a->size - a->head;
     void* res = std::align(allocAlignment, allocSize, headPtr, sizeLeft);
     assert(res);
+    a->last = a->head;
     a->head = ((char *)res + allocSize) - (char *)a->base; //bleh
     return res;
 }
@@ -58,4 +59,9 @@ void* MemoryArena::alloc(memoryArena* a, ptrdiff_t allocSize, ptrdiff_t allocAli
 void MemoryArena::free(memoryArena* a)
 {
     a->head = 0;
+}
+
+void MemoryArena::freeLast(memoryArena* a)
+{
+    a->head = a->last;   
 }

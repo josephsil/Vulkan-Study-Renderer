@@ -66,7 +66,6 @@ TextureData::TextureData(RendererHandles rendererHandles, const char* path, Text
     VkFormat loadedFormat = GetOrLoadTexture(path, inputFormat, textureType, use_mipmaps);
     createTextureImageView(loadedFormat, textureType == CUBE ? VK_IMAGE_VIEW_TYPE_CUBE : VK_IMAGE_VIEW_TYPE_2D);
     createTextureSampler(mode);
-    id = TEXTURE_INDEX++;
 }
 
 //TODO JS: Lifted from gltfiblsampler -- replace

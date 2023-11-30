@@ -30,15 +30,15 @@ public:
         int height;
     };
 
-    temporaryTextureInfo tempTextureInfo;
     VkImageView textureImageView;
     VkSampler textureSampler;
-    RendererHandles rendererHandles;
     VkImage textureImage;
     VmaAllocation textureImageMemory;
+
+    //TODO JS: move out of texturedata
+    RendererHandles rendererHandles;
     uint32_t maxmip = 1; //TODO JS: mutate less places
     uint32_t layerct = 1;
-    int id;
 
 
     
