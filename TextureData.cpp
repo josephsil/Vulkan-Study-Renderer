@@ -510,7 +510,7 @@ VkFormat TextureData::createImageKTX(const char* path, TextureType type, bool mi
 		kTexture->generateMipmaps = false;
 	}
 	
-	uint32_t fullMipPyramid = static_cast<uint32_t>(std::floor(std::log2(std::max(kTexture->baseWidth, kTexture->baseHeight)))) + 1;
+	uint32_t fullMipPyramid = static_cast<uint32_t>(std::floor(std::log2(max(kTexture->baseWidth, kTexture->baseHeight)))) + 1;
 	uint32_t mipCount = kTexture->generateMipmaps ? fullMipPyramid : kTexture->numLevels;
 	VkImage image;
 	VkImageCreateInfo vkimageinfo = {};

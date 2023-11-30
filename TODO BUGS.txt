@@ -1,0 +1,26 @@
+TODO BUGS
+
+3- Get rid of push descriptor sets (cause hitting limit )
+
+DONE  What's going on with sampling the cubenap? Hard edges on normals  <- something wrong with TBN and stuff
+DONE Should copy shaders to build directory  
+
+TODO FEATURES
+
+1- FULLSCREEN QUAD/POST PROCESS PASS (for background skybox) 
+
+2- Shadow maps 
+
+4- Cache textures/models to something faster to load TODO: iteration time has gotten slow
+
+5- Update/refactor to use VMA 
+
+6- More/saving scenes? Better model loading for sponzas? 
+
+7- Separate rate game logic (input) for max frames in flight
+
+
+DONE Restart on shaders? Gaurantee correctness and push for pbr? <- something wrong with TBN and stuff
+DONE Don't always recompile shaders  
+DONE MVP Camera controls 
+DONE Spacebar thing to change shader bool rather than change shader 

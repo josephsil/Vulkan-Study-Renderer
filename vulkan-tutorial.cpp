@@ -243,7 +243,9 @@ void HelloTriangleApplication::initVulkan()
     
     createDepthResources();
 
-    //Load shaders 
+    //Load shaders
+
+
     shaderLoader = new ShaderLoader(device);
     shaderLoader->AddShader("triangle", L"./Shaders/Shader1.hlsl");
     shaderLoader->AddShader("triangle_alt", L"./Shaders/shader2.hlsl");
