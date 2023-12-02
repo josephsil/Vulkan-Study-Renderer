@@ -933,10 +933,14 @@ void HelloTriangleApplication::drawFrame(inputData input)
     uint32_t imageIndex; 
     vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, FramesInFlightData[currentFrame].imageAvailableSemaphores, VK_NULL_HANDLE,
                           &imageIndex);
+    ///////////////////////// Transition swapChain  />
+    ///
+    ///
+    ///    //Wait for IMAGE INDEX to be ready to present
+    vkWaitForFences(device, 1, &FramesInFlightData[imageIndex].inFlightFences, VK_TRUE, UINT64_MAX);
+    MemoryArena::free(&perFrameArenas[imageIndex]); // TODO JS: move -- needs to happen after fence!
 
-    //wait for CURRENT FRAME 
-
-    vkWaitForFences(device, 1, &FramesInFlightData[currentFrame].inFlightFences, VK_TRUE, UINT64_MAX);
+    
 
 
     vkResetCommandBuffer(FramesInFlightData[currentFrame].opaqueCommandBuffers, 0);
@@ -1003,14 +1007,7 @@ void HelloTriangleApplication::drawFrame(inputData input)
     vkEndCommandBuffer(FramesInFlightData[currentFrame].swapchainTransitionOutCommandBuffer);
 
 
-    ///////////////////////// Transition swapChain  />
-    ///
-    ///
-    ///    //Wait for IMAGE INDEX to present
-    vkWaitForFences(device, 1, &FramesInFlightData[imageIndex].inFlightFences, VK_TRUE, UINT64_MAX);
-    MemoryArena::free(&perFrameArenas[imageIndex]); // TODO JS: move -- needs to happen after fence!
-
-    
+  
     //Transition IMAGEINDEX swapchain out 
     VkSubmitInfo swapchainOutsubmitInfo{};
     swapchainOutsubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
