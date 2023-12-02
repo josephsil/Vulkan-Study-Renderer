@@ -96,7 +96,7 @@ uint32_t Scene::getOffsetFromMeshID(int id)
 uint32_t Scene::getVertexCount()
 {
     int indexcount = 0;
-    for (int i = 0; i < backing_meshes.size(); i++)
+    for (int i = 0; i < meshCount; i++)
     {
         indexcount += backing_meshes[i].indices.size();
     }
@@ -156,13 +156,15 @@ int Scene::AddLight(glm::vec3 position, glm::vec3 color, float radius, float int
 
 void Scene::Cleanup()
 {
-    for (int i = 0; i < backing_meshes.size(); i++)
+    for (int i = 0; i < meshCount; i++)
     {
         backing_meshes[i].cleanup();
     }
-    for (int i = 0; i < backing_diffuse_textures.size(); i++)
+    for (int i = 0; i <  materialCount(); i++)
     {
         backing_diffuse_textures[i].cleanup();
+        backing_specular_textures[i].cleanup();
+        backing_normal_textures[i].cleanup();
     }
 }
 

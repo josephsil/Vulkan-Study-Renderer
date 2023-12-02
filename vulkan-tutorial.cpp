@@ -189,7 +189,7 @@ void HelloTriangleApplication::initVulkan()
 
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        MemoryArena::initialize(&perFrameArenas[i], 1000000 * 6); // 6mb each
+        MemoryArena::initialize(&perFrameArenas[i], 1000000 * 600); // 6mb each
     }
     FramesInFlightData.resize(MAX_FRAMES_IN_FLIGHT);
     //Get instance
@@ -297,7 +297,7 @@ void HelloTriangleApplication::initVulkan()
 void HelloTriangleApplication::populateMeshBuffers()
 {
     uint32_t vertCt = 0;
-    for (int i = 0; i < scene->backing_meshes.size(); i++)
+    for (int i = 0; i < scene->meshCount; i++)
     {
         vertCt += scene->backing_meshes[i].vertcount;
     }
@@ -306,7 +306,7 @@ void HelloTriangleApplication::populateMeshBuffers()
     auto gpuVerts = MemoryArena::AllocSpan<gpuvertex>(getHandles().perframeArena, vertCt);
 
     uint32_t vert = 0;
-    for (int j = 0; j < scene->backing_meshes.size(); j++)
+    for (int j = 0; j < scene->meshCount; j++)
     {
         MeshData mesh = scene->backing_meshes[j];
         for (int i = 0; i < mesh.indices.size(); i++)
@@ -335,9 +335,9 @@ void HelloTriangleApplication::populateMeshBuffers()
 void HelloTriangleApplication::createUniformBuffers()
 {
     VkDeviceSize globalsSize = sizeof(ShaderGlobals);
-    VkDeviceSize ubosSize = sizeof(UniformBufferObject) * scene->objects.matrices.size();
+    VkDeviceSize ubosSize = sizeof(UniformBufferObject) * scene->objectsCount();
     VkDeviceSize vertsSize = sizeof(gpuvertex) * scene->getVertexCount();
-    VkDeviceSize lightdataSize = sizeof(gpulight) * scene->lightposandradius.size();
+    VkDeviceSize lightdataSize = sizeof(gpulight) * scene->lightCount;
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
@@ -563,7 +563,7 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentImage, std:
     }
 
     //Ubos
-    auto ubos = MemoryArena::AllocSpan<UniformBufferObject>(tempArena,models.size());
+    auto ubos = MemoryArena::AllocSpan<UniformBufferObject>(tempArena,scene->objectsCount());
 
     for (int i = 0; i < ubos.size(); i++)
     {
@@ -571,7 +571,7 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentImage, std:
         ubos[i].model = models[i];
         ubos[i].Normal = transpose(inverse(glm::mat3(*model)));
     }
-    memcpy(FramesInFlightData[currentImage].uniformBuffersMapped, ubos.data(), sizeof(UniformBufferObject) * models.size());
+    memcpy(FramesInFlightData[currentImage].uniformBuffersMapped, ubos.data(), sizeof(UniformBufferObject) *scene->objectsCount());
 
     //Lights
     auto lights = MemoryArena::AllocSpan<gpulight>(tempArena, scene->lightCount);
@@ -919,14 +919,13 @@ void HelloTriangleApplication::UpdateRotations()
     // Conversion from axis-angle
     // In GLM the angle must be in degrees here, so convert it.
 
-    for (int i = 0; i < scene->objects.rotations.size(); i++)
+    for (int i = 0; i < scene->objectsCount(); i++)
     {
         scene->objects.rotations[i] *= MyQuaternion;
     }
 
     scene->Update();
 }
-
 
 void HelloTriangleApplication::drawFrame(inputData input)
 {
@@ -936,21 +935,18 @@ void HelloTriangleApplication::drawFrame(inputData input)
     updatePerFrameBuffers(currentFrame, scene->objects.matrices, input); // TODO JS: Figure out
     //Prepare for pass
     uint32_t imageIndex; 
-        vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, FramesInFlightData[currentFrame].imageAvailableSemaphores, VK_NULL_HANDLE,
+    vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, FramesInFlightData[currentFrame].imageAvailableSemaphores, VK_NULL_HANDLE,
                           &imageIndex);
 
 
     vkWaitForFences(device, 1, &FramesInFlightData[imageIndex].inFlightFences, VK_TRUE, UINT64_MAX);
-    //TODO JS: At this point, we've finished rendering imageIndex... so we can clear that memoruyArena too
-    //TODO JS: move
-    MemoryArena::free(&perFrameArenas[imageIndex]);
-
-
     vkResetCommandBuffer(FramesInFlightData[imageIndex].opaqueCommandBuffers, 0);
     vkResetCommandBuffer(FramesInFlightData[imageIndex].shadowCommandBuffers, 0);
     vkResetCommandBuffer(FramesInFlightData[imageIndex].swapchainTransitionOutCommandBuffer, 0);
     vkResetCommandBuffer(FramesInFlightData[imageIndex].swapchainTransitionInCommandBuffer, 0);
     vkResetFences(device, 1, &FramesInFlightData[imageIndex].inFlightFences);
+
+    //TODO JS: better place for this?
 
     ///////////////////////// </Transition swapChain 
     VkCommandBufferBeginInfo beginInfo{};
@@ -970,15 +966,15 @@ void HelloTriangleApplication::drawFrame(inputData input)
     swapChainInSubmitInfo.pWaitDstStageMask = swapchainWaitStages;
     swapChainInSubmitInfo.pCommandBuffers = &FramesInFlightData[imageIndex].swapchainTransitionInCommandBuffer;
     swapChainInSubmitInfo.waitSemaphoreCount = 1;
-    swapChainInSubmitInfo.pWaitSemaphores = &FramesInFlightData[imageIndex].imageAvailableSemaphores;
+    swapChainInSubmitInfo.pWaitSemaphores = &FramesInFlightData[currentFrame].imageAvailableSemaphores;
     swapChainInSubmitInfo.signalSemaphoreCount = 1;
-    swapChainInSubmitInfo.pSignalSemaphores = &FramesInFlightData[imageIndex].swapchaintransitionedInSemaphores;
+    swapChainInSubmitInfo.pSignalSemaphores = &FramesInFlightData[currentFrame].swapchaintransitionedInSemaphores;
 
     vkQueueSubmit(commandPoolmanager.Queues.graphicsQueue, 1, &swapChainInSubmitInfo, VK_NULL_HANDLE);
 
     ///////////////////////// Transition swapChain  />
         //Shadows
-        std::vector<VkSemaphore> shadowPassWaitSemaphores = {FramesInFlightData[imageIndex].swapchaintransitionedInSemaphores};
+        std::vector<VkSemaphore> shadowPassWaitSemaphores = {FramesInFlightData[currentFrame].swapchaintransitionedInSemaphores};
         std::vector<VkSemaphore> shadowpasssignalSemaphores = {FramesInFlightData[imageIndex].shadowFinishedSemaphores};
         
         renderShadowPass(imageIndex,imageIndex, shadowPassWaitSemaphores,shadowpasssignalSemaphores);
@@ -1032,7 +1028,6 @@ void HelloTriangleApplication::drawFrame(inputData input)
     //Present frame
     vkQueuePresentKHR(commandPoolmanager.Queues.presentQueue, &presentInfo);
 
-    //TODO JS: move a safer place?
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
