@@ -9,6 +9,8 @@
 #include "AppStruct.h"
 
 #pragma region forward declarations
+#include <span>
+
 #include "forward-declarations-renderer.h"
 #pragma endregion
 
@@ -18,13 +20,13 @@ struct MeshData
 public:
     VkBuffer vertBuffer;
     VkBuffer indexBuffer;
-    RendererHandles rendererHandles;
+    RendererHandles rendererHandles; //TODO to pointer?
     VmaAllocation vertMemory;
     VmaAllocation indexMemory;
-    std::vector<Vertex> vertices;
-    std::vector<uint32_t> indices;
+    std::span<Vertex> vertices; // Span into memoryArena
+    std::span<uint32_t> indices; //Span into memoryArena
     VkDevice device; //Device pointers
-    int vertcount;
+    size_t vertcount;
     int id;
 
 

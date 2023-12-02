@@ -59,7 +59,16 @@ void* MemoryArena::alloc(memoryArena* a, ptrdiff_t allocSize, ptrdiff_t allocAli
 void MemoryArena::free(memoryArena* a)
 {
     a->head = 0;
+    a->last = 0;
 }
+
+void* MemoryArena::copy(memoryArena* a, void* ptr, size_t size_in_bytes)
+{
+    void* tgt = MemoryArena::alloc(a, size_in_bytes);
+    memcpy(tgt, ptr, size_in_bytes);
+    return tgt;
+}
+
 
 void MemoryArena::freeLast(memoryArena* a)
 {

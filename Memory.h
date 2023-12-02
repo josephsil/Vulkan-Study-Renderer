@@ -48,15 +48,29 @@ namespace MemoryArena
         return (T*)a->base + offset;
     }
 
+    void* copy(memoryArena* a, void* ptr, size_t size_in_bytes);
     template<typename T> T *Alloc(memoryArena* a, size_t ct = 1) {
         T *ret = (T*)alloc(a, ct * sizeof(T));
         return ret;
     }
 
-    template<typename T> std::span<T> AllocSpan(memoryArena* a, int length)
+    template<typename T> std::span<T> AllocSpan(memoryArena* a, size_t length = 1)
     {
-        std::span<T> ret(alloc(a, length * sizeof(T)), length);
+        T* start = (T*)alloc(a, length * sizeof(T), alignof(T));
+        std::span<T> ret {start, length};
+        return ret;
     }
+
+    template<typename T> std::span<T> copySpan(memoryArena* a, std::span<T> src)
+    {
+        T* start = (T*)MemoryArena::copy(a, src.data(), src.size_bytes());
+        std::span<T> ret {start, src.size()};
+        return ret;
+    }
+
+
+     
+
     
 
     

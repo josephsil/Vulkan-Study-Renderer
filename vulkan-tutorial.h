@@ -11,6 +11,7 @@
 
 #include "AppStruct.h"
 #include "CommandPoolManager.h"
+#include "Memory.h"
 #include "PipelineDataObject.h"
 #include "vulkan-utilities.h"
 // My stuff 
@@ -31,14 +32,17 @@ public:
     std::unique_ptr<Scene> scene;
     RendererHandles getHandles();
     HelloTriangleApplication();
+    
 
    
 
 private:
 
-    const int MAX_FRAMES_IN_FLIGHT = 3;
-    const int MAX_SHADOWCASTERS = 1;
+    const static int MAX_FRAMES_IN_FLIGHT = 3;
+    const static int MAX_SHADOWCASTERS = 1;
 
+    MemoryArena::memoryArena arena{};
+    MemoryArena::memoryArena perFrameArenas[MAX_FRAMES_IN_FLIGHT];
 #pragma region SDL
     uint32_t T;
     uint32_t T2;
@@ -181,7 +185,7 @@ private:
 
     void updateUniformBuffer(uint32_t currentImage, glm::mat4 model);
     //Globals per pass, ubos, and lights are updated every frame
-    void updatePerFrameBuffers(uint32_t currentImage, std::vector<glm::mat4> models, inputData input);
+    void updatePerFrameBuffers(uint32_t currentImage, std::span<glm::mat4> models, inputData input);
     void recordCommandBufferShadowPass(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 
 

@@ -176,13 +176,21 @@ void SET_UP_SCENE(HelloTriangleApplication* app);
 //TODO JS: replace phys device, device, etc members with a rendererhandles instance?
 RendererHandles HelloTriangleApplication::getHandles()
 {
-    return RendererHandles(physicalDevice, device, &commandPoolmanager, allocator);
+    return RendererHandles{physicalDevice, device, &commandPoolmanager, allocator, &arena, &perFrameArenas[currentFrame]};
 }
 
 
 
 void HelloTriangleApplication::initVulkan()
 {
+
+    this->arena = {};
+    MemoryArena::initialize(&arena, 1000000 * 10); // 10mb
+
+    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    {
+        MemoryArena::initialize(&perFrameArenas[i], 1000000 * 4); // 4mb each
+    }
     FramesInFlightData.resize(MAX_FRAMES_IN_FLIGHT);
     //Get instance
     vkb_instance = GET_INSTANCE();
@@ -255,7 +263,7 @@ void HelloTriangleApplication::initVulkan()
     createCommandBuffers();
 
     //Initialize scene
-    scene = std::make_unique<Scene>(Scene());
+    scene = std::make_unique<Scene>(Scene(&arena));
     SET_UP_SCENE(this);
 
     //Initialize scene-ish objects we don't have a place for yet 
@@ -318,7 +326,7 @@ void HelloTriangleApplication::populateMeshBuffers()
 void HelloTriangleApplication::createUniformBuffers()
 {
     VkDeviceSize globalsSize = sizeof(ShaderGlobals);
-    VkDeviceSize ubosSize = sizeof(UniformBufferObject) * scene->matrices.size();
+    VkDeviceSize ubosSize = sizeof(UniformBufferObject) * scene->objects.matrices.size();
     VkDeviceSize vertsSize = sizeof(gpuvertex) * scene->getVertexCount();
     VkDeviceSize lightdataSize = sizeof(gpulight) * scene->lightposandradius.size();
 
@@ -501,7 +509,7 @@ void HelloTriangleApplication::createSyncObjects()
 #pragma region prepare and submit draw call
 
 
-void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentImage, std::vector<glm::mat4> models,
+void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentImage, std::span<glm::mat4> models,
                                                     inputData input)
 {
     //Opaque globals
@@ -632,12 +640,12 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
 
     //TODO JS: Something other than hardcoded index 2 for shadow pipeline
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, descriptorsetLayoutsData.getPipeline(2));
-     int meshct = scene->meshes.size();
+     int meshct =  scene->objectsCount();
      for (int i = 0; i <meshct; i++)
      {
          per_object_data constants;
          //Light count, vert offset, texture index, and object data index
-         constants.indexInfo = glm::vec4(-1, (scene->meshOffsets[i]),
+         constants.indexInfo = glm::vec4(-1, (scene->objects.meshOffsets[i]),
                                          -1, i);
 
          constants.materialprops = glm::vec4(-1, -1, 0, 0);
@@ -645,7 +653,7 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
          vkCmdPushConstants(commandBuffer, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                             sizeof(per_object_data), &constants);
 
-         vkCmdDraw(commandBuffer, static_cast<uint32_t>(scene->meshes[i]->vertcount), 1, 0, 0);
+         vkCmdDraw(commandBuffer, static_cast<uint32_t>(scene->objects.meshes[i]->vertcount), 1, 0, 0);
      }
 
 
@@ -721,11 +729,11 @@ void HelloTriangleApplication::recordCommandBufferOpaquePass(VkCommandBuffer com
     descriptorsetLayoutsData.bindToCommandBufferOpaque(commandBuffer, currentFrame);
     VkPipelineLayout layout = descriptorsetLayoutsData.getLayoutOpaque();
     
-    int meshct = scene->meshes.size();
+    int meshct = scene->objectsCount();
     int lastPipelineIndex = -1;
     for (int i = 0; i <meshct; i++)
     {
-        Material material = scene->materials[i];
+        Material material = scene->objects.materials[i];
         int pipelineIndex = material.pipelineidx;
 #ifdef DEBUG_SHADERS
         pipelineIndex = debugpipelineindexoverride;
@@ -739,15 +747,15 @@ void HelloTriangleApplication::recordCommandBufferOpaquePass(VkCommandBuffer com
         
         per_object_data constants;
         //Light count, vert offset, texture index, and object data index
-        constants.indexInfo = glm::vec4(material.backingTextureidx, (scene->meshOffsets[i]),
+        constants.indexInfo = glm::vec4(material.backingTextureidx, (scene->objects.meshOffsets[i]),
                                         material.backingTextureidx, i);
 
-        constants.materialprops = glm::vec4(material.roughness, scene->materials[i].metallic, 0, 0);
+        constants.materialprops = glm::vec4(material.roughness, scene->objects.materials[i].metallic, 0, 0);
 
         vkCmdPushConstants(commandBuffer, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                            sizeof(per_object_data), &constants);
 
-        vkCmdDraw(commandBuffer, static_cast<uint32_t>(scene->meshes[i]->vertcount), 1, 0, 0);
+        vkCmdDraw(commandBuffer, static_cast<uint32_t>(scene->objects.meshes[i]->vertcount), 1, 0, 0);
     }
 
 
@@ -906,9 +914,9 @@ void HelloTriangleApplication::UpdateRotations()
     // Conversion from axis-angle
     // In GLM the angle must be in degrees here, so convert it.
 
-    for (int i = 0; i < scene->rotations.size(); i++)
+    for (int i = 0; i < scene->objects.rotations.size(); i++)
     {
-        scene->rotations[i] *= MyQuaternion;
+        scene->objects.rotations[i] *= MyQuaternion;
     }
 
     scene->Update();
@@ -920,14 +928,19 @@ void HelloTriangleApplication::drawFrame(inputData input)
 
     
     //Update per frame data
-    updatePerFrameBuffers(currentFrame, scene->matrices, input); // TODO JS: Figure out
+    updatePerFrameBuffers(currentFrame, scene->objects.matrices, input); // TODO JS: Figure out
     //Prepare for pass
     uint32_t imageIndex; 
-    vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, FramesInFlightData[currentFrame].imageAvailableSemaphores, VK_NULL_HANDLE,
+        vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, FramesInFlightData[currentFrame].imageAvailableSemaphores, VK_NULL_HANDLE,
                           &imageIndex);
 
 
     vkWaitForFences(device, 1, &FramesInFlightData[imageIndex].inFlightFences, VK_TRUE, UINT64_MAX);
+    //TODO JS: At this point, we've finished rendering imageIndex... so we can clear that memoruyArena too
+    //TODO JS: move
+    MemoryArena::free(&perFrameArenas[imageIndex]);
+
+
     vkResetCommandBuffer(FramesInFlightData[imageIndex].opaqueCommandBuffers, 0);
     vkResetCommandBuffer(FramesInFlightData[imageIndex].shadowCommandBuffers, 0);
     vkResetCommandBuffer(FramesInFlightData[imageIndex].swapchainTransitionOutCommandBuffer, 0);
@@ -952,15 +965,15 @@ void HelloTriangleApplication::drawFrame(inputData input)
     swapChainInSubmitInfo.pWaitDstStageMask = swapchainWaitStages;
     swapChainInSubmitInfo.pCommandBuffers = &FramesInFlightData[imageIndex].swapchainTransitionInCommandBuffer;
     swapChainInSubmitInfo.waitSemaphoreCount = 1;
-    swapChainInSubmitInfo.pWaitSemaphores = &FramesInFlightData[currentFrame].imageAvailableSemaphores;
+    swapChainInSubmitInfo.pWaitSemaphores = &FramesInFlightData[imageIndex].imageAvailableSemaphores;
     swapChainInSubmitInfo.signalSemaphoreCount = 1;
-    swapChainInSubmitInfo.pSignalSemaphores = &FramesInFlightData[currentFrame].swapchaintransitionedInSemaphores;
+    swapChainInSubmitInfo.pSignalSemaphores = &FramesInFlightData[imageIndex].swapchaintransitionedInSemaphores;
 
     vkQueueSubmit(commandPoolmanager.Queues.graphicsQueue, 1, &swapChainInSubmitInfo, VK_NULL_HANDLE);
 
     ///////////////////////// Transition swapChain  />
         //Shadows
-        std::vector<VkSemaphore> shadowPassWaitSemaphores = {FramesInFlightData[currentFrame].swapchaintransitionedInSemaphores};
+        std::vector<VkSemaphore> shadowPassWaitSemaphores = {FramesInFlightData[imageIndex].swapchaintransitionedInSemaphores};
         std::vector<VkSemaphore> shadowpasssignalSemaphores = {FramesInFlightData[imageIndex].shadowFinishedSemaphores};
         
         renderShadowPass(imageIndex,imageIndex, shadowPassWaitSemaphores,shadowpasssignalSemaphores);
@@ -1014,6 +1027,7 @@ void HelloTriangleApplication::drawFrame(inputData input)
     //Present frame
     vkQueuePresentKHR(commandPoolmanager.Queues.presentQueue, &presentInfo);
 
+    //TODO JS: move a safer place?
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
@@ -1130,6 +1144,8 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
     std::vector<int> randomMeshes;
     std::vector<int> randomMaterials;
 
+
+
     int placeholderTextureidx = app->scene->AddMaterial(
         TextureData(app->getHandles(), "textures/pbr_cruiser-panels/space-cruiser-panels2_albedo.png",
                     TextureData::TextureType::DIFFUSE),
@@ -1170,7 +1186,7 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
     //TODO: Scene loads mesh instead? 
     randomMeshes.push_back(app->scene->AddBackingMesh(MeshData(app->getHandles(), "Meshes/pig.glb")));
     randomMeshes.push_back(app->scene->AddBackingMesh(MeshData(app->getHandles(), "Meshes/cubesphere.glb")));
-    randomMeshes.push_back(app->scene->AddBackingMesh(MeshData(app->getHandles(), "Meshes/monkey.obj")));
+    randomMeshes.push_back(app->scene->AddBackingMesh(MeshData(app->getHandles(), "Meshes/pig.glb")));
 
     app->scene->AddLight(glm::vec3(1, 1, 1), glm::vec3(1, 1, 1), 5, 5 / 2);
     app->scene->AddLight(glm::vec3(0, -3, 1), glm::vec3(1, 1, 1), 5, 8 / 2);

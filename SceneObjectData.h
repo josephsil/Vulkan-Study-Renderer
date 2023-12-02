@@ -1,9 +1,15 @@
 #pragma once
+#include <span>
 #include <vector>
 #include <glm/glm.hpp>
 #include<glm/gtc/quaternion.hpp>
 
 #include "Material.h"
+
+namespace MemoryArena
+{
+    struct memoryArena;
+}
 
 //Objects have like, transformation info, ref to their mesh, ref to their material
 //Not sure on ref to material. Really I only have one shader right now
@@ -15,43 +21,52 @@ class Scene
 {
     //Should add a like gameobject-y thing that has a mesh and a material
 private:
-    int ct = 0;
-
     //No scale for now
 public:
-    //Parallel arrays per-object
-    std::vector<glm::vec3> translations;
-    std::vector<glm::quat> rotations;
-    std::vector<MeshData*> meshes;
-    std::vector<Material> materials;
-    std::vector<uint32_t> meshOffsets;
-    std::vector<uint32_t> meshVertCounts;
-    std::vector<glm::mat4> matrices;
-
-    // arallel arrays per Light
-    std::vector<glm::vec4> lightposandradius;
-    std::vector<glm::vec4> lightcolorAndIntensity;
-    int lightCount = 0;
-
-    //Non parallel arrays //TODO JS: Pack together?
-    std::vector<TextureData> backing_utility_textures;
     int utilityTextureCount();
-    std::vector<TextureData> backing_diffuse_textures;
-    std::vector<TextureData> backing_specular_textures;
-    std::vector<TextureData> backing_normal_textures;
     int materialCount();
     int materialTextureCount();
-    std::vector<MeshData> backing_meshes;
-    std::vector<MeshData> misc_meshes;
+
+    struct Objects
+    {
+        int objectsCount = 0;
+        //Parallel arrays per-object
+        std::span<glm::vec3> translations;
+        std::span<glm::quat> rotations;
+        std::span<MeshData*> meshes; //todo js: are these redundant?
+        std::span<uint32_t> meshOffsets; //todo js: are these redundant?
+        std::span<Material> materials;
+        std::span<uint32_t> meshVertCounts;
+        std::span<glm::mat4> matrices;
+    };
+
+    Objects objects;
+
+    // arallel arrays per Light
+    int lightCount = 0;
+    std::span<glm::vec4> lightposandradius;
+    std::span<glm::vec4> lightcolorAndIntensity;
+
+    //Non parallel arrays //TODO JS: Pack together?
+    int textureSetCount = 0;
+    std::span<TextureData> backing_diffuse_textures;
+    std::span<TextureData> backing_specular_textures;
+    std::span<TextureData> backing_normal_textures;
+
+    int _utilityTextureCount = 0;
+    std::span<TextureData> backing_utility_textures;
+
+    int meshCount = 0;
+    std::span<MeshData> backing_meshes;
 
 
-    Scene();
+    Scene(MemoryArena::memoryArena* memoryArena);
     void Update();
-    void Sort();
     //Returns the index to the object in the vectors
     int AddObject(MeshData* mesh, int textureidx, float material_roughness, bool material_metallic, glm::vec3 position,
                   glm::quat rotation);
     uint32_t getVertexCount();
+    int objectsCount();
     uint32_t getOffsetFromMeshID(int id);
 
     //TODO JS: these are temporary
