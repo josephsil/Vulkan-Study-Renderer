@@ -1,40 +1,35 @@
 #include "MeshData.h"
-
-
-
-#include <iostream>
 #include "mikktspace.h"
-#include "MeshLibraryImplementations.h"
-#include <vector>
 #include <unordered_map>
 #include "AppStruct.h"
 #include "Array.h"
 #include "bufferCreation.h"
 #include "Memory.h"
-#include "vulkan-utilities.h"
 
 
 struct MeshForMikkt
 {
 public:
-    std::vector<glm::vec3> pos;
+    std::span<glm::vec3> pos;
     std::span<uint32_t> idx;
-    std::vector<glm::vec3> norm;
-    std::vector<glm::vec4> tan;
-    std::vector<glm::vec3> uv;
+    std::span<glm::vec3> norm;
+    std::span<glm::vec4> tan;
+    std::span<glm::vec3> uv;
 
-    MeshForMikkt(std::span<Vertex> verts, std::span<uint32_t> indices)
+    MeshForMikkt(MemoryArena::memoryArena* alloc, std::span<Vertex> verts, std::span<uint32_t> indices)
     {
+        
         //TODO JS: pass in temp allocator?
-        pos.resize(verts.size());
-        norm.resize(verts.size());
-        tan.resize(verts.size());
-        uv.resize(verts.size());
-        for (int __i = 0; __i < verts.size(); __i++)
+        pos = MemoryArena::AllocSpan<glm::vec3>(alloc, verts.size());
+        norm = MemoryArena::AllocSpan<glm::vec3>(alloc, verts.size());
+        tan = MemoryArena::AllocSpan<glm::vec4>(alloc, verts.size());
+        uv = MemoryArena::AllocSpan<glm::vec3>(alloc, verts.size());
+        idx = indices;
+        for (int i = 0; i < verts.size(); i++)
         {
-            pos[__i] = {verts[__i].pos.x, verts[__i].pos.y, verts[__i].pos.z};
-            norm[__i] = {verts[__i].normal.x, verts[__i].normal.y, verts[__i].normal.z};
-            uv[__i] = {verts[__i].texCoord.x, verts[__i].texCoord.y, verts[__i].texCoord.z};
+            pos[i] = {verts[i].pos.x, verts[i].pos.y, verts[i].pos.z};
+            norm[i] = {verts[i].normal.x, verts[i].normal.y, verts[i].normal.z};
+            uv[i] = {verts[i].texCoord.x, verts[i].texCoord.y, verts[i].texCoord.z};
         }
     }
 };
@@ -179,7 +174,7 @@ MeshData::MeshData(RendererHandles app, const char* path)
 
         if (model.meshes.size() > 1)
         {
-            std::cout << "NOT IMPLEMENTED -- DON'T SUPPORT MULTIPLE MESHES";
+            printf("NOT IMPLEMENTED -- DON'T SUPPORT MULTIPLE MESHES");
             std::exit(-1);
         }
 
@@ -231,7 +226,7 @@ MeshData::MeshData(RendererHandles app, const char* path)
 
                 if (!prim.attributes.contains("NORMAL"))
                 {
-                    std::cout << "NOT IMPLEMENTED -- DONT WORK SUPPORT MODELS WITHOUT NORMALS";
+                   printf("NOT IMPLEMENTED -- DONT WORK SUPPORT MODELS WITHOUT NORMALS");
                     std::exit(-1);
                 }
 
@@ -349,7 +344,7 @@ MeshData::MeshData(RendererHandles app, const char* path)
          {
              if (!reader.Error().empty())
              {
-                 std::cerr << "TinyObjReader: " << reader.Error();
+                 printf("%s", reader.Error().c_str());
              }
              exit(1);
          }
@@ -409,7 +404,7 @@ MeshData::MeshData(RendererHandles app, const char* path)
      }
      else
      {
-         std::cout << "UNSUPPORTED MODEL FORMAT: '" << ext << "' IN PATH: " << path;
+         printf("UNSUPPORTED MODEL FORMAT: '%s' IN PATH:%s",ext, path);
          std::exit(-1);
      }
 
@@ -431,7 +426,7 @@ MeshData::MeshData(RendererHandles app, const char* path)
              }
          }
          //
-         auto m = MeshForMikkt(expandedVertices, _indices.getSpan());
+         auto m = MeshForMikkt(tempArena, expandedVertices, _indices.getSpan());
          auto mikkt = MikktImpl();
          mikkt.calculateTangents(&m);
          for (int i = 0; i < expandedVertices.size(); i++)

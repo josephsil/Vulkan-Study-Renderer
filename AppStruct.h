@@ -1,5 +1,4 @@
 #pragma once
-#include <span>
 
 #include "forward-declarations-renderer.h"
 struct CommandPoolManager;

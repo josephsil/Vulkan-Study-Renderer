@@ -185,7 +185,7 @@ void HelloTriangleApplication::initVulkan()
 
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        MemoryArena::initialize(&perFrameArenas[i], 1000000 * 5); // 5mb each //TODO JS: Could be much smaller if I had a separate arena for file loading
+        MemoryArena::initialize(&perFrameArenas[i], 1000000 * 10); // 10mb each //TODO JS: Could be much smaller if I had a separate arena for file loading
     }
     FramesInFlightData.resize(MAX_FRAMES_IN_FLIGHT);
     //Get instance

@@ -1,10 +1,6 @@
 
 #include "vulkan-utilities.h"
 
-#include <array>
-#include <iostream>
-#include <unordered_map>
-
 #include "AppStruct.h"
 #include "CommandPoolManager.h"
 #include "TextureData.h"
@@ -45,7 +41,7 @@ VkFormat Capabilities::findSupportedFormat(RendererHandles rendererHandles, cons
         }
     }
 
-    std::cerr << "failed to find supported format!" << "\n";
+    printf("failed to find supported format!");
     exit(1);
 }
 
@@ -63,7 +59,8 @@ uint32_t Capabilities::findMemoryType(RendererHandles rendererHandles, uint32_t 
         }
     }
 
-    throw std::runtime_error("failed to find suitable memory type!");
+    printf("failed to find suitable memory type!");
+    exit (-1);
 }
 
 

@@ -1,11 +1,10 @@
 #include "FileCaching.h"
-#include "Vulkan_Includes.h"
+
 #include <atlbase.h>
 #include <cassert>
-#include <codecvt>
-#include <iostream>
+
 #include <fstream>
-#include <locale>
+
 
 #ifdef WIN32
 #define stat _stat
