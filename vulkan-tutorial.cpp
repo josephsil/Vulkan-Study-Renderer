@@ -1120,17 +1120,15 @@ void HelloTriangleApplication::cleanup()
         VulkanMemory::DestroyImage(allocator, shadowImages[i], shadowMemory[i]);
     }
 
-
+     // vkb::destroy_surface(vkb_surface);
     destroy_swapchain(vkb_swapchain);
-    vkDestroySwapchainKHR(device, swapChain, nullptr);
-    vkDestroyDevice(device, nullptr);
+   
     vkDestroySurfaceKHR(instance, surface, nullptr);
-    vkDestroyInstance(instance, nullptr);
-
-    // vkb::destroy_surface(vkb_surface);
     destroy_device(vkb_device);
     destroy_instance(vkb_instance);
     SDL_DestroyWindow(_window);
+
+   
 }
 
 #pragma endregion
