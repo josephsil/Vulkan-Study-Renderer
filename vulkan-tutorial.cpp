@@ -189,7 +189,7 @@ void HelloTriangleApplication::initVulkan()
 
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        MemoryArena::initialize(&perFrameArenas[i], 1000000 * 4); // 4mb each
+        MemoryArena::initialize(&perFrameArenas[i], 1000000 * 6); // 6mb each
     }
     FramesInFlightData.resize(MAX_FRAMES_IN_FLIGHT);
     //Get instance
@@ -296,7 +296,16 @@ void HelloTriangleApplication::initVulkan()
 
 void HelloTriangleApplication::populateMeshBuffers()
 {
-    std::vector<gpuvertex> verts;
+    uint32_t vertCt = 0;
+    for (int i = 0; i < scene->backing_meshes.size(); i++)
+    {
+        vertCt += scene->backing_meshes[i].vertcount;
+    }
+
+    //TODO JS: to ring buffer?
+    auto gpuVerts = MemoryArena::AllocSpan<gpuvertex>(getHandles().perframeArena, vertCt);
+
+    uint32_t vert = 0;
     for (int j = 0; j < scene->backing_meshes.size(); j++)
     {
         MeshData mesh = scene->backing_meshes[j];
@@ -307,15 +316,15 @@ void HelloTriangleApplication::populateMeshBuffers()
             glm::vec4 uv = mesh.vertices[mesh.indices[i]].texCoord;
             glm::vec4 norm = mesh.vertices[mesh.indices[i]].normal;
             glm::vec4 tangent = mesh.vertices[mesh.indices[i]].tangent;
-            gpuvertex vert = {
+              gpuVerts[vert++] = {
                 glm::vec4(pos.x, pos.y, pos.z, 1), uv, norm, glm::vec4(tangent.x, tangent.y, tangent.z, tangent.w)
             };
-            verts.push_back(vert);
+        
         }
     }
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        memcpy(FramesInFlightData[i].meshBuffersMapped, verts.data(), sizeof(gpuvertex) * scene->getVertexCount());
+        memcpy(FramesInFlightData[i].meshBuffersMapped, gpuVerts.data(), sizeof(gpuvertex) * scene->getVertexCount());
     }
 }
 
@@ -512,6 +521,8 @@ void HelloTriangleApplication::createSyncObjects()
 void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentImage, std::span<glm::mat4> models,
                                                     inputData input)
 {
+    //TODO JS: to ring buffer?
+    auto tempArena = getHandles().perframeArena;
     //Opaque globals
     ShaderGlobals globals;
     eyePos += (input.translate * deltaTime);
@@ -551,14 +562,10 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentImage, std:
         memcpy(FramesInFlightData[currentImage].perLightShadowShaderGlobalsMapped[i], &shadowGlobals, sizeof(ShaderGlobals));
     }
 
-    //Ubos 
-    std::vector<UniformBufferObject> ubos;
+    //Ubos
+    auto ubos = MemoryArena::AllocSpan<UniformBufferObject>(tempArena,models.size());
 
-    if (ubos.size() != models.size())
-    {
-        ubos.resize(models.size());
-    }
-    for (int i = 0; i < models.size(); i++)
+    for (int i = 0; i < ubos.size(); i++)
     {
         glm::mat4* model = &models[i];
         ubos[i].model = models[i];
@@ -567,11 +574,9 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentImage, std:
     memcpy(FramesInFlightData[currentImage].uniformBuffersMapped, ubos.data(), sizeof(UniformBufferObject) * models.size());
 
     //Lights
-    std::vector<gpulight> lights;
+    auto lights = MemoryArena::AllocSpan<gpulight>(tempArena, scene->lightCount);
 
-    lights.resize(scene->lightposandradius.size());
-
-    for (int i = 0; i < scene->lightposandradius.size(); i++)
+    for (int i = 0; i < scene->lightCount; i++)
     {
         lights[i] = {scene->lightposandradius[i], scene->lightcolorAndIntensity[i], glm::vec4(1), glm::vec4(1)};
     }

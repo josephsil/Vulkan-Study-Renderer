@@ -52,8 +52,6 @@ struct per_object_data
 };
 
 
-
-
 struct descriptorUpdateData
 {
     VkDescriptorType type;

@@ -152,6 +152,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Array.cpp" />
     <ClCompile Include="bufferCreation.cpp" />
     <ClCompile Include="CommandPoolManager.cpp" />
     <ClCompile Include="FileCaching.cpp" />
@@ -161,7 +162,7 @@
     <ClCompile Include="MeshData.cpp" />
     <ClCompile Include="MeshLibraryImplementations.cpp" />
     <ClCompile Include="mikktspace.c" />
-    <ClCompile Include="PipelineDataObject.cpp"/>
+    <ClCompile Include="PipelineDataObject.cpp" />
     <ClCompile Include="SceneObjectData.cpp" />
     <ClCompile Include="ShaderLoading.cpp" />
     <ClCompile Include="textureCreation.cpp" />
@@ -171,6 +172,7 @@
     <ClCompile Include="vmaImplementation.cpp" />
     <ClCompile Include="vulkan-tutorial.cpp" />
     <ClInclude Include="AppStruct.h" />
+    <ClInclude Include="Array.h" />
     <ClInclude Include="bufferCreation.h" />
     <ClInclude Include="CommandPoolManager.h" />
     <ClInclude Include="common-structs.h" />
