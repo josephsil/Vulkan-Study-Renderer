@@ -934,15 +934,16 @@ void HelloTriangleApplication::drawFrame(inputData input)
     vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, FramesInFlightData[currentFrame].imageAvailableSemaphores, VK_NULL_HANDLE,
                           &imageIndex);
 
+    //wait for CURRENT FRAME 
 
-    vkWaitForFences(device, 1, &FramesInFlightData[imageIndex].inFlightFences, VK_TRUE, UINT64_MAX);
-    MemoryArena::free(&perFrameArenas[imageIndex]); // TODO JS: move -- needs to happen after fence!
+    vkWaitForFences(device, 1, &FramesInFlightData[currentFrame].inFlightFences, VK_TRUE, UINT64_MAX);
 
-    vkResetCommandBuffer(FramesInFlightData[imageIndex].opaqueCommandBuffers, 0);
-    vkResetCommandBuffer(FramesInFlightData[imageIndex].shadowCommandBuffers, 0);
-    vkResetCommandBuffer(FramesInFlightData[imageIndex].swapchainTransitionOutCommandBuffer, 0);
-    vkResetCommandBuffer(FramesInFlightData[imageIndex].swapchainTransitionInCommandBuffer, 0);
-    vkResetFences(device, 1, &FramesInFlightData[imageIndex].inFlightFences);
+
+    vkResetCommandBuffer(FramesInFlightData[currentFrame].opaqueCommandBuffers, 0);
+    vkResetCommandBuffer(FramesInFlightData[currentFrame].shadowCommandBuffers, 0);
+    vkResetCommandBuffer(FramesInFlightData[currentFrame].swapchainTransitionOutCommandBuffer, 0);
+    vkResetCommandBuffer(FramesInFlightData[currentFrame].swapchainTransitionInCommandBuffer, 0);
+    vkResetFences(device, 1, &FramesInFlightData[currentFrame].inFlightFences);
 
     //TODO JS: better place for this?
 
@@ -953,16 +954,16 @@ void HelloTriangleApplication::drawFrame(inputData input)
     beginInfo.pInheritanceInfo = nullptr; // Optional
     //Transition swapchain for rendering
     
-    VK_CHECK(vkBeginCommandBuffer(FramesInFlightData[imageIndex].swapchainTransitionInCommandBuffer, &beginInfo));
-    TextureUtilities::transitionImageLayout(getHandles(),swapChainImages[imageIndex],swapChainColorFormat,VK_IMAGE_LAYOUT_UNDEFINED,VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,FramesInFlightData[imageIndex].swapchainTransitionInCommandBuffer,1, false);
-    vkEndCommandBuffer(FramesInFlightData[imageIndex].swapchainTransitionInCommandBuffer);
+    VK_CHECK(vkBeginCommandBuffer(FramesInFlightData[currentFrame].swapchainTransitionInCommandBuffer, &beginInfo));
+    TextureUtilities::transitionImageLayout(getHandles(),swapChainImages[currentFrame],swapChainColorFormat,VK_IMAGE_LAYOUT_UNDEFINED,VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,FramesInFlightData[currentFrame].swapchainTransitionInCommandBuffer,1, false);
+    vkEndCommandBuffer(FramesInFlightData[currentFrame].swapchainTransitionInCommandBuffer);
 
     VkPipelineStageFlags swapchainWaitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
     VkSubmitInfo swapChainInSubmitInfo{};
     swapChainInSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     swapChainInSubmitInfo.commandBufferCount = 1;
     swapChainInSubmitInfo.pWaitDstStageMask = swapchainWaitStages;
-    swapChainInSubmitInfo.pCommandBuffers = &FramesInFlightData[imageIndex].swapchainTransitionInCommandBuffer;
+    swapChainInSubmitInfo.pCommandBuffers = &FramesInFlightData[currentFrame].swapchainTransitionInCommandBuffer;
     swapChainInSubmitInfo.waitSemaphoreCount = 1;
     swapChainInSubmitInfo.pWaitSemaphores = &FramesInFlightData[currentFrame].imageAvailableSemaphores;
     swapChainInSubmitInfo.signalSemaphoreCount = 1;
@@ -973,18 +974,18 @@ void HelloTriangleApplication::drawFrame(inputData input)
     ///////////////////////// Transition swapChain  />
         //Shadows
         std::vector<VkSemaphore> shadowPassWaitSemaphores = {FramesInFlightData[currentFrame].swapchaintransitionedInSemaphores};
-        std::vector<VkSemaphore> shadowpasssignalSemaphores = {FramesInFlightData[imageIndex].shadowFinishedSemaphores};
+        std::vector<VkSemaphore> shadowpasssignalSemaphores = {FramesInFlightData[currentFrame].shadowFinishedSemaphores};
         
-        renderShadowPass(imageIndex,imageIndex, shadowPassWaitSemaphores,shadowpasssignalSemaphores);
+        renderShadowPass(currentFrame,currentFrame, shadowPassWaitSemaphores,shadowpasssignalSemaphores);
 
 
         //TODO JS: Enable shadow semaphore
-        std::vector<VkSemaphore> opaquePassWaitSemaphores = {FramesInFlightData[imageIndex].shadowFinishedSemaphores};
-        std::vector<VkSemaphore> opaquepasssignalSemaphores = {FramesInFlightData[imageIndex].renderFinishedSemaphores};
+        std::vector<VkSemaphore> opaquePassWaitSemaphores = {FramesInFlightData[currentFrame].shadowFinishedSemaphores};
+        std::vector<VkSemaphore> opaquepasssignalSemaphores = {FramesInFlightData[currentFrame].renderFinishedSemaphores};
 
     
     //Opaque
-    renderOpaquePass(imageIndex,imageIndex, opaquePassWaitSemaphores,opaquepasssignalSemaphores);
+    renderOpaquePass(currentFrame,currentFrame, opaquePassWaitSemaphores,opaquepasssignalSemaphores);
 
 
 
@@ -995,12 +996,22 @@ void HelloTriangleApplication::drawFrame(inputData input)
     beginInfo2.pInheritanceInfo = nullptr; // Optional
     //Transition swapchain for rendering
     
-    VK_CHECK(vkBeginCommandBuffer(FramesInFlightData[imageIndex].swapchainTransitionOutCommandBuffer, &beginInfo2));
+    VK_CHECK(vkBeginCommandBuffer(FramesInFlightData[currentFrame].swapchainTransitionOutCommandBuffer, &beginInfo2));
     //Transition swapchain for present
-    TextureUtilities::transitionImageLayout(getHandles(),swapChainImages[imageIndex],swapChainColorFormat,VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,FramesInFlightData[imageIndex].swapchainTransitionOutCommandBuffer,1, false);
+    TextureUtilities::transitionImageLayout(getHandles(),swapChainImages[currentFrame],swapChainColorFormat,VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,FramesInFlightData[currentFrame].swapchainTransitionOutCommandBuffer,1, false);
 
-    vkEndCommandBuffer(FramesInFlightData[imageIndex].swapchainTransitionOutCommandBuffer);
+    vkEndCommandBuffer(FramesInFlightData[currentFrame].swapchainTransitionOutCommandBuffer);
 
+
+    ///////////////////////// Transition swapChain  />
+    ///
+    ///
+    ///    //Wait for IMAGE INDEX to present
+    vkWaitForFences(device, 1, &FramesInFlightData[imageIndex].inFlightFences, VK_TRUE, UINT64_MAX);
+    MemoryArena::free(&perFrameArenas[imageIndex]); // TODO JS: move -- needs to happen after fence!
+
+    
+    //Transition IMAGEINDEX swapchain out 
     VkSubmitInfo swapchainOutsubmitInfo{};
     swapchainOutsubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     swapchainOutsubmitInfo.commandBufferCount = 1;
@@ -1009,15 +1020,14 @@ void HelloTriangleApplication::drawFrame(inputData input)
     swapchainOutsubmitInfo.waitSemaphoreCount = opaquepasssignalSemaphores.size();
     swapchainOutsubmitInfo.pWaitSemaphores =  opaquepasssignalSemaphores.data();
     swapchainOutsubmitInfo.signalSemaphoreCount = 1;
-    swapchainOutsubmitInfo.pSignalSemaphores = &FramesInFlightData[currentFrame].swapchaintransitionedOutSemaphores;
+    swapchainOutsubmitInfo.pSignalSemaphores = &FramesInFlightData[imageIndex].swapchaintransitionedOutSemaphores;
 
-    vkQueueSubmit(commandPoolmanager.Queues.graphicsQueue, 1, &swapchainOutsubmitInfo, VK_NULL_HANDLE);
-    ///////////////////////// Transition swapChain  />
-    
+    vkQueueSubmit(commandPoolmanager.Queues.presentQueue, 1, &swapchainOutsubmitInfo, VK_NULL_HANDLE);
+
     VkPresentInfoKHR presentInfo{};
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
     presentInfo.waitSemaphoreCount = 1;
-    presentInfo.pWaitSemaphores = &FramesInFlightData[currentFrame].swapchaintransitionedOutSemaphores;
+    presentInfo.pWaitSemaphores = &FramesInFlightData[imageIndex].swapchaintransitionedOutSemaphores;
     presentInfo.swapchainCount = 1;
     presentInfo.pSwapchains = {&swapChain};
     presentInfo.pImageIndices = &imageIndex;
@@ -1025,6 +1035,7 @@ void HelloTriangleApplication::drawFrame(inputData input)
 
     //Present frame
     vkQueuePresentKHR(commandPoolmanager.Queues.presentQueue, &presentInfo);
+    
 
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
