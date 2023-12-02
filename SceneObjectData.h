@@ -4,6 +4,7 @@
 #include <glm/glm.hpp>
 #include<glm/gtc/quaternion.hpp>
 
+#include "Array.h"
 #include "Material.h"
 
 namespace MemoryArena
@@ -31,33 +32,33 @@ public:
     {
         int objectsCount = 0;
         //Parallel arrays per-object
-        std::span<glm::vec3> translations;
-        std::span<glm::quat> rotations;
-        std::span<MeshData*> meshes; //todo js: are these redundant?
-        std::span<uint32_t> meshOffsets; //todo js: are these redundant?
-        std::span<Material> materials;
-        std::span<uint32_t> meshVertCounts;
-        std::span<glm::mat4> matrices;
+        Array<glm::vec3> translations;
+        Array<glm::quat> rotations;
+        Array<MeshData*> meshes; //todo js: are these redundant?
+        Array<uint32_t> meshOffsets; //todo js: are these redundant?
+        Array<Material> materials;
+        Array<uint32_t> meshVertCounts;
+        Array<glm::mat4> matrices;
     };
 
     Objects objects;
 
     // arallel arrays per Light
     int lightCount = 0;
-    std::span<glm::vec4> lightposandradius;
-    std::span<glm::vec4> lightcolorAndIntensity;
+    Array<glm::vec4> lightposandradius;
+    Array<glm::vec4> lightcolorAndIntensity;
 
     //Non parallel arrays //TODO JS: Pack together?
     int textureSetCount = 0;
-    std::span<TextureData> backing_diffuse_textures;
-    std::span<TextureData> backing_specular_textures;
-    std::span<TextureData> backing_normal_textures;
+    Array<TextureData> backing_diffuse_textures;
+    Array<TextureData> backing_specular_textures;
+    Array<TextureData> backing_normal_textures;
 
     int _utilityTextureCount = 0;
-    std::span<TextureData> backing_utility_textures;
+    Array<TextureData> backing_utility_textures;
 
     int meshCount = 0;
-    std::span<MeshData> backing_meshes;
+    Array<MeshData> backing_meshes;
 
 
     Scene(MemoryArena::memoryArena* memoryArena);

@@ -18,6 +18,8 @@
 #include "SceneObjectData.h"
 #include "Vertex.h"
 #include "ImageLibraryImplementations.h"
+#include "LayoutsBuilder.h"
+#include "LayoutsBuilder.h"
 #include "Memory.h"
 #include "ShaderLoading.h"
 #include "textureCreation.h"
@@ -518,7 +520,7 @@ void HelloTriangleApplication::createSyncObjects()
 #pragma region prepare and submit draw call
 
 
-void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentImage, std::span<glm::mat4> models,
+void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentImage, Array<glm::mat4> models,
                                                     inputData input)
 {
     //TODO JS: to ring buffer?
@@ -940,6 +942,8 @@ void HelloTriangleApplication::drawFrame(inputData input)
 
 
     vkWaitForFences(device, 1, &FramesInFlightData[imageIndex].inFlightFences, VK_TRUE, UINT64_MAX);
+    MemoryArena::free(&perFrameArenas[imageIndex]); // TODO JS: move -- needs to happen after fence!
+
     vkResetCommandBuffer(FramesInFlightData[imageIndex].opaqueCommandBuffers, 0);
     vkResetCommandBuffer(FramesInFlightData[imageIndex].shadowCommandBuffers, 0);
     vkResetCommandBuffer(FramesInFlightData[imageIndex].swapchainTransitionOutCommandBuffer, 0);
@@ -1186,7 +1190,7 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
     //TODO: Scene loads mesh instead? 
     randomMeshes.push_back(app->scene->AddBackingMesh(MeshData(app->getHandles(), "Meshes/pig.glb")));
     randomMeshes.push_back(app->scene->AddBackingMesh(MeshData(app->getHandles(), "Meshes/cubesphere.glb")));
-    randomMeshes.push_back(app->scene->AddBackingMesh(MeshData(app->getHandles(), "Meshes/pig.glb")));
+    randomMeshes.push_back(app->scene->AddBackingMesh(MeshData(app->getHandles(), "Meshes/monkey.obj")));
 
     app->scene->AddLight(glm::vec3(1, 1, 1), glm::vec3(1, 1, 1), 5, 5 / 2);
     app->scene->AddLight(glm::vec3(0, -3, 1), glm::vec3(1, 1, 1), 5, 8 / 2);

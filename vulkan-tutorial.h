@@ -185,7 +185,7 @@ private:
 
     void updateUniformBuffer(uint32_t currentImage, glm::mat4 model);
     //Globals per pass, ubos, and lights are updated every frame
-    void updatePerFrameBuffers(uint32_t currentImage, std::span<glm::mat4> models, inputData input);
+    void updatePerFrameBuffers(unsigned currentImage, Array<glm::mat4> models, inputData input);
     void recordCommandBufferShadowPass(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 
 

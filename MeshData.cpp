@@ -8,6 +8,7 @@
 #include <vector>
 #include <unordered_map>
 #include "AppStruct.h"
+#include "Array.h"
 #include "bufferCreation.h"
 #include "Memory.h"
 #include "vulkan-utilities.h"
@@ -157,9 +158,9 @@ MeshData::MeshData(RendererHandles app, const char* path)
     this->rendererHandles = app;
   
 
-    MemoryArena::memoryArena* globalArena = rendererHandles.arena;
-    std::span<Vertex> _vertices;
-    std::span<uint32_t> _indices;
+    
+    Array<Vertex> _vertices;
+    Array<uint32_t> _indices;
     if (strcmp(ext, ".glb") == 0 )
     {
         //
@@ -197,22 +198,20 @@ MeshData::MeshData(RendererHandles app, const char* path)
             }
         }
 
-        _vertices = MemoryArena::AllocSpan<Vertex>(rendererHandles.arena, vertCt);
-        _indices = MemoryArena::AllocSpan<uint32_t>(rendererHandles.arena, indxCt);
-        int currrentVert = 0;
-        int currentIdx = 0;
+        _vertices = MemoryArena::AllocSpan<Vertex>(rendererHandles.perframeArena, vertCt);
+        _indices = MemoryArena::AllocSpan<uint32_t>(rendererHandles.perframeArena, indxCt);
         for (const auto mesh : model.meshes)
         {
             for (auto prim : mesh.primitives)
             {
                     
                 Vertex vert;
-                std::vector<glm::vec4> positionvec;
-                std::vector<glm::vec4> normalvec;
-                std::vector<glm::vec4> uvvec;
-                std::vector<glm::vec4> colorvec;
-                std::vector<glm::vec4> tangentvec;
-                std::vector<uint32_t> indexvec;
+                Array<glm::vec4> positionvec = Array(MemoryArena::AllocSpan<glm::vec4>(rendererHandles.perframeArena, indxCt));
+                Array<glm::vec4> normalvec = Array(MemoryArena::AllocSpan<glm::vec4>(rendererHandles.perframeArena, indxCt));
+                Array<glm::vec4> uvvec = Array(MemoryArena::AllocSpan<glm::vec4>(rendererHandles.perframeArena, indxCt));
+                Array<glm::vec4> colorvec = Array(MemoryArena::AllocSpan<glm::vec4>(rendererHandles.perframeArena, indxCt));
+                Array<glm::vec4> tangentvec =Array( MemoryArena::AllocSpan<glm::vec4>(rendererHandles.perframeArena, indxCt));
+                Array<uint32_t> indexvec = Array(MemoryArena::AllocSpan<uint32_t>(rendererHandles.perframeArena, indxCt));
                 tinygltf::Accessor& accessor = model.accessors[prim.attributes["POSITION"]];
                 tinygltf::BufferView& bufferView = model.bufferViews[accessor.bufferView];
                 tinygltf::Buffer& buffer = model.buffers[bufferView.buffer];
@@ -304,8 +303,8 @@ MeshData::MeshData(RendererHandles app, const char* path)
                     auto indices16 = reinterpret_cast<const uint16_t*>(indicesData);
                     for (size_t i = 0; i < accessor.count; i++)
                     {
-                        _indices[currentIdx] = (indices16[i]);
-                        currentIdx++;
+                        _indices.push_back(indices16[i]);
+                        
                     }
                 }
                 else if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT)
@@ -314,18 +313,16 @@ MeshData::MeshData(RendererHandles app, const char* path)
                     auto indices32 = reinterpret_cast<const uint32_t*>(indicesData);
                     for (size_t i = 0; i < accessor.count; i++)
                     {
-                         _indices[currentIdx] = indices32[i];
-                         currentIdx++;
+                         _indices.push_back(indices32[i]);
                     }
                 }
                 for (int i = 0; i < positionvec.size(); i++)
                 {
                     
-                    _vertices[currrentVert] = {
+                    _vertices.push_back({
                         positionvec[i], colorvec[i], uvvec[i], normalvec[i],
                         tangentsLoaded ? tangentvec[i] : glm::vec4(-1)
-                    };
-                    currrentVert++;
+                    });
                 }
 
                 //TODO JS: should I dedupe verts here if we aren't doing mikkt?
@@ -338,68 +335,75 @@ MeshData::MeshData(RendererHandles app, const char* path)
     
     else if (strcmp(ext, ".obj") == 0)
      {
-         std::cout << "NOT IMPLEMENTED -- DEPRECATED OBJ";
-         std::exit(-1);
          
-         // tinyobj::ObjReader reader;
-         // tinyobj::ObjReaderConfig reader_config;
-         //
-         // auto& attrib = reader.GetAttrib();
-         // auto& shapes = reader.GetShapes();
-         // auto& _ = reader.GetMaterials();
-         //
-         // if (!reader.ParseFromFile(path, reader_config))
-         // {
-         //     if (!reader.Error().empty())
-         //     {
-         //         std::cerr << "TinyObjReader: " << reader.Error();
-         //     }
-         //     exit(1);
-         // }
-         //
-         //
-         // // De-duplicate vertices
-         // int idx = 0;
-         // std::unordered_map<Vertex, uint32_t, VertexHash> unique_vertices;
-         // for (const auto& shape : shapes)
-         // {
-         //     for (const auto& index : shape.mesh.indices)
-         //     {
-         //         Vertex vertex = {
-         //             {
-         //                 attrib.vertices[3 * index.vertex_index + 0],
-         //                 attrib.vertices[3 * index.vertex_index + 1],
-         //                 attrib.vertices[3 * index.vertex_index + 2],
-         //                 1
-         //             },
-         //             {
-         //                 attrib.colors[3 * index.vertex_index + 0],
-         //                 attrib.colors[3 * index.vertex_index + 1],
-         //                 attrib.colors[3 * index.vertex_index + 2],
-         //                 1
-         //             },
-         //             {
-         //                 attrib.texcoords[2 * index.texcoord_index + 0],
-         //                 attrib.texcoords[2 * index.texcoord_index + 1],
-         //                 1,
-         //                 1
-         //             },
-         //             {
-         //                 attrib.normals[3 * index.normal_index + 0],
-         //                 attrib.normals[3 * index.normal_index + 1],
-         //                 attrib.normals[3 * index.normal_index + 2],
-         //                 1
-         //             }
-         //         };
-         //     
-         //
-         //
-         //         //obj files always go through mikkt below, not bothering deduping verts
-         //         _indices.push_back(idx++);
-         //         _vertices.push_back(vertex);
-         //     }
-         //     
-         // }
+         tinyobj::ObjReader reader;
+         tinyobj::ObjReaderConfig reader_config;
+         
+         auto& attrib = reader.GetAttrib();
+         auto& shapes = reader.GetShapes();
+         auto& _ = reader.GetMaterials();
+         
+         if (!reader.ParseFromFile(path, reader_config))
+         {
+             if (!reader.Error().empty())
+             {
+                 std::cerr << "TinyObjReader: " << reader.Error();
+             }
+             exit(1);
+         }
+
+        int ct = 0;
+        for (const auto& shape : shapes)
+        {
+            for (const auto& index : shape.mesh.indices)
+            {
+                ct++;
+            }
+        }
+        _vertices = Array(MemoryArena::AllocSpan<Vertex>(rendererHandles.perframeArena, ct));
+        _indices = Array(MemoryArena::AllocSpan<uint32_t>(rendererHandles.perframeArena, ct));
+         
+         // De-duplicate vertices
+         int idx = 0;
+         for (const auto& shape : shapes)
+         {
+             for (const auto& index : shape.mesh.indices)
+             {
+                 Vertex vertex = {
+                     {
+                         attrib.vertices[3 * index.vertex_index + 0],
+                         attrib.vertices[3 * index.vertex_index + 1],
+                         attrib.vertices[3 * index.vertex_index + 2],
+                         1
+                     },
+                     {
+                         attrib.colors[3 * index.vertex_index + 0],
+                         attrib.colors[3 * index.vertex_index + 1],
+                         attrib.colors[3 * index.vertex_index + 2],
+                         1
+                     },
+                     {
+                         attrib.texcoords[2 * index.texcoord_index + 0],
+                         attrib.texcoords[2 * index.texcoord_index + 1],
+                         1,
+                         1
+                     },
+                     {
+                         attrib.normals[3 * index.normal_index + 0],
+                         attrib.normals[3 * index.normal_index + 1],
+                         attrib.normals[3 * index.normal_index + 2],
+                         1
+                     }
+                 };
+             
+         
+         
+                 //obj files always go through mikkt below, not bothering deduping verts
+                 _indices.push_back(idx++);
+                 _vertices.push_back(vertex);
+             }
+             
+         }
      }
      else
      {
@@ -411,13 +415,14 @@ MeshData::MeshData(RendererHandles app, const char* path)
     MemoryArena::memoryArena* tempArena = rendererHandles.perframeArena;
     if (!tangentsLoaded)
      {
-        auto expandedVertices = MemoryArena::AllocSpan<Vertex>(tempArena, _indices.size());
+        std::span<Vertex> expandedVertices;
          if (_vertices.size() == _indices.size())
          {
-             expandedVertices = _vertices;
+             expandedVertices = _vertices.getSpan();
          }
          else
          {
+             expandedVertices = MemoryArena::AllocSpan<Vertex>(tempArena, _indices.size());
              for (int i = 0; i < _indices.size(); i++)
              {
                  assert(_indices[i] < _vertices.size());
@@ -425,7 +430,7 @@ MeshData::MeshData(RendererHandles app, const char* path)
              }
          }
          //
-         auto m = MeshForMikkt(expandedVertices, _indices);
+         auto m = MeshForMikkt(expandedVertices, _indices.getSpan());
          auto mikkt = MikktImpl();
          mikkt.calculateTangents(&m);
          for (int i = 0; i < expandedVertices.size(); i++)
@@ -461,8 +466,10 @@ MeshData::MeshData(RendererHandles app, const char* path)
           
          // _indices = remapvec;
      }
-    this->vertices = MemoryArena::copySpan(globalArena, _vertices);
-    this->indices = MemoryArena::copySpan(globalArena, _indices);
+
+    MemoryArena::memoryArena* globalArena = rendererHandles.arena;
+    this->vertices = MemoryArena::copySpan(globalArena, _vertices.getSpan());
+    this->indices = MemoryArena::copySpan(globalArena, _indices.getSpan());
  
     //TODO: Dedupe verts
     this->vertBuffer = this->meshDataCreateVertexBuffer();

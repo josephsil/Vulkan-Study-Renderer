@@ -10,6 +10,7 @@ struct Array
     size_t capacity;
 
 
+    Array(){};
     Array(T* d, size_t _size)
     {
         data = d;
@@ -24,7 +25,7 @@ struct Array
         ct = _ct;
     }
 
-    explicit Array(std::span<T> span)
+    Array(std::span<T> span)
     {
         data = span.data();
         capacity = span.size();
@@ -39,8 +40,13 @@ struct Array
 
     void push_back(T entry)
     {
-        assert (ct + 1 < capacity);
+        assert (ct < capacity);
         data[ct++] = entry;
+    }
+
+    std::span<T> getSpan()
+    {
+        return std::span<T>(data,ct);
     }
 
     inline size_t size() const { return ct; }

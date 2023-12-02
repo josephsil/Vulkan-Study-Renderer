@@ -25,25 +25,25 @@ Scene::Scene(MemoryArena::memoryArena* arena)
     //Parallel arrays per-object
     objects = {};
     objects.objectsCount = 0;
-    objects.translations = MemoryArena::AllocSpan<glm::vec3>(arena, OBJECT_MAX);
-    objects.rotations = MemoryArena::AllocSpan<glm::quat>(arena, OBJECT_MAX);
-    objects.materials = MemoryArena::AllocSpan<Material>(arena, OBJECT_MAX);
-    objects.meshOffsets = MemoryArena::AllocSpan<uint32_t>(arena, OBJECT_MAX);
-    objects.matrices = MemoryArena::AllocSpan<glm::mat4>(arena, OBJECT_MAX);
-    objects.meshes = MemoryArena::AllocSpan<MeshData*>(arena, OBJECT_MAX);
-    objects.meshVertCounts = MemoryArena::AllocSpan<uint32_t>(arena, OBJECT_MAX);
+    objects.translations = Array(MemoryArena::AllocSpan<glm::vec3>(arena, OBJECT_MAX));
+    objects.rotations = Array(MemoryArena::AllocSpan<glm::quat>(arena, OBJECT_MAX));
+    objects.materials = Array(MemoryArena::AllocSpan<Material>(arena, OBJECT_MAX));
+    objects.meshOffsets = Array(MemoryArena::AllocSpan<uint32_t>(arena, OBJECT_MAX));
+    objects.matrices = Array(MemoryArena::AllocSpan<glm::mat4>(arena, OBJECT_MAX));
+    objects.meshes = Array(MemoryArena::AllocSpan<MeshData*>(arena, OBJECT_MAX));
+    objects.meshVertCounts = Array(MemoryArena::AllocSpan<uint32_t>(arena, OBJECT_MAX));
 
     // arallel arrays per Light
-    lightposandradius = MemoryArena::AllocSpan<glm::vec4>(arena, LIGHT_MAX);
-    lightcolorAndIntensity = MemoryArena::AllocSpan<glm::vec4>(arena, LIGHT_MAX);
+    lightposandradius = Array(MemoryArena::AllocSpan<glm::vec4>(arena, LIGHT_MAX));
+    lightcolorAndIntensity = Array(MemoryArena::AllocSpan<glm::vec4>(arena, LIGHT_MAX));
 
     //Non parallel arrays //TODO JS: Pack together?
-    backing_diffuse_textures = MemoryArena::AllocSpan<TextureData>(arena, 300);
-    backing_specular_textures = MemoryArena::AllocSpan<TextureData>(arena, 300);
-    backing_normal_textures = MemoryArena::AllocSpan<TextureData>(arena, 300);
-    backing_utility_textures = MemoryArena::AllocSpan<TextureData>(arena, 300);
+    backing_diffuse_textures = Array(MemoryArena::AllocSpan<TextureData>(arena, 300));
+    backing_specular_textures = Array(MemoryArena::AllocSpan<TextureData>(arena, 300));
+    backing_normal_textures = Array(MemoryArena::AllocSpan<TextureData>(arena, 300));
+    backing_utility_textures = Array(MemoryArena::AllocSpan<TextureData>(arena, 300));
 
-    backing_meshes = MemoryArena::AllocSpan<MeshData>(arena, 300);
+    backing_meshes =  Array(MemoryArena::AllocSpan<MeshData>(arena, 300));
     
 }
 
@@ -70,15 +70,15 @@ int Scene::AddObject(MeshData* mesh, int textureidx, float material_roughness, b
                      glm::vec3 position, glm::quat rotation)
 {
     //TODD JS: version that can add 
-    objects.meshes[objects.objectsCount] = (mesh);
-    objects.materials[objects.objectsCount] = (Material{
+    objects.meshes.push_back(mesh);
+    objects.materials.push_back(Material{
         .pipelineidx = (uint32_t)(objects.objectsCount % 20 > 10 ? 0 : 1), .backingTextureidx = textureidx, .metallic = material_metallic, .roughness = material_roughness
     });
-    objects.translations[objects.objectsCount] = (position);
-    objects.rotations[objects.objectsCount] = (rotation);
-    objects.matrices[objects.objectsCount] = (glm::mat4(1.0));
-    objects.meshOffsets[objects.objectsCount] = (getOffsetFromMeshID(mesh->id));
-    objects.meshVertCounts[objects.objectsCount] = (mesh->vertcount);
+    objects.translations.push_back(position);
+    objects.rotations.push_back(rotation);
+    objects.matrices.push_back(glm::mat4(1.0));
+    objects.meshOffsets.push_back(getOffsetFromMeshID(mesh->id));
+    objects.meshVertCounts.push_back(mesh->vertcount);
     return objects.objectsCount++;
 }
 
@@ -126,30 +126,30 @@ int Scene::materialTextureCount()
 
 int Scene::AddUtilityTexture(TextureData T)
 {
-    backing_utility_textures[_utilityTextureCount] = (T);
+    backing_utility_textures.push_back(T);
     return _utilityTextureCount ++;
 }
 
 //TODO JS: we should probably CREATE from here at some point?
 int Scene::AddMaterial(TextureData D, TextureData S, TextureData N)
 {
-    backing_diffuse_textures[textureSetCount] = (D);
-    backing_specular_textures[textureSetCount] = (S);
-    backing_normal_textures[textureSetCount] = (N);
+    backing_diffuse_textures.push_back(D);
+    backing_specular_textures.push_back(S);
+    backing_normal_textures.push_back(N);
     
     return textureSetCount++;
 }
 
 int Scene::AddBackingMesh(MeshData M)
 {
-    backing_meshes[meshCount] = (M);
+    backing_meshes.push_back(M);
     return meshCount ++;
 }
 
 int Scene::AddLight(glm::vec3 position, glm::vec3 color, float radius, float intensity)
 {
-    lightposandradius[lightCount] = (glm::vec4(position.x, position.y, position.z, radius));
-    lightcolorAndIntensity[lightCount] = (glm::vec4(color.x, color.y, color.z, intensity));
+    lightposandradius.push_back(glm::vec4(position.x, position.y, position.z, radius));
+    lightcolorAndIntensity.push_back(glm::vec4(color.x, color.y, color.z, intensity));
     lightCount ++;
     return -1; //NOT IMPLEMENTED
 }
