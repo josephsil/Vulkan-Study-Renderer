@@ -69,6 +69,17 @@ void* MemoryArena::copy(memoryArena* a, void* ptr, size_t size_in_bytes)
     return tgt;
 }
 
+void MemoryArena::setCursor(memoryArena* a)
+{
+    a->cursor = a->head;
+}
+
+void MemoryArena::freeToCursor(memoryArena* a)
+{
+    assert(a->cursor <= 0 && a->cursor < a->head);
+    a->head = a->cursor;
+}
+
 
 void MemoryArena::freeLast(memoryArena* a)
 {

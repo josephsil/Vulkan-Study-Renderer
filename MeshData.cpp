@@ -156,8 +156,10 @@ MeshData::MeshData(RendererHandles app, const char* path)
     const char* ext = strrchr(path, '.');
     bool tangentsLoaded = false;
     this->rendererHandles = app;
-  
+    
+    MemoryArena::memoryArena* tempArena = rendererHandles.perframeArena;
 
+    MemoryArena::setCursor(tempArena);
     
     Array<Vertex> _vertices;
     Array<uint32_t> _indices;
@@ -198,8 +200,8 @@ MeshData::MeshData(RendererHandles app, const char* path)
             }
         }
 
-        _vertices = MemoryArena::AllocSpan<Vertex>(rendererHandles.perframeArena, vertCt);
-        _indices = MemoryArena::AllocSpan<uint32_t>(rendererHandles.perframeArena, indxCt);
+        _vertices = MemoryArena::AllocSpan<Vertex>(tempArena, vertCt);
+        _indices = MemoryArena::AllocSpan<uint32_t>(tempArena, indxCt);
         for (const auto mesh : model.meshes)
         {
             for (auto prim : mesh.primitives)
@@ -360,8 +362,8 @@ MeshData::MeshData(RendererHandles app, const char* path)
                 ct++;
             }
         }
-        _vertices = Array(MemoryArena::AllocSpan<Vertex>(rendererHandles.perframeArena, ct));
-        _indices = Array(MemoryArena::AllocSpan<uint32_t>(rendererHandles.perframeArena, ct));
+        _vertices = Array(MemoryArena::AllocSpan<Vertex>(tempArena, ct));
+        _indices = Array(MemoryArena::AllocSpan<uint32_t>(tempArena, ct));
          
          // De-duplicate vertices
          int idx = 0;
@@ -412,7 +414,6 @@ MeshData::MeshData(RendererHandles app, const char* path)
      }
 
     //Generate MikkT tangents
-    MemoryArena::memoryArena* tempArena = rendererHandles.perframeArena;
     if (!tangentsLoaded)
      {
         std::span<Vertex> expandedVertices;
@@ -470,6 +471,8 @@ MeshData::MeshData(RendererHandles app, const char* path)
     MemoryArena::memoryArena* globalArena = rendererHandles.arena;
     this->vertices = MemoryArena::copySpan(globalArena, _vertices.getSpan());
     this->indices = MemoryArena::copySpan(globalArena, _indices.getSpan());
+
+    MemoryArena::freeToCursor(tempArena);
  
     //TODO: Dedupe verts
     this->vertBuffer = this->meshDataCreateVertexBuffer();

@@ -25,9 +25,10 @@ namespace MemoryArena
 {
     struct memoryArena
     {
-        ptrdiff_t head;
-        ptrdiff_t last;
-        ptrdiff_t size;
+        ptrdiff_t head = 0;
+        ptrdiff_t last = 0;
+        ptrdiff_t cursor = -1;
+        ptrdiff_t size = 0;
         void* base;
         ~memoryArena()
         {
@@ -53,6 +54,9 @@ namespace MemoryArena
         T *ret = (T*)alloc(a, ct * sizeof(T));
         return ret;
     }
+
+    void setCursor(memoryArena* a);
+    void freeToCursor(memoryArena* a);
 
     template<typename T> std::span<T> AllocSpan(memoryArena* a, size_t length = 1)
     {

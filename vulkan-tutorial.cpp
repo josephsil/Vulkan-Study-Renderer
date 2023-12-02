@@ -6,7 +6,6 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_vulkan.h>
 
-#include <array>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
@@ -18,16 +17,12 @@
 #include "SceneObjectData.h"
 #include "Vertex.h"
 #include "ImageLibraryImplementations.h"
-#include "LayoutsBuilder.h"
-#include "LayoutsBuilder.h"
 #include "Memory.h"
 #include "ShaderLoading.h"
 #include "textureCreation.h"
 #include "TextureData.h"
 #include "VkBootstrap.h"
 #include "vulkan-utilities.h"
-//zoux vkcheck version
-
 
 int SHADER_MODE;
 VkSurfaceKHR surface;
@@ -175,7 +170,6 @@ vkb::Swapchain vkb_swapchain;
 
 void SET_UP_SCENE(HelloTriangleApplication* app);
 
-//TODO JS: replace phys device, device, etc members with a rendererhandles instance?
 RendererHandles HelloTriangleApplication::getHandles()
 {
     return RendererHandles{physicalDevice, device, &commandPoolmanager, allocator, &arena, &perFrameArenas[currentFrame]};
@@ -191,7 +185,7 @@ void HelloTriangleApplication::initVulkan()
 
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        MemoryArena::initialize(&perFrameArenas[i], 1000000 * 600); // 6mb each
+        MemoryArena::initialize(&perFrameArenas[i], 1000000 * 5); // 5mb each //TODO JS: Could be much smaller if I had a separate arena for file loading
     }
     FramesInFlightData.resize(MAX_FRAMES_IN_FLIGHT);
     //Get instance
