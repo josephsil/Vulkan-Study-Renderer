@@ -209,13 +209,16 @@ FSOutput Frag(VSOutput input)
     float3 albedo = pow(diff, 2.2);
     float3 normalMap = (bindless_textures[NORMAL_INDEX].
         Sample(bindless_samplers[NORMALSAMPLERINDEX], input.Texture_ST));
+   
     float4 specMap = bindless_textures[SPECULAR_INDEX].Sample(bindless_samplers[TEXTURESAMPLERINDEX], input.Texture_ST);
     float metallic = specMap.a;
 
     // albedo = 0.33;
+    
+    normalMap = normalize((2.0 * normalMap) - 1.0);
+    
+    normalMap = normalize(mul(input.TBN,  normalize(normalMap)));
 
-
-    normalMap = normalize(mul(input.TBN, ((2.0 * normalMap) - 1.0)));
     float3 V = normalize(globals.viewPos - input.worldPos);
     float3 reflected = reflect(V, normalMap);
 

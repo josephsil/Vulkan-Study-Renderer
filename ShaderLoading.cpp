@@ -33,7 +33,7 @@ void SaveShaderCompilationTime(std::wstring shaderPath)
 //TODO JS: Do includes -- parse includes and check modifieds for them too
 bool ShaderNeedsReciompiled(std::wstring shaderPath)
 {
-    return FileCaching::assetOutOfDate(shaderPath);
+    return !FileCaching::assetOutOfDate(shaderPath);
 }
 
 bool SaveBlobToDisk(std::wstring shaderPath, SIZE_T size, uint32_t* buffer)

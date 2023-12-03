@@ -28,7 +28,8 @@ public:
         SPECULAR,
         NORMAL,
         CUBE,
-        LINEAR_DATA
+        LINEAR_DATA,
+        DATA_DONT_COMPRESS
     };
 
   
@@ -42,7 +43,7 @@ public:
     RendererHandles rendererHandles;
     uint32_t maxmip = 1; //TODO JS: mutate less places
     uint32_t layerct = 1;
-
+    bool uncompressed = false;
 
     
     TextureData(RendererHandles rendererHandles, const char* path, TextureType type);

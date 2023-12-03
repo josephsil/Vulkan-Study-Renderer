@@ -59,6 +59,13 @@ TextureData::TextureData(RendererHandles rendererHandles, const char* path, Text
             mode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
             break;
         }
+    case DATA_DONT_COMPRESS:
+    	{
+    		inputFormat = VK_FORMAT_R8G8B8A8_UNORM;
+    		mode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    		use_mipmaps = false;
+    		uncompressed = true;
+    	}
     }
 
     //TODO JS: branch better
@@ -315,7 +322,7 @@ VkFormat TextureData::GetOrLoadTexture(const char* path, VkFormat format, Textur
 			generateKTX = false;
 		}
 	}
-	 // generateKTX = true;
+	// generateKTX = true;
 	if (generateKTX)
 	{
 		cacheKTXFromSTB(path, ktxPath.data(), format, textureType, use_mipmaps);
@@ -390,7 +397,7 @@ void TextureData::cacheKTXFromSTB(const char* path, const char* outpath, VkForma
     createInfo.baseDepth = 1; //TODO JS: ?????? I think only for 3d textures
     createInfo.numDimensions = 2;
     // Note: it is not necessary to provide a full mipmap pyramid.
-    createInfo.numLevels = staging.mipCt; //TOOD JS: Get this when we load cube  iData.mipLevels;
+    createInfo.numLevels = use_mipmaps ? staging.mipCt : 1; 
     createInfo.numLayers = 1; //TOOD JS: Get this when we load cube 
     createInfo.numFaces = textureType == CUBE ? 6 : 1; 
     createInfo.isArray = KTX_FALSE;
@@ -404,7 +411,7 @@ void TextureData::cacheKTXFromSTB(const char* path, const char* outpath, VkForma
 	uint32_t currentLevelWidth = (size_t) staging.width;
 	uint32_t currentLevelheight = (size_t) staging.height;
 	ktxTexture2_Create(&createInfo, KTX_TEXTURE_CREATE_ALLOC_STORAGE, &texture);
-	for(int i = 0; i < staging.mipCt - 1; i++)
+	for(int i = 0; i < createInfo.numLevels; i++)
 	{
 		int j = 0;
 		int k = 0;
@@ -422,9 +429,12 @@ void TextureData::cacheKTXFromSTB(const char* path, const char* outpath, VkForma
 		KTX_error_code r = ktxTexture_SetImageFromMemory(ktxTexture(texture),mipLevel, layer,faceSlice,_imageData.data(),_imageData.size());
 
 	}
-		
-//	printf("Compressing texture....\n" );
-	// ktxTexture2_CompressBasis(texture, 50);
+
+	if(!uncompressed)
+	{
+		printf("Compressing texture....\n" );
+		ktxTexture2_CompressBasis(texture, 100);
+	}
 
 	ktxTexture_WriteToNamedFile(ktxTexture(texture), outpath);
 	ktxTexture_Destroy(ktxTexture(texture));
@@ -473,7 +483,7 @@ static temporaryTextureInfo createTextureImage(RendererHandles rendererHandles, 
 
     stbi_image_free(pixels);
 
-	uint32_t fullMipPyramid = static_cast<uint32_t>(std::floor(std::log2(max(texWidth, texHeight)))) + 1;
+	uint32_t fullMipPyramid =  mips ? static_cast<uint32_t>(std::floor(std::log2(max(texWidth, texHeight)))) + 1: 1;
     TextureUtilities::createImage(rendererHandles, texWidth, texHeight, format,
                                   VK_IMAGE_TILING_OPTIMAL,
                                   VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT |
@@ -537,7 +547,17 @@ VkFormat TextureData::createImageKTX(const char* path, TextureType type, bool mi
 	//If it's a basis texture, we need to transcode (and also can't generate mipmaps) 
 	if (ktxTexture2_NeedsTranscoding(kTexture))
 	{
-		ktxTexture2_TranscodeBasis(kTexture, KTX_TTF_BC3_RGBA, 0);
+		ktx_transcode_fmt_e transcodeFormat;
+		switch (type)
+		{
+		default:
+			{
+				transcodeFormat = KTX_TTF_BC1_OR_3;
+			}
+		}
+
+		
+		ktxTexture2_TranscodeBasis(kTexture, transcodeFormat, KTX_TF_HIGH_QUALITY);
 		kTexture->generateMipmaps = false;
 	}
 	

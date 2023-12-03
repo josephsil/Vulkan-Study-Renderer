@@ -283,7 +283,7 @@ void HelloTriangleApplication::initVulkan()
 
     //Initialize scene-ish objects we don't have a place for yet 
     cubemaplut_utilitytexture_index = scene->AddUtilityTexture(
-        TextureData(getHandles(), "textures/outputLUT.png", TextureData::LINEAR_DATA));
+        TextureData(getHandles(), "textures/outputLUT.png", TextureData::DATA_DONT_COMPRESS));
     cube_irradiance = TextureData(getHandles(), "textures/output_cubemap2_diff8.ktx2", TextureData::TextureType::CUBE);
     cube_specular = TextureData(getHandles(), "textures/output_cubemap2_spec8.ktx2", TextureData::TextureType::CUBE);
 
@@ -292,8 +292,8 @@ void HelloTriangleApplication::initVulkan()
 
 
     //TODO JS: Make pipelines belong to the perPipelineLayout members
-    createGraphicsPipeline("triangle",  &descriptorsetLayoutsData);
     createGraphicsPipeline("triangle_alt",  &descriptorsetLayoutsData);
+    createGraphicsPipeline("triangle",  &descriptorsetLayoutsData);
     //TODO JS: separate shadow layout?
     createGraphicsPipeline("shadow",  &descriptorsetLayoutsData, true);
     
