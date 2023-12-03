@@ -177,7 +177,7 @@ private:
     void initVulkan();
 
 
-
+    PFN_vkCopyImageToMemoryEXT vkCopyImageToMemoryEXT;
 
     void updateLightBuffers(uint32_t currentImage);
     void populateMeshBuffers();

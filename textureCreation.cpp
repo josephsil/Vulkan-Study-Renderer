@@ -178,7 +178,7 @@ void TextureUtilities::generateMipmaps(RendererHandles rendererHandles, VkImage 
     barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     barrier.subresourceRange.baseArrayLayer = 0;
     barrier.subresourceRange.layerCount = 1;
-    barrier.subresourceRange.levelCount = mipLevels;
+    barrier.subresourceRange.levelCount = 1;
 
     int32_t mipWidth = texWidth;
     int32_t mipHeight = texHeight;
@@ -280,7 +280,7 @@ void TextureUtilities::copyBufferToImage(CommandPoolManager* commandPoolManager,
         workingBuffer,
         buffer,
         image,
-        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        VK_IMAGE_LAYOUT_GENERAL,
         1,
         &region
     );

@@ -32,9 +32,9 @@ vkb::Instance GET_INSTANCE()
 {
     vkb::InstanceBuilder instance_builder;
     auto instanceBuilderResult = instance_builder
-                                  // .request_validation_layers()
+                                  .request_validation_layers()
                                  .use_default_debug_messenger()
-                                 .require_api_version(1, 3, 0)
+                                 .require_api_version(1, 3, 240)
                                  .build();
     if (!instanceBuilderResult)
     {
@@ -49,7 +49,10 @@ vkb::PhysicalDevice GET_GPU(vkb::Instance instance)
 {
 
     const std::vector<const char*> deviceExtensions = {
-        VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_MAINTENANCE_4_EXTENSION_NAME, VK_KHR_MAINTENANCE_3_EXTENSION_NAME, VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME, VK_EXT_MUTABLE_DESCRIPTOR_TYPE_EXTENSION_NAME
+         VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_MAINTENANCE_4_EXTENSION_NAME, VK_KHR_MAINTENANCE_3_EXTENSION_NAME, VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME, VK_EXT_MUTABLE_DESCRIPTOR_TYPE_EXTENSION_NAME,
+        //for image copy:
+        // VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, VK_KHR_COPY_COMMANDS_2_EXTENSION_NAME, VK_KHR_FORMAT_FEATURE_FLAGS_2_EXTENSION_NAME,
+        VK_EXT_HOST_IMAGE_COPY_EXTENSION_NAME,
     };
     VkPhysicalDeviceFeatures features{};
     VkPhysicalDeviceVulkan11Features features11{};
@@ -72,13 +75,23 @@ vkb::PhysicalDevice GET_GPU(vkb::Instance instance)
                                        .require_separate_compute_queue()
                                        .add_required_extensions(deviceExtensions)
                                        .select();
+
+
     if (!physicalDeviceBuilderResult)
     {
-        std::cerr << ("Failed to create Physical Device");
+        std::cerr << ("Failed to create Physical Device ")  << physicalDeviceBuilderResult.error().message();
         exit(1);
     }
+    
+    auto r = physicalDeviceBuilderResult.value().is_extension_present(VK_EXT_HOST_IMAGE_COPY_EXTENSION_NAME);
 
+    assert(r);
 
+    auto a =physicalDeviceBuilderResult.value().get_extensions();
+    for(auto& v : a)
+    {
+        std::cerr << v << "\n";
+    }
     return physicalDeviceBuilderResult.value();
 }
 
@@ -211,6 +224,10 @@ void HelloTriangleApplication::initVulkan()
     vkb_device = GET_DEVICE(vkb_physicalDevice);
     device = vkb_device.device;
 
+
+   
+
+    // vkCopyImageToMemoryEXT = (PFN_vkCopyImageToMemoryEXT)VkGetCopy(device, "vkCopyImageToMemoryEXT");
     allocator = VulkanMemory::GetAllocator(device, physicalDevice, instance);
     
     //Get queues and queue families and command pools
@@ -938,10 +955,7 @@ void HelloTriangleApplication::drawFrame(inputData input)
     ///
     ///    //Wait for IMAGE INDEX to be ready to present
     vkWaitForFences(device, 1, &FramesInFlightData[imageIndex].inFlightFences, VK_TRUE, UINT64_MAX);
-    MemoryArena::free(&perFrameArenas[imageIndex]); // TODO JS: move -- needs to happen after fence!
-
-    
-
+    MemoryArena::free(&perFrameArenas[imageIndex]); // TODO JS: move --but needs to happen after fence!
 
     vkResetCommandBuffer(FramesInFlightData[currentFrame].opaqueCommandBuffers, 0);
     vkResetCommandBuffer(FramesInFlightData[currentFrame].shadowCommandBuffers, 0);
@@ -949,7 +963,6 @@ void HelloTriangleApplication::drawFrame(inputData input)
     vkResetCommandBuffer(FramesInFlightData[currentFrame].swapchainTransitionInCommandBuffer, 0);
     vkResetFences(device, 1, &FramesInFlightData[currentFrame].inFlightFences);
 
-    //TODO JS: better place for this?
 
     ///////////////////////// </Transition swapChain 
     VkCommandBufferBeginInfo beginInfo{};
