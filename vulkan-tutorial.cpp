@@ -140,7 +140,7 @@ struct gpulight
 {
     alignas(16) glm::vec4 pos_xyz_range_a;
     alignas(16) glm::vec4 color_xyz_intensity_a;
-    alignas(16) glm::vec4 padding;
+    alignas(16) glm::vec4 pointOrSpot_padding_padding_padding;
     alignas(16) glm::vec4 padding2;
 };
 
@@ -632,7 +632,7 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
 
     for (int i = 0; i < scene->lightCount; i++)
     {
-        lights[i] = {scene->lightposandradius[i], scene->lightcolorAndIntensity[i], glm::vec4(1), glm::vec4(1)};
+        lights[i] = {scene->lightposandradius[i], scene->lightcolorAndIntensity[i], glm::vec4(scene->lightTypes[i], -1,-1,-1), glm::vec4(1)};
     }
 
     memcpy(FramesInFlightData[currentFrame].lightBuffersMapped, lights.data(), sizeof(gpulight) * lights.size());
@@ -1251,6 +1251,8 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
     app->scene->AddLight(glm::vec3(0, 4, -5), glm::vec3(1, 1, 1), 5, 8 / 2);
 
     app->scene->AddLight(glm::vec3(0, 8, -10), glm::vec3(0.2, 0, 1), 5, 44 / 2);
+
+    app->scene->AddLight(glm::vec3(0, 0, 1), glm::vec3(0, 1, 0), 5, 3, 0);
 
 
     glm::vec3 EulerAngles(0, 0, 0);

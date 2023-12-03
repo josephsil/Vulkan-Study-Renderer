@@ -110,6 +110,9 @@ void ShaderLoader::AddShader(const char* name, std::wstring shaderPath)
     std::vector shaderStages = {vertShaderStageInfo, fragShaderStageInfo};
     // VkPipelineShaderStageCreateInfo test[] = { vertShaderStageInfo, fragShaderStageInfo };
     compiledShaders.insert({name, shaderStages});
+    if (needsCompiled)  SaveShaderCompilationTime(shaderPath);
+  
+
 }
 
 void ShaderLoader::shaderCompile(std::wstring shaderFilename, bool is_frag)
@@ -233,8 +236,6 @@ VkShaderModule ShaderLoader::shaderLoad(std::wstring shaderFilename, bool is_fra
     shaderModuleCI.pCode = blob.buffer.get();
     VkShaderModule shaderModule;
     vkCreateShaderModule(device_, &shaderModuleCI, nullptr, &shaderModule);
-
-    SaveShaderCompilationTime(shaderFilename);
 
     return shaderModule;
 }

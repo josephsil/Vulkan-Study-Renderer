@@ -63,6 +63,7 @@ bool FileCaching::assetOutOfDate(std::string_view assetPath)
 //TODO JS: Just checking date for now -- prefer some kind of hash
 bool FileCaching::assetOutOfDate(std::wstring_view assetPath)
 {
+    assert(assetPath.data() != nullptr);
     //Last changed check 
     struct stat result;
     if (_wstat(assetPath.data(), &result) != 0)
@@ -97,10 +98,10 @@ bool FileCaching::assetOutOfDate(std::wstring_view assetPath)
 
     myFile.close();
 
-    //TODO JS: update file with current time after compilation finishes
-
     if (savedTime == modifiedTime)
     {
         return false;
     }
+
+    return true;
 }

@@ -36,6 +36,7 @@ Scene::Scene(MemoryArena::memoryArena* arena)
     // arallel arrays per Light
     lightposandradius = Array(MemoryArena::AllocSpan<glm::vec4>(arena, LIGHT_MAX));
     lightcolorAndIntensity = Array(MemoryArena::AllocSpan<glm::vec4>(arena, LIGHT_MAX));
+    lightTypes = Array(MemoryArena::AllocSpan<glm::float32>(arena, LIGHT_MAX));
 
     //Non parallel arrays //TODO JS: Pack together?
     backing_diffuse_textures = Array(MemoryArena::AllocSpan<TextureData>(arena, 300));
@@ -146,10 +147,11 @@ int Scene::AddBackingMesh(MeshData M)
     return meshCount ++;
 }
 
-int Scene::AddLight(glm::vec3 position, glm::vec3 color, float radius, float intensity)
+int Scene::AddLight(glm::vec3 position, glm::vec3 color, float radius, float intensity, float type)
 {
     lightposandradius.push_back(glm::vec4(position.x, position.y, position.z, radius));
     lightcolorAndIntensity.push_back(glm::vec4(color.x, color.y, color.z, intensity));
+    lightTypes.push_back(type);
     lightCount ++;
     return -1; //NOT IMPLEMENTED
 }
