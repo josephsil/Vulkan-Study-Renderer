@@ -57,8 +57,8 @@ private:
 
 #pragma endregion
 
-    glm::vec3 eyePos = glm::vec3(1.0f, 0.2f, 0.0f);
-    glm::vec2 eyeRotation = glm::vec2(0.0f, 0.0f); //yaw, pitch
+    glm::vec3 eyePos = glm::vec3(-4.0f, 0.4f, 1.0f);
+    glm::vec2 eyeRotation = glm::vec2(55.0f, -22.0f); //yaw, pitch
     
     VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
     VkDevice device; //Logical device
