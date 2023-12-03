@@ -48,11 +48,7 @@ private:
     uint32_t T2;
     float deltaTime;
 
-    struct inputData
-    {
-        glm::vec3 translate;
-        glm::vec3 mouseRot;
-    };
+
    
     //GLFWwindow* window;
     int WIDTH = 1280;
@@ -61,8 +57,8 @@ private:
 
 #pragma endregion
 
-    glm::vec3 eyePos = glm::vec3(2.0f, 1.0f, 0.0f);
-    glm::vec3 eyeEulers;
+    glm::vec3 eyePos = glm::vec3(1.0f, 0.2f, 0.0f);
+    glm::vec2 eyeRotation = glm::vec2(0.0f, 0.0f); //yaw, pitch
     
     VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
     VkDevice device; //Logical device
@@ -184,8 +180,10 @@ private:
     void createUniformBuffers();
 
     void updateUniformBuffer(uint32_t currentImage, glm::mat4 model);
+    Transform getCameraTransform();
+    void updateCamera(inputData input);
     //Globals per pass, ubos, and lights are updated every frame
-    void updatePerFrameBuffers(unsigned currentImage, Array<glm::mat4> models, inputData input);
+    void updatePerFrameBuffers(unsigned currentFrame, Array<glm::mat4> models, inputData input);
     void recordCommandBufferShadowPass(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 
 

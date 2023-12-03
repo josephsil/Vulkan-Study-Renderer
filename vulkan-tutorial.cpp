@@ -530,16 +530,58 @@ void HelloTriangleApplication::createSyncObjects()
 #pragma region prepare and submit draw call
 
 
-void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentImage, Array<glm::mat4> models,
+glm::quat OrientationFromYawPitch(glm::vec2 yawPitch )
+{
+    glm::quat yawQuat = glm::angleAxis(glm::radians(yawPitch.x), glm::vec3(0, -1, 0));
+    glm::quat pitchQUat = glm::angleAxis(( glm::radians(-yawPitch.y)), glm::vec3(1, 0, 0));
+    return yawQuat * pitchQUat;
+}
+
+Transform HelloTriangleApplication::getCameraTransform()
+{
+    
+    Transform output{};
+    output.translation = glm::translate(glm::mat4(1.0), -eyePos);
+    output.rot = glm::mat4_cast(glm::conjugate(OrientationFromYawPitch(eyeRotation)));
+
+    return output;
+}
+
+//TODO JS: this sucks!
+void HelloTriangleApplication::updateCamera(inputData input)
+{
+    eyeRotation += (input.mouseRot *  30000.0f *  deltaTime);  // 30000 degrees per full screen rotation per second
+    if(eyeRotation.y > 89.0f)
+        eyeRotation.y = 89.0f;
+    if(eyeRotation.y < -89.0f)
+        eyeRotation.y = -89.0f;
+
+    glm::quat Orientation = OrientationFromYawPitch(eyeRotation);
+ 
+    glm::quat forwardQuat = Orientation * glm::quat(0, 0, 0, -1) * glm::conjugate(Orientation);
+    glm::vec3 UP = glm::vec3(0,1,0);
+    glm::vec3 Front = { forwardQuat.x, forwardQuat.y, forwardQuat.z };
+    glm::vec3 RIGHT = glm::normalize(glm::cross(Front, UP));
+    
+    glm::vec3 translateFWD = Front * input.keyboardMove.y;
+    glm::vec3 translateSIDE = RIGHT * input.keyboardMove.x;
+
+    eyePos +=  (translateFWD + translateSIDE) * deltaTime;
+}
+void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Array<glm::mat4> models,
                                                     inputData input)
 {
     //TODO JS: to ring buffer?
     auto tempArena = getHandles().perframeArena;
     //Opaque globals
     ShaderGlobals globals;
-    eyePos += (input.translate * deltaTime);
 
-    glm::mat4 view = lookAt(eyePos, glm::vec3(0.0f, -1.0f, 0.5f), glm::vec3(0.0f, 0.0f, 1.0f));
+
+    updateCamera(input);
+  
+  
+    Transform cameraTform = getCameraTransform();
+    glm::mat4 view = cameraTform.rot * cameraTform.translation;
 
     glm::mat4 proj = glm::perspective(glm::radians(70.0f),
                                       swapChainExtent.width / static_cast<float>(swapChainExtent.height), 0.1f,
@@ -552,7 +594,7 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentImage, Arra
     globals.cubemaplutidx_cubemaplutsampleridx_paddingzw = glm::vec4(
         scene->materialTextureCount() + cubemaplut_utilitytexture_index,
         scene->materialTextureCount() + cubemaplut_utilitytexture_index, 0, 0);
-    memcpy(FramesInFlightData[currentImage].opaqueShaderGlobalsMapped, &globals, sizeof(ShaderGlobals));
+    memcpy(FramesInFlightData[currentFrame].opaqueShaderGlobalsMapped, &globals, sizeof(ShaderGlobals));
 
     //Shadow globals
     int shadowcount = scene->lightCount > MAX_SHADOWCASTERS ? MAX_SHADOWCASTERS : scene->lightCount;
@@ -571,7 +613,7 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentImage, Arra
         shadowGlobals.proj = lightProjection;
         shadowGlobals.viewPos = glm::vec4((glm::vec3)scene->lightposandradius[i],1);
 
-        memcpy(FramesInFlightData[currentImage].perLightShadowShaderGlobalsMapped[i], &shadowGlobals, sizeof(ShaderGlobals));
+        memcpy(FramesInFlightData[currentFrame].perLightShadowShaderGlobalsMapped[i], &shadowGlobals, sizeof(ShaderGlobals));
     }
 
     //Ubos
@@ -583,7 +625,7 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentImage, Arra
         ubos[i].model = models[i];
         ubos[i].Normal = transpose(inverse(glm::mat3(*model)));
     }
-    memcpy(FramesInFlightData[currentImage].uniformBuffersMapped, ubos.data(), sizeof(UniformBufferObject) *scene->objectsCount());
+    memcpy(FramesInFlightData[currentFrame].uniformBuffersMapped, ubos.data(), sizeof(UniformBufferObject) *scene->objectsCount());
 
     //Lights
     auto lights = MemoryArena::AllocSpan<gpulight>(tempArena, scene->lightCount);
@@ -593,7 +635,7 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentImage, Arra
         lights[i] = {scene->lightposandradius[i], scene->lightcolorAndIntensity[i], glm::vec4(1), glm::vec4(1)};
     }
 
-    memcpy(FramesInFlightData[currentImage].lightBuffersMapped, lights.data(), sizeof(gpulight) * lights.size());
+    memcpy(FramesInFlightData[currentFrame].lightBuffersMapped, lights.data(), sizeof(gpulight) * lights.size());
 
 }
 
@@ -863,8 +905,10 @@ void HelloTriangleApplication::mainLoop()
         this->deltaTime = deltaTicks * 0.001;
         this->T = SDL_GetTicks();
 
-        auto translate = glm::vec3(0);
-        auto mouseRot = glm::vec3(0);
+
+
+    
+        
         //Handle events on queue
         while (SDL_PollEvent(&e) != 0)
         {
@@ -885,36 +929,34 @@ void HelloTriangleApplication::mainLoop()
                 {
                     SHADER_MODE = SHADER_MODE ? 0 : 1; //debug toggle float we can bool off of on shader
                 }
-
-                if (e.key.keysym.sym == SDLK_a)
-                {
-                    translate += glm::vec3(1, 0, 0) * translateSpeed;
-                }
-                if (e.key.keysym.sym == SDLK_d)
-                {
-                    translate -= glm::vec3(1, 0, 0) * translateSpeed;
-                }
-                if (e.key.keysym.sym == SDLK_w)
-                {
-                    translate += glm::vec3(0, 0, 1) * translateSpeed;
-                }
-                if (e.key.keysym.sym == SDLK_s)
-                {
-                    translate -= glm::vec3(0, 0, 1) * translateSpeed;
-                }
+                
             }
-            else if (e.type == SDL_MOUSEMOTION)
-            {
-                mouseRot += glm::vec3(0, e.motion.xrel, e.motion.yrel) *= mouseSpeed;
-            }
+          
         }
 
+        glm::vec3 translate = glm::vec3(0);
+        SDL_PumpEvents();
+        const uint8_t* KeyboardState = SDL_GetKeyboardState(nullptr);
+        translate.x = 0 -KeyboardState[SDL_SCANCODE_A] + KeyboardState[SDL_SCANCODE_D];
+        translate.y = 0 +KeyboardState[SDL_SCANCODE_W] - KeyboardState[SDL_SCANCODE_S];
+        translate *= translateSpeed;
+        int x, y;
+
+        const uint32_t MouseButtonState = SDL_GetRelativeMouseState(&x, &y);
+
+      
+        glm::vec3 mouseRot = glm::vec3(0);
+        if (MouseButtonState & SDL_BUTTON_LMASK) // mouse down
+        {
+            float fx  = x / 1000.0f;
+            float fy  = y / 1000.0f;
+            mouseRot.x = fx;
+            mouseRot.y = fy;
+        }
+        inputData input = {translate, mouseRot}; 
         //Temp placeholder for like, object loop
         UpdateRotations();
         scene->Update();
-
-
-        inputData input = {translate, mouseRot}; //TODO JS: Translate jerky. polling wrong rate?
         drawFrame(input);
         auto t2 = SDL_GetTicks();
     }
@@ -925,7 +967,7 @@ void HelloTriangleApplication::mainLoop()
 void HelloTriangleApplication::UpdateRotations()
 {
     //<Rotation update
-    glm::vec3 EulerAngles(0, 0, 0.01);
+    glm::vec3 EulerAngles = glm::vec3(0, 1, 0.00) * deltaTime; // One revolution per second
     auto MyQuaternion = glm::quat(EulerAngles);
 
     // Conversion from axis-angle
@@ -943,7 +985,7 @@ void HelloTriangleApplication::UpdateRotations()
 void HelloTriangleApplication::drawFrame(inputData input)
 {
 
-    
+   
     //Update per frame data
     updatePerFrameBuffers(currentFrame, scene->objects.matrices, input); // TODO JS: Figure out
     //Prepare for pass
@@ -1205,40 +1247,31 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
     randomMeshes.push_back(app->scene->AddBackingMesh(MeshData(app->getHandles(), "Meshes/cubesphere.glb")));
     randomMeshes.push_back(app->scene->AddBackingMesh(MeshData(app->getHandles(), "Meshes/monkey.obj")));
 
-    app->scene->AddLight(glm::vec3(1, 1, 1), glm::vec3(1, 1, 1), 5, 5 / 2);
-    app->scene->AddLight(glm::vec3(0, -3, 1), glm::vec3(1, 1, 1), 5, 8 / 2);
+    app->scene->AddLight(glm::vec3(1, 1, 0), glm::vec3(1, 1, 1), 5, 5 / 2);
+    app->scene->AddLight(glm::vec3(0, 4, -5), glm::vec3(1, 1, 1), 5, 8 / 2);
 
-    app->scene->AddLight(glm::vec3(0, -16, 1), glm::vec3(0.2, 0, 1), 5, 44 / 2);
+    app->scene->AddLight(glm::vec3(0, 8, -10), glm::vec3(0.2, 0, 1), 5, 44 / 2);
 
 
     glm::vec3 EulerAngles(0, 0, 0);
     auto MyQuaternion = glm::quat(EulerAngles);
 
-    for (int i = 0; i < 300; i++)
+    for (int i = 0; i < 100; i++)
     {
-        float rowRoughness = glm::clamp(static_cast<float>(i) / 8.0, 0.0, 1.0);
-        bool rowmetlalic = i % 3 == 0;
-        int textureIndex = rand() % randomMaterials.size();
+        for (int j = 0; j < 10; j ++)
+        {
+            float rowRoughness = glm::clamp(static_cast<float>(i) / 8.0, 0.0, 1.0);
+            bool rowmetlalic = i % 3 == 0;
+            int textureIndex = rand() % randomMaterials.size();
 
-        app->scene->AddObject(
-            &app->scene->backing_meshes[randomMeshes[1]],
-            randomMaterials[textureIndex], rowRoughness, false,
-            glm::vec4(0, - i * 0.6, 0, 1),
-            MyQuaternion);
-        textureIndex = rand() % randomMaterials.size();
+            app->scene->AddObject(
+                &app->scene->backing_meshes[randomMeshes[rand() % randomMeshes.size()]],
+                randomMaterials[textureIndex], rowRoughness, false,
+                glm::vec4((j), (i / 10) * 1.0, - (i % 10), 1),
+                MyQuaternion);
+            textureIndex = rand() % randomMaterials.size();
+        }
 
-        app->scene->AddObject(
-            &app->scene->backing_meshes[randomMeshes[0]],
-            randomMaterials[textureIndex], rowRoughness, true,
-            glm::vec4(2, - i * 0.6, 0.0, 1),
-            MyQuaternion);
-        textureIndex = rand() % randomMaterials.size();
-
-        app->scene->AddObject(
-            &app->scene->backing_meshes[randomMeshes[2]],
-            randomMaterials[textureIndex], rowRoughness, false,
-            glm::vec4(-2, - i * 0.6, -0.0, 1),
-            MyQuaternion);
     }
 }
 

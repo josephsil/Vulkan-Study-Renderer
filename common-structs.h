@@ -68,3 +68,16 @@ struct dataBuffer
     VkDescriptorBufferInfo getBufferInfo();
 };
 
+
+struct inputData
+{
+    glm::vec3 keyboardMove;
+    glm::vec2 mouseRot;
+};
+
+struct Transform
+{
+
+    glm::mat4 translation;
+    glm::mat4 rot; 
+};
