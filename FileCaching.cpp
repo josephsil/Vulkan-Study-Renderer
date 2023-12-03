@@ -1,11 +1,10 @@
 #include "FileCaching.h"
-#include "Vulkan_Includes.h"
+
 #include <atlbase.h>
 #include <cassert>
-#include <codecvt>
-#include <iostream>
+
 #include <fstream>
-#include <locale>
+
 
 #ifdef WIN32
 #define stat _stat
@@ -41,7 +40,7 @@ void FileCaching::saveAssetChangedTime(std::wstring_view assetPath)
     if (_wstat(assetPath.data(), &result) != 0)
     {
          printf("Could not read shader file date");
-         exit(-1);
+     exit(-1);
     }
 
     auto modifiedTime = result.st_mtime;

@@ -7137,7 +7137,7 @@ static char *stbi__hdr_gettoken(stbi__context *z, char *buffer)
       if (len == STBI__HDR_BUFLEN-1) {
          // flush to end of line
          while (!stbi__at_eof(z) && stbi__get8(z) != '\n')
-            ;
+        exit(-1)
          break;
       }
       c = (char) stbi__get8(z);

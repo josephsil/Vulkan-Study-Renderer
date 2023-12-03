@@ -3,6 +3,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
+#include <vector>
 struct RenderTextureFormat
 {
     VkFormat ColorFormat;
@@ -50,8 +51,6 @@ struct per_object_data
     //Unused
     alignas(16) glm::mat4 padding2;
 };
-
-
 
 
 struct descriptorUpdateData

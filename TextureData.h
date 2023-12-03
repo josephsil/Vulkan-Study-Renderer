@@ -9,6 +9,15 @@ using ktxTexture2 =  struct ktxTexture2;
 using  ktxVulkanTexture = struct ktxVulkanTexture;
 
 #pragma endregion
+
+struct temporaryTextureInfo
+{
+    VkImage textureImage;
+    VmaAllocation alloc;
+    uint32_t width;
+    uint32_t height;
+    uint8_t mipCt;
+};
 //TODO JS: obviously improve 
 struct TextureData
 {
@@ -19,27 +28,22 @@ public:
         SPECULAR,
         NORMAL,
         CUBE,
-        LINEAR_DATA
+        LINEAR_DATA,
+        DATA_DONT_COMPRESS
     };
 
-    struct temporaryTextureInfo
-    {
-        VkBuffer buffer;
-        VmaAllocation alloc;
-        int width;
-        int height;
-    };
+  
 
-    temporaryTextureInfo tempTextureInfo;
     VkImageView textureImageView;
     VkSampler textureSampler;
-    RendererHandles rendererHandles;
     VkImage textureImage;
     VmaAllocation textureImageMemory;
+
+    //TODO JS: move out of texturedata
+    RendererHandles rendererHandles;
     uint32_t maxmip = 1; //TODO JS: mutate less places
     uint32_t layerct = 1;
-    int id;
-
+    bool uncompressed = false;
 
     
     TextureData(RendererHandles rendererHandles, const char* path, TextureType type);
@@ -69,6 +73,6 @@ private:
     It's best to do this after the texture mapping works to check if the texture resources are still set up correctly.*/
 
 
-    TextureData::temporaryTextureInfo createTextureImage(const char* path, VkFormat format, bool mips = true);
     VkFormat createImageKTX(const char* path, TextureType type, bool mips);
 };
+

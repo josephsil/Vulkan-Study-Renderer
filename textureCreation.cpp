@@ -128,7 +128,7 @@ void TextureUtilities::transitionImageLayout(RendererHandles rendererHandles, Vk
     else
     {
         printf("unsupported layout transition!");
-        exit(-1);
+    exit(-1);
     }
 
     vkCmdPipelineBarrier(
@@ -163,7 +163,7 @@ void TextureUtilities::generateMipmaps(RendererHandles rendererHandles, VkImage 
     if (!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT))
     {
        printf("texture image format does not support linear blitting!");
-        exit(-1);
+    exit(-1);
     }
 
     bufferAndPool bandp = rendererHandles.commandPoolmanager->beginSingleTimeCommands(false);
@@ -178,7 +178,7 @@ void TextureUtilities::generateMipmaps(RendererHandles rendererHandles, VkImage 
     barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     barrier.subresourceRange.baseArrayLayer = 0;
     barrier.subresourceRange.layerCount = 1;
-    barrier.subresourceRange.levelCount = mipLevels;
+    barrier.subresourceRange.levelCount = 1;
 
     int32_t mipWidth = texWidth;
     int32_t mipHeight = texHeight;

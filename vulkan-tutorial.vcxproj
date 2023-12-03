@@ -141,6 +141,8 @@
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>C:\VulkanSDK\KTX-Software\bin;.\vkbootstrap;C:\VulkanSDK\1.3.239.0\Include;C:\Program Files\Microsoft Visual Studio\2022\Community\libraries\glfw-3.3.8\include;C:\Program Files\Microsoft Visual Studio\2022\Community\libraries\stb-master;C:\VulkanSDK\1.3.239.0\Include\vma;C:\Program Files\Microsoft Visual Studio\2022\Community\libraries\tinyobjloader-release;C:\VulkanSDK\KTX-Software\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <OmitFramePointers>true</OmitFramePointers>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -152,6 +154,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Array.cpp" />
     <ClCompile Include="bufferCreation.cpp" />
     <ClCompile Include="CommandPoolManager.cpp" />
     <ClCompile Include="FileCaching.cpp" />
@@ -161,7 +164,7 @@
     <ClCompile Include="MeshData.cpp" />
     <ClCompile Include="MeshLibraryImplementations.cpp" />
     <ClCompile Include="mikktspace.c" />
-    <ClCompile Include="PipelineDataObject.cpp"/>
+    <ClCompile Include="PipelineDataObject.cpp" />
     <ClCompile Include="SceneObjectData.cpp" />
     <ClCompile Include="ShaderLoading.cpp" />
     <ClCompile Include="textureCreation.cpp" />
@@ -171,6 +174,7 @@
     <ClCompile Include="vmaImplementation.cpp" />
     <ClCompile Include="vulkan-tutorial.cpp" />
     <ClInclude Include="AppStruct.h" />
+    <ClInclude Include="Array.h" />
     <ClInclude Include="bufferCreation.h" />
     <ClInclude Include="CommandPoolManager.h" />
     <ClInclude Include="common-structs.h" />

@@ -2430,7 +2430,7 @@ struct DispatchTable {
 #if (defined(VK_NV_low_latency2))
         fp_vkSetLatencyMarkerNV = reinterpret_cast<PFN_vkSetLatencyMarkerNV>(procAddr(device, "vkSetLatencyMarkerNV"));
 #endif
-#if (defined(VK_NV_low_latency2))
+#if ((defined(VK_NV_low_latency2))) && VK_HEADER_VERSION >= 271
         fp_vkGetLatencyTimingsNV = reinterpret_cast<PFN_vkGetLatencyTimingsNV>(procAddr(device, "vkGetLatencyTimingsNV"));
 #endif
 #if (defined(VK_NV_low_latency2))
@@ -4684,9 +4684,9 @@ struct DispatchTable {
         fp_vkSetLatencyMarkerNV(device, swapchain, pLatencyMarkerInfo);
     }
 #endif
-#if (defined(VK_NV_low_latency2))
-    void getLatencyTimingsNV(VkSwapchainKHR swapchain, uint32_t* pTimingCount, VkGetLatencyMarkerInfoNV* pLatencyMarkerInfo) const noexcept {
-        fp_vkGetLatencyTimingsNV(device, swapchain, pTimingCount, pLatencyMarkerInfo);
+#if ((defined(VK_NV_low_latency2))) && VK_HEADER_VERSION >= 271
+    void getLatencyTimingsNV(VkSwapchainKHR swapchain, VkGetLatencyMarkerInfoNV* pLatencyMarkerInfo) const noexcept {
+        fp_vkGetLatencyTimingsNV(device, swapchain, pLatencyMarkerInfo);
     }
 #endif
 #if (defined(VK_NV_low_latency2))
@@ -6703,7 +6703,7 @@ struct DispatchTable {
 #else
     void * fp_vkSetLatencyMarkerNV{};
 #endif
-#if (defined(VK_NV_low_latency2))
+#if ((defined(VK_NV_low_latency2))) && VK_HEADER_VERSION >= 271
     PFN_vkGetLatencyTimingsNV fp_vkGetLatencyTimingsNV = nullptr;
 #else
     void * fp_vkGetLatencyTimingsNV{};
