@@ -315,7 +315,7 @@ VkFormat TextureData::GetOrLoadTexture(const char* path, VkFormat format, Textur
 			generateKTX = false;
 		}
 	}
-	 generateKTX = true;
+	 // generateKTX = true;
 	if (generateKTX)
 	{
 		cacheKTXFromSTB(path, ktxPath.data(), format, textureType, use_mipmaps);
@@ -333,7 +333,7 @@ void TextureData::cleanup()
 {
     vkDestroySampler(rendererHandles.device, textureSampler, nullptr);
     vkDestroyImageView(rendererHandles.device, textureImageView, nullptr);
-	 VulkanMemory::DestroyImage(rendererHandles.allocator, textureImage, textureImageMemory);
+	VulkanMemory::DestroyImage(rendererHandles.allocator, textureImage, textureImageMemory);
 }
 
 void TextureData::createTextureSampler(VkSamplerAddressMode mode, float bias)
@@ -418,14 +418,14 @@ void TextureData::cacheKTXFromSTB(const char* path, const char* outpath, VkForma
 
 	}
 		
-	printf("Compressing texture....\n" );p
-	ktxTexture2_CompressBasis(texture, 0);
-	//ktxTexture2_CompressBasis(texture, 0);
+//	printf("Compressing texture....\n" );
+	// ktxTexture2_CompressBasis(texture, 50);
 
 	ktxTexture_WriteToNamedFile(ktxTexture(texture), outpath);
 	ktxTexture_Destroy(ktxTexture(texture));
-	VulkanMemory::DestroyImage(rendererHandles.allocator, staging.textureImage, staging.alloc); // move to desctructor?
 
+	//Destroy temporary texture
+	VulkanMemory::DestroyImage(rendererHandles.allocator, staging.textureImage, staging.alloc); 
 }
 
 void TextureData::createTextureImageView(VkFormat format, VkImageViewType type)
@@ -484,7 +484,7 @@ static temporaryTextureInfo createTextureImage(RendererHandles rendererHandles, 
 	
     //JS: Prepare image to read in shaders
     rendererHandles.commandPoolmanager->endSingleTimeCommands(workingTextureBuffer);
-	VulkanMemory::DestroyBuffer(rendererHandles.allocator, stagingBuffer, bufferAlloc);
+
 
 
 	//Texture is done, generate mipmaps
@@ -496,6 +496,9 @@ static temporaryTextureInfo createTextureImage(RendererHandles rendererHandles, 
 	VkImageSubresourceRange range = {VK_IMAGE_ASPECT_COLOR_BIT,0, fullMipPyramid, 0, 1};
 	VkHostImageLayoutTransitionInfoEXT transtionInfo = {VK_STRUCTURE_TYPE_HOST_IMAGE_LAYOUT_TRANSITION_INFO_EXT, VK_NULL_HANDLE, _textureImage, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,VK_IMAGE_LAYOUT_GENERAL, range};
 	vkTransitionImageLayoutEXT(rendererHandles.device,1, {&transtionInfo});
+
+
+	VulkanMemory::DestroyBuffer(rendererHandles.allocator, stagingBuffer, bufferAlloc); // destroy temp buffer
 	
     return temporaryTextureInfo(_textureImage, _textureImageAlloc, texWidth, texHeight, fullMipPyramid);
 
