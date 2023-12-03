@@ -211,7 +211,7 @@ void PipelineDataObject::createPipelineLayoutForPipeline(perPipelineData* perPip
     if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &perPipelineData->bindlessPipelineLayout) != VK_SUCCESS)
     {
         printf("failed to create pipeline layout!");
-        ;
+    exit(-1);
     }
     perPipelineData->pipelineLayoutInitialized = true;
 }
@@ -340,7 +340,7 @@ void PipelineDataObject::createGraphicsPipeline(std::vector<VkPipelineShaderStag
         VK_SUCCESS)
     {
         printf("failed to create graphics pipeline!");
-        ;
+    exit(-1);
     }
 
     pipeline->pipelinesInitialized = true;
@@ -382,7 +382,7 @@ VkDescriptorSet PipelineDataObject::perPipelineData::getSetFromType(VkDescriptor
         return storageDescriptorSetForFrame[currentFrame];
         break;
     default:
-        ;
+    exit(-1);
     }
 }
 

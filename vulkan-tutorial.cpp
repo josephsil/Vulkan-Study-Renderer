@@ -63,17 +63,6 @@ vkb::PhysicalDevice GET_GPU(vkb::Instance instance)
     features12.runtimeDescriptorArray = VK_TRUE;
     features13.dynamicRendering = VK_TRUE;
 
-
-    
-    VkPhysicalDeviceFeatures features{};
-    VkPhysicalDeviceVulkan11Features features11{};
-    VkPhysicalDeviceVulkan12Features features12{};
-    VkPhysicalDeviceVulkan13Features features13{};
-    features12.descriptorIndexing = VK_TRUE;
-    features12.runtimeDescriptorArray = VK_TRUE;
-    features13.dynamicRendering = VK_TRUE;
-
-
     vkb::PhysicalDeviceSelector phys_device_selector(instance);
     auto physicalDeviceBuilderResult = phys_device_selector
                                        .set_minimum_version(1, 3)

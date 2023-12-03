@@ -370,7 +370,7 @@ void TextureData::createTextureSampler(VkSamplerAddressMode mode, float bias)
     if (vkCreateSampler(rendererHandles.device, &samplerInfo, nullptr, &textureSampler) != VK_SUCCESS)
     {
        std::cerr << ("failed to create texture sampler!");
-        ;
+    exit(-1);
     }
 }
 
@@ -461,7 +461,7 @@ static temporaryTextureInfo createTextureImage(RendererHandles rendererHandles, 
     if (!pixels)
     {
          std::cerr << "failed to load texture image!";
-        ;
+    exit(-1);
     }
 
 
