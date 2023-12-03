@@ -101,7 +101,7 @@ void* BufferUtilities::createDynamicBuffer(RendererHandles rendererHandles, VkDe
     else
     {
         printf("NOT IMPLEMENTED: Allocation ended up in unmapped memory, see https://gpuopen-librariesandsdks.github.io/VulkanMemoryAllocator/html/usage_patterns.html advanced data uploading");
-        exit(-1);
+        ;
     }
 }
 void BufferUtilities::createStagingBuffer(RendererHandles rendererHandles, VkDeviceSize size,

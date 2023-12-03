@@ -53,7 +53,7 @@ void LayoutsBuilder::addBinding(VkDescriptorType type, VkShaderStageFlags stage,
         storagebuilder.addBinding(type, stage, descriptorCount);
         break;
     default:
-        exit(-1);
+        ;
     }
 
     bindings.push_back({type, ct, descriptorCount});

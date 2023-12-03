@@ -40,7 +40,7 @@ void FileCaching::saveAssetChangedTime(std::wstring_view assetPath)
     if (_wstat(assetPath.data(), &result) != 0)
     {
          printf("Could not read shader file date");
-         exit(-1);
+         ;
     }
 
     auto modifiedTime = result.st_mtime;

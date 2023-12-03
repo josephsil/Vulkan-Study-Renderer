@@ -18,4 +18,5 @@ struct RendererHandles
     VmaAllocator allocator;
     MemoryArena::memoryArena* arena;
     MemoryArena::memoryArena* perframeArena;
+    bool canWriteKTX;
 };

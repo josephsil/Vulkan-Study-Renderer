@@ -175,7 +175,7 @@ MeshData::MeshData(RendererHandles app, const char* path)
         if (model.meshes.size() > 1)
         {
             printf("NOT IMPLEMENTED -- DON'T SUPPORT MULTIPLE MESHES");
-            std::exit(-1);
+            ;
         }
 
 
@@ -227,7 +227,7 @@ MeshData::MeshData(RendererHandles app, const char* path)
                 if (!prim.attributes.contains("NORMAL"))
                 {
                    printf("NOT IMPLEMENTED -- DONT WORK SUPPORT MODELS WITHOUT NORMALS");
-                    std::exit(-1);
+                    ;
                 }
 
 
@@ -405,7 +405,7 @@ MeshData::MeshData(RendererHandles app, const char* path)
      else
      {
          printf("UNSUPPORTED MODEL FORMAT: '%s' IN PATH:%s",ext, path);
-         std::exit(-1);
+         ;
      }
 
     //Generate MikkT tangents

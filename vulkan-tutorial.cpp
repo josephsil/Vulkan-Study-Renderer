@@ -32,18 +32,20 @@ vkb::Instance GET_INSTANCE()
 {
     vkb::InstanceBuilder instance_builder;
     auto instanceBuilderResult = instance_builder
-                                  .request_validation_layers()
+                                  // .request_validation_layers()
                                  .use_default_debug_messenger()
                                  .require_api_version(1, 3, 240)
                                  .build();
     if (!instanceBuilderResult)
     {
         std::cerr << "Failed to create Vulkan instance. Error: " << instanceBuilderResult.error().message() << "\n";
-        exit(1);
+        while(true);
     }
 
     return instanceBuilderResult.value();
 }
+
+bool HAS_HOST_IMAGE_COPY;
 
 vkb::PhysicalDevice GET_GPU(vkb::Instance instance)
 {
@@ -52,8 +54,9 @@ vkb::PhysicalDevice GET_GPU(vkb::Instance instance)
          VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_MAINTENANCE_4_EXTENSION_NAME, VK_KHR_MAINTENANCE_3_EXTENSION_NAME, VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME, VK_EXT_MUTABLE_DESCRIPTOR_TYPE_EXTENSION_NAME,
         //for image copy:
         // VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, VK_KHR_COPY_COMMANDS_2_EXTENSION_NAME, VK_KHR_FORMAT_FEATURE_FLAGS_2_EXTENSION_NAME,
-        VK_EXT_HOST_IMAGE_COPY_EXTENSION_NAME,
     };
+
+    
     VkPhysicalDeviceFeatures features{};
     VkPhysicalDeviceVulkan11Features features11{};
     VkPhysicalDeviceVulkan12Features features12{};
@@ -83,9 +86,8 @@ vkb::PhysicalDevice GET_GPU(vkb::Instance instance)
         exit(1);
     }
     
-    auto r = physicalDeviceBuilderResult.value().is_extension_present(VK_EXT_HOST_IMAGE_COPY_EXTENSION_NAME);
+    HAS_HOST_IMAGE_COPY = physicalDeviceBuilderResult.value().enable_extension_if_present(VK_EXT_HOST_IMAGE_COPY_EXTENSION_NAME);
 
-    assert(r);
 
     auto a =physicalDeviceBuilderResult.value().get_extensions();
     for(auto& v : a)
@@ -185,7 +187,7 @@ void SET_UP_SCENE(HelloTriangleApplication* app);
 
 RendererHandles HelloTriangleApplication::getHandles()
 {
-    return RendererHandles{physicalDevice, device, &commandPoolmanager, allocator, &arena, &perFrameArenas[currentFrame]};
+    return RendererHandles{physicalDevice, device, &commandPoolmanager, allocator, &arena, &perFrameArenas[currentFrame], HAS_HOST_IMAGE_COPY};
 }
 
 

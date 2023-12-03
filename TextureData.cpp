@@ -363,7 +363,7 @@ void TextureData::createTextureSampler(VkSamplerAddressMode mode, float bias)
     if (vkCreateSampler(rendererHandles.device, &samplerInfo, nullptr, &textureSampler) != VK_SUCCESS)
     {
        std::cerr << ("failed to create texture sampler!");
-        exit(-1);
+        ;
     }
 }
 
@@ -371,6 +371,11 @@ static temporaryTextureInfo createTextureImage(RendererHandles rendererHandles, 
 
 void TextureData::cacheKTXFromSTB(const char* path, const char* outpath, VkFormat format, TextureType textureType, bool use_mipmaps)
 {
+	assert(rendererHandles.canWriteKTX);
+	if (!rendererHandles.canWriteKTX)
+	{
+		exit (-1);
+	}
 	ktx_size_t srcSize;
     temporaryTextureInfo staging = createTextureImage(rendererHandles, path, format, use_mipmaps);
         VkImage image = staging.textureImage;
@@ -446,7 +451,7 @@ static temporaryTextureInfo createTextureImage(RendererHandles rendererHandles, 
     if (!pixels)
     {
          std::cerr << "failed to load texture image!";
-        exit(-1);
+        ;
     }
 
 
@@ -524,7 +529,7 @@ VkFormat TextureData::createImageKTX(const char* path, TextureType type, bool mi
 	if (KTX_SUCCESS != ktxresult)
 	{
 		std::cerr << "Creation of ktxTexture from \"" << path << "\" failed: " << ktxErrorString(ktxresult);
-		exit(-1);
+		;
 	}
 	bool debugnomips = false;
 	VkFormat outputFormat;
@@ -577,7 +582,7 @@ VkFormat TextureData::createImageKTX(const char* path, TextureType type, bool mi
 	if (KTX_SUCCESS != ktxresult)
 	{
 		std::cerr << "ktxTexture_VkUpload failed: " << ktxErrorString(ktxresult);
-		exit(-1);
+		;
 	}
 
 #endif
