@@ -55,6 +55,14 @@ vkb::PhysicalDevice GET_GPU(vkb::Instance instance)
         //for image copy:
         // VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, VK_KHR_COPY_COMMANDS_2_EXTENSION_NAME, VK_KHR_FORMAT_FEATURE_FLAGS_2_EXTENSION_NAME,
     };
+    VkPhysicalDeviceFeatures features{};
+    VkPhysicalDeviceVulkan11Features features11{};
+    VkPhysicalDeviceVulkan12Features features12{};
+    VkPhysicalDeviceVulkan13Features features13{};
+    features12.descriptorIndexing = VK_TRUE;
+    features12.runtimeDescriptorArray = VK_TRUE;
+    features13.dynamicRendering = VK_TRUE;
+
 
     
     VkPhysicalDeviceFeatures features{};
@@ -941,6 +949,7 @@ void HelloTriangleApplication::UpdateRotations()
 
     scene->Update();
 }
+
 
 void HelloTriangleApplication::drawFrame(inputData input)
 {
