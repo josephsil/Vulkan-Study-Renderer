@@ -1,7 +1,6 @@
 #pragma once
 #include <unordered_map>
 #include <vector>
-#include <vulkan/vulkan_core.h>
 
 #include "forward-declarations-renderer.h"
 #include "common-structs.h"
@@ -15,109 +14,17 @@ struct CommandPoolManager;
 struct TextureData;
 
 
-struct descriptorUpdateData
-{
-    VkDescriptorType type;
-    void* ptr;
-    uint32_t count = 1;
-};
-
-struct dataBuffer
-{
-    VkBuffer data;
-    uint32_t size;
-
-    VkDescriptorBufferInfo getBufferInfo();
-};
 
 namespace DescriptorSets
 {
-    struct layoutInfo;
     std::pair<std::vector<VkDescriptorImageInfo>, std::vector<VkDescriptorImageInfo>> ImageInfoFromImageDataVec(std::vector<TextureData> textures);
     
     //Passing around a vector of these to enforce binding for a pipeline
-    struct layoutInfo
-    {
-        VkDescriptorType type;
-        uint32_t slot;
-        uint32_t descriptorCount = 1;
-    };
-
+    
     void AllocateDescriptorSet(VkDevice device, VkDescriptorPool pool, VkDescriptorSetLayout* pdescriptorsetLayout, VkDescriptorSet* pset);
 
-    //Sorta material-esque -- should this grow, and own information about the corresponding pipeline?
-    class bindlessDrawData
-    {
-    public:
-        bindlessDrawData()
-        {}
-        bindlessDrawData(RendererHandles handles, Scene* pscene);
-        //Initialization
-        void createDescriptorSets( VkDescriptorPool pool,  int MAX_FRAMES_IN_FLIGHT);
-        void createPipelineLayout();
-        void createGraphicsPipeline(std::vector<VkPipelineShaderStageCreateInfo> shaders, VkRenderPass renderPass);
+   
 
-        //Runtime
-        void updateDescriptorSets(std::vector<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame);
-        void bindToCommandBuffer(VkCommandBuffer cmd, uint32_t currentFrame);
-        VkPipeline getPipeline(int index);
-        VkPipelineLayout getLayout();
-        
-        void cleanup();
-
-    private:
-        std::vector<layoutInfo> slots;
-        VkDevice device;
-        bool pipelineLayoutInitialized = false;
-        bool pipelinesInitialized = false;
-        bool descriptorSetsInitialized = false;
-      
-        std::vector<VkPipeline> bindlesspipelineObjects;
-        VkPipelineLayout bindlessPipelineLayout;
-
-        VkDescriptorSetLayout uniformDescriptorLayout = {};
-        VkDescriptorSetLayout storageDescriptorLayout = {};
-        VkDescriptorSetLayout imageDescriptorLayout = {};
-        VkDescriptorSetLayout samplerDescriptorLayout = {};
-        
-        std::vector<VkDescriptorSet> uniformDescriptorSetForFrame = {};
-        std::vector<VkDescriptorSet> storageDescriptorSetForFrame = {};
-        std::vector<VkDescriptorSet> imageDescriptorSetForFrame = {};
-        std::vector<VkDescriptorSet> samplerDescriptorSetForFrame = {};
-
-
-        //Descriptor set update
-        std::vector<VkWriteDescriptorSet> writeDescriptorSets;
-        std::unordered_map<VkDescriptorSet, int> writeDescriptorSetsBindingIndices;
-        
-        VkDescriptorSet getSetFromType(VkDescriptorType type, int currentFrame)
-        {
-            switch (type)
-            {
-            case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
-                return uniformDescriptorSetForFrame[currentFrame];
-                break;
-            case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
-                return imageDescriptorSetForFrame[currentFrame];
-                break;
-            case VK_DESCRIPTOR_TYPE_SAMPLER:
-                return samplerDescriptorSetForFrame[currentFrame];
-                break;
-            case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
-                return storageDescriptorSetForFrame[currentFrame];
-                break;
-            default:
-                exit(-1);
-            }
-        }
-        
-    };
-
-}
-
-namespace RenderingSetup
-{
-    void createRenderPass(RendererHandles rendererHandles, RenderTextureFormat passformat, VkRenderPass* pass);
 }
 
 namespace Capabilities

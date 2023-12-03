@@ -1,8 +1,8 @@
 #pragma once
 #include <cstdint>
+#include <vector>
 
 #include "forward-declarations-renderer.h"
-#include "common-structs.h"
 
 struct RendererHandles;
 struct CommandPoolManager;
@@ -23,7 +23,7 @@ namespace TextureUtilities
 
     void transitionImageLayout(RendererHandles rendererHandles, VkImage image, VkFormat format, VkImageLayout oldLayout,
                                VkImageLayout newLayout, VkCommandBuffer workingBuffer,
-                               uint32_t miplevels = 1);
+                               uint32_t miplevels = 1, bool useTransferPool = true);
 
     void generateMipmaps(RendererHandles rendererHandles, VkImage image, VkFormat imageFormat, int32_t texWidth,
                          int32_t texHeight, uint32_t mipLevels);

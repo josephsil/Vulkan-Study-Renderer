@@ -11,6 +11,7 @@
 
 #include "AppStruct.h"
 #include "CommandPoolManager.h"
+#include "PipelineDataObject.h"
 #include "vulkan-utilities.h"
 // My stuff 
 
@@ -36,6 +37,7 @@ public:
 private:
 
     const int MAX_FRAMES_IN_FLIGHT = 3;
+    const int MAX_SHADOWCASTERS = 1;
 
 #pragma region SDL
     uint32_t T;
@@ -78,40 +80,62 @@ private:
     };
 
     VkSwapchainKHR swapChain;
-    VkFormat swapChainImageFormat;
+    VkFormat swapChainColorFormat;
     VkExtent2D swapChainExtent;
     std::vector<VkImageView> swapChainImageViews;
     std::vector<VkImage> swapChainImages;
-    std::vector<VkFramebuffer> swapChainFramebuffers;
+
+    std::vector<VkImageView> shadowImageViews;
+    std::vector<VkImage> shadowImages;
+    std::vector<VmaAllocation> shadowMemory;
+    VkFormat shadowFormat;
     
     VkImage depthImage;
     VmaAllocation depthImageMemory;
+    VkFormat depthFormat;
     VkImageView depthImageView;
-    VkRenderPass renderPass;
 
 #pragma region  descriptor sets 
     VkDescriptorPool descriptorPool;
     VkDescriptorSetLayout pushDescriptorSetLayout;
     VkDescriptorSetLayout perMaterialSetLayout;
     
-    DescriptorSets::bindlessDrawData descriptorsetLayoutsData;
+    PipelineDataObject descriptorsetLayoutsData;
 
     
     void createDescriptorSetPool(RendererHandles handles, VkDescriptorPool* pool);
-    void updateDescriptorSets(RendererHandles handles, VkDescriptorPool pool, DescriptorSets::bindlessDrawData* layoutData);
+    void updateOpaqueDescriptorSets(RendererHandles handles, VkDescriptorPool pool, PipelineDataObject* layoutData);
+    void updateShadowDescriptorSets(RendererHandles handles, VkDescriptorPool pool,
+                                    PipelineDataObject* layoutData, uint32_t shadowIndex);
 
 #pragma endregion
 
     struct per_frame_data
     {
+        VkSemaphore shadowAvailableSemaphores {};
+        VkSemaphore shadowFinishedSemaphores {};
         VkSemaphore imageAvailableSemaphores {};
         VkSemaphore renderFinishedSemaphores {};
+
+        VkSemaphore swapchaintransitionedOutSemaphores {};
+        VkSemaphore swapchaintransitionedInSemaphores {};
+        
         VkFence inFlightFences {};
+        VkCommandBuffer opaqueCommandBuffers {};
+        VkCommandBuffer shadowCommandBuffers {};
+        VkCommandBuffer swapchainTransitionInCommandBuffer {};
+        VkCommandBuffer swapchainTransitionOutCommandBuffer {};
 
 #pragma region buffers
-        dataBuffer shaderGlobalsBuffer;
-        VmaAllocation shaderGlobalsMemory;
-        void* shaderGlobalsMapped;
+
+        //TODO JS: More expressive pass system
+        std::vector<dataBuffer> perLightShadowShaderGlobalsBuffer;
+        std::vector<VmaAllocation> perLightShadowShaderGlobalsMemory;
+        std::vector<void*> perLightShadowShaderGlobalsMapped;
+        
+        dataBuffer opaqueShaderGlobalsBuffer;
+        VmaAllocation opaqueShaderGlobalsMemory;
+        void* opaqueShaderGlobalsMapped;
     
         //TODO JS: Move the data buffer stuff?
         dataBuffer uniformBuffers;
@@ -126,12 +150,10 @@ private:
         VmaAllocation lightBuffersMemory;
         void* lightBuffersMapped;
 #pragma endregion
-        
-        
     };
     
     std::vector<per_frame_data> FramesInFlightData;
-    std::vector<VkCommandBuffer> commandBuffers {};
+    
     
 
     int cubemaplut_utilitytexture_index;
@@ -158,7 +180,9 @@ private:
     void createUniformBuffers();
 
     void updateUniformBuffer(uint32_t currentImage, glm::mat4 model);
-    void updateUniformBuffers(uint32_t currentImage, std::vector<glm::mat4> models, inputData input);
+    //Globals per pass, ubos, and lights are updated every frame
+    void updatePerFrameBuffers(uint32_t currentImage, std::vector<glm::mat4> models, inputData input);
+    void recordCommandBufferShadowPass(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 
 
     void createDescriptorSetLayout(VkDescriptorSetLayoutCreateInfo layoutinfo, VkDescriptorSetLayout* layout);
@@ -168,20 +192,19 @@ private:
     void createSyncObjects();
 
     void createCommandBuffers();
-    void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+    void recordCommandBufferOpaquePass(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 
     void createGraphicsCommandPool();
     void createTransferCommandPool();
 
     void createDepthResources();
-    void createFramebuffers();
 
 
     bool hasStencilComponent(VkFormat format);
 
 
-    void createGraphicsPipeline(const char* shaderName, VkRenderPass renderPass,
-                                       DescriptorSets::bindlessDrawData* descriptorsetdata);
+    void createGraphicsPipeline(const char* shaderName,
+                                PipelineDataObject* descriptorsetdata, bool shadow = false);
     void createInstance();
 
     int _selectedShader{0};
@@ -191,6 +214,10 @@ private:
     void UpdateRotations();
 
     void drawFrame(inputData input);
+    void renderShadowPass(uint32_t currentFrame, uint32_t imageIndex, std::vector<VkSemaphore> waitsemaphores,
+                          std::vector<VkSemaphore> signalsemaphores);
+    void renderOpaquePass(uint32_t currentFrame, uint32_t imageIndex, std::vector<VkSemaphore> waitsemaphores, std::vector<VkSemaphore>
+                          signalsemaphores);
 
     void cleanup();
 

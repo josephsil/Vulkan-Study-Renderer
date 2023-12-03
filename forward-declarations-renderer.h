@@ -11,6 +11,8 @@ using VkCommandPool = struct VkCommandPool_T*;
 using VkCommandBuffer = struct VkCommandBuffer_T*;
 using VkInstance = struct VkInstance_T*;
 
+using VkSemaphore = struct VkSemaphore_T*;
+
 using VmaAllocator = struct VmaAllocator_T*;
 using VmaAllocation = struct VmaAllocation_T*;
 struct VmaAllocationInfo;
@@ -33,6 +35,7 @@ using VkDescriptorSet = struct VkDescriptorSet_T*;
 using VkDescriptorPool = struct VkDescriptorPool_T*;
 using VkDescriptorSet = struct VkDescriptorSet_T*;
 
+using VkPipelineLayout = struct VkPipelineLayout_T*;
 enum VkSamplerAddressMode;
 enum VkImageViewType; 
 
@@ -47,6 +50,7 @@ typedef VkFlags VkMemoryPropertyFlags;
 typedef VkFlags VkImageAspectFlags;
 typedef VkFlags VkBufferUsageFlags;
 typedef VkFlags VkBufferViewCreateFlags;
+typedef VkFlags VkShaderStageFlags;
 typedef uint64_t VkDeviceSize;
 
 typedef struct VkDescriptorBufferInfo ;

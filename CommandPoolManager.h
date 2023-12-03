@@ -1,6 +1,6 @@
 #pragma once
 #include <cstdint>
-
+#include <vector>
 
 
 #include "forward-declarations-renderer.h"
@@ -36,7 +36,7 @@ public:
     VkCommandPool commandPool;
     VkCommandPool transferCommandPool;
     VkCommandBuffer beginSingleTimeCommands_transfer();
-    bufferAndPool beginSingleTimeCommands(bool useTransferPool); //TODO JS: can i move to cpp?
+    bufferAndPool beginSingleTimeCommands(bool useTransferPoolInsteadOfGraphicsPool); //TODO JS: can i move to cpp?
 
     void endSingleTimeCommands(VkCommandBuffer buffer);
     void endSingleTimeCommands(bufferAndPool commandBuffer);

@@ -1,5 +1,7 @@
 #pragma once
-#include <cstdint>
+
+#include <glm/fwd.hpp>
+
 #include "forward-declarations-renderer.h"
 
 struct Vertex;
@@ -21,7 +23,7 @@ namespace BufferUtilities
                            VmaAllocation& allocation, Vertex* data);
 
     void stageIndexBuffer(RendererHandles rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
-                          VmaAllocation& allocation, uint32_t* data);
+                          VmaAllocation& allocation, glm::uint32_t* data);
 
     //TODO JS: move to cpp file?
     void stageMeshDataBuffer(RendererHandles rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,

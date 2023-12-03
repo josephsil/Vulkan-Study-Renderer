@@ -35,7 +35,7 @@ vkb::Instance GET_INSTANCE()
 {
     vkb::InstanceBuilder instance_builder;
     auto instanceBuilderResult = instance_builder
-                                 // .request_validation_layers()
+                                  // .request_validation_layers()
                                  .use_default_debug_messenger()
                                  .require_api_version(1, 3, 0)
                                  .build();
@@ -50,20 +50,29 @@ vkb::Instance GET_INSTANCE()
 
 vkb::PhysicalDevice GET_GPU(vkb::Instance instance)
 {
+
     const std::vector<const char*> deviceExtensions = {
-        VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_MAINTENANCE_4_EXTENSION_NAME, VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_MAINTENANCE_4_EXTENSION_NAME, VK_KHR_MAINTENANCE_3_EXTENSION_NAME, VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME, VK_EXT_MUTABLE_DESCRIPTOR_TYPE_EXTENSION_NAME
     };
+    VkPhysicalDeviceFeatures features{};
+    VkPhysicalDeviceVulkan11Features features11{};
+    VkPhysicalDeviceVulkan12Features features12{};
+    VkPhysicalDeviceVulkan13Features features13{};
+    features12.descriptorIndexing = VK_TRUE;
+    features12.runtimeDescriptorArray = VK_TRUE;
+    features13.dynamicRendering = VK_TRUE;
+
 
     vkb::PhysicalDeviceSelector phys_device_selector(instance);
     auto physicalDeviceBuilderResult = phys_device_selector
                                        .set_minimum_version(1, 3)
                                        .set_surface(surface)
                                        .require_separate_transfer_queue()
+                                       .set_required_features_12(features12)
+    // .set_required_features({.})
+    .set_required_features_13(features13)
                                        //NOTE: Not supporting gpus without dedicated queue 
                                        .require_separate_compute_queue()
-                                       .set_required_features({
-                                           VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES
-                                       })
                                        .add_required_extensions(deviceExtensions)
                                        .select();
     if (!physicalDeviceBuilderResult)
@@ -217,14 +226,28 @@ void HelloTriangleApplication::initVulkan()
     swapChainImages = vkb_swapchain.get_images().value();
     swapChainImageViews = vkb_swapchain.get_image_views().value();
     swapChainExtent = vkb_swapchain.extent;
-    swapChainImageFormat = vkb_swapchain.image_format;
+    swapChainColorFormat = vkb_swapchain.image_format;
+
+    uint32_t shadowmapsize = 512;
+    shadowFormat = VK_FORMAT_D32_SFLOAT;
+    //Create shadow image(s) -- TODO JS: don't do this every frame
+    shadowImages.resize(MAX_FRAMES_IN_FLIGHT);
+    shadowMemory.resize(MAX_FRAMES_IN_FLIGHT);
+    shadowImageViews.resize(MAX_FRAMES_IN_FLIGHT);
+    for(int i = 0; i < MAX_FRAMES_IN_FLIGHT ; i++)
+    {
+        TextureUtilities::createImage(getHandles(),shadowmapsize, shadowmapsize,shadowFormat,VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
+                       VK_IMAGE_USAGE_SAMPLED_BIT,0,shadowImages[i],shadowMemory[i],1);
+        shadowImageViews[i] = TextureUtilities::createImageView(device,shadowImages[i],shadowFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
+    }
+    
+    createDepthResources();
 
     //Load shaders 
     shaderLoader = new ShaderLoader(device);
     shaderLoader->AddShader("triangle", L"./Shaders/Shader1.hlsl");
     shaderLoader->AddShader("triangle_alt", L"./Shaders/shader2.hlsl");
-    
-    RenderingSetup::createRenderPass(getHandles(), {swapChainImageFormat, Capabilities::findDepthFormat(getHandles())}, &renderPass);
+    shaderLoader->AddShader("shadow", L"./Shaders/bindlessShadow.hlsl");
 
     //Command buffer stuff
     createCommandBuffers();
@@ -239,21 +262,23 @@ void HelloTriangleApplication::initVulkan()
     cube_irradiance = TextureData(getHandles(), "textures/output_cubemap2_diff8.ktx2", TextureData::TextureType::CUBE);
     cube_specular = TextureData(getHandles(), "textures/output_cubemap2_spec8.ktx2", TextureData::TextureType::CUBE);
 
-   
-    descriptorsetLayoutsData = DescriptorSets::bindlessDrawData(getHandles(), scene.get());
     
-    createGraphicsPipeline("triangle", renderPass,   &descriptorsetLayoutsData);
-    createGraphicsPipeline("triangle_alt", renderPass,   &descriptorsetLayoutsData);
+    descriptorsetLayoutsData = PipelineDataObject(getHandles(), scene.get());
+
+
+    //TODO JS: Make pipelines belong to the perPipelineLayout members
+    createGraphicsPipeline("triangle",  &descriptorsetLayoutsData);
+    createGraphicsPipeline("triangle_alt",  &descriptorsetLayoutsData);
+    //TODO JS: separate shadow layout?
+    createGraphicsPipeline("shadow",  &descriptorsetLayoutsData, true);
     
     createDescriptorSetPool(getHandles(), &descriptorPool);
 
-    descriptorsetLayoutsData.createDescriptorSets(descriptorPool, MAX_FRAMES_IN_FLIGHT);
+    descriptorsetLayoutsData.createDescriptorSetsOpaque(descriptorPool, MAX_FRAMES_IN_FLIGHT);
+    descriptorsetLayoutsData.createDescriptorSetsShadow(descriptorPool, MAX_FRAMES_IN_FLIGHT);
 
     createUniformBuffers();
     createSyncObjects();
-
-    createDepthResources();
-    createFramebuffers();
 
     //TODO JS: Move... Run when meshes change?
     populateMeshBuffers();
@@ -297,11 +322,24 @@ void HelloTriangleApplication::createUniformBuffers()
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        FramesInFlightData[i].shaderGlobalsBuffer.size = globalsSize;
-        FramesInFlightData[i].shaderGlobalsMapped = BufferUtilities::createDynamicBuffer(
+        FramesInFlightData[i].perLightShadowShaderGlobalsBuffer.resize(MAX_SHADOWCASTERS);
+        FramesInFlightData[i].perLightShadowShaderGlobalsMapped.resize(MAX_SHADOWCASTERS);
+        FramesInFlightData[i].perLightShadowShaderGlobalsMemory.resize(MAX_SHADOWCASTERS);
+
+        for (size_t j = 0; j < MAX_SHADOWCASTERS ; j++)
+        {
+            FramesInFlightData[i].perLightShadowShaderGlobalsBuffer[j].size = globalsSize;
+            FramesInFlightData[i].perLightShadowShaderGlobalsMapped[j] = BufferUtilities::createDynamicBuffer(
+                getHandles(), globalsSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                &FramesInFlightData[i].perLightShadowShaderGlobalsMemory[j],
+                FramesInFlightData[i].perLightShadowShaderGlobalsBuffer[j].data);
+        }
+        
+        FramesInFlightData[i].opaqueShaderGlobalsBuffer.size = globalsSize;
+        FramesInFlightData[i].opaqueShaderGlobalsMapped = BufferUtilities::createDynamicBuffer(
             getHandles(), globalsSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-            &FramesInFlightData[i].shaderGlobalsMemory,
-            FramesInFlightData[i].shaderGlobalsBuffer.data);
+            &FramesInFlightData[i].opaqueShaderGlobalsMemory,
+            FramesInFlightData[i].opaqueShaderGlobalsBuffer.data);
         
         FramesInFlightData[i].uniformBuffers.size = ubosSize;
         FramesInFlightData[i].uniformBuffersMapped = BufferUtilities::createDynamicBuffer(
@@ -352,23 +390,12 @@ void HelloTriangleApplication::createDescriptorSetPool(RendererHandles handles, 
     pool_info.poolSizeCount = (uint32_t)sizes.size();
     pool_info.pPoolSizes = sizes.data();
     
-    pool_info.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * 4; //4 here is the number of descriptorsets 
+    pool_info.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * 4 * 3; //4 here is the number of descriptorsets  * 3 pipelines
     VK_CHECK( vkCreateDescriptorPool(handles.device, &pool_info, nullptr, pool));
     
 }
 
-//Descriptor setup has five steps:
-//TODO JS: Simploify descriptors
-//1- Layout Creation
-//  1a Layout is provided to pipeline
-//2- This is kinda async, but pool needs to be created and needs descriptor count
-//3- Descriptor set allocation/creation - alloc a set per layout
-//4- At runtime: update the sets. A write descriptor buffer info for each descriptor is created and filled, then vkUpdateDescriptorSets
-//5- maybe it was only four steps?
-//I think I can get rid of writedescriptorsetbuilder. 
-
-
-void HelloTriangleApplication::updateDescriptorSets(RendererHandles handles, VkDescriptorPool pool, DescriptorSets::bindlessDrawData* layoutData)
+void HelloTriangleApplication::updateOpaqueDescriptorSets(RendererHandles handles, VkDescriptorPool pool, PipelineDataObject* layoutData)
 {
 
     //Get data
@@ -378,12 +405,11 @@ void HelloTriangleApplication::updateDescriptorSets(RendererHandles handles, VkD
     VkDescriptorBufferInfo meshBufferinfo = FramesInFlightData[currentFrame].meshBuffers.getBufferInfo();
     VkDescriptorBufferInfo lightbufferinfo = FramesInFlightData[currentFrame].lightBuffers.getBufferInfo();
     VkDescriptorBufferInfo uniformbufferinfo = FramesInFlightData[currentFrame].uniformBuffers.getBufferInfo();
-    VkDescriptorBufferInfo shaderglobalsinfo = FramesInFlightData[currentFrame].shaderGlobalsBuffer.getBufferInfo();
+    VkDescriptorBufferInfo shaderglobalsinfo = FramesInFlightData[currentFrame].opaqueShaderGlobalsBuffer.getBufferInfo();
 
     std::vector<descriptorUpdateData> descriptorUpdates;
     //Update descriptor sets with data
-   // auto writeDescriptorSetBuilder = DescriptorSets::WriteDescriptorSetsBuilder(layoutData->slots);
-
+ 
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &shaderglobalsinfo});
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, imageInfos.data(),  (uint32_t)imageInfos.size()});
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, cubeImageInfos.data(), (uint32_t)cubeImageInfos.size()});
@@ -393,9 +419,38 @@ void HelloTriangleApplication::updateDescriptorSets(RendererHandles handles, VkD
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &lightbufferinfo});
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &uniformbufferinfo});
 
+    layoutData->updateOpaqueDescriptorSets(descriptorUpdates, currentFrame);
+}
 
-    layoutData->updateDescriptorSets(descriptorUpdates, currentFrame);
-    //writeDescriptorSetBuilder.update(handles.device);
+
+//TODO JS: Need to use separate descriptors  
+//TODO JS: Probably want to duplicate less code
+void HelloTriangleApplication::updateShadowDescriptorSets(RendererHandles handles,  VkDescriptorPool pool, PipelineDataObject* layoutData, uint32_t shadowIndex)
+{
+
+    //Get data
+    auto [imageInfos, samplerInfos] = scene->getBindlessTextureInfos();
+    auto [cubeImageInfos, cubeSamplerInfos] = DescriptorSets::ImageInfoFromImageDataVec({
+        cube_irradiance, cube_specular});
+    VkDescriptorBufferInfo meshBufferinfo = FramesInFlightData[currentFrame].meshBuffers.getBufferInfo();
+    VkDescriptorBufferInfo lightbufferinfo = FramesInFlightData[currentFrame].lightBuffers.getBufferInfo();
+    VkDescriptorBufferInfo uniformbufferinfo = FramesInFlightData[currentFrame].uniformBuffers.getBufferInfo();
+    VkDescriptorBufferInfo shaderglobalsinfo = FramesInFlightData[currentFrame].perLightShadowShaderGlobalsBuffer[shadowIndex].getBufferInfo();
+
+    std::vector<descriptorUpdateData> descriptorUpdates;
+    //Update descriptor sets with data
+ 
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &shaderglobalsinfo});
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, imageInfos.data(),  (uint32_t)imageInfos.size()});
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, cubeImageInfos.data(), (uint32_t)cubeImageInfos.size()});
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, samplerInfos.data(), (uint32_t)samplerInfos.size()});
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, cubeSamplerInfos.data(), (uint32_t)cubeSamplerInfos.size()});
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &meshBufferinfo});
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &lightbufferinfo});
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &uniformbufferinfo});
+
+    layoutData->updateShadowDescriptorSets(descriptorUpdates, currentFrame);
+
     
 }
 #pragma endregion
@@ -416,33 +471,38 @@ void HelloTriangleApplication::createSyncObjects()
                 vkCreateFence(device, &fenceInfo, nullptr, &FramesInFlightData[i].inFlightFences) != VK_SUCCESS)
             {
                 printf("failed to create synchronization objects for a frame!");
-                exit(-1);
+                assert(false);
             }
     }
+    for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    {
+        if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &FramesInFlightData[i].shadowAvailableSemaphores) != VK_SUCCESS ||
+            vkCreateSemaphore(device, &semaphoreInfo, nullptr, &FramesInFlightData[i].shadowFinishedSemaphores) != VK_SUCCESS)
+        {
+            printf("failed to create synchronization objects for a shadow pass!");
+            assert(false);
+        }
+    }
+    for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    {
+        if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &FramesInFlightData[i].swapchaintransitionedOutSemaphores) != VK_SUCCESS ||
+            vkCreateSemaphore(device, &semaphoreInfo, nullptr, &FramesInFlightData[i].swapchaintransitionedInSemaphores) != VK_SUCCESS)
+        {
+            printf("failed to create synchronization objects for a shadow pass!");
+            assert(false);
+        }
+    }
+   
+
 }
 
 #pragma region prepare and submit draw call
 
-void HelloTriangleApplication::updateLightBuffers(uint32_t currentImage)
-{
-    std::vector<gpulight> lights;
 
-    lights.resize(scene->lightposandradius.size());
-
-    for (int i = 0; i < scene->lightposandradius.size(); i++)
-    {
-        lights[i] = {scene->lightposandradius[i], scene->lightcolorAndIntensity[i], glm::vec4(1), glm::vec4(1)};
-    }
-
-    memcpy(FramesInFlightData[currentImage].lightBuffersMapped, lights.data(), sizeof(gpulight) * lights.size());
-}
-
-//TODO JS: This is like, per object uniforms -- it should belong to the scene and get passed a buffer directly to the render loop
-//TODO: Separate the per model xforms from the camera xform
-
-void HelloTriangleApplication::updateUniformBuffers(uint32_t currentImage, std::vector<glm::mat4> models,
+void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentImage, std::vector<glm::mat4> models,
                                                     inputData input)
 {
+    //Opaque globals
     ShaderGlobals globals;
     eyePos += (input.translate * deltaTime);
 
@@ -451,7 +511,6 @@ void HelloTriangleApplication::updateUniformBuffers(uint32_t currentImage, std::
     glm::mat4 proj = glm::perspective(glm::radians(70.0f),
                                       swapChainExtent.width / static_cast<float>(swapChainExtent.height), 0.1f,
                                       1000.0f);
-
     proj[1][1] *= -1;
     globals.view = view;
     globals.proj = proj;
@@ -460,7 +519,29 @@ void HelloTriangleApplication::updateUniformBuffers(uint32_t currentImage, std::
     globals.cubemaplutidx_cubemaplutsampleridx_paddingzw = glm::vec4(
         scene->materialTextureCount() + cubemaplut_utilitytexture_index,
         scene->materialTextureCount() + cubemaplut_utilitytexture_index, 0, 0);
-    memcpy(FramesInFlightData[currentImage].shaderGlobalsMapped, &globals, sizeof(ShaderGlobals));
+    memcpy(FramesInFlightData[currentImage].opaqueShaderGlobalsMapped, &globals, sizeof(ShaderGlobals));
+
+    //Shadow globals
+    int shadowcount = scene->lightCount > MAX_SHADOWCASTERS ? MAX_SHADOWCASTERS : scene->lightCount;
+    for(int i =0; i <shadowcount; i++)
+    {
+        ShaderGlobals shadowGlobals = {};
+
+        //TODO JS Projection per light
+        //TODO JS: Not sure how projection is handled for point lights 
+        float near_plane = 1.0f, far_plane = 7.5f;
+        glm::mat4 lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane); 
+        glm::mat4 lightView = glm::lookAt((glm::vec3)scene->lightposandradius[i],
+                                  glm::vec3( 0.0f, 0.0f,  0.0f), 
+                                  glm::vec3( 0.0f, 1.0f,  0.0f));
+        shadowGlobals.view = lightView;
+        shadowGlobals.proj = lightProjection;
+        shadowGlobals.viewPos = glm::vec4((glm::vec3)scene->lightposandradius[i],1);
+
+        memcpy(FramesInFlightData[currentImage].perLightShadowShaderGlobalsMapped[i], &shadowGlobals, sizeof(ShaderGlobals));
+    }
+
+    //Ubos 
     std::vector<UniformBufferObject> ubos;
 
     if (ubos.size() != models.size())
@@ -474,41 +555,144 @@ void HelloTriangleApplication::updateUniformBuffers(uint32_t currentImage, std::
         ubos[i].Normal = transpose(inverse(glm::mat3(*model)));
     }
     memcpy(FramesInFlightData[currentImage].uniformBuffersMapped, ubos.data(), sizeof(UniformBufferObject) * models.size());
+
+    //Lights
+    std::vector<gpulight> lights;
+
+    lights.resize(scene->lightposandradius.size());
+
+    for (int i = 0; i < scene->lightposandradius.size(); i++)
+    {
+        lights[i] = {scene->lightposandradius[i], scene->lightcolorAndIntensity[i], glm::vec4(1), glm::vec4(1)};
+    }
+
+    memcpy(FramesInFlightData[currentImage].lightBuffersMapped, lights.data(), sizeof(gpulight) * lights.size());
+
 }
 
 
+void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer commandBuffer, uint32_t imageIndex)
+{
+    uint32_t shadowSize = 512; //TODO JS: make const
+     VkCommandBufferBeginInfo beginInfo{};
+     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+     beginInfo.flags = 0; // Optional
+     beginInfo.pInheritanceInfo = nullptr; // Optional
+     //Transition swapchain for rendering
+    
+     VK_CHECK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
+
+
+
+     const VkRenderingAttachmentInfoKHR dynamicRenderingDepthAttatchment {
+         .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
+         .imageView = shadowImageViews[imageIndex],
+         .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR,
+         .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+         .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+         .clearValue =  {1.0f, 0}
+     };
+
+     VkRenderingInfo renderPassInfo{};
+     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+     renderPassInfo.renderArea.extent = {shadowSize , shadowSize }; //TODO JS: Shadow size
+     renderPassInfo.renderArea.offset = {0, 0};
+     renderPassInfo.layerCount =1;
+     renderPassInfo.colorAttachmentCount = 0;
+     renderPassInfo.pColorAttachments = VK_NULL_HANDLE;
+     renderPassInfo.pDepthAttachment = &dynamicRenderingDepthAttatchment;
+
+     vkCmdBeginRendering(commandBuffer, &renderPassInfo);
+   
+     VkViewport viewport{};
+     viewport.x = 0.0f;
+     viewport.y = 0.0f;
+     viewport.width = static_cast<float>(shadowSize );
+     viewport.height = static_cast<float>(shadowSize );
+     viewport.minDepth = 0.0f;
+     viewport.maxDepth = 1.0f;
+     vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+
+     VkRect2D scissor{};
+     scissor.offset = {0, 0};
+     scissor.extent = {shadowSize , shadowSize };
+     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+     //*************
+     //************
+     //** Descriptor Sets update and binding
+     // This could change sometimes
+
+    uint32_t SHADOW_INDEX = 0; //TODO JS: loop over shadowcasters
+     updateShadowDescriptorSets(getHandles(), descriptorPool, &descriptorsetLayoutsData,SHADOW_INDEX);
+     descriptorsetLayoutsData.bindToCommandBufferShadow(commandBuffer, currentFrame);
+     VkPipelineLayout layout = descriptorsetLayoutsData.getLayoutOpaque();
+
+    //TODO JS: Something other than hardcoded index 2 for shadow pipeline
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, descriptorsetLayoutsData.getPipeline(2));
+     int meshct = scene->meshes.size();
+     for (int i = 0; i <meshct; i++)
+     {
+         per_object_data constants;
+         //Light count, vert offset, texture index, and object data index
+         constants.indexInfo = glm::vec4(-1, (scene->meshOffsets[i]),
+                                         -1, i);
+
+         constants.materialprops = glm::vec4(-1, -1, 0, 0);
+
+         vkCmdPushConstants(commandBuffer, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                            sizeof(per_object_data), &constants);
+
+         vkCmdDraw(commandBuffer, static_cast<uint32_t>(scene->meshes[i]->vertcount), 1, 0, 0);
+     }
+
+
+     vkCmdEndRendering(commandBuffer);
+
+     VK_CHECK(vkEndCommandBuffer(commandBuffer));
+}
+
 //command buffer to draw the frame 
-void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex)
+void HelloTriangleApplication::recordCommandBufferOpaquePass(VkCommandBuffer commandBuffer, uint32_t imageIndex)
 {
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     beginInfo.flags = 0; // Optional
     beginInfo.pInheritanceInfo = nullptr; // Optional
+    //Transition swapchain for rendering
+    
+    
+    VK_CHECK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
 
-    if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS)
-    {
-        printf("failed to begin recording command buffer!");
-        exit(-1);
-    }
+    
+    const VkRenderingAttachmentInfoKHR dynamicRenderingColorAttatchment {
+        .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
+        .imageView = swapChainImageViews[imageIndex],
+        .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        .clearValue =  {0.0f, 0.0f, 0.0f, 1.0f}
+    };
 
-    VkRenderPassBeginInfo renderPassInfo{};
-    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    renderPassInfo.renderPass = renderPass;
-    renderPassInfo.framebuffer = swapChainFramebuffers[imageIndex];
+    const VkRenderingAttachmentInfoKHR dynamicRenderingDepthAttatchment {
+        .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
+        .imageView = depthImageView,
+        .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        .clearValue =  {1.0f, 0}
+    };
 
-    renderPassInfo.renderArea.offset = {0, 0};
+    VkRenderingInfo renderPassInfo{};
+    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
     renderPassInfo.renderArea.extent = swapChainExtent;
+    renderPassInfo.renderArea.offset = {0, 0};
+    renderPassInfo.layerCount =1;
+    renderPassInfo.colorAttachmentCount = 1;
+    renderPassInfo.pColorAttachments = &dynamicRenderingColorAttatchment;
+    renderPassInfo.pDepthAttachment = &dynamicRenderingDepthAttatchment;
 
-    std::array<VkClearValue, 2> clearValues{};
-    clearValues[0].color = {{0.0f, 0.0f, 0.0f, 1.0f}};
-    clearValues[1].depthStencil = {1.0f, 0};
-
-    renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
-    renderPassInfo.pClearValues = clearValues.data();
-
-    vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-
+    vkCmdBeginRendering(commandBuffer, &renderPassInfo);
   
     VkViewport viewport{};
     viewport.x = 0.0f;
@@ -531,9 +715,9 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
     //************
     //** Descriptor Sets update and binding
     // This could change sometimes
-    updateDescriptorSets(getHandles(), descriptorPool, &descriptorsetLayoutsData);
-    descriptorsetLayoutsData.bindToCommandBuffer(commandBuffer, currentFrame);
-    VkPipelineLayout layout = descriptorsetLayoutsData.getLayout();
+    updateOpaqueDescriptorSets(getHandles(), descriptorPool, &descriptorsetLayoutsData);
+    descriptorsetLayoutsData.bindToCommandBufferOpaque(commandBuffer, currentFrame);
+    VkPipelineLayout layout = descriptorsetLayoutsData.getLayoutOpaque();
     
     int meshct = scene->meshes.size();
     int lastPipelineIndex = -1;
@@ -564,14 +748,10 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
         vkCmdDraw(commandBuffer, static_cast<uint32_t>(scene->meshes[i]->vertcount), 1, 0, 0);
     }
 
-    vkCmdEndRenderPass(commandBuffer);
 
-    if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
-    {
-        printf("failed to record command buffer!");
-        exit(-1);
-    }
+    vkCmdEndRendering(commandBuffer);
 
+    VK_CHECK(vkEndCommandBuffer(commandBuffer));
 
     frames ++;
    
@@ -580,41 +760,18 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
 
 void HelloTriangleApplication::createCommandBuffers()
 {
-    commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-    VkCommandBufferAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.commandPool = commandPoolmanager.commandPool;
-    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandBufferCount = static_cast<uint32_t>(commandBuffers.size());
-
-    VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, commandBuffers.data()));
-}
-
-void HelloTriangleApplication::createFramebuffers()
-{
-    swapChainFramebuffers.resize(swapChainImageViews.size());
-
-    for (size_t i = 0; i < swapChainImageViews.size(); i++)
+    for (int i = 0; i < FramesInFlightData.size(); i++)
     {
-        std::array<VkImageView, 2> attachments = {
-            swapChainImageViews[i],
-            depthImageView
-        };
+        VkCommandBufferAllocateInfo allocInfo{};
+        allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+        allocInfo.commandPool = commandPoolmanager.commandPool;
+        allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        allocInfo.commandBufferCount = 1;
 
-        VkFramebufferCreateInfo framebufferInfo{};
-        framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-        framebufferInfo.renderPass = renderPass;
-        framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
-        framebufferInfo.pAttachments = attachments.data();
-        framebufferInfo.width = swapChainExtent.width;
-        framebufferInfo.height = swapChainExtent.height;
-        framebufferInfo.layers = 1;
-
-        if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, &swapChainFramebuffers[i]) != VK_SUCCESS)
-        {
-            printf("failed to create framebuffer!");
-            exit(-1);
-        }
+        VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, &FramesInFlightData[i].opaqueCommandBuffers));
+        VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, &FramesInFlightData[i].shadowCommandBuffers));
+        VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, &FramesInFlightData[i].swapchainTransitionInCommandBuffer));
+        VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, &FramesInFlightData[i].swapchainTransitionOutCommandBuffer));
     }
 }
 
@@ -627,7 +784,7 @@ bool HelloTriangleApplication::hasStencilComponent(VkFormat format)
 
 void HelloTriangleApplication::createDepthResources()
 {
-    VkFormat depthFormat = Capabilities::findDepthFormat(getHandles());
+    depthFormat = Capabilities::findDepthFormat(getHandles());
 
     TextureUtilities::createImage(getHandles(), swapChainExtent.width, swapChainExtent.height, depthFormat,
                                   VK_IMAGE_TILING_OPTIMAL,
@@ -641,12 +798,16 @@ void HelloTriangleApplication::createDepthResources()
 #pragma endregion
 
 
-void HelloTriangleApplication::createGraphicsPipeline(const char* shaderName, VkRenderPass renderpass, DescriptorSets::bindlessDrawData* descriptorsetdata)
+void HelloTriangleApplication::createGraphicsPipeline(const char* shaderName, PipelineDataObject* descriptorsetdata, bool shadow)
 {
     VkPipeline newGraphicsPipeline; 
     auto shaders = shaderLoader->compiledShaders[shaderName];
-    
-    descriptorsetdata->createGraphicsPipeline(shaders, renderpass);
+
+    if (!shadow)
+    descriptorsetdata->createGraphicsPipeline(shaders,&swapChainColorFormat, &depthFormat, false);
+    else
+        descriptorsetdata->createGraphicsPipeline(shaders,&swapChainColorFormat, &depthFormat,  true, false, true);
+        
 
     auto val = shaderLoader->compiledShaders[shaderName];
 
@@ -751,73 +912,155 @@ void HelloTriangleApplication::UpdateRotations()
     scene->Update();
 }
 
+
 void HelloTriangleApplication::drawFrame(inputData input)
 {
-    vkWaitForFences(device, 1, &FramesInFlightData[currentFrame].inFlightFences, VK_TRUE, UINT64_MAX);
 
-    uint32_t imageIndex;
+    
+    //Update per frame data
+    updatePerFrameBuffers(currentFrame, scene->matrices, input); // TODO JS: Figure out
+    //Prepare for pass
+    uint32_t imageIndex; 
     vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, FramesInFlightData[currentFrame].imageAvailableSemaphores, VK_NULL_HANDLE,
                           &imageIndex);
 
-    vkResetCommandBuffer(commandBuffers[currentFrame], 0);
+
+    vkWaitForFences(device, 1, &FramesInFlightData[imageIndex].inFlightFences, VK_TRUE, UINT64_MAX);
+    vkResetCommandBuffer(FramesInFlightData[imageIndex].opaqueCommandBuffers, 0);
+    vkResetCommandBuffer(FramesInFlightData[imageIndex].shadowCommandBuffers, 0);
+    vkResetCommandBuffer(FramesInFlightData[imageIndex].swapchainTransitionOutCommandBuffer, 0);
+    vkResetCommandBuffer(FramesInFlightData[imageIndex].swapchainTransitionInCommandBuffer, 0);
+    vkResetFences(device, 1, &FramesInFlightData[imageIndex].inFlightFences);
+
+    ///////////////////////// </Transition swapChain 
+    VkCommandBufferBeginInfo beginInfo{};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = 0; // Optional
+    beginInfo.pInheritanceInfo = nullptr; // Optional
+    //Transition swapchain for rendering
+    
+    VK_CHECK(vkBeginCommandBuffer(FramesInFlightData[imageIndex].swapchainTransitionInCommandBuffer, &beginInfo));
+    TextureUtilities::transitionImageLayout(getHandles(),swapChainImages[imageIndex],swapChainColorFormat,VK_IMAGE_LAYOUT_UNDEFINED,VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,FramesInFlightData[imageIndex].swapchainTransitionInCommandBuffer,1, false);
+    vkEndCommandBuffer(FramesInFlightData[imageIndex].swapchainTransitionInCommandBuffer);
+
+    VkPipelineStageFlags swapchainWaitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+    VkSubmitInfo swapChainInSubmitInfo{};
+    swapChainInSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    swapChainInSubmitInfo.commandBufferCount = 1;
+    swapChainInSubmitInfo.pWaitDstStageMask = swapchainWaitStages;
+    swapChainInSubmitInfo.pCommandBuffers = &FramesInFlightData[imageIndex].swapchainTransitionInCommandBuffer;
+    swapChainInSubmitInfo.waitSemaphoreCount = 1;
+    swapChainInSubmitInfo.pWaitSemaphores = &FramesInFlightData[currentFrame].imageAvailableSemaphores;
+    swapChainInSubmitInfo.signalSemaphoreCount = 1;
+    swapChainInSubmitInfo.pSignalSemaphores = &FramesInFlightData[currentFrame].swapchaintransitionedInSemaphores;
+
+    vkQueueSubmit(commandPoolmanager.Queues.graphicsQueue, 1, &swapChainInSubmitInfo, VK_NULL_HANDLE);
+
+    ///////////////////////// Transition swapChain  />
+        //Shadows
+        std::vector<VkSemaphore> shadowPassWaitSemaphores = {FramesInFlightData[currentFrame].swapchaintransitionedInSemaphores};
+        std::vector<VkSemaphore> shadowpasssignalSemaphores = {FramesInFlightData[imageIndex].shadowFinishedSemaphores};
+        
+        renderShadowPass(imageIndex,imageIndex, shadowPassWaitSemaphores,shadowpasssignalSemaphores);
 
 
-    //TODO: draw multiple objects
-    // updateUniformBuffer(currentFrame, scene->matrices[0]);
-    updateUniformBuffers(currentFrame, scene->matrices, input); // TODO JS: Figure out
+        //TODO JS: Enable shadow semaphore
+        std::vector<VkSemaphore> opaquePassWaitSemaphores = {FramesInFlightData[imageIndex].shadowFinishedSemaphores};
+        std::vector<VkSemaphore> opaquepasssignalSemaphores = {FramesInFlightData[imageIndex].renderFinishedSemaphores};
+
+    
+    //Opaque
+    renderOpaquePass(imageIndex,imageIndex, opaquePassWaitSemaphores,opaquepasssignalSemaphores);
 
 
-    updateLightBuffers(currentFrame);
 
+    ///////////////////////// </Transition swapChain 
+    VkCommandBufferBeginInfo beginInfo2{};
+    beginInfo2.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo2.flags = 0; // Optional
+    beginInfo2.pInheritanceInfo = nullptr; // Optional
+    //Transition swapchain for rendering
+    
+    VK_CHECK(vkBeginCommandBuffer(FramesInFlightData[imageIndex].swapchainTransitionOutCommandBuffer, &beginInfo2));
+    //Transition swapchain for present
+    TextureUtilities::transitionImageLayout(getHandles(),swapChainImages[imageIndex],swapChainColorFormat,VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,FramesInFlightData[imageIndex].swapchainTransitionOutCommandBuffer,1, false);
 
-    vkResetFences(device, 1, &FramesInFlightData[currentFrame].inFlightFences);
-    //TODO JS: properly manage multiple objects with vertex buffer + corresponding pipeline object
-    //VkBuffer vertexBuffers[] = { vertexBuffer };
+    vkEndCommandBuffer(FramesInFlightData[imageIndex].swapchainTransitionOutCommandBuffer);
 
-    //TODO: draw multiple objects
-    recordCommandBuffer(commandBuffers[currentFrame], imageIndex);
+    VkSubmitInfo swapchainOutsubmitInfo{};
+    swapchainOutsubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    swapchainOutsubmitInfo.commandBufferCount = 1;
+    swapchainOutsubmitInfo.pWaitDstStageMask = swapchainWaitStages;
+    swapchainOutsubmitInfo.pCommandBuffers = &FramesInFlightData[imageIndex].swapchainTransitionOutCommandBuffer;
+    swapchainOutsubmitInfo.waitSemaphoreCount = opaquepasssignalSemaphores.size();
+    swapchainOutsubmitInfo.pWaitSemaphores =  opaquepasssignalSemaphores.data();
+    swapchainOutsubmitInfo.signalSemaphoreCount = 1;
+    swapchainOutsubmitInfo.pSignalSemaphores = &FramesInFlightData[currentFrame].swapchaintransitionedOutSemaphores;
+
+    vkQueueSubmit(commandPoolmanager.Queues.graphicsQueue, 1, &swapchainOutsubmitInfo, VK_NULL_HANDLE);
+    ///////////////////////// Transition swapChain  />
+    
+    VkPresentInfoKHR presentInfo{};
+    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+    presentInfo.waitSemaphoreCount = 1;
+    presentInfo.pWaitSemaphores = &FramesInFlightData[currentFrame].swapchaintransitionedOutSemaphores;
+    presentInfo.swapchainCount = 1;
+    presentInfo.pSwapchains = {&swapChain};
+    presentInfo.pImageIndices = &imageIndex;
+    presentInfo.pResults = nullptr; // Optional
+
+    //Present frame
+    vkQueuePresentKHR(commandPoolmanager.Queues.presentQueue, &presentInfo);
+
+    currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+}
+
+void HelloTriangleApplication::renderShadowPass(uint32_t currentFrame, uint32_t imageIndex, std::vector<VkSemaphore> waitsemaphores, std::vector<VkSemaphore> signalsemaphores)
+{
+    recordCommandBufferShadowPass(FramesInFlightData[imageIndex].shadowCommandBuffers, imageIndex);
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-    //TODO JS: understand better 
 
-    VkSemaphore waitSemaphores[] = {FramesInFlightData[currentFrame].imageAvailableSemaphores};
     VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-    submitInfo.waitSemaphoreCount = 1;
-    submitInfo.pWaitSemaphores = waitSemaphores;
+    submitInfo.waitSemaphoreCount = waitsemaphores.size();
+    submitInfo.pWaitSemaphores = waitsemaphores.data();
     submitInfo.pWaitDstStageMask = waitStages;
     submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &commandBuffers[currentFrame];
+    submitInfo.pCommandBuffers = &FramesInFlightData[imageIndex].shadowCommandBuffers;
 
+    submitInfo.signalSemaphoreCount = signalsemaphores.size();
+    submitInfo.pSignalSemaphores = signalsemaphores.data();
+    
+    //Submit pass 
+    VK_CHECK(vkQueueSubmit(commandPoolmanager.Queues.graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE));
+    
+    
+    
+}
+void HelloTriangleApplication::renderOpaquePass(uint32_t currentFrame, uint32_t imageIndex, std::vector<VkSemaphore> waitsemaphores, std::vector<VkSemaphore> signalsemaphores)
+{   
+    //Record command buffer for pass
+    recordCommandBufferOpaquePass(FramesInFlightData[currentFrame].opaqueCommandBuffers, imageIndex);
 
-    VkSemaphore signalSemaphores[] = {FramesInFlightData[currentFrame].renderFinishedSemaphores};
-    submitInfo.signalSemaphoreCount = 1;
-    submitInfo.pSignalSemaphores = signalSemaphores;
+    VkSubmitInfo submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    
+    VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+    submitInfo.waitSemaphoreCount = waitsemaphores.size();
+    submitInfo.pWaitSemaphores = waitsemaphores.data();
+    submitInfo.pWaitDstStageMask = waitStages;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &FramesInFlightData[currentFrame].opaqueCommandBuffers;
+    
+   
+    submitInfo.signalSemaphoreCount = signalsemaphores.size();
+    submitInfo.pSignalSemaphores = signalsemaphores.data();
 
-    auto result = vkQueueSubmit(commandPoolmanager.Queues.graphicsQueue, 1, &submitInfo, FramesInFlightData[currentFrame].inFlightFences);
-    if (result != VK_SUCCESS)
-    {
-        printf("failed to submit draw command buffer!");
-        exit(-1);
-    }
-
-    VkPresentInfoKHR presentInfo{};
-    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-
-    presentInfo.waitSemaphoreCount = 1;
-    presentInfo.pWaitSemaphores = signalSemaphores;
-
-    VkSwapchainKHR swapChains[] = {swapChain};
-    presentInfo.swapchainCount = 1;
-    presentInfo.pSwapchains = swapChains;
-    presentInfo.pImageIndices = &imageIndex;
-
-    presentInfo.pResults = nullptr; // Optional
-
-    vkQueuePresentKHR(commandPoolmanager.Queues.presentQueue, &presentInfo);
-
-    currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+    //Submit pass 
+    VK_CHECK(vkQueueSubmit(commandPoolmanager.Queues.graphicsQueue, 1, &submitInfo, FramesInFlightData[currentFrame].inFlightFences));
+    
 }
 
 void HelloTriangleApplication::cleanup()
@@ -843,23 +1086,24 @@ void HelloTriangleApplication::cleanup()
     {
         vkDestroySemaphore(device, FramesInFlightData[i].renderFinishedSemaphores, nullptr);
         vkDestroySemaphore(device, FramesInFlightData[i].imageAvailableSemaphores, nullptr);
+        vkDestroySemaphore(device, FramesInFlightData[i].swapchaintransitionedOutSemaphores, nullptr);
+        vkDestroySemaphore(device, FramesInFlightData[i].swapchaintransitionedInSemaphores, nullptr);
+        
+
         vkDestroyFence(device, FramesInFlightData[i].inFlightFences, nullptr);
     }
 
     vkDestroyCommandPool(device, commandPoolmanager.commandPool, nullptr);
     vkDestroyCommandPool(device, commandPoolmanager.transferCommandPool, nullptr);
 
-
-    for (auto framebuffer : swapChainFramebuffers)
-    {
-        vkDestroyFramebuffer(device, framebuffer, nullptr);
-    }
-
-    vkDestroyRenderPass(device, renderPass, nullptr);
-
     for (auto imageView : swapChainImageViews)
     {
         vkDestroyImageView(device, imageView, nullptr);
+    }
+
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    {
+        VulkanMemory::DestroyImage(allocator, shadowImages[i], shadowMemory[i]);
     }
 
 

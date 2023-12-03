@@ -60,16 +60,16 @@ void TextureUtilities::createImage(RendererHandles rendererHandles, uint32_t wid
 
 void TextureUtilities::transitionImageLayout(RendererHandles rendererHandles, VkImage image, VkFormat format,
                                              VkImageLayout oldLayout,
-                                             VkImageLayout newLayout, VkCommandBuffer workingBuffer, uint32_t miplevels)
+                                             VkImageLayout newLayout, VkCommandBuffer workingBuffer, uint32_t miplevels, bool useTransferPool)
 {
-    bool endNow = false;
-    if (workingBuffer == nullptr)
+    bool usingTempBuffer = workingBuffer == nullptr;
+    bufferAndPool tempBufferAndPool {};
+    if (usingTempBuffer)
     {
         //Optional buffer for if the caller wants to submit the command to an existing buffer and manually end it later
-        workingBuffer = rendererHandles.commandPoolmanager->beginSingleTimeCommands_transfer();
-        endNow = true;
+        tempBufferAndPool = rendererHandles.commandPoolmanager->beginSingleTimeCommands(useTransferPool);
+        workingBuffer = tempBufferAndPool.buffer;
     }
-
 
     VkImageMemoryBarrier barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -100,6 +100,7 @@ void TextureUtilities::transitionImageLayout(RendererHandles rendererHandles, Vk
         sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
         destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
     }
+    
     else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout ==
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
     {
@@ -109,14 +110,46 @@ void TextureUtilities::transitionImageLayout(RendererHandles rendererHandles, Vk
         sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
         destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
     }
+    //Swapchain related 
+    else if (oldLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL && newLayout ==
+        VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
+    {
+        barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+            sourceStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        destinationStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+    }
+    else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout ==
+    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
+    {
+        barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+            sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        destinationStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    }
     else
     {
         printf("unsupported layout transition!");
         exit(-1);
     }
 
-    if (endNow)
-        rendererHandles.commandPoolmanager->endSingleTimeCommands(workingBuffer);
+    vkCmdPipelineBarrier(
+        workingBuffer,
+        sourceStage,
+        destinationStage,
+        0,
+        0,
+        nullptr,
+        0,
+        nullptr,
+        1,
+        &barrier );
+        
+
+    if (usingTempBuffer)
+        rendererHandles.commandPoolmanager->endSingleTimeCommands(tempBufferAndPool);
+    else
+    {
+        
+    }
 }
 
 void TextureUtilities::generateMipmaps(RendererHandles rendererHandles, VkImage image, VkFormat imageFormat,
