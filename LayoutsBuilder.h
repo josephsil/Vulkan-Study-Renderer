@@ -46,5 +46,8 @@ struct LayoutsBuilder //What do you call the aggregate of several layouts?
     VkDescriptorSetLayoutCreateInfo getCreateInfo(VkDescriptorType type);
 };
 
-LayoutsBuilder createBindlessLayout(
+LayoutsBuilder createBindlessLayoutBuilder(
+    RendererHandles rendererHandles, Scene* scene);
+
+LayoutsBuilder createShadowLayoutBuilder(
     RendererHandles rendererHandles, Scene* scene);

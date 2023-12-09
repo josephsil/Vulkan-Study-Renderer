@@ -18,7 +18,7 @@ PipelineDataObject::PipelineDataObject(RendererHandles handles, Scene* pscene)
 
 void PipelineDataObject::createOpaqueLayout(RendererHandles handles, Scene* pscene)
 {
-    LayoutsBuilder builder = createBindlessLayout(handles,  pscene);
+    LayoutsBuilder builder = createBindlessLayoutBuilder(handles,  pscene);
     VkDescriptorSetLayoutCreateInfo uniformDescriptorLayout =  builder.getCreateInfo(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
     VkDescriptorSetLayoutCreateInfo imageDescriptorLayout = builder.getCreateInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE);
     VkDescriptorSetLayoutCreateInfo samplerDescriptorLayout = builder.getCreateInfo(VK_DESCRIPTOR_TYPE_SAMPLER);
@@ -32,15 +32,11 @@ void PipelineDataObject::createOpaqueLayout(RendererHandles handles, Scene* psce
 }
 void PipelineDataObject::createShadowLayout(RendererHandles handles, Scene* pscene)
 {
-    LayoutsBuilder builder = createBindlessLayout(handles,  pscene); //TODO JS: different layout
+    LayoutsBuilder builder = createShadowLayoutBuilder(handles,  pscene); //TODO JS: different layout
     VkDescriptorSetLayoutCreateInfo uniformDescriptorLayout =  builder.getCreateInfo(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-    VkDescriptorSetLayoutCreateInfo imageDescriptorLayout = builder.getCreateInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE);
-    VkDescriptorSetLayoutCreateInfo samplerDescriptorLayout = builder.getCreateInfo(VK_DESCRIPTOR_TYPE_SAMPLER);
     VkDescriptorSetLayoutCreateInfo storageDescriptorLayout = builder.getCreateInfo(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 
     VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &uniformDescriptorLayout, nullptr, &this->shadowPipelineData.uniformDescriptorLayout));
-    VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &imageDescriptorLayout, nullptr, &this->shadowPipelineData.imageDescriptorLayout));
-    VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &samplerDescriptorLayout, nullptr, &this->shadowPipelineData.samplerDescriptorLayout));
     VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &storageDescriptorLayout, nullptr, &this->shadowPipelineData.storageDescriptorLayout));
     this->shadowPipelineData.slots = builder.bindings;
 }
@@ -52,7 +48,10 @@ void PipelineDataObject::bindToCommandBufferOpaque(VkCommandBuffer cmd, uint32_t
 
 void PipelineDataObject::bindToCommandBufferShadow(VkCommandBuffer cmd, uint32_t currentFrame)
 {
-    bindToCommandBuffer(cmd, currentFrame, &shadowPipelineData);
+    assert(shadowPipelineData.descriptorSetsInitialized && shadowPipelineData.pipelinesInitialized);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowPipelineData.bindlessPipelineLayout, 0, 1, &shadowPipelineData.uniformDescriptorSetForFrame[currentFrame], 0, nullptr);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowPipelineData.bindlessPipelineLayout, 1, 1, &shadowPipelineData.storageDescriptorSetForFrame[currentFrame], 0, nullptr);
+
 }
 void PipelineDataObject::bindToCommandBuffer(VkCommandBuffer cmd, uint32_t currentFrame, perPipelineData* pipelinedata)
 {
@@ -134,21 +133,21 @@ void PipelineDataObject::createDescriptorSetsShadow(VkDescriptorPool pool, int M
 {
     createDescriptorSetsforPipeline(pool, MAX_FRAMES_IN_FLIGHT, &shadowPipelineData);
 }
-void PipelineDataObject::createDescriptorSetsforPipeline(VkDescriptorPool pool, int MAX_FRAMES_IN_FLIGHT, perPipelineData* perPipelineData)
+void PipelineDataObject::createDescriptorSetsforPipeline(VkDescriptorPool pool, int MAX_FRAMES_IN_FLIGHT, perPipelineData* _perPipelineData)
 {
-    assert(!perPipelineData->descriptorSetsInitialized); // Don't double initialize
-    perPipelineData->uniformDescriptorSetForFrame.resize(MAX_FRAMES_IN_FLIGHT);
-    perPipelineData->imageDescriptorSetForFrame.resize(MAX_FRAMES_IN_FLIGHT);
-    perPipelineData->samplerDescriptorSetForFrame.resize(MAX_FRAMES_IN_FLIGHT);
-    perPipelineData->storageDescriptorSetForFrame.resize(MAX_FRAMES_IN_FLIGHT);
+    assert(!_perPipelineData->descriptorSetsInitialized); // Don't double initialize
+    _perPipelineData->uniformDescriptorSetForFrame.resize(MAX_FRAMES_IN_FLIGHT);
+    _perPipelineData->imageDescriptorSetForFrame.resize(MAX_FRAMES_IN_FLIGHT);
+    _perPipelineData->samplerDescriptorSetForFrame.resize(MAX_FRAMES_IN_FLIGHT);
+    _perPipelineData->storageDescriptorSetForFrame.resize(MAX_FRAMES_IN_FLIGHT);
     for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        DescriptorSets::AllocateDescriptorSet(device, pool,  &perPipelineData->uniformDescriptorLayout, &perPipelineData->uniformDescriptorSetForFrame[i]);
-        DescriptorSets::AllocateDescriptorSet(device, pool,  &perPipelineData->imageDescriptorLayout, &perPipelineData->imageDescriptorSetForFrame[i]);
-        DescriptorSets::AllocateDescriptorSet(device, pool,  &perPipelineData->samplerDescriptorLayout, &perPipelineData->samplerDescriptorSetForFrame[i]);
-        DescriptorSets::AllocateDescriptorSet(device, pool,  &perPipelineData->storageDescriptorLayout, &perPipelineData->storageDescriptorSetForFrame[i]);
+        if (_perPipelineData->uniformDescriptorLayout != nullptr) DescriptorSets::AllocateDescriptorSet(device, pool,  &_perPipelineData->uniformDescriptorLayout, &_perPipelineData->uniformDescriptorSetForFrame[i]);
+        if (_perPipelineData->imageDescriptorLayout != nullptr) DescriptorSets::AllocateDescriptorSet(device, pool,  &_perPipelineData->imageDescriptorLayout, &_perPipelineData->imageDescriptorSetForFrame[i]);
+        if (_perPipelineData->samplerDescriptorLayout != nullptr) DescriptorSets::AllocateDescriptorSet(device, pool,  &_perPipelineData->samplerDescriptorLayout, &_perPipelineData->samplerDescriptorSetForFrame[i]);
+        if (_perPipelineData->storageDescriptorLayout != nullptr) DescriptorSets::AllocateDescriptorSet(device, pool,  &_perPipelineData->storageDescriptorLayout, &_perPipelineData->storageDescriptorSetForFrame[i]);
     }
-    perPipelineData->descriptorSetsInitialized = true;
+    _perPipelineData->descriptorSetsInitialized = true;
             
 }
 

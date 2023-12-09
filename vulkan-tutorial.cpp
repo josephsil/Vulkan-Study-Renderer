@@ -32,7 +32,7 @@ vkb::Instance GET_INSTANCE()
 {
     vkb::InstanceBuilder instance_builder;
     auto instanceBuilderResult = instance_builder
-                                  // .request_validation_layers()
+                                  .request_validation_layers()
                                  .use_default_debug_messenger()
                                  .require_api_version(1, 3, 240)
                                  .build();
@@ -460,9 +460,6 @@ void HelloTriangleApplication::updateShadowDescriptorSets(RendererHandles handle
 {
 
     //Get data
-    auto [imageInfos, samplerInfos] = scene->getBindlessTextureInfos();
-    auto [cubeImageInfos, cubeSamplerInfos] = DescriptorSets::ImageInfoFromImageDataVec({
-        cube_irradiance, cube_specular});
     VkDescriptorBufferInfo meshBufferinfo = FramesInFlightData[currentFrame].meshBuffers.getBufferInfo();
     VkDescriptorBufferInfo lightbufferinfo = FramesInFlightData[currentFrame].lightBuffers.getBufferInfo();
     VkDescriptorBufferInfo uniformbufferinfo = FramesInFlightData[currentFrame].uniformBuffers.getBufferInfo();
@@ -472,10 +469,6 @@ void HelloTriangleApplication::updateShadowDescriptorSets(RendererHandles handle
     //Update descriptor sets with data
  
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &shaderglobalsinfo});
-    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, imageInfos.data(),  (uint32_t)imageInfos.size()});
-    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, cubeImageInfos.data(), (uint32_t)cubeImageInfos.size()});
-    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, samplerInfos.data(), (uint32_t)samplerInfos.size()});
-    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, cubeSamplerInfos.data(), (uint32_t)cubeSamplerInfos.size()});
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &meshBufferinfo});
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &lightbufferinfo});
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &uniformbufferinfo});
@@ -642,7 +635,7 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
 
 void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer commandBuffer, uint32_t imageIndex)
 {
-    uint32_t shadowSize = 512; //TODO JS: make const
+     uint32_t shadowSize = 512; //TODO JS: make const
      VkCommandBufferBeginInfo beginInfo{};
      beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
      beginInfo.flags = 0; // Optional
@@ -693,9 +686,9 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
      // This could change sometimes
 
     uint32_t SHADOW_INDEX = 0; //TODO JS: loop over shadowcasters
-     updateShadowDescriptorSets(getHandles(), descriptorPool, &descriptorsetLayoutsData,SHADOW_INDEX);
-     descriptorsetLayoutsData.bindToCommandBufferShadow(commandBuffer, currentFrame);
-     VkPipelineLayout layout = descriptorsetLayoutsData.getLayoutOpaque();
+    updateShadowDescriptorSets(getHandles(), descriptorPool, &descriptorsetLayoutsData,SHADOW_INDEX);
+    descriptorsetLayoutsData.bindToCommandBufferShadow(commandBuffer, currentFrame);
+    VkPipelineLayout layout = descriptorsetLayoutsData.getLayoutShadow();
 
     //TODO JS: Something other than hardcoded index 2 for shadow pipeline
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, descriptorsetLayoutsData.getPipeline(2));
@@ -1247,12 +1240,15 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
     randomMeshes.push_back(app->scene->AddBackingMesh(MeshData(app->getHandles(), "Meshes/cubesphere.glb")));
     randomMeshes.push_back(app->scene->AddBackingMesh(MeshData(app->getHandles(), "Meshes/monkey.obj")));
 
+    //direciton light
+    app->scene->AddLight(glm::vec3(0, 0, 1), glm::vec3(0, 1, 0), 5, 3, 0);
+
+    //point lights    
     app->scene->AddLight(glm::vec3(1, 1, 0), glm::vec3(1, 1, 1), 5, 5 / 2);
     app->scene->AddLight(glm::vec3(0, 4, -5), glm::vec3(1, 1, 1), 5, 8 / 2);
-
     app->scene->AddLight(glm::vec3(0, 8, -10), glm::vec3(0.2, 0, 1), 5, 44 / 2);
 
-    app->scene->AddLight(glm::vec3(0, 0, 1), glm::vec3(0, 1, 0), 5, 3, 0);
+ 
 
 
     glm::vec3 EulerAngles(0, 0, 0);
