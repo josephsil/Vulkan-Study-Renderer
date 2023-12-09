@@ -53,9 +53,12 @@ public:
 
     void cleanup();
 
-private:
+    //TODO JS: move tou tilities?
     // 0 = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    void createTextureSampler(VkSamplerAddressMode mode = (VkSamplerAddressMode)0, float bias = 0);
+    static void createTextureSampler(VkSampler* textureSampler, RendererHandles handles, VkSamplerAddressMode mode, float bias, float maxMip);
+    
+private:
+
 
     void cacheKTXFromSTB(const char* path, const char* outpath, VkFormat format, TextureType textureType,
                          bool use_mipmaps);

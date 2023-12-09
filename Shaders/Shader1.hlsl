@@ -154,7 +154,7 @@ FSOutput Frag(VSOutput input)
     float3 irradience = cubes[0].SampleLevel(cubeSamplers[0], normalsToCubemapUVs, 1).rgb;
     float3 diffuse = irradience * albedo;
 
-
+    
     float3 reflectedToCubemapUVs = reflected.xzy * float3(1, -1, 1); //TODO JS: fix root cause
     float3 specularcube = cubes[1].SampleLevel(cubeSamplers[1], reflectedToCubemapUVs, roughness * maxReflectionLOD).
                                    rgb;
@@ -173,6 +173,8 @@ FSOutput Frag(VSOutput input)
         output.Color = ambient + getLighting(diff, normalMap, input.worldPos, F0, roughness, metallic);
     }
 
+    //
+    //shadowmap[0].Sample(shadowmapSampler[0], /*UV*/); //TODO JS: shadows. 
     output.Color = output.Color / (output.Color + 1.0);
     //output.Color = pow(output.Color, 1.0/2.2); 
     // output.Color = reflected;

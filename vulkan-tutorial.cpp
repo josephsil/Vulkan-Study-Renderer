@@ -252,6 +252,7 @@ void HelloTriangleApplication::initVulkan()
     shadowFormat = VK_FORMAT_D32_SFLOAT;
     //Create shadow image(s) -- TODO JS: don't do this every frame
     shadowImages.resize(MAX_FRAMES_IN_FLIGHT);
+    shadowSamplers.resize(MAX_FRAMES_IN_FLIGHT);
     shadowMemory.resize(MAX_FRAMES_IN_FLIGHT);
     shadowImageViews.resize(MAX_FRAMES_IN_FLIGHT);
     for(int i = 0; i < MAX_FRAMES_IN_FLIGHT ; i++)
@@ -259,6 +260,7 @@ void HelloTriangleApplication::initVulkan()
         TextureUtilities::createImage(getHandles(),shadowmapsize, shadowmapsize,shadowFormat,VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
                        VK_IMAGE_USAGE_SAMPLED_BIT,0,shadowImages[i],shadowMemory[i],1);
         shadowImageViews[i] = TextureUtilities::createImageView(device,shadowImages[i],shadowFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
+        TextureData::createTextureSampler(&shadowSamplers[i], getHandles(), VK_SAMPLER_ADDRESS_MODE_REPEAT, 0, 1);
     }
     
     createDepthResources();
@@ -433,19 +435,36 @@ void HelloTriangleApplication::updateOpaqueDescriptorSets(RendererHandles handle
     auto [imageInfos, samplerInfos] = scene->getBindlessTextureInfos();
     auto [cubeImageInfos, cubeSamplerInfos] = DescriptorSets::ImageInfoFromImageDataVec({
         cube_irradiance, cube_specular});
+
+    VkDescriptorImageInfo shadowInfo = {
+        .imageView = shadowImageViews[currentFrame], .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+    };
+
+    VkDescriptorImageInfo shadowSamplerInfo = {
+        .sampler  = shadowSamplers[currentFrame], .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+    };
+
+    
     VkDescriptorBufferInfo meshBufferinfo = FramesInFlightData[currentFrame].meshBuffers.getBufferInfo();
     VkDescriptorBufferInfo lightbufferinfo = FramesInFlightData[currentFrame].lightBuffers.getBufferInfo();
     VkDescriptorBufferInfo uniformbufferinfo = FramesInFlightData[currentFrame].uniformBuffers.getBufferInfo();
     VkDescriptorBufferInfo shaderglobalsinfo = FramesInFlightData[currentFrame].opaqueShaderGlobalsBuffer.getBufferInfo();
 
+    
+
     std::vector<descriptorUpdateData> descriptorUpdates;
     //Update descriptor sets with data
  
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &shaderglobalsinfo});
+
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, imageInfos.data(),  (uint32_t)imageInfos.size()});
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, cubeImageInfos.data(), (uint32_t)cubeImageInfos.size()});
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, &shadowInfo,  (uint32_t)1}); //shadows
+
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, samplerInfos.data(), (uint32_t)samplerInfos.size()});
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, cubeSamplerInfos.data(), (uint32_t)cubeSamplerInfos.size()});
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, &shadowSamplerInfo, (uint32_t)1}); //shadows
+
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &meshBufferinfo});
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &lightbufferinfo});
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &uniformbufferinfo});
@@ -1029,7 +1048,7 @@ void HelloTriangleApplication::drawFrame(inputData input)
         std::vector<VkSemaphore> shadowpasssignalSemaphores = {FramesInFlightData[currentFrame].shadowFinishedSemaphores};
         
         renderShadowPass(currentFrame,currentFrame, shadowPassWaitSemaphores,shadowpasssignalSemaphores);
-
+        
 
         //TODO JS: Enable shadow semaphore
         std::vector<VkSemaphore> opaquePassWaitSemaphores = {FramesInFlightData[currentFrame].shadowFinishedSemaphores};
@@ -1174,6 +1193,9 @@ void HelloTriangleApplication::cleanup()
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
         VulkanMemory::DestroyImage(allocator, shadowImages[i], shadowMemory[i]);
+        vkDestroySampler(device, shadowSamplers[i], nullptr);
+        vkDestroyImageView(device, shadowImageViews[i], nullptr);
+        
     }
 
      // vkb::destroy_surface(vkb_surface);

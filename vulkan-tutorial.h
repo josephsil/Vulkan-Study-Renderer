@@ -86,6 +86,7 @@ private:
     std::vector<VkImage> swapChainImages;
 
     std::vector<VkImageView> shadowImageViews;
+    std::vector<VkSampler> shadowSamplers;
     std::vector<VkImage> shadowImages;
     std::vector<VmaAllocation> shadowMemory;
     VkFormat shadowFormat;

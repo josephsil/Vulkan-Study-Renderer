@@ -72,7 +72,7 @@ TextureData::TextureData(RendererHandles rendererHandles, const char* path, Text
 	
     VkFormat loadedFormat = GetOrLoadTexture(path, inputFormat, textureType, use_mipmaps);
     createTextureImageView(loadedFormat, textureType == CUBE ? VK_IMAGE_VIEW_TYPE_CUBE : VK_IMAGE_VIEW_TYPE_2D);
-    createTextureSampler(mode);
+    createTextureSampler(&textureSampler, rendererHandles, mode, 0, maxmip);
 }
 
 //TODO JS: Lifted from gltfiblsampler -- replace
@@ -343,10 +343,10 @@ void TextureData::cleanup()
 	VulkanMemory::DestroyImage(rendererHandles.allocator, textureImage, textureImageMemory);
 }
 
-void TextureData::createTextureSampler(VkSamplerAddressMode mode, float bias)
+void TextureData::createTextureSampler(VkSampler* textureSampler, RendererHandles handles, VkSamplerAddressMode mode, float bias, float maxMip)
 {
     VkPhysicalDeviceProperties properties{};
-    vkGetPhysicalDeviceProperties(rendererHandles.physicalDevice, &properties);
+    vkGetPhysicalDeviceProperties(handles.physicalDevice, &properties);
 
     VkSamplerCreateInfo samplerInfo{};
     samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -363,11 +363,11 @@ void TextureData::createTextureSampler(VkSamplerAddressMode mode, float bias)
     samplerInfo.anisotropyEnable = VK_FALSE;
     samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
     samplerInfo.minLod = .0; // Optional
-    samplerInfo.maxLod = maxmip;
+    samplerInfo.maxLod = maxMip;
     samplerInfo.mipLodBias = bias;
 
 
-    if (vkCreateSampler(rendererHandles.device, &samplerInfo, nullptr, &textureSampler) != VK_SUCCESS)
+    if (vkCreateSampler(handles.device, &samplerInfo, nullptr, textureSampler) != VK_SUCCESS)
     {
        std::cerr << ("failed to create texture sampler!");
     exit(-1);

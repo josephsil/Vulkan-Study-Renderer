@@ -68,6 +68,12 @@ Texture2D<float4> bindless_textures[];
 [[vk::binding(0, 3)]]
 SamplerState bindless_samplers[];
 
+[[vk::binding(2, 2)]]
+Texture2D<float4> shadowmap[];
+
+[[vk::binding(2, 3)]]
+SamplerState shadowmapSampler[];
+
 [[vk::binding(0,1)]]
 #ifdef USE_RW
 RWStructuredBuffer<MyVertexStructure> BufferTable;

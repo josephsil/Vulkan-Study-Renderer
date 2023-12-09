@@ -94,15 +94,17 @@ VkDescriptorSetLayoutCreateInfo LayoutsBuilder::getCreateInfo(VkDescriptorType t
 LayoutsBuilder createBindlessLayoutBuilder(
     RendererHandles rendererHandles, Scene* scene)
 {
-    auto builder =LayoutsBuilder(1, 2, 3);
+    auto builder =LayoutsBuilder(1, 3, 3);
   
     builder.addBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL );
   
     builder.addBinding(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_FRAGMENT_BIT,  scene->materialTextureCount()  + scene->utilityTextureCount());
     builder.addBinding(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_FRAGMENT_BIT,  2);
+    builder.addBinding(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_FRAGMENT_BIT,  1); //SHADOW
     
     builder.addBinding(VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT , scene->materialTextureCount()  + scene->utilityTextureCount());
     builder.addBinding(VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT , 2);
+    builder.addBinding(VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT , 1); //SHADOW
     
     builder.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
     builder.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
@@ -113,7 +115,7 @@ LayoutsBuilder createBindlessLayoutBuilder(
 LayoutsBuilder createShadowLayoutBuilder(
     RendererHandles rendererHandles, Scene* scene)
 {
-    auto builder =LayoutsBuilder(1, 2, 3);
+    auto builder =LayoutsBuilder(1, 0, 3);
   
     builder.addBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL );
   
