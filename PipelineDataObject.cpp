@@ -43,7 +43,12 @@ void PipelineDataObject::createShadowLayout(RendererHandles handles, Scene* psce
 
 void PipelineDataObject::bindToCommandBufferOpaque(VkCommandBuffer cmd, uint32_t currentFrame)
 {
-    bindToCommandBuffer(cmd, currentFrame, &opaquePipelineData);
+    assert(opaquePipelineData.descriptorSetsInitialized && opaquePipelineData.pipelinesInitialized);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, opaquePipelineData.bindlessPipelineLayout, 0, 1, &opaquePipelineData.uniformDescriptorSetForFrame[currentFrame], 0, nullptr);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, opaquePipelineData.bindlessPipelineLayout, 1, 1, &opaquePipelineData.storageDescriptorSetForFrame[currentFrame], 0, nullptr);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, opaquePipelineData.bindlessPipelineLayout, 2, 1, &opaquePipelineData.imageDescriptorSetForFrame[currentFrame], 0, nullptr);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, opaquePipelineData.bindlessPipelineLayout, 3, 1, &opaquePipelineData.samplerDescriptorSetForFrame[currentFrame], 0, nullptr);
+    
 }
 
 void PipelineDataObject::bindToCommandBufferShadow(VkCommandBuffer cmd, uint32_t currentFrame)
@@ -53,15 +58,7 @@ void PipelineDataObject::bindToCommandBufferShadow(VkCommandBuffer cmd, uint32_t
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowPipelineData.bindlessPipelineLayout, 1, 1, &shadowPipelineData.storageDescriptorSetForFrame[currentFrame], 0, nullptr);
 
 }
-void PipelineDataObject::bindToCommandBuffer(VkCommandBuffer cmd, uint32_t currentFrame, perPipelineData* pipelinedata)
-{
-    assert(pipelinedata->descriptorSetsInitialized && pipelinedata->pipelinesInitialized);
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelinedata->bindlessPipelineLayout, 0, 1, &pipelinedata->uniformDescriptorSetForFrame[currentFrame], 0, nullptr);
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelinedata->bindlessPipelineLayout, 1, 1, &pipelinedata->storageDescriptorSetForFrame[currentFrame], 0, nullptr);
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelinedata->bindlessPipelineLayout, 2, 1, &pipelinedata->imageDescriptorSetForFrame[currentFrame], 0, nullptr);
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelinedata->bindlessPipelineLayout, 3, 1, &pipelinedata->samplerDescriptorSetForFrame[currentFrame], 0, nullptr);
-    
-}
+
 
 void PipelineDataObject::updateDescriptorSetsForPipeline(std::vector<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame, perPipelineData* perPipelineData)
 {
