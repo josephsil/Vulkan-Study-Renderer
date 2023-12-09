@@ -141,7 +141,7 @@ struct gpulight
     alignas(16) glm::vec4 pos_xyz_range_a;
     alignas(16) glm::vec4 color_xyz_intensity_a;
     alignas(16) glm::vec4 pointOrSpot_padding_padding_padding;
-    alignas(16) glm::vec4 padding2;
+    alignas(16) glm::mat4 matrixViewProjection;
 };
 
 
@@ -248,7 +248,7 @@ void HelloTriangleApplication::initVulkan()
     swapChainExtent = vkb_swapchain.extent;
     swapChainColorFormat = vkb_swapchain.image_format;
 
-    uint32_t shadowmapsize = 512;
+    uint32_t shadowmapsize = 1024;
     shadowFormat = VK_FORMAT_D32_SFLOAT;
     //Create shadow image(s) -- TODO JS: don't do this every frame
     shadowImages.resize(MAX_FRAMES_IN_FLIGHT);
@@ -539,7 +539,8 @@ void HelloTriangleApplication::createSyncObjects()
 
 }
 
-#pragma region prepare and submit draw call
+//TODO JS: none of this belongs here except for actually submitting the updates
+#pragma region per-frame updates 
 
 
 glm::quat OrientationFromYawPitch(glm::vec2 yawPitch )
@@ -580,6 +581,7 @@ void HelloTriangleApplication::updateCamera(inputData input)
 
     eyePos +=  (translateFWD + translateSIDE) * deltaTime;
 }
+
 void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Array<glm::mat4> models,
                                                     inputData input)
 {
@@ -608,24 +610,40 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
         scene->materialTextureCount() + cubemaplut_utilitytexture_index, 0, 0);
     memcpy(FramesInFlightData[currentFrame].opaqueShaderGlobalsMapped, &globals, sizeof(ShaderGlobals));
 
-    //Shadow globals
-    int shadowcount = scene->lightCount > MAX_SHADOWCASTERS ? MAX_SHADOWCASTERS : scene->lightCount;
-    for(int i =0; i <shadowcount; i++)
+  
+
+    //Lights
+    auto lights = MemoryArena::AllocSpan<gpulight>(tempArena, scene->lightCount);
+    
+    for(int i =0; i <scene->lightCount; i++)
     {
         ShaderGlobals shadowGlobals = {};
 
         //TODO JS Projection per light
-        //TODO JS: Not sure how projection is handled for point lights 
+        //TODO JS: Not sure how projection is handled for point lights
+        //TODO JS: direciton lights only currently
         float near_plane = 1.0f, far_plane = 7.5f;
         glm::mat4 lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane); 
         glm::mat4 lightView = glm::lookAt((glm::vec3)scene->lightposandradius[i],
                                   glm::vec3( 0.0f, 0.0f,  0.0f), 
                                   glm::vec3( 0.0f, 1.0f,  0.0f));
-        shadowGlobals.view = lightView;
-        shadowGlobals.proj = lightProjection;
-        shadowGlobals.viewPos = glm::vec4((glm::vec3)scene->lightposandradius[i],1);
 
-        memcpy(FramesInFlightData[currentFrame].perLightShadowShaderGlobalsMapped[i], &shadowGlobals, sizeof(ShaderGlobals));
+        glm::mat4 lightViewProjection =  lightProjection * lightView;
+
+        lights[i] = {scene->lightposandradius[i],
+            scene->lightcolorAndIntensity[i],
+            glm::vec4(scene->lightTypes[i], -1,-1,-1),
+            lightViewProjection};
+        //Shadow globals
+        //TODO JS: get rid of this, and just read the matrices from light buffers
+        if (i < MAX_SHADOWCASTERS)
+        {
+            shadowGlobals.view = lightView;
+            shadowGlobals.proj = lightProjection;
+            shadowGlobals.viewPos = glm::vec4((glm::vec3)scene->lightposandradius[i],1);
+
+            memcpy(FramesInFlightData[currentFrame].perLightShadowShaderGlobalsMapped[i], &shadowGlobals, sizeof(ShaderGlobals));
+        }
     }
 
     //Ubos
@@ -639,22 +657,16 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
     }
     memcpy(FramesInFlightData[currentFrame].uniformBuffersMapped, ubos.data(), sizeof(UniformBufferObject) *scene->objectsCount());
 
-    //Lights
-    auto lights = MemoryArena::AllocSpan<gpulight>(tempArena, scene->lightCount);
-
-    for (int i = 0; i < scene->lightCount; i++)
-    {
-        lights[i] = {scene->lightposandradius[i], scene->lightcolorAndIntensity[i], glm::vec4(scene->lightTypes[i], -1,-1,-1), glm::vec4(1)};
-    }
-
     memcpy(FramesInFlightData[currentFrame].lightBuffersMapped, lights.data(), sizeof(gpulight) * lights.size());
 
 }
 
 
+#pragma endregion
+#pragma region draw 
 void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer commandBuffer, uint32_t imageIndex)
 {
-     uint32_t shadowSize = 512; //TODO JS: make const
+     uint32_t shadowSize = 1024; //TODO JS: make const
      VkCommandBufferBeginInfo beginInfo{};
      beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
      beginInfo.flags = 0; // Optional
@@ -1050,6 +1062,10 @@ void HelloTriangleApplication::drawFrame(inputData input)
         renderShadowPass(currentFrame,currentFrame, shadowPassWaitSemaphores,shadowpasssignalSemaphores);
         
 
+    // VK_CHECK(vkBeginCommandBuffer(FramesInFlightData[imageIndex].shadowCommandBuffers, &beginInfo));
+    // TextureUtilities::transitionImageLayout(getHandles(),shadowImages[currentFrame],shadowFormat,VK_IMAGE_LAYOUT_UNDEFINED,VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,FramesInFlightData[imageIndex].shadowCommandBuffers,1, false);
+    // vkEndCommandBuffer(FramesInFlightData[imageIndex].shadowCommandBuffers);
+    
         //TODO JS: Enable shadow semaphore
         std::vector<VkSemaphore> opaquePassWaitSemaphores = {FramesInFlightData[currentFrame].shadowFinishedSemaphores};
         std::vector<VkSemaphore> opaquepasssignalSemaphores = {FramesInFlightData[currentFrame].renderFinishedSemaphores};

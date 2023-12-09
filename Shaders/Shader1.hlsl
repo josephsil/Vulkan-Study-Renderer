@@ -47,6 +47,7 @@ VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
 	// https://github.com/microsoft/DirectXShaderCompiler/issues/2193 	
  	MyVertexStructure myVertex = BufferTable.Load<MyVertexStructure>((VERTEXOFFSET + VertexIndex) * sizeof(MyVertexStructure));
 #endif
+    
     UBO ubo = uboarr[OBJECTINDEX];
     VSOutput output = (VSOutput)0;
     float4x4 modelView = mul(globals.view, ubo.Model);
@@ -113,8 +114,6 @@ float3x3 calculateNormal(FSInput input)
     return TBN;
 }
 
-
-
 // -spirv -T ps_6_5 -E Frag .\Shader1.hlsl -Fo .\triangle.frag.spv
 
 FSOutput Frag(VSOutput input)
@@ -130,6 +129,9 @@ FSOutput Frag(VSOutput input)
     float4 specMap = bindless_textures[SPECULAR_INDEX].Sample(bindless_samplers[TEXTURESAMPLERINDEX], input.Texture_ST);
     float metallic = specMap.a;
 
+    UBO ubo = uboarr[OBJECTINDEX];
+
+    float4x4 model = ubo.Model;
     // albedo = 0.33;
     
     normalMap = normalize((2.0 * normalMap) - 1.0);
@@ -166,15 +168,15 @@ FSOutput Frag(VSOutput input)
 
     if (getMode())
     {
-        output.Color = getLighting(diff, normalMap, input.worldPos, F0, roughness, metallic);
+        output.Color = getLighting(model, diff, normalMap, input.worldPos, F0, roughness, metallic);
     }
     else
     {
-        output.Color = ambient + getLighting(diff, normalMap, input.worldPos, F0, roughness, metallic);
+        output.Color = ambient + getLighting(model, diff, normalMap, input.worldPos, F0, roughness, metallic);
     }
 
     //
-    //shadowmap[0].Sample(shadowmapSampler[0], /*UV*/); //TODO JS: shadows. 
+
     output.Color = output.Color / (output.Color + 1.0);
     //output.Color = pow(output.Color, 1.0/2.2); 
     // output.Color = reflected;

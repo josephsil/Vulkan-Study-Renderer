@@ -112,6 +112,9 @@ FSOutput Frag(VSOutput input)
 {
     FSOutput output;
 
+    UBO ubo = uboarr[OBJECTINDEX];
+
+    
     float3 diff = saturate(
         bindless_textures[DIFFUSE_INDEX].Sample(bindless_samplers[TEXTURESAMPLERINDEX], input.Texture_ST));
     float3 albedo = pow(diff, 2.2);
@@ -154,11 +157,11 @@ FSOutput Frag(VSOutput input)
 
     if (getMode())
     {
-        output.Color = getLighting(albedo, normalMap, input.worldPos, F0, roughness, metallic);
+        output.Color = getLighting(ubo.Model, albedo, normalMap, input.worldPos, F0, roughness, metallic);
     }
     else
     {
-        output.Color = ambient + getLighting(albedo, normalMap, input.worldPos, F0, roughness, metallic);
+        output.Color = ambient + getLighting(ubo.Model, albedo, normalMap, input.worldPos, F0, roughness, metallic);
     }
 
     output.Color = output.Color / (output.Color + 1.0);

@@ -51,7 +51,7 @@ struct MyLightStructure
     float4 position_range;
     float4 color_intensity;
     float4 light_type_padding;
-    float4 _1;
+    float4x4 matrixViewProjeciton;
     // uint color;
 };
 
@@ -154,7 +154,7 @@ float GeometrySmith(float3 N, float3 V, float3 L, float roughness)
 }
 
 
-float3 getLighting(float3 albedo, float3 inNormal, float3 FragPos, float3 F0, float3 roughness, float metallic)
+float3 getLighting(float4x4 model, float3 albedo, float3 inNormal, float3 FragPos, float3 F0, float3 roughness, float metallic)
 {
     float PI = 3.14159265359;
     float3 viewDir = normalize(globals.viewPos - FragPos);
@@ -201,7 +201,24 @@ float3 getLighting(float3 albedo, float3 inNormal, float3 FragPos, float3 F0, fl
 
         kD *= 1.0 - metallic;
         float NdotL = max(dot(inNormal, lightDir), 0.0);
-        lightContribution += (kD * albedo / PI + specular) * radiance * NdotL;
+       float3 lightAdd = (kD * albedo / PI + specular) * radiance * NdotL;
+
+        //Shadow:
+
+        if (i == 0)
+        {
+         
+            float4x4 lightMat = light.matrixViewProjeciton;
+            float4 fragPosLightSpace = mul( lightMat, float4(FragPos, 1.0));
+            float3 shadowProjection = (fragPosLightSpace.xyz / fragPosLightSpace.w);
+            float3 shadowUV = shadowProjection   * 0.5 + 0.5;
+            // shadowProjection.y *= -1;
+            float shadowMapValue =  shadowmap[0].Sample(shadowmapSampler[0], shadowUV.xy).r; //TODO JS: dont sample on branch?
+            float shadow = (shadowProjection.z + 0.002) < (shadowMapValue) ? 1.0 : 0.0;
+            lightAdd *= shadow;
+        }
+
+        lightContribution +=  lightAdd;
     }
 
 
