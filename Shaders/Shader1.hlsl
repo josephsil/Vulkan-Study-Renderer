@@ -165,7 +165,7 @@ FSOutput Frag(VSOutput input)
     float3 specularResult = specularcube * (F * brdfLUT.x + brdfLUT.y);
     float3 ambient = (kD * diffuse + specularResult);
     // output.Color =  getLighting(diff,normalMap, input.worldPos, specMap) * input.Color * irradience;
-
+//
     if (getMode())
     {
         output.Color = getLighting(model, diff, normalMap, input.worldPos, F0, roughness, metallic);

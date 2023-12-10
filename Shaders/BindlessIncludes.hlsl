@@ -5,6 +5,7 @@
 #define TEXTURESAMPLERINDEX pc.indexInfo.b
 #define NORMALSAMPLERINDEX TEXTURESAMPLERINDEX +2 //TODO JS: temporary!
 #define OBJECTINDEX  pc.indexInfo.a
+#define LIGHTINDEX   pc.indexInfo_2.a
 #define SKYBOXLUTINDEX globals.lutIDX_lutSamplerIDX_padding_padding.x
 #define SKYBOXLUTSAMPLERINDEX globals.lutIDX_lutSamplerIDX_padding_padding.y
 
@@ -33,7 +34,7 @@ struct pconstant
     float metallic;
     float _f1;
     float _f2;
-    float4 _1;
+    float4 indexInfo_2;
     float4 _2;
 };
 
@@ -205,7 +206,7 @@ float3 getLighting(float4x4 model, float3 albedo, float3 inNormal, float3 FragPo
 
         //Shadow:
 
-        if (i == 0)
+        if (i == 0 || i == 1) //TODO JS: pass in max shadow casters?
         {
          
             float4x4 lightMat = light.matrixViewProjeciton;
@@ -213,8 +214,8 @@ float3 getLighting(float4x4 model, float3 albedo, float3 inNormal, float3 FragPo
             float3 shadowProjection = (fragPosLightSpace.xyz / fragPosLightSpace.w);
             float3 shadowUV = shadowProjection   * 0.5 + 0.5;
             // shadowProjection.y *= -1;
-            float shadowMapValue =  shadowmap[0].Sample(shadowmapSampler[0], shadowUV.xy).r; //TODO JS: dont sample on branch?
-            float shadow = (shadowProjection.z + 0.002) < (shadowMapValue) ? 1.0 : 0.0;
+            float shadowMapValue =  shadowmap[i].Sample(shadowmapSampler[0], shadowUV.xy).r; //TODO JS: dont sample on branch?
+            float shadow = (shadowProjection.z + 0.01) < (shadowMapValue) ? 1.0 : 0.0;
             //TODO: vias by normal
             //TODO: pcf
             //TODO: cascade

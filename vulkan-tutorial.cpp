@@ -184,7 +184,7 @@ void SET_UP_SCENE(HelloTriangleApplication* app);
 
 RendererHandles HelloTriangleApplication::getHandles()
 {
-    return RendererHandles{physicalDevice, device, &commandPoolmanager, allocator, &arena, &perFrameArenas[currentFrame], HAS_HOST_IMAGE_COPY};
+    return RendererHandles{physicalDevice, device, &commandPoolmanager, allocator, &rendererArena, &perFrameArenas[currentFrame], HAS_HOST_IMAGE_COPY};
 }
 
 
@@ -192,8 +192,8 @@ RendererHandles HelloTriangleApplication::getHandles()
 void HelloTriangleApplication::initVulkan()
 {
 
-    this->arena = {};
-    MemoryArena::initialize(&arena, 1000000 * 10); // 10mb
+    this->rendererArena = {};
+    MemoryArena::initialize(&rendererArena, 1000000 * 10); // 10mb
 
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
@@ -254,13 +254,30 @@ void HelloTriangleApplication::initVulkan()
     shadowImages.resize(MAX_FRAMES_IN_FLIGHT);
     shadowSamplers.resize(MAX_FRAMES_IN_FLIGHT);
     shadowMemory.resize(MAX_FRAMES_IN_FLIGHT);
-    shadowImageViews.resize(MAX_FRAMES_IN_FLIGHT);
+    shadowImageViews = MemoryArena::AllocSpan<std::span<VkImageView>>(&rendererArena, MAX_FRAMES_IN_FLIGHT); 
     for(int i = 0; i < MAX_FRAMES_IN_FLIGHT ; i++)
     {
+        
         TextureUtilities::createImage(getHandles(),shadowmapsize, shadowmapsize,shadowFormat,VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
-                       VK_IMAGE_USAGE_SAMPLED_BIT,0,shadowImages[i],shadowMemory[i],1);
-        shadowImageViews[i] = TextureUtilities::createImageView(device,shadowImages[i],shadowFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
+               VK_IMAGE_USAGE_SAMPLED_BIT,0,shadowImages[i],shadowMemory[i],1, MAX_SHADOWCASTERS);
         TextureData::createTextureSampler(&shadowSamplers[i], getHandles(), VK_SAMPLER_ADDRESS_MODE_REPEAT, 0, 1);
+
+        
+        shadowImageViews[i] =  MemoryArena::AllocSpan<VkImageView>(&rendererArena, MAX_SHADOWCASTERS);
+        for (int j = 0; j < MAX_SHADOWCASTERS; j++)
+        {
+            shadowImageViews[i][j] = TextureUtilities::createImageView(
+                device, shadowImages[i], shadowFormat,
+                VK_IMAGE_ASPECT_DEPTH_BIT,
+                (VkImageViewType)-1,
+                1,
+                /*first view gets used by opaque pass to sample into shadowmap array*/
+                j == 0 ? MAX_SHADOWCASTERS : 1,
+                j);
+        }
+
+        
+
     }
     
     createDepthResources();
@@ -277,7 +294,7 @@ void HelloTriangleApplication::initVulkan()
     createCommandBuffers();
 
     //Initialize scene
-    scene = std::make_unique<Scene>(Scene(&arena));
+    scene = std::make_unique<Scene>(Scene(&rendererArena));
     SET_UP_SCENE(this);
 
     //Initialize scene-ish objects we don't have a place for yet 
@@ -395,11 +412,6 @@ void HelloTriangleApplication::createUniformBuffers()
     }
 }
 
-void HelloTriangleApplication::createDescriptorSetLayout(VkDescriptorSetLayoutCreateInfo layoutinfo,
-                                                         VkDescriptorSetLayout* layout)
-{
-    VK_CHECK(vkCreateDescriptorSetLayout(device, &layoutinfo, nullptr, layout));
-}
 #pragma endregion
 
 #pragma region descriptorsets
@@ -437,7 +449,8 @@ void HelloTriangleApplication::updateOpaqueDescriptorSets(RendererHandles handle
         cube_irradiance, cube_specular});
 
     VkDescriptorImageInfo shadowInfo = {
-        .imageView = shadowImageViews[currentFrame], .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+        //TODO JS: make sure the right stuff is in currentFrame[0]
+        .imageView = shadowImageViews[currentFrame][0], .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
     };
 
     VkDescriptorImageInfo shadowSamplerInfo = {
@@ -617,16 +630,22 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
     
     for(int i =0; i <scene->lightCount; i++)
     {
-        ShaderGlobals shadowGlobals = {};
-
         //TODO JS Projection per light
         //TODO JS: Not sure how projection is handled for point lights
         //TODO JS: direciton lights only currently
-        float near_plane = 1.0f, far_plane = 7.5f;
-        glm::mat4 lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane); 
-        glm::mat4 lightView = glm::lookAt((glm::vec3)scene->lightposandradius[i],
-                                  glm::vec3( 0.0f, 0.0f,  0.0f), 
-                                  glm::vec3( 0.0f, 1.0f,  0.0f));
+        float near_plane = 0.001f, far_plane = 100.5f;
+        glm::vec3 _eyePos =glm::vec3(0);
+        glm::mat4 lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane);
+        glm::vec3 lightPos = static_cast<glm::vec3>(scene->lightposandradius[i]);
+        glm::vec3 viewPos = _eyePos + (lightPos * 10.0f);
+        glm::vec3 center = _eyePos;
+        glm::vec3 dir = glm::normalize(viewPos - center);
+        glm::vec3 up = glm::vec3( 0.0f, 1.0f,  0.0f);
+        if (abs(up) == abs(dir))
+        {
+            viewPos += glm::vec3(0.000000001);
+        }
+        glm::mat4 lightView = glm::lookAt(viewPos,_eyePos, up);
 
         glm::mat4 lightViewProjection =  lightProjection * lightView;
 
@@ -634,16 +653,6 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
             scene->lightcolorAndIntensity[i],
             glm::vec4(scene->lightTypes[i], -1,-1,-1),
             lightViewProjection};
-        //Shadow globals
-        //TODO JS: get rid of this, and just read the matrices from light buffers
-        if (i < MAX_SHADOWCASTERS)
-        {
-            shadowGlobals.view = lightView;
-            shadowGlobals.proj = lightProjection;
-            shadowGlobals.viewPos = glm::vec4((glm::vec3)scene->lightposandradius[i],1);
-
-            memcpy(FramesInFlightData[currentFrame].perLightShadowShaderGlobalsMapped[i], &shadowGlobals, sizeof(ShaderGlobals));
-        }
     }
 
     //Ubos
@@ -676,71 +685,80 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
      VK_CHECK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
 
 
-
-     const VkRenderingAttachmentInfoKHR dynamicRenderingDepthAttatchment {
-         .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
-         .imageView = shadowImageViews[imageIndex],
-         .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR,
-         .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-         .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-         .clearValue =  {1.0f, 0}
-     };
-
-     VkRenderingInfo renderPassInfo{};
-     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
-     renderPassInfo.renderArea.extent = {shadowSize , shadowSize }; //TODO JS: Shadow size
-     renderPassInfo.renderArea.offset = {0, 0};
-     renderPassInfo.layerCount =1;
-     renderPassInfo.colorAttachmentCount = 0;
-     renderPassInfo.pColorAttachments = VK_NULL_HANDLE;
-     renderPassInfo.pDepthAttachment = &dynamicRenderingDepthAttatchment;
-
-     vkCmdBeginRendering(commandBuffer, &renderPassInfo);
-   
-     VkViewport viewport{};
-     viewport.x = 0.0f;
-     viewport.y = 0.0f;
-     viewport.width = static_cast<float>(shadowSize );
-     viewport.height = static_cast<float>(shadowSize );
-     viewport.minDepth = 0.0f;
-     viewport.maxDepth = 1.0f;
-     vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-
-     VkRect2D scissor{};
-     scissor.offset = {0, 0};
-     scissor.extent = {shadowSize , shadowSize };
-     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-
-     //*************
-     //************
-     //** Descriptor Sets update and binding
-     // This could change sometimes
-
     uint32_t SHADOW_INDEX = 0; //TODO JS: loop over shadowcasters
     updateShadowDescriptorSets(getHandles(), descriptorPool, &descriptorsetLayoutsData,SHADOW_INDEX);
     descriptorsetLayoutsData.bindToCommandBufferShadow(commandBuffer, currentFrame);
     VkPipelineLayout layout = descriptorsetLayoutsData.getLayoutShadow();
 
-    //TODO JS: Something other than hardcoded index 2 for shadow pipeline
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, descriptorsetLayoutsData.getPipeline(2));
-     int meshct =  scene->objectsCount();
-     for (int i = 0; i <meshct; i++)
-     {
-         per_object_data constants;
-         //Light count, vert offset, texture index, and object data index
-         constants.indexInfo = glm::vec4(-1, (scene->objects.meshOffsets[i]),
-                                         -1, i);
+    
+    int shadowCount = min(scene->lightCount, MAX_SHADOWCASTERS);
+    //Should I do separate command buffers per shadow index?
+    for(int i = 0; i < shadowCount; i ++)
+    {
+        int shadowIndex = i;
+        const VkRenderingAttachmentInfoKHR dynamicRenderingDepthAttatchment {
+            .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
+            .imageView = shadowImageViews[imageIndex][shadowIndex],
+            .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR,
+            .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+            .clearValue =  {1.0f, 0}
+        };
 
-         constants.materialprops = glm::vec4(-1, -1, 0, 0);
+        VkRenderingInfo renderPassInfo{};
+        renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+        renderPassInfo.renderArea.extent = {shadowSize , shadowSize }; //TODO JS: Shadow size
+        renderPassInfo.renderArea.offset = {0, 0};
+        renderPassInfo.layerCount =1;
+        renderPassInfo.colorAttachmentCount = 0;
+        renderPassInfo.pColorAttachments = VK_NULL_HANDLE;
+        renderPassInfo.pDepthAttachment = &dynamicRenderingDepthAttatchment;
 
-         vkCmdPushConstants(commandBuffer, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-                            sizeof(per_object_data), &constants);
+        vkCmdBeginRendering(commandBuffer, &renderPassInfo);
+   
+        VkViewport viewport{};
+        viewport.x = 0.0f;
+        viewport.y = 0.0f;
+        viewport.width = static_cast<float>(shadowSize );
+        viewport.height = static_cast<float>(shadowSize );
+        viewport.minDepth = 0.0f;
+        viewport.maxDepth = 1.0f;
+        vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 
-         vkCmdDraw(commandBuffer, static_cast<uint32_t>(scene->objects.meshes[i]->vertcount), 1, 0, 0);
-     }
+        VkRect2D scissor{};
+        scissor.offset = {0, 0};
+        scissor.extent = {shadowSize , shadowSize };
+        vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+        //*************
+        //************
+        //** Descriptor Sets update and binding
+        // This could change sometimes
 
 
-     vkCmdEndRendering(commandBuffer);
+
+        //TODO JS: Something other than hardcoded index 2 for shadow pipeline
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, descriptorsetLayoutsData.getPipeline(2));
+        int meshct =  scene->objectsCount();
+        for (int i = 0; i <meshct; i++)
+        {
+            per_object_data constants;
+            //Light count, vert offset, texture index, and object data index
+            constants.indexInfo = glm::vec4(-1, (scene->objects.meshOffsets[i]),
+                                            -1, i);
+            constants.Indexinfo2 = glm::vec4(-1,-1,-1,shadowIndex);
+
+            constants.materialprops = glm::vec4(-1, -1, 0, 0);
+
+            vkCmdPushConstants(commandBuffer, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                               sizeof(per_object_data), &constants);
+
+            vkCmdDraw(commandBuffer, static_cast<uint32_t>(scene->objects.meshes[i]->vertcount), 1, 0, 0);
+        }
+
+
+        vkCmdEndRendering(commandBuffer);
+    }   
 
      VK_CHECK(vkEndCommandBuffer(commandBuffer));
 }
@@ -1210,7 +1228,8 @@ void HelloTriangleApplication::cleanup()
     {
         VulkanMemory::DestroyImage(allocator, shadowImages[i], shadowMemory[i]);
         vkDestroySampler(device, shadowSamplers[i], nullptr);
-        vkDestroyImageView(device, shadowImageViews[i], nullptr);
+        for(int j = 0; j < MAX_SHADOWCASTERS; j++)
+        vkDestroyImageView(device, shadowImageViews[i][j], nullptr);
         
     }
 
@@ -1281,6 +1300,9 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
     //direciton light
     app->scene->AddLight(glm::vec3(0, 0, 1), glm::vec3(0, 1, 0), 5, 3, 0);
 
+    //direciton light
+    app->scene->AddLight(glm::vec3(0, 1, 0), glm::vec3(0, 0, 1), 5, 3, 0);
+
     //point lights    
     app->scene->AddLight(glm::vec3(1, 1, 0), glm::vec3(1, 1, 1), 5, 5 / 2);
     app->scene->AddLight(glm::vec3(0, 4, -5), glm::vec3(1, 1, 1), 5, 8 / 2);
@@ -1292,6 +1314,7 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
     glm::vec3 EulerAngles(0, 0, 0);
     auto MyQuaternion = glm::quat(EulerAngles);
 
+    
     for (int i = 0; i < 100; i++)
     {
         for (int j = 0; j < 10; j ++)

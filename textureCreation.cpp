@@ -11,7 +11,7 @@
 
 VkImageView TextureUtilities::createImageView(VkDevice device, VkImage image, VkFormat format,
                                               VkImageAspectFlags aspectFlags,
-                                              VkImageViewType type, uint32_t miplevels, uint32_t layerCount)
+                                              VkImageViewType type, uint32_t miplevels, uint32_t layerCount, uint32_t layer)
 {
     aspectFlags = aspectFlags == -1 ? VK_IMAGE_ASPECT_COLOR_BIT : aspectFlags;
     type = (int)type == -1 ? VK_IMAGE_VIEW_TYPE_2D : type; 
@@ -23,7 +23,7 @@ VkImageView TextureUtilities::createImageView(VkDevice device, VkImage image, Vk
     viewInfo.subresourceRange.aspectMask = aspectFlags;
     viewInfo.subresourceRange.baseMipLevel = 0; //TODO JS: pass in something more robust?
     viewInfo.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
-    viewInfo.subresourceRange.baseArrayLayer = 0; //TODO JS: pass in something more robust?
+    viewInfo.subresourceRange.baseArrayLayer = layer; 
     viewInfo.subresourceRange.layerCount = layerCount;
 
     VkImageView imageView;
@@ -36,7 +36,7 @@ VkImageView TextureUtilities::createImageView(VkDevice device, VkImage image, Vk
 void TextureUtilities::createImage(RendererHandles rendererHandles, uint32_t width, uint32_t height, VkFormat format,
                                    VkImageTiling tiling,
                                    VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image,
-                                   VmaAllocation& allocation, uint32_t miplevels)
+                                   VmaAllocation& allocation, uint32_t miplevels, uint32_t araryLayers)
 {
 
     //TODO JS: Properties flags to vma 
@@ -47,7 +47,7 @@ void TextureUtilities::createImage(RendererHandles rendererHandles, uint32_t wid
     imageInfo.extent.height = height;
     imageInfo.extent.depth = 1;
     imageInfo.mipLevels = miplevels;
-    imageInfo.arrayLayers = 1;
+    imageInfo.arrayLayers = araryLayers;
     imageInfo.format = format;
     imageInfo.tiling = tiling;
     imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;

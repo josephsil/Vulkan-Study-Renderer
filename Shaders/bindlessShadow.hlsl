@@ -36,9 +36,11 @@ VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
 #endif
     UBO ubo = uboarr[OBJECTINDEX];
     VSOutput output = (VSOutput)0;
-    float4x4 modelView = mul(globals.view, ubo.Model);
-    float4x4 mvp = mul(globals.projection, modelView);
-    output.Pos = mul(mvp, half4(myVertex.position.xyz, 1.0));
+    MyLightStructure light = lights[LIGHTINDEX];
+    float4x4 viewProjection = light.matrixViewProjeciton;
+    float4x4 mvp2 = mul(viewProjection, ubo.Model);
+    
+    output.Pos = mul(mvp2, half4(myVertex.position.xyz, 1.0));
     return output;
 }
 

@@ -39,9 +39,9 @@ public:
 private:
 
     const static int MAX_FRAMES_IN_FLIGHT = 3;
-    const static int MAX_SHADOWCASTERS = 1;
+    const static int MAX_SHADOWCASTERS = 2;
 
-    MemoryArena::memoryArena arena{};
+    MemoryArena::memoryArena rendererArena{};
     MemoryArena::memoryArena perFrameArenas[MAX_FRAMES_IN_FLIGHT];
 #pragma region SDL
     uint32_t T;
@@ -85,7 +85,7 @@ private:
     std::vector<VkImageView> swapChainImageViews;
     std::vector<VkImage> swapChainImages;
 
-    std::vector<VkImageView> shadowImageViews;
+    std::span<std::span<VkImageView>> shadowImageViews;
     std::vector<VkSampler> shadowSamplers;
     std::vector<VkImage> shadowImages;
     std::vector<VmaAllocation> shadowMemory;

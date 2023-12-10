@@ -43,7 +43,7 @@ struct per_object_data
     alignas(16) glm::vec4 indexInfo;
 
     alignas(16) glm::vec4 materialprops; //roughness, metalness, padding, padding
-    alignas(16) glm::vec4 padding_1;
+    alignas(16) glm::vec4 Indexinfo2; //a is light index for shadows
     alignas(16) glm::vec4 padding_2;
     alignas(16) glm::vec4 padding_3;
     //Unused

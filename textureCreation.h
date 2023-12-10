@@ -12,12 +12,12 @@ namespace TextureUtilities
     VkImageView createImageView(VkDevice device, VkImage image,
                                 VkFormat format, VkImageAspectFlags aspectFlags = -1,
                                 VkImageViewType type = (VkImageViewType)-1, uint32_t miplevels = 1,
-                                uint32_t layerCount = 1);
+                                uint32_t layerCount = 1, uint32_t layer = 0);
 
     void createImage(RendererHandles rendererHandles, uint32_t width, uint32_t height, VkFormat format,
                      VkImageTiling tiling,
                      VkFlags usage, VkFlags properties, VkImage& image,
-                     VmaAllocation& allocation, uint32_t miplevels = 1);
+                     VmaAllocation& allocation, uint32_t miplevels = 1, uint32_t araryLayers = 1);
 
     void transitionImageLayout(RendererHandles rendererHandles, VkImage image, VkFormat format, VkImageLayout oldLayout,
                                VkImageLayout newLayout, VkCommandBuffer workingBuffer,
