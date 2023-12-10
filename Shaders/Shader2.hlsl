@@ -163,6 +163,7 @@ FSOutput Frag(VSOutput input)
     {
         output.Color = ambient + getLighting(ubo.Model, albedo, normalMap, input.worldPos, F0, roughness, metallic);
     }
+    //
 
     output.Color = output.Color / (output.Color + 1.0);
     //	output.Color = pow(output.Color, 1.0/2.2); 
