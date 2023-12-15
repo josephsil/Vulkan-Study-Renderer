@@ -30,7 +30,7 @@ struct descriptorUpdateData;
         //Initialization
        
         void createGraphicsPipeline(std::vector<VkPipelineShaderStageCreateInfo> shaders, VkFormat* swapchainFormat, VkFormat* depthFormat, bool shadow, bool color = true, bool
-                                    depth = true);
+                                    depth = true, bool lines = false);
 
         //Runtime
         void updateOpaqueDescriptorSets(std::vector<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame);

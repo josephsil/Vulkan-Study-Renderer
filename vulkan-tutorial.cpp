@@ -289,6 +289,7 @@ void HelloTriangleApplication::initVulkan()
     shaderLoader->AddShader("triangle", L"./Shaders/Shader1.hlsl");
     shaderLoader->AddShader("triangle_alt", L"./Shaders/shader2.hlsl");
     shaderLoader->AddShader("shadow", L"./Shaders/bindlessShadow.hlsl");
+    shaderLoader->AddShader("lines", L"./Shaders/lines.hlsl");
 
     //Command buffer stuff
     createCommandBuffers();
@@ -312,6 +313,8 @@ void HelloTriangleApplication::initVulkan()
     createGraphicsPipeline("triangle",  &descriptorsetLayoutsData);
     //TODO JS: separate shadow layout?
     createGraphicsPipeline("shadow",  &descriptorsetLayoutsData, true);
+
+    createGraphicsPipeline("lines",  &descriptorsetLayoutsData, false, true);
     
     createDescriptorSetPool(getHandles(), &descriptorPool);
 
@@ -572,7 +575,13 @@ Transform HelloTriangleApplication::getCameraTransform()
 
     return output;
 }
-
+struct linePair
+{
+    glm::vec3 start;
+    glm::vec3 end;
+    glm::vec3 color;
+};
+std::vector<linePair> debugLines;
 //TODO JS: this sucks!
 void HelloTriangleApplication::updateCamera(inputData input)
 {
@@ -859,6 +868,26 @@ void HelloTriangleApplication::recordCommandBufferOpaquePass(VkCommandBuffer com
         vkCmdDraw(commandBuffer, static_cast<uint32_t>(scene->objects.meshes[i]->vertcount), 1, 0, 0);
     }
 
+    //debug lines -- todo feed from somehwere
+                                                                            //TODO JS: something other than hardcoded 3
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, descriptorsetLayoutsData.getPipeline(3));
+    debugLines.push_back({{0,0,0},{20,40,20}, {0,0,1}});
+    for (int i = 0; i <debugLines.size(); i++)
+    {
+
+        debugLinePConstants constants;
+        //Light count, vert offset, texture index, and object data index
+        auto cameraTform = getCameraTransform();
+        constants.pos1 = glm::vec4(debugLines[i].start,1.0);
+        constants.pos2 = glm::vec4(debugLines[i].end,1.0);
+        constants.color = glm::vec4(debugLines[i].color,1.0);
+        constants.m = glm::mat4(1.0);
+
+        vkCmdPushConstants(commandBuffer, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                          sizeof(per_object_data), &constants);
+
+        vkCmdDraw(commandBuffer, 2, 1, 0, 0);
+    }
 
     vkCmdEndRendering(commandBuffer);
 
@@ -909,16 +938,17 @@ void HelloTriangleApplication::createDepthResources()
 #pragma endregion
 
 
-void HelloTriangleApplication::createGraphicsPipeline(const char* shaderName, PipelineDataObject* descriptorsetdata, bool shadow)
+void HelloTriangleApplication::createGraphicsPipeline(const char* shaderName, PipelineDataObject* descriptorsetdata, bool shadow, bool lines)
 {
     VkPipeline newGraphicsPipeline; 
     auto shaders = shaderLoader->compiledShaders[shaderName];
 
     if (!shadow)
-    descriptorsetdata->createGraphicsPipeline(shaders,&swapChainColorFormat, &depthFormat, false);
+    descriptorsetdata->createGraphicsPipeline(shaders,&swapChainColorFormat, &depthFormat, false, true, true, lines);
     else
+    {
         descriptorsetdata->createGraphicsPipeline(shaders,&swapChainColorFormat, &depthFormat,  true, false, true);
-        
+    } 
 
     auto val = shaderLoader->compiledShaders[shaderName];
 
@@ -1000,6 +1030,7 @@ void HelloTriangleApplication::mainLoop()
         UpdateRotations();
         scene->Update();
         drawFrame(input);
+        debugLines.clear();
         auto t2 = SDL_GetTicks();
     }
     vkDeviceWaitIdle(device);

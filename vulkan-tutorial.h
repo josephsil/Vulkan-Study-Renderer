@@ -39,7 +39,7 @@ public:
 private:
 
     const static int MAX_FRAMES_IN_FLIGHT = 3;
-    const static int MAX_SHADOWCASTERS = 2;
+    const static int MAX_SHADOWCASTERS = 1;
 
     MemoryArena::memoryArena rendererArena{};
     MemoryArena::memoryArena perFrameArenas[MAX_FRAMES_IN_FLIGHT];
@@ -207,7 +207,7 @@ private:
 
 
     void createGraphicsPipeline(const char* shaderName,
-                                PipelineDataObject* descriptorsetdata, bool shadow = false);
+                                PipelineDataObject* descriptorsetdata, bool shadow = false, bool lines = false);
     void createInstance();
 
     int _selectedShader{0};

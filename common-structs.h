@@ -81,3 +81,12 @@ struct Transform
     glm::mat4 translation;
     glm::mat4 rot; 
 };
+
+
+struct debugLinePConstants
+{
+        glm::mat4 m;
+        glm::vec4 pos1;
+        glm::vec4 pos2;
+        glm::vec4 color;
+};
