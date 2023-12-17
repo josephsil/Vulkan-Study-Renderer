@@ -248,7 +248,7 @@ void HelloTriangleApplication::initVulkan()
     swapChainExtent = vkb_swapchain.extent;
     swapChainColorFormat = vkb_swapchain.image_format;
 
-    uint32_t shadowmapsize = SHADOW_RESOLUTION;
+    uint32_t shadowmapsize = SHADOW_MAP_SIZE;
     shadowFormat = VK_FORMAT_D32_SFLOAT;
     //Create shadow image(s) -- TODO JS: don't do this every frame
     shadowImages.resize(MAX_FRAMES_IN_FLIGHT);
@@ -604,6 +604,37 @@ void HelloTriangleApplication::updateCamera(inputData input)
     eyePos +=  (translateFWD + translateSIDE) * deltaTime;
 }
 
+void debugDrawFrustum(std::span<glm::vec4> frustum)
+{
+    //Back plane
+    debugLines.push_back({{frustum[0]},{frustum[1]}, {1,0,0}});
+    debugLines.push_back({{frustum[1]},{frustum[2]}, {1,0,0}});
+    debugLines.push_back({{frustum[2]},{frustum[3]}, {1,0,0}});
+    debugLines.push_back({{frustum[3]},{frustum[0]}, {1,0,0}});
+
+    //front plane 
+    debugLines.push_back({{frustum[4 + 0]},{frustum[4 + 1]}, {0.5,0,0}});
+    debugLines.push_back({{frustum[4 + 1]},{frustum[4 + 2]}, {0.5,0,0}});
+    debugLines.push_back({{frustum[4 + 2]},{frustum[4 + 3]}, {0.5,0,0}});
+    debugLines.push_back({{frustum[4 + 3]},{frustum[4 + 0]}, {0.5,0,0}});
+
+    //sides 
+    debugLines.push_back({{frustum[0]},{frustum[4 + 0]}, {1,1,1}});
+    debugLines.push_back({{frustum[1]},{frustum[4 + 1]}, {1,1,1}});
+    debugLines.push_back({{frustum[2]},{frustum[4 + 2]}, {1,1,1}});
+    debugLines.push_back({{frustum[3]},{frustum[4 + 3]}, {1,1,1}});
+
+}
+
+void debugDrawCross(glm::vec3 point, float size, glm::vec3 color)
+{
+    glm::vec3 xoffset = (glm::vec3{1,0,0} * (size / 2));
+    glm::vec3 yoffset = (glm::vec3{0,1,0} * (size / 2));
+    glm::vec3 zoffset = (glm::vec3{0,0,1} * (size / 2));
+    debugLines.push_back({point - xoffset, point + xoffset, color});
+    debugLines.push_back({point - yoffset, point + yoffset, color});
+    debugLines.push_back({point - zoffset, point + zoffset, color});
+}
 void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Array<glm::mat4> models,
                                                     inputData input)
 {
@@ -621,7 +652,7 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
 
     glm::mat4 proj = glm::perspective(glm::radians(70.0f),
                                       swapChainExtent.width / static_cast<float>(swapChainExtent.height), 0.1f,
-                                      1000.0f);
+                                      550.0f);
     proj[1][1] *= -1;
     globals.view = view;
     globals.proj = proj;
@@ -639,22 +670,81 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
     
     for(int i =0; i <scene->lightCount; i++)
     {
+        glm::mat4 projForLight = glm::perspective(glm::radians(70.0f),
+                                            swapChainExtent.width / static_cast<float>(swapChainExtent.height), 0.0f,
+                                            200.0f);
+        projForLight[1][1] *= -1;
+        glm::vec3 frustumCorners[8] = {
+            glm::vec3( 1.0f, -1.0f, 0.0f), // bot right
+            glm::vec3(-1.0f, -1.0f, 0.0f), //bot left
+            glm::vec3(-1.0f,  1.0f, 0.0f), //top rgiht 
+            glm::vec3( 1.0f,  1.0f, 0.0f), // top left
+            glm::vec3( 1.0f, -1.0f,  1.0f), //bot r8ghyt  (far)
+            glm::vec3(-1.0f, -1.0f,  1.0f), //bot left (far)
+            glm::vec3(-1.0f,  1.0f,  1.0f), //top left (far)
+            glm::vec3( 1.0f,  1.0f,  1.0f), //top right (far)
+        };
+        glm::vec4 frustumCornersWorldSpace[8] = {};
+
+
+        glm::mat4 invCam = glm::inverse(projForLight * view);
+
+        for(int i = 0; i < 8; i++)
+        {
+            glm::vec4 invCorner =  invCam * glm::vec4(frustumCorners[i], 1.0f);
+            frustumCornersWorldSpace[i] =  invCorner /  (invCorner.w ) ;
+        }
+
+
+        glm::vec4 frustumCenter = glm::vec4(0.0f);
+        for (uint32_t i = 0; i < 8; i++) {
+            frustumCenter += frustumCornersWorldSpace[i];
+        }
+        frustumCenter /= 8.0f;
+
+        debugDrawCross(frustumCenter, 20, {0,0,1});
+        
+        debugDrawFrustum(frustumCornersWorldSpace);
+
         //TODO JS Projection per light
         //TODO JS: Not sure how projection is handled for point lights
         //TODO JS: direciton lights only currently
         float near_plane = 0.001f, far_plane = 100.5f;
         glm::vec3 _eyePos =glm::vec3(0);
-        glm::mat4 lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane);
         glm::vec3 lightPos = static_cast<glm::vec3>(scene->lightposandradius[i]);
-        glm::vec3 viewPos = _eyePos + (lightPos * 10.0f);
-        glm::vec3 center = _eyePos;
-        glm::vec3 dir = glm::normalize(viewPos - center);
+        if (i == 0) debugDrawCross(lightPos, 2, {1,1,0});
+        glm::vec3 dir = glm::normalize( lightPos);
+        glm::vec3 center = frustumCenter;
         glm::vec3 up = glm::vec3( 0.0f, 1.0f,  0.0f);
-        if (abs(up) == abs(dir))
+        // if (abs(up) == abs(dir))
+        // {
+        //     dir += glm::vec3(0.000000001);
+        // }
+        glm::mat4 lightView = glm::lookAt(center + dir ,center, up);
+
+
+        float minX = std::numeric_limits<float>::infinity();
+        float maxX = std::numeric_limits<float>::lowest();
+        float minY = std::numeric_limits<float>::infinity();
+        float maxY = std::numeric_limits<float>::lowest();
+        float minZ = std::numeric_limits<float>::infinity();
+        float maxZ = std::numeric_limits<float>::lowest();
+        for (int i = 0; i < 8; i++)
         {
-            viewPos += glm::vec3(0.000000001);
+            glm::vec4 trf = lightView * frustumCornersWorldSpace[i];
+            minX = std::min<float>(minX, trf.x);
+            maxX = std::max<float>(maxX, trf.x);
+            minY = std::min<float>(minY, trf.y);
+            maxY = std::max<float>(maxY, trf.y);
+            minZ = std::min<float>(minZ, trf.z);
+            maxZ = std::max<float>(maxZ, trf.z);
         }
-        glm::mat4 lightView = glm::lookAt(viewPos,_eyePos, up);
+
+       
+   
+        //const glm::mat4 lightProjection = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);
+
+        glm::mat4 lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, minZ, maxZ); 
 
         glm::mat4 lightViewProjection =  lightProjection * lightView;
 
@@ -663,6 +753,8 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
             glm::vec4(scene->lightTypes[i], -1,-1,-1),
             lightViewProjection};
     }
+
+    
 
     //Ubos
     auto ubos = MemoryArena::AllocSpan<UniformBufferObject>(tempArena,scene->objectsCount());
@@ -684,7 +776,7 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
 #pragma region draw 
 void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer commandBuffer, uint32_t imageIndex)
 {
-     uint32_t shadowSize = SHADOW_RESOLUTION; //TODO JS: make const
+     uint32_t shadowSize = SHADOW_MAP_SIZE; //TODO JS: make const
      VkCommandBufferBeginInfo beginInfo{};
      beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
      beginInfo.flags = 0; // Optional
@@ -704,6 +796,7 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
     //Should I do separate command buffers per shadow index?
     for(int i = 0; i < shadowCount; i ++)
     {
+
         int shadowIndex = i;
         const VkRenderingAttachmentInfoKHR dynamicRenderingDepthAttatchment {
             .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
@@ -1332,7 +1425,7 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
     app->scene->AddLight(glm::vec3(0, 0, 1), glm::vec3(0, 1, 0), 5, 3, 0);
 
     //direciton light
-    //app->scene->AddLight(glm::vec3(0, 1, 0), glm::vec3(0, 0, 1), 5, 3, 0);
+    // app->scene->AddLight(glm::vec3(0, 1, 0), glm::vec3(0, 0, 1), 5, 3, 0);
 
     //point lights    
     app->scene->AddLight(glm::vec3(1, 1, 0), glm::vec3(1, 1, 1), 5, 5 / 2);

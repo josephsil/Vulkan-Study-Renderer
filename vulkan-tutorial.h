@@ -25,7 +25,7 @@ using VmaAllocator = struct VmaAllocator_T*;
 class Scene;
 //Include last
 
-const uint32_t SHADOW_RESOLUTION = 2048;
+const uint32_t SHADOW_MAP_SIZE = 2048;
 class HelloTriangleApplication
 
 {
