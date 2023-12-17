@@ -1164,7 +1164,17 @@ void HelloTriangleApplication::UpdateRotations()
 }
 
 
-void transitionImageForRendering(RendererHandles handles, VkCommandBuffer commandBuffer, std::span<VkSemaphore> waitSemaphores, std::span<VkSemaphore> signalSemaphores, VkImage image, VkImageLayout layoutIn, VkImageLayout layoutOut, VkPipelineStageFlags* waitStages, bool depth)
+semaphoreData getSemaphoreDataFromSemaphores(std::span<VkSemaphore> semaphores, MemoryArena::memoryArena* allocator)
+{
+    auto flags = MemoryArena::AllocSpan<VkPipelineStageFlags>(allocator, semaphores.size());
+    for (int i = 0; i <flags.size(); i++)
+    {
+        flags[i] = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    }
+    return {semaphores, flags};
+    
+}
+void transitionImageForRendering(RendererHandles handles, VkCommandBuffer commandBuffer, semaphoreData waitSemaphores, std::span<VkSemaphore> signalSemaphores, VkImage image, VkImageLayout layoutIn, VkImageLayout layoutOut, VkPipelineStageFlags* waitStages, bool depth)
 {
 
     VkCommandBufferBeginInfo beginInfo{};
@@ -1179,12 +1189,13 @@ void transitionImageForRendering(RendererHandles handles, VkCommandBuffer comman
 
   
     VkSubmitInfo swapChainInSubmitInfo{};
+    VkPipelineStageFlags _waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
     swapChainInSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     swapChainInSubmitInfo.commandBufferCount = 1;
-    swapChainInSubmitInfo.pWaitDstStageMask = waitStages;
+    swapChainInSubmitInfo.pWaitDstStageMask = waitSemaphores.waitStages.data();
     swapChainInSubmitInfo.pCommandBuffers = &commandBuffer;
-    swapChainInSubmitInfo.waitSemaphoreCount = waitSemaphores.size();
-    swapChainInSubmitInfo.pWaitSemaphores = waitSemaphores.data();
+    swapChainInSubmitInfo.waitSemaphoreCount = waitSemaphores.semaphores.size();
+    swapChainInSubmitInfo.pWaitSemaphores = waitSemaphores.semaphores.data();
     swapChainInSubmitInfo.signalSemaphoreCount = signalSemaphores.size();
     swapChainInSubmitInfo.pSignalSemaphores = signalSemaphores.data();
 
@@ -1193,11 +1204,12 @@ void transitionImageForRendering(RendererHandles handles, VkCommandBuffer comman
     ///////////////////////// Transition swapChain  />
     
 }
+VkPipelineStageFlags swapchainWaitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+VkPipelineStageFlags shadowWaitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
 void HelloTriangleApplication::drawFrame(inputData input)
 {
-
-   
     //Update per frame data
+   
     updatePerFrameBuffers(currentFrame, scene->objects.matrices, input); // TODO JS: Figure out
     //Prepare for pass
     uint32_t imageIndex; 
@@ -1220,13 +1232,14 @@ void HelloTriangleApplication::drawFrame(inputData input)
 
 
     ///////////////////////// </Transition swapChain 
-    VkPipelineStageFlags swapchainWaitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-    VkPipelineStageFlags shadowWaitStages[] = {VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT};
+
+
+    semaphoreData waitSemaphores = getSemaphoreDataFromSemaphores({&FramesInFlightData[currentFrame].imageAvailableSemaphores, 1}, &perFrameArenas[currentFrame]);
     //Transition swapchain for rendering
     transitionImageForRendering(
         getHandles(),
         FramesInFlightData[currentFrame].swapchainTransitionInCommandBuffer,
-        std::span<VkSemaphore>(&FramesInFlightData[currentFrame].imageAvailableSemaphores, 1),
+        waitSemaphores,
         std::span<VkSemaphore>(&FramesInFlightData[currentFrame].swapchaintransitionedInSemaphores, 1),
         swapChainImages[currentFrame],
         VK_IMAGE_LAYOUT_UNDEFINED,
@@ -1248,7 +1261,7 @@ void HelloTriangleApplication::drawFrame(inputData input)
         std::vector<VkSemaphore> shadowPassWaitSemaphores = {FramesInFlightData[currentFrame].shadowtransitionedInSemaphores};
         std::vector<VkSemaphore> shadowpasssignalSemaphores = {FramesInFlightData[currentFrame].shadowFinishedSemaphores};
         
-        renderShadowPass(currentFrame,currentFrame, shadowPassWaitSemaphores,shadowpasssignalSemaphores);
+        renderShadowPass(currentFrame,currentFrame,  getSemaphoreDataFromSemaphores(shadowPassWaitSemaphores, &perFrameArenas[currentFrame]),shadowpasssignalSemaphores);
         
 
     // VK_CHECK(vkBeginCommandBuffer(FramesInFlightData[imageIndex].shadowCommandBuffers, &beginInfo));
@@ -1257,10 +1270,11 @@ void HelloTriangleApplication::drawFrame(inputData input)
     
 
     //Transition shadow maps for reading
+    waitSemaphores = getSemaphoreDataFromSemaphores(shadowpasssignalSemaphores, &perFrameArenas[currentFrame]);
     transitionImageForRendering(
     getHandles(),
     FramesInFlightData[currentFrame].shadowTransitionOutCommandBuffer,
-    shadowpasssignalSemaphores,
+    waitSemaphores,
    {&FramesInFlightData[imageIndex].shadowtransitionedOutSemaphores, 1},
     shadowImages[currentFrame],
     VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
@@ -1272,15 +1286,17 @@ void HelloTriangleApplication::drawFrame(inputData input)
     std::vector<VkSemaphore> opaquepasssignalSemaphores = {FramesInFlightData[currentFrame].renderFinishedSemaphores};
 
     //Opaque
-    renderOpaquePass(currentFrame,currentFrame, opaquePassWaitSemaphores,opaquepasssignalSemaphores);
+    renderOpaquePass(currentFrame,currentFrame, getSemaphoreDataFromSemaphores(opaquePassWaitSemaphores, &perFrameArenas[currentFrame]),opaquepasssignalSemaphores);
 
 
 
     //Transition swapchain for rendering
+
+    waitSemaphores = getSemaphoreDataFromSemaphores(opaquepasssignalSemaphores, &perFrameArenas[currentFrame]);
     transitionImageForRendering(
     getHandles(),
     FramesInFlightData[currentFrame].swapchainTransitionOutCommandBuffer,
-    opaquepasssignalSemaphores,
+    waitSemaphores,
    {&FramesInFlightData[imageIndex].swapchaintransitionedOutSemaphores, 1},
     swapChainImages[currentFrame],
     VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
@@ -1304,18 +1320,16 @@ void HelloTriangleApplication::drawFrame(inputData input)
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
-void HelloTriangleApplication::renderShadowPass(uint32_t currentFrame, uint32_t imageIndex, std::vector<VkSemaphore> waitsemaphores, std::vector<VkSemaphore> signalsemaphores)
+void HelloTriangleApplication::renderShadowPass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores, std::vector<VkSemaphore> signalsemaphores)
 {
     recordCommandBufferShadowPass(FramesInFlightData[imageIndex].shadowCommandBuffers, imageIndex);
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-
-
-    VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT};
-    submitInfo.waitSemaphoreCount = waitsemaphores.size();
-    submitInfo.pWaitSemaphores = waitsemaphores.data();
-    submitInfo.pWaitDstStageMask = waitStages;
+    VkPipelineStageFlags _waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+    submitInfo.waitSemaphoreCount = waitSemaphores.semaphores.size();
+    submitInfo.pWaitSemaphores = waitSemaphores.semaphores.data();
+    submitInfo.pWaitDstStageMask = waitSemaphores.waitStages.data();
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &FramesInFlightData[imageIndex].shadowCommandBuffers;
 
@@ -1328,7 +1342,7 @@ void HelloTriangleApplication::renderShadowPass(uint32_t currentFrame, uint32_t 
     
     
 }
-void HelloTriangleApplication::renderOpaquePass(uint32_t currentFrame, uint32_t imageIndex, std::vector<VkSemaphore> waitsemaphores, std::vector<VkSemaphore> signalsemaphores)
+void HelloTriangleApplication::renderOpaquePass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores, std::vector<VkSemaphore> signalsemaphores)
 {   
     //Record command buffer for pass
     recordCommandBufferOpaquePass(FramesInFlightData[currentFrame].opaqueCommandBuffers, imageIndex);
@@ -1336,10 +1350,10 @@ void HelloTriangleApplication::renderOpaquePass(uint32_t currentFrame, uint32_t 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     
-    VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-    submitInfo.waitSemaphoreCount = waitsemaphores.size();
-    submitInfo.pWaitSemaphores = waitsemaphores.data();
-    submitInfo.pWaitDstStageMask = waitStages;
+    VkPipelineStageFlags _waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+    submitInfo.waitSemaphoreCount = waitSemaphores.semaphores.size();
+    submitInfo.pWaitSemaphores = waitSemaphores.semaphores.data();
+    submitInfo.pWaitDstStageMask = waitSemaphores.waitStages.data();
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &FramesInFlightData[currentFrame].opaqueCommandBuffers;
     

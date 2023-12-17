@@ -26,8 +26,15 @@ class Scene;
 //Include last
 
 const uint32_t SHADOW_MAP_SIZE = 2048;
-class HelloTriangleApplication
 
+
+struct  semaphoreData
+{
+    std::span<VkSemaphore> semaphores;
+    std::span<VkPipelineStageFlags> waitStages;
+};
+
+class HelloTriangleApplication
 {
 public:
     std::unique_ptr<Scene> scene;
@@ -222,9 +229,11 @@ private:
     void UpdateRotations();
 
     void drawFrame(inputData input);
-    void renderShadowPass(uint32_t currentFrame, uint32_t imageIndex, std::vector<VkSemaphore> waitsemaphores,
+
+
+    void renderShadowPass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphoreData,
                           std::vector<VkSemaphore> signalsemaphores);
-    void renderOpaquePass(uint32_t currentFrame, uint32_t imageIndex, std::vector<VkSemaphore> waitsemaphores, std::vector<VkSemaphore>
+    void renderOpaquePass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphoreData, std::vector<VkSemaphore>
                           signalsemaphores);
 
     void cleanup();

@@ -64,6 +64,7 @@ namespace MemoryArena
         std::span<T> ret {start, length};
         return ret;
     }
+    
 
     template<typename T> std::span<T> copySpan(memoryArena* a, std::span<T> src)
     {
