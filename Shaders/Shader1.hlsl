@@ -179,13 +179,14 @@ FSOutput Frag(VSOutput input)
 
     output.Color = output.Color / (output.Color + 1.0);
 
-    MyLightStructure light = lights[1];
+    int lightidx = 1;
+    MyLightStructure light = lights[lightidx];
     float4x4 lightMat = light.matrixViewProjeciton;
     float4 fragPosLightSpace = mul( lightMat, float4(input.worldPos, 1.0));
     float3 shadowProjection = (fragPosLightSpace.xyz / fragPosLightSpace.w);
     float3 shadowUV = shadowProjection   * 0.5 + 0.5;
     // shadowProjection.y *= -1;
-    float shadowMapValue =  shadowmap[0].Sample(shadowmapSampler[0], shadowUV.xy).r; //TODO JS: dont sample on branch?
+    float shadowMapValue =  shadowmap[lightidx].Sample(shadowmapSampler[lightidx], shadowUV.xy).r; //TODO JS: dont sample on branch?
     float shadow = (shadowProjection.z + 0.002) < (shadowMapValue) ? 1.0 : 0.0;
     //TODO: vias by normal
     //TODO: pcf

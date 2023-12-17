@@ -121,12 +121,16 @@ private:
 
         VkSemaphore swapchaintransitionedOutSemaphores {};
         VkSemaphore swapchaintransitionedInSemaphores {};
+        VkSemaphore shadowtransitionedOutSemaphores {};
+        VkSemaphore shadowtransitionedInSemaphores {};
         
         VkFence inFlightFences {};
         VkCommandBuffer opaqueCommandBuffers {};
         VkCommandBuffer shadowCommandBuffers {};
         VkCommandBuffer swapchainTransitionInCommandBuffer {};
         VkCommandBuffer swapchainTransitionOutCommandBuffer {};
+        VkCommandBuffer shadowTransitionInCommandBuffer {};
+        VkCommandBuffer shadowTransitionOutCommandBuffer {};
 
 #pragma region buffers
 

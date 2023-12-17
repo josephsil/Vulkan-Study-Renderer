@@ -62,6 +62,7 @@ vkb::PhysicalDevice GET_GPU(vkb::Instance instance)
     features12.descriptorIndexing = VK_TRUE;
     features12.runtimeDescriptorArray = VK_TRUE;
     features13.dynamicRendering = VK_TRUE;
+    features.wideLines = VK_TRUE;
 
     vkb::PhysicalDeviceSelector phys_device_selector(instance);
     auto physicalDeviceBuilderResult = phys_device_selector
@@ -547,7 +548,18 @@ void HelloTriangleApplication::createSyncObjects()
         if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &FramesInFlightData[i].swapchaintransitionedOutSemaphores) != VK_SUCCESS ||
             vkCreateSemaphore(device, &semaphoreInfo, nullptr, &FramesInFlightData[i].swapchaintransitionedInSemaphores) != VK_SUCCESS)
         {
-            printf("failed to create synchronization objects for a shadow pass!");
+            printf("failed to create synchronization objects for swapchain!");
+            assert(false);
+        }
+    }
+
+    for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    {
+        //TODO JS: for each
+        if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &FramesInFlightData[i].shadowtransitionedOutSemaphores) != VK_SUCCESS ||
+            vkCreateSemaphore(device, &semaphoreInfo, nullptr, &FramesInFlightData[i].shadowtransitionedInSemaphores) != VK_SUCCESS)
+        {
+            printf("failed to create synchronization objects for swapchain!");
             assert(false);
         }
     }
@@ -667,13 +679,15 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
 
     //Lights
     auto lights = MemoryArena::AllocSpan<gpulight>(tempArena, scene->lightCount);
-    
+    glm::mat4 projForLight = glm::perspective(glm::radians(70.0f),
+                                           swapChainExtent.width / static_cast<float>(swapChainExtent.height), 0.01f,
+                                           40.0f);
+    glm::mat4 invCam = glm::inverse(projForLight * view);
+    projForLight[1][1] *= -1;
     for(int i =0; i <scene->lightCount; i++)
     {
-        glm::mat4 projForLight = glm::perspective(glm::radians(70.0f),
-                                            swapChainExtent.width / static_cast<float>(swapChainExtent.height), 0.01f,
-                                            40.0f);
-        projForLight[1][1] *= -1;
+       
+      
         glm::vec3 frustumCorners[8] = {
             glm::vec3( 1.0f, -1.0f, 0.0f), // bot right
             glm::vec3(-1.0f, -1.0f, 0.0f), //bot left
@@ -687,18 +701,18 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
         glm::vec4 frustumCornersWorldSpace[8] = {};
 
 
-        glm::mat4 invCam = glm::inverse(projForLight * view);
+     
 
-        for(int i = 0; i < 8; i++)
+        for(int j = 0; j < 8; j++)
         {
-            glm::vec4 invCorner =  invCam * glm::vec4(frustumCorners[i], 1.0f);
-            frustumCornersWorldSpace[i] =  invCorner /  (invCorner.w ) ;
+            glm::vec4 invCorner =  invCam * glm::vec4(frustumCorners[j], 1.0f);
+            frustumCornersWorldSpace[j] =  invCorner /  (invCorner.w ) ;
         }
 
 
         glm::vec4 frustumCenter = glm::vec4(0.0f);
-        for (uint32_t i = 0; i < 8; i++) {
-            frustumCenter += frustumCornersWorldSpace[i];
+        for (uint32_t j = 0; j < 8; j++) {
+            frustumCenter += frustumCornersWorldSpace[j];
         }
         frustumCenter /= 8.0f;
 
@@ -712,7 +726,7 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
         float near_plane = 0.001f, far_plane = 100.5f;
         glm::vec3 _eyePos =glm::vec3(0);
         glm::vec3 lightPos = static_cast<glm::vec3>(scene->lightposandradius[i]);
-        if (i == 0) debugDrawCross(lightPos, 2, {1,1,0});
+        if (i == 0  || i == 1) debugDrawCross(lightPos, 2, {1,1,0});
         glm::vec3 dir = glm::normalize( lightPos);
         glm::vec3 center = frustumCenter;
         glm::vec3 up = glm::vec3( 0.0f, 1.0f,  0.0f);
@@ -729,9 +743,9 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
         float maxY = std::numeric_limits<float>::lowest();
         float minZ = std::numeric_limits<float>::infinity();
         float maxZ = std::numeric_limits<float>::lowest();
-        for (int i = 0; i < 8; i++)
+        for (int j = 0; j < 8; j++)
         {
-            glm::vec4 trf = lightView * frustumCornersWorldSpace[i];
+            glm::vec4 trf = lightView * frustumCornersWorldSpace[j];
             minX = std::min<float>(minX, trf.x);
             maxX = std::max<float>(maxX, trf.x);
             minY = std::min<float>(minY, trf.y);
@@ -1005,6 +1019,8 @@ void HelloTriangleApplication::createCommandBuffers()
         VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, &FramesInFlightData[i].shadowCommandBuffers));
         VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, &FramesInFlightData[i].swapchainTransitionInCommandBuffer));
         VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, &FramesInFlightData[i].swapchainTransitionOutCommandBuffer));
+        VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, &FramesInFlightData[i].shadowTransitionInCommandBuffer));
+        VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, &FramesInFlightData[i].shadowTransitionOutCommandBuffer));
     }
 }
 
@@ -1148,6 +1164,35 @@ void HelloTriangleApplication::UpdateRotations()
 }
 
 
+void transitionImageForRendering(RendererHandles handles, VkCommandBuffer commandBuffer, std::span<VkSemaphore> waitSemaphores, std::span<VkSemaphore> signalSemaphores, VkImage image, VkImageLayout layoutIn, VkImageLayout layoutOut, VkPipelineStageFlags* waitStages, bool depth)
+{
+
+    VkCommandBufferBeginInfo beginInfo{};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = 0; // Optional
+    beginInfo.pInheritanceInfo = nullptr; // Optional
+    //Transition swapchain for rendering
+    
+    VK_CHECK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
+    TextureUtilities::transitionImageLayout(handles,image,(VkFormat)0,layoutIn,layoutOut,commandBuffer,1, false, depth);
+    vkEndCommandBuffer(commandBuffer);
+
+  
+    VkSubmitInfo swapChainInSubmitInfo{};
+    swapChainInSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    swapChainInSubmitInfo.commandBufferCount = 1;
+    swapChainInSubmitInfo.pWaitDstStageMask = waitStages;
+    swapChainInSubmitInfo.pCommandBuffers = &commandBuffer;
+    swapChainInSubmitInfo.waitSemaphoreCount = waitSemaphores.size();
+    swapChainInSubmitInfo.pWaitSemaphores = waitSemaphores.data();
+    swapChainInSubmitInfo.signalSemaphoreCount = signalSemaphores.size();
+    swapChainInSubmitInfo.pSignalSemaphores = signalSemaphores.data();
+
+    vkQueueSubmit(handles.commandPoolmanager->Queues.graphicsQueue, 1, &swapChainInSubmitInfo, VK_NULL_HANDLE);
+
+    ///////////////////////// Transition swapChain  />
+    
+}
 void HelloTriangleApplication::drawFrame(inputData input)
 {
 
@@ -1169,34 +1214,35 @@ void HelloTriangleApplication::drawFrame(inputData input)
     vkResetCommandBuffer(FramesInFlightData[currentFrame].shadowCommandBuffers, 0);
     vkResetCommandBuffer(FramesInFlightData[currentFrame].swapchainTransitionOutCommandBuffer, 0);
     vkResetCommandBuffer(FramesInFlightData[currentFrame].swapchainTransitionInCommandBuffer, 0);
+    vkResetCommandBuffer(FramesInFlightData[currentFrame].shadowTransitionOutCommandBuffer, 0);
+    vkResetCommandBuffer(FramesInFlightData[currentFrame].shadowTransitionInCommandBuffer, 0);
     vkResetFences(device, 1, &FramesInFlightData[currentFrame].inFlightFences);
 
 
     ///////////////////////// </Transition swapChain 
-    VkCommandBufferBeginInfo beginInfo{};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo.flags = 0; // Optional
-    beginInfo.pInheritanceInfo = nullptr; // Optional
-    //Transition swapchain for rendering
-    
-    VK_CHECK(vkBeginCommandBuffer(FramesInFlightData[currentFrame].swapchainTransitionInCommandBuffer, &beginInfo));
-    TextureUtilities::transitionImageLayout(getHandles(),swapChainImages[currentFrame],swapChainColorFormat,VK_IMAGE_LAYOUT_UNDEFINED,VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,FramesInFlightData[currentFrame].swapchainTransitionInCommandBuffer,1, false);
-    vkEndCommandBuffer(FramesInFlightData[currentFrame].swapchainTransitionInCommandBuffer);
-
     VkPipelineStageFlags swapchainWaitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-    VkSubmitInfo swapChainInSubmitInfo{};
-    swapChainInSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    swapChainInSubmitInfo.commandBufferCount = 1;
-    swapChainInSubmitInfo.pWaitDstStageMask = swapchainWaitStages;
-    swapChainInSubmitInfo.pCommandBuffers = &FramesInFlightData[currentFrame].swapchainTransitionInCommandBuffer;
-    swapChainInSubmitInfo.waitSemaphoreCount = 1;
-    swapChainInSubmitInfo.pWaitSemaphores = &FramesInFlightData[currentFrame].imageAvailableSemaphores;
-    swapChainInSubmitInfo.signalSemaphoreCount = 1;
-    swapChainInSubmitInfo.pSignalSemaphores = &FramesInFlightData[currentFrame].swapchaintransitionedInSemaphores;
-
-    vkQueueSubmit(commandPoolmanager.Queues.graphicsQueue, 1, &swapChainInSubmitInfo, VK_NULL_HANDLE);
-
+    //Transition swapchain for rendering
+    transitionImageForRendering(
+        getHandles(),
+        FramesInFlightData[currentFrame].swapchainTransitionInCommandBuffer,
+        std::span<VkSemaphore>(&FramesInFlightData[currentFrame].imageAvailableSemaphores, 1),
+        std::span<VkSemaphore>(&FramesInFlightData[currentFrame].swapchaintransitionedInSemaphores, 1),
+        swapChainImages[currentFrame],
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, swapchainWaitStages, false);
     ///////////////////////// Transition swapChain  />
+
+    //Transition shadow maps for rendering
+    transitionImageForRendering(
+    getHandles(),
+    FramesInFlightData[currentFrame].shadowTransitionInCommandBuffer,
+    {&FramesInFlightData[currentFrame].imageAvailableSemaphores, 1},
+   {&FramesInFlightData[imageIndex].shadowtransitionedInSemaphores, 1},
+    shadowImages[currentFrame],
+    VK_IMAGE_LAYOUT_UNDEFINED,
+    VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, swapchainWaitStages, true);
+    ///////////////////////// Transition swapChain  />
+    ///
         //Shadows
         std::vector<VkSemaphore> shadowPassWaitSemaphores = {FramesInFlightData[currentFrame].swapchaintransitionedInSemaphores};
         std::vector<VkSemaphore> shadowpasssignalSemaphores = {FramesInFlightData[currentFrame].shadowFinishedSemaphores};
@@ -1208,44 +1254,39 @@ void HelloTriangleApplication::drawFrame(inputData input)
     // TextureUtilities::transitionImageLayout(getHandles(),shadowImages[currentFrame],shadowFormat,VK_IMAGE_LAYOUT_UNDEFINED,VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,FramesInFlightData[imageIndex].shadowCommandBuffers,1, false);
     // vkEndCommandBuffer(FramesInFlightData[imageIndex].shadowCommandBuffers);
     
-        //TODO JS: Enable shadow semaphore
-        std::vector<VkSemaphore> opaquePassWaitSemaphores = {FramesInFlightData[currentFrame].shadowFinishedSemaphores};
-        std::vector<VkSemaphore> opaquepasssignalSemaphores = {FramesInFlightData[currentFrame].renderFinishedSemaphores};
+
+    //Transition shadow maps for reading
+    transitionImageForRendering(
+    getHandles(),
+    FramesInFlightData[currentFrame].shadowTransitionOutCommandBuffer,
+    shadowpasssignalSemaphores,
+   {&FramesInFlightData[imageIndex].shadowtransitionedOutSemaphores, 1},
+    shadowImages[currentFrame],
+    VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, swapchainWaitStages, true);
 
     
+    //TODO JS: Enable shadow semaphore
+    std::vector<VkSemaphore> opaquePassWaitSemaphores = {FramesInFlightData[currentFrame].shadowtransitionedOutSemaphores};
+    std::vector<VkSemaphore> opaquepasssignalSemaphores = {FramesInFlightData[currentFrame].renderFinishedSemaphores};
+
     //Opaque
     renderOpaquePass(currentFrame,currentFrame, opaquePassWaitSemaphores,opaquepasssignalSemaphores);
 
 
 
-    ///////////////////////// </Transition swapChain 
-    VkCommandBufferBeginInfo beginInfo2{};
-    beginInfo2.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo2.flags = 0; // Optional
-    beginInfo2.pInheritanceInfo = nullptr; // Optional
     //Transition swapchain for rendering
-    
-    VK_CHECK(vkBeginCommandBuffer(FramesInFlightData[currentFrame].swapchainTransitionOutCommandBuffer, &beginInfo2));
-    //Transition swapchain for present
-    TextureUtilities::transitionImageLayout(getHandles(),swapChainImages[currentFrame],swapChainColorFormat,VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,FramesInFlightData[currentFrame].swapchainTransitionOutCommandBuffer,1, false);
+    transitionImageForRendering(
+    getHandles(),
+    FramesInFlightData[currentFrame].swapchainTransitionOutCommandBuffer,
+    opaquepasssignalSemaphores,
+   {&FramesInFlightData[imageIndex].swapchaintransitionedOutSemaphores, 1},
+    swapChainImages[currentFrame],
+    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+    VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, swapchainWaitStages, false);
+    ///////////////////////// Transition swapChain  />
 
-    vkEndCommandBuffer(FramesInFlightData[currentFrame].swapchainTransitionOutCommandBuffer);
-
-
-  
-    //Transition IMAGEINDEX swapchain out 
-    VkSubmitInfo swapchainOutsubmitInfo{};
-    swapchainOutsubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    swapchainOutsubmitInfo.commandBufferCount = 1;
-    swapchainOutsubmitInfo.pWaitDstStageMask = swapchainWaitStages;
-    swapchainOutsubmitInfo.pCommandBuffers = &FramesInFlightData[imageIndex].swapchainTransitionOutCommandBuffer;
-    swapchainOutsubmitInfo.waitSemaphoreCount = opaquepasssignalSemaphores.size();
-    swapchainOutsubmitInfo.pWaitSemaphores =  opaquepasssignalSemaphores.data();
-    swapchainOutsubmitInfo.signalSemaphoreCount = 1;
-    swapchainOutsubmitInfo.pSignalSemaphores = &FramesInFlightData[imageIndex].swapchaintransitionedOutSemaphores;
-
-    vkQueueSubmit(commandPoolmanager.Queues.presentQueue, 1, &swapchainOutsubmitInfo, VK_NULL_HANDLE);
-
+    //Render
     VkPresentInfoKHR presentInfo{};
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
     presentInfo.waitSemaphoreCount = 1;
@@ -1335,6 +1376,10 @@ void HelloTriangleApplication::cleanup()
         vkDestroySemaphore(device, FramesInFlightData[i].imageAvailableSemaphores, nullptr);
         vkDestroySemaphore(device, FramesInFlightData[i].swapchaintransitionedOutSemaphores, nullptr);
         vkDestroySemaphore(device, FramesInFlightData[i].swapchaintransitionedInSemaphores, nullptr);
+
+        //TODO JS: for each 
+        vkDestroySemaphore(device, FramesInFlightData[i].shadowtransitionedOutSemaphores, nullptr);
+        vkDestroySemaphore(device, FramesInFlightData[i].shadowtransitionedInSemaphores, nullptr);
         
 
         vkDestroyFence(device, FramesInFlightData[i].inFlightFences, nullptr);
@@ -1423,9 +1468,9 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
 
     //direciton light
     app->scene->AddLight(glm::vec3(0, 0, 1), glm::vec3(0, 1, 0), 5, 3, 0);
+    app->scene->AddLight(glm::vec3(0, 1, 0), glm::vec3(0, 0, 1), 5, 3, 0);
 
     //direciton light
-    app->scene->AddLight(glm::vec3(0, 1, 0), glm::vec3(0, 0, 1), 5, 3, 0);
 
     //point lights    
     app->scene->AddLight(glm::vec3(1, 1, 0), glm::vec3(1, 1, 1), 5, 5 / 2);
