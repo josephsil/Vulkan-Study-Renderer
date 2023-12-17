@@ -457,9 +457,17 @@ void HelloTriangleApplication::updateOpaqueDescriptorSets(RendererHandles handle
         .imageView = shadowImageViews[currentFrame][0], .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
     };
 
+    //TODO: replace hardcoded 2 shadows with something driven by const
+    VkDescriptorImageInfo shadowInfo2 = {
+        //TODO JS: make sure the right stuff is in currentFrame[0]
+        .imageView = shadowImageViews[currentFrame][1], .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+    };
+
     VkDescriptorImageInfo shadowSamplerInfo = {
         .sampler  = shadowSamplers[currentFrame], .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
     };
+
+    VkDescriptorImageInfo shadows[2] = {shadowInfo, shadowInfo2};
 
     
     VkDescriptorBufferInfo meshBufferinfo = FramesInFlightData[currentFrame].meshBuffers.getBufferInfo();
@@ -476,7 +484,7 @@ void HelloTriangleApplication::updateOpaqueDescriptorSets(RendererHandles handle
 
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, imageInfos.data(),  (uint32_t)imageInfos.size()});
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, cubeImageInfos.data(), (uint32_t)cubeImageInfos.size()});
-    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, &shadowInfo,  (uint32_t)1}); //shadows
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, &shadows,  (uint32_t)2}); //shadows
 
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, samplerInfos.data(), (uint32_t)samplerInfos.size()});
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, cubeSamplerInfos.data(), (uint32_t)cubeSamplerInfos.size()});
