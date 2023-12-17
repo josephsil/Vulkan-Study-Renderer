@@ -671,8 +671,8 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
     for(int i =0; i <scene->lightCount; i++)
     {
         glm::mat4 projForLight = glm::perspective(glm::radians(70.0f),
-                                            swapChainExtent.width / static_cast<float>(swapChainExtent.height), 0.0f,
-                                            200.0f);
+                                            swapChainExtent.width / static_cast<float>(swapChainExtent.height), 0.01f,
+                                            40.0f);
         projForLight[1][1] *= -1;
         glm::vec3 frustumCorners[8] = {
             glm::vec3( 1.0f, -1.0f, 0.0f), // bot right
@@ -716,10 +716,10 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
         glm::vec3 dir = glm::normalize( lightPos);
         glm::vec3 center = frustumCenter;
         glm::vec3 up = glm::vec3( 0.0f, 1.0f,  0.0f);
-        // if (abs(up) == abs(dir))
-        // {
-        //     dir += glm::vec3(0.000000001);
-        // }
+        if (abs(up) == abs(dir))
+        {
+            dir += glm::vec3(0.000000001);
+        }
         glm::mat4 lightView = glm::lookAt(center + dir ,center, up);
 
 
@@ -742,9 +742,9 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
 
        
    
-        //const glm::mat4 lightProjection = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);
+        const glm::mat4 lightProjection = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);
 
-        glm::mat4 lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, minZ, maxZ); 
+        // glm::mat4 lightProjection = glm::ortho(minX,maxX, minY, 10.0f, minZ, maxZ); 
 
         glm::mat4 lightViewProjection =  lightProjection * lightView;
 
