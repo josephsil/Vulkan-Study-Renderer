@@ -248,7 +248,7 @@ void HelloTriangleApplication::initVulkan()
     swapChainExtent = vkb_swapchain.extent;
     swapChainColorFormat = vkb_swapchain.image_format;
 
-    uint32_t shadowmapsize = 1024;
+    uint32_t shadowmapsize = SHADOW_RESOLUTION;
     shadowFormat = VK_FORMAT_D32_SFLOAT;
     //Create shadow image(s) -- TODO JS: don't do this every frame
     shadowImages.resize(MAX_FRAMES_IN_FLIGHT);
@@ -684,7 +684,7 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
 #pragma region draw 
 void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer commandBuffer, uint32_t imageIndex)
 {
-     uint32_t shadowSize = 1024; //TODO JS: make const
+     uint32_t shadowSize = SHADOW_RESOLUTION; //TODO JS: make const
      VkCommandBufferBeginInfo beginInfo{};
      beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
      beginInfo.flags = 0; // Optional
@@ -1332,7 +1332,7 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
     app->scene->AddLight(glm::vec3(0, 0, 1), glm::vec3(0, 1, 0), 5, 3, 0);
 
     //direciton light
-    app->scene->AddLight(glm::vec3(0, 1, 0), glm::vec3(0, 0, 1), 5, 3, 0);
+    //app->scene->AddLight(glm::vec3(0, 1, 0), glm::vec3(0, 0, 1), 5, 3, 0);
 
     //point lights    
     app->scene->AddLight(glm::vec3(1, 1, 0), glm::vec3(1, 1, 1), 5, 5 / 2);

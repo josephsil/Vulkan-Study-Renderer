@@ -214,8 +214,8 @@ float3 getLighting(float4x4 model, float3 albedo, float3 inNormal, float3 FragPo
             float3 shadowProjection = (fragPosLightSpace.xyz / fragPosLightSpace.w);
             float3 shadowUV = shadowProjection   * 0.5 + 0.5;
             // shadowProjection.y *= -1;
-            float shadowMapValue =  shadowmap[i].Sample(shadowmapSampler[0], shadowUV.xy).r; //TODO JS: dont sample on branch?
-            float shadow = (shadowProjection.z + 0.01) < (shadowMapValue) ? 1.0 : 0.0;
+            float shadowMapValue =  shadowmap[0].Sample(shadowmapSampler[0], shadowUV.xy).r; //TODO JS: dont sample on branch?
+            float shadow = (shadowProjection.z + 0.002) < (shadowMapValue) ? 1.0 : 0.0;
             //TODO: vias by normal
             //TODO: pcf
             //TODO: cascade
