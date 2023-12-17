@@ -1221,6 +1221,7 @@ void HelloTriangleApplication::drawFrame(inputData input)
 
     ///////////////////////// </Transition swapChain 
     VkPipelineStageFlags swapchainWaitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+    VkPipelineStageFlags shadowWaitStages[] = {VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT};
     //Transition swapchain for rendering
     transitionImageForRendering(
         getHandles(),
@@ -1236,15 +1237,15 @@ void HelloTriangleApplication::drawFrame(inputData input)
     transitionImageForRendering(
     getHandles(),
     FramesInFlightData[currentFrame].shadowTransitionInCommandBuffer,
-    {&FramesInFlightData[currentFrame].imageAvailableSemaphores, 1},
+     {},
    {&FramesInFlightData[imageIndex].shadowtransitionedInSemaphores, 1},
     shadowImages[currentFrame],
     VK_IMAGE_LAYOUT_UNDEFINED,
-    VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, swapchainWaitStages, true);
+    VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, shadowWaitStages, true);
     ///////////////////////// Transition swapChain  />
     ///
         //Shadows
-        std::vector<VkSemaphore> shadowPassWaitSemaphores = {FramesInFlightData[currentFrame].swapchaintransitionedInSemaphores};
+        std::vector<VkSemaphore> shadowPassWaitSemaphores = {FramesInFlightData[currentFrame].shadowtransitionedInSemaphores};
         std::vector<VkSemaphore> shadowpasssignalSemaphores = {FramesInFlightData[currentFrame].shadowFinishedSemaphores};
         
         renderShadowPass(currentFrame,currentFrame, shadowPassWaitSemaphores,shadowpasssignalSemaphores);
@@ -1263,11 +1264,11 @@ void HelloTriangleApplication::drawFrame(inputData input)
    {&FramesInFlightData[imageIndex].shadowtransitionedOutSemaphores, 1},
     shadowImages[currentFrame],
     VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, swapchainWaitStages, true);
+    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, shadowWaitStages, true);
 
     
     //TODO JS: Enable shadow semaphore
-    std::vector<VkSemaphore> opaquePassWaitSemaphores = {FramesInFlightData[currentFrame].shadowtransitionedOutSemaphores};
+    std::vector<VkSemaphore> opaquePassWaitSemaphores = {FramesInFlightData[currentFrame].shadowtransitionedOutSemaphores, FramesInFlightData[currentFrame].swapchaintransitionedInSemaphores};
     std::vector<VkSemaphore> opaquepasssignalSemaphores = {FramesInFlightData[currentFrame].renderFinishedSemaphores};
 
     //Opaque
@@ -1311,7 +1312,7 @@ void HelloTriangleApplication::renderShadowPass(uint32_t currentFrame, uint32_t 
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
 
-    VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+    VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT};
     submitInfo.waitSemaphoreCount = waitsemaphores.size();
     submitInfo.pWaitSemaphores = waitsemaphores.data();
     submitInfo.pWaitDstStageMask = waitStages;
