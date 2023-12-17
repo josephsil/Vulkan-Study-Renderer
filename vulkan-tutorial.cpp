@@ -718,7 +718,7 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
         glm::vec3 up = glm::vec3( 0.0f, 1.0f,  0.0f);
         if (abs(up) == abs(dir))
         {
-            dir += glm::vec3(0.000000001);
+            dir += glm::vec3(0.00001);
         }
         glm::mat4 lightView = glm::lookAt(center + dir ,center, up);
 
@@ -1425,7 +1425,7 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
     app->scene->AddLight(glm::vec3(0, 0, 1), glm::vec3(0, 1, 0), 5, 3, 0);
 
     //direciton light
-    // app->scene->AddLight(glm::vec3(0, 1, 0), glm::vec3(0, 0, 1), 5, 3, 0);
+    app->scene->AddLight(glm::vec3(0, 1, 0), glm::vec3(0, 0, 1), 5, 3, 0);
 
     //point lights    
     app->scene->AddLight(glm::vec3(1, 1, 0), glm::vec3(1, 1, 1), 5, 5 / 2);
