@@ -27,6 +27,7 @@ Scene::Scene(MemoryArena::memoryArena* arena)
     objects.objectsCount = 0;
     objects.translations = Array(MemoryArena::AllocSpan<glm::vec3>(arena, OBJECT_MAX));
     objects.rotations = Array(MemoryArena::AllocSpan<glm::quat>(arena, OBJECT_MAX));
+    objects.scales = Array(MemoryArena::AllocSpan<glm::vec3>(arena, OBJECT_MAX));
     objects.materials = Array(MemoryArena::AllocSpan<Material>(arena, OBJECT_MAX));
     objects.meshOffsets = Array(MemoryArena::AllocSpan<uint32_t>(arena, OBJECT_MAX));
     objects.matrices = Array(MemoryArena::AllocSpan<glm::mat4>(arena, OBJECT_MAX));
@@ -59,7 +60,7 @@ void Scene::Update()
         model = translate(model, objects.translations[i]); //TODO: These should update at a different rate than camera stuff
         model *= objectLocalRotation;
         //TODO: Don't fake apply scale here
-        model = scale(model, glm::vec3(0.5));
+        model = scale(model, objects.scales[i]);
         objects.matrices[i] = model;
     }
 }
@@ -68,7 +69,7 @@ void Scene::Update()
 //At some point in the future I can replace this with a more sophisticated reference system if I need
 //Even just returning a pointer is probably plenty, then I can sort the lists, prune stuff, etc.
 int Scene::AddObject(MeshData* mesh, int textureidx, float material_roughness, bool material_metallic,
-                     glm::vec3 position, glm::quat rotation)
+                     glm::vec3 position, glm::quat rotation, glm::vec3 scale)
 {
     //TODD JS: version that can add 
     objects.meshes.push_back(mesh);
@@ -77,6 +78,7 @@ int Scene::AddObject(MeshData* mesh, int textureidx, float material_roughness, b
     });
     objects.translations.push_back(position);
     objects.rotations.push_back(rotation);
+    objects.scales.push_back(scale);
     objects.matrices.push_back(glm::mat4(1.0));
     objects.meshOffsets.push_back(getOffsetFromMeshID(mesh->id));
     objects.meshVertCounts.push_back(mesh->vertcount);

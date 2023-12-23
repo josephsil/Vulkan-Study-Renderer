@@ -34,6 +34,7 @@ public:
         //Parallel arrays per-object
         Array<glm::vec3> translations;
         Array<glm::quat> rotations;
+        Array<glm::vec3> scales;
         Array<MeshData*> meshes; //todo js: are these redundant?
         Array<uint32_t> meshOffsets; //todo js: are these redundant?
         Array<Material> materials;
@@ -66,7 +67,7 @@ public:
     void Update();
     //Returns the index to the object in the vectors
     int AddObject(MeshData* mesh, int textureidx, float material_roughness, bool material_metallic, glm::vec3 position,
-                  glm::quat rotation);
+                  glm::quat rotation, glm::vec3 scale = glm::vec3(1));
     uint32_t getVertexCount();
     int objectsCount();
     uint32_t getOffsetFromMeshID(int id);

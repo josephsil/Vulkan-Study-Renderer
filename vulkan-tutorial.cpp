@@ -741,6 +741,7 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
         if (abs(up) == abs(dir))
         {
             dir += glm::vec3(0.00001);
+            dir = glm::normalize(dir);
         }
         glm::mat4 lightView = glm::lookAt(center + dir ,center, up);
 
@@ -1489,9 +1490,11 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
     randomMeshes.push_back(app->scene->AddBackingMesh(MeshData(app->getHandles(), "Meshes/cubesphere.glb")));
     randomMeshes.push_back(app->scene->AddBackingMesh(MeshData(app->getHandles(), "Meshes/monkey.obj")));
 
+    int cube = app->scene->AddBackingMesh(MeshData(app->getHandles(), "Meshes/cube.glb"));
+
     //direciton light
     app->scene->AddLight(glm::vec3(0, 0, 1), glm::vec3(0, 1, 0), 5, 3, 0);
-    app->scene->AddLight(glm::vec3(0, 1, 0), glm::vec3(0, 0, 1), 5, 3, 0);
+    app->scene->AddLight(glm::vec3(0.00, 1, 0), glm::vec3(0, 0, 1), 5, 3, 0);
 
     //direciton light
 
@@ -1519,10 +1522,20 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
                 &app->scene->backing_meshes[randomMeshes[rand() % randomMeshes.size()]],
                 randomMaterials[textureIndex], rowRoughness, false,
                 glm::vec4((j), (i / 10) * 1.0, - (i % 10), 1),
-                MyQuaternion);
+                MyQuaternion,
+                glm::vec3(0.5));
             textureIndex = rand() % randomMaterials.size();
         }
 
     }
+
+    //add plane
+    app->scene->AddObject( &app->scene->backing_meshes[cube],
+        0,
+        0,
+        false,
+        glm::vec4(0, 9.35, 0, 1),
+        glm::quat(),
+        glm::vec3(20,0.05,6)); // basically a plane
 }
 
