@@ -113,7 +113,7 @@ float3x3 calculateNormal(FSInput input)
 
     return TBN;
 }
-
+//
 // -spirv -T ps_6_5 -E Frag .\Shader1.hlsl -Fo .\triangle.frag.spv
 
 FSOutput Frag(VSOutput input)

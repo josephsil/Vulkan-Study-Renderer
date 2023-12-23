@@ -1,0 +1,29 @@
+NEXT STEPS
+
+1-> SHADOWS 
+    Shadows force real workload, repeatedly drawing meshes 
+    <- dir light DONE 
+    <-multiple lights DONE 
+    <- PCF 
+    <- good bias 
+    <- bug fixes with like, maybe clipping plane?
+    <- Point light 
+    <- Spot Light 
+2-> BETTER SCENES 
+    Probably loading from gltf, maybe USD, to render whole environments 
+3-> COMPUTE 
+    Culling and perf improvements for the new workload 
+4-> (~ish) At some point, we should clean up the interfacs between scene, renderer, etc, and use handles rather than ptrs
+
+FUN STUFF:
+
+Polish /refactor painful areas
+What's bad?
+1- Descriptor sets still -- too much distant action, need to unify the setup and ingestion part 
+2- Shaders 
+    a- include modified  
+    b- 
+3- Object updates 
+    Don't belong where thye are right now 
+4- Basic structure of application
+    Main shou;dn't be renderer 
