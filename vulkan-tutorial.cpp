@@ -687,7 +687,9 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
 
     //Lights
     auto lights = MemoryArena::AllocSpan<gpulight>(tempArena, scene->lightCount);
-    glm::mat4 projForLight =proj;
+    glm::mat4 projForLight =  glm::perspective(glm::radians(70.0f),
+                                      swapChainExtent.width / static_cast<float>(swapChainExtent.height), 0.1f,
+                                      10.0f);;
     glm::mat4 invCam = glm::inverse(projForLight * view);
     projForLight[1][1] *= -1;
     for(int i =0; i <scene->lightCount; i++)
@@ -707,6 +709,7 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
         glm::vec4 frustumCornersWorldSpace[8] = {};
 
 
+        
      
 
         for(int j = 0; j < 8; j++)
@@ -761,13 +764,27 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
             maxZ = std::max<float>(maxZ, trf.z);
         }
 
+        float radius = 0.0f;
+        for (uint32_t i = 0; i < 8; i++) {
+            float distance = glm::length(glm::vec3(frustumCornersWorldSpace[i]) - center);
+            radius = glm::max<float>(radius, distance);
+        }
+        radius = std::ceil(radius * 16.0f) / 16.0f;
+
+        glm::vec3 maxExtents = glm::vec3(radius);
+        glm::vec3 minExtents = -maxExtents;
+
+        glm::vec3 lightDir = normalize(-lightPos);
+        glm::mat4 lightOrthoMatrix = glm::ortho(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, 0.001f, maxExtents.z - minExtents.z);
+
        
-   
-        const glm::mat4 lightProjection = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);
+        glm::mat4 lightViewMatrix = glm::lookAt(glm::vec3(frustumCenter) - -dir * -minExtents.z, center, glm::vec3(0.0f, 1.0f, 0.0f));
+
+        const glm::mat4 lightProjection =  lightOrthoMatrix;//glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);
 
         // glm::mat4 lightProjection = glm::ortho(minX,maxX, minY, 10.0f, minZ, maxZ); 
 
-        glm::mat4 lightViewProjection =  lightProjection * lightView;
+        glm::mat4 lightViewProjection =  lightProjection * lightViewMatrix;
 
         lights[i] = {scene->lightposandradius[i],
             scene->lightcolorAndIntensity[i],
