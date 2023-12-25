@@ -672,7 +672,7 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
 
     glm::mat4 proj = glm::perspective(glm::radians(70.0f),
                                       swapChainExtent.width / static_cast<float>(swapChainExtent.height), 0.1f,
-                                      550.0f);
+                                      50.0f);
     proj[1][1] *= -1;
     globals.view = view;
     globals.proj = proj;
@@ -687,9 +687,7 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
 
     //Lights
     auto lights = MemoryArena::AllocSpan<gpulight>(tempArena, scene->lightCount);
-    glm::mat4 projForLight = glm::perspective(glm::radians(70.0f),
-                                           swapChainExtent.width / static_cast<float>(swapChainExtent.height), 0.01f,
-                                           40.0f);
+    glm::mat4 projForLight =proj;
     glm::mat4 invCam = glm::inverse(projForLight * view);
     projForLight[1][1] *= -1;
     for(int i =0; i <scene->lightCount; i++)
@@ -863,6 +861,12 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
 
 
         //TODO JS: Something other than hardcoded index 2 for shadow pipeline
+        // vkCmdSetDepthBias(
+        //             commandBuffer,
+        //             100.25,
+        //             0.0f,
+        //             1.75);
+
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, descriptorsetLayoutsData.getPipeline(2));
         int meshct =  scene->objectsCount();
         for (int i = 0; i <meshct; i++)

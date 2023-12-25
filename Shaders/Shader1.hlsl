@@ -101,7 +101,7 @@ struct FSInput
     [[vk::location(6)]] float3 BiTangent : TEXCOORD3;
     [[vk::location(7)]] float3x3 TBN : TEXCOORD4;
 };
-
+//
 float3x3 calculateNormal(FSInput input)
 {
     // float3 tangentNormal = normalMapTexture.Sample(normalMapSampler, input.UV).xyz * 2.0 - 1.0;

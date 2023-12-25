@@ -58,8 +58,7 @@ void Scene::Update()
         model = glm::mat4(1.0f);
         glm::mat4 objectLocalRotation = toMat4(objects.rotations[i]);
         model = translate(model, objects.translations[i]); //TODO: These should update at a different rate than camera stuff
-        model *= objectLocalRotation;
-        //TODO: Don't fake apply scale here
+        // model *= objectLocalRotation; //TODO JS: temporarily turned off rotation to debug shadows
         model = scale(model, objects.scales[i]);
         objects.matrices[i] = model;
     }
