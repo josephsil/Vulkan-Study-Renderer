@@ -343,7 +343,7 @@ void TextureData::cleanup()
 	VulkanMemory::DestroyImage(rendererHandles.allocator, textureImage, textureImageMemory);
 }
 
-void TextureData::createTextureSampler(VkSampler* textureSampler, RendererHandles handles, VkSamplerAddressMode mode, float bias, float maxMip)
+void TextureData::createTextureSampler(VkSampler* textureSampler, RendererHandles handles, VkSamplerAddressMode mode, float bias, float maxMip, bool shadow)
 {
     VkPhysicalDeviceProperties properties{};
     vkGetPhysicalDeviceProperties(handles.physicalDevice, &properties);
@@ -358,8 +358,8 @@ void TextureData::createTextureSampler(VkSampler* textureSampler, RendererHandle
     samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
     samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
     samplerInfo.unnormalizedCoordinates = VK_FALSE;
-    samplerInfo.compareEnable = VK_FALSE;
-    samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+    samplerInfo.compareEnable = shadow ? VK_TRUE : VK_FALSE;
+    samplerInfo.compareOp = shadow ? VK_COMPARE_OP_LESS : VK_COMPARE_OP_ALWAYS;
     samplerInfo.anisotropyEnable = VK_FALSE;
     samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
     samplerInfo.minLod = .0; // Optional

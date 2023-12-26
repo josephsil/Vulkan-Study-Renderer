@@ -221,6 +221,7 @@ float3 getLighting(float4x4 model, float3 albedo, float3 inNormal, float3 FragPo
             //TODO: cascade
             lightAdd *= shadow;
         }
+        //
 
         lightContribution +=  lightAdd;
     }

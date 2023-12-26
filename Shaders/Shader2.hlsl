@@ -1,5 +1,5 @@
 #include "BindlessIncludes.hlsl"
-
+//
 struct VSInput
 {
     [[vk::location(0)]] float3 Position : POSITION0;
