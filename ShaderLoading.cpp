@@ -11,6 +11,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#include "Array.h"
 #include "FileCaching.h"
 #include "Memory.h"
 #ifndef WIN32
@@ -37,12 +38,13 @@ std::span<std::span<wchar_t>> parseShaderIncludeStrings(MemoryArena::memoryArena
     uint32_t MAX_INCLUDES = 10; //arbitrary
     FILE* f;
     _wfopen_s(&f, shaderPath.c_str(), L"r");
-    uint32_t arenaSize = 40000;
-    MemoryArena::initialize(tempArena, arenaSize);
+    
     std::span<std::span<wchar_t>> strings = MemoryArena::AllocSpan<std::span<wchar_t>>(tempArena, MAX_INCLUDES);
     std::span<wchar_t> includeTest = MemoryArena::AllocSpan<wchar_t>(tempArena, 7);
-    char includeTemplate[] = "#include";
+
+    const char includeTemplate[] = "#include";
     char c;
+    
     int i = 0;
     int stringsCt = 0;
     bool scanningInclude = false;
@@ -91,6 +93,13 @@ std::span<std::span<wchar_t>> parseShaderIncludeStrings(MemoryArena::memoryArena
                         }
                         continue;
                     }
+                    if (c == '\n')
+                    {
+                        //Reset and continue 
+                        quotesCount = 0;
+                        scanningInclude = false;
+                        includeLength = 0;
+                    }
                     if (quotesCount > 0)
                     {
                         includeLength ++;
@@ -106,6 +115,28 @@ std::span<std::span<wchar_t>> parseShaderIncludeStrings(MemoryArena::memoryArena
     return strings.subspan(0, stringsCt); // truncate unused space
 
 }
+void copySubstring(std::span<wchar_t> sourceA, std::span<wchar_t> sourceB, std::span<wchar_t> tgt)
+{
+    assert (tgt.size() <= sourceA.size() + sourceB.size());
+    uint32_t headLength = sourceA.size();
+    //Copy head
+    for (int j = 0; j < headLength; j++)
+    {
+        tgt[j] = sourceA[j];
+    }
+    //copy tail
+    for (int j = 0; j < sourceB.size(); j++)
+    {
+        tgt[headLength + j] = sourceB[j];
+    }
+        
+}
+
+struct shaderIncludeInfo
+{
+    std::span<wchar_t> path;
+    bool visited;
+};
 
 std::span<std::span<wchar_t>>  findShaderIncludes(MemoryArena::memoryArena* allocator, std::wstring shaderPath)
 {
@@ -123,26 +154,47 @@ std::span<std::span<wchar_t>>  findShaderIncludes(MemoryArena::memoryArena* allo
             break;
         }
     }
-    std::span<std::span<wchar_t>> includes = parseShaderIncludeStrings(allocator, shaderPath);
-    for(int i = 0; i < includes.size(); i++)
-    {
-        std::span<wchar_t> newPath = MemoryArena::AllocSpan<wchar_t>(allocator, filenameStart + includes[i].size());
+    const int MAX_INCLUDES = 30;
+    std::span<std::span<wchar_t>>  outputIncludes = MemoryArena::AllocSpan<std::span<wchar_t>>(allocator, MAX_INCLUDES);
+    Array<shaderIncludeInfo> allIncludes = Array(MemoryArena::AllocSpan<shaderIncludeInfo>(allocator, MAX_INCLUDES));
+    allIncludes.push_back({shaderPath, false});
+    int idx = 0;
 
-        //Copy head
-        for (int j = 0; j < filenameStart; j++)
+    //Recursively gather includes 
+    while(idx < allIncludes.ct && allIncludes[idx].visited == false)
+    {
+        std::span<std::span<wchar_t>> includes = parseShaderIncludeStrings(allocator, allIncludes[idx].path.data());
+        idx++;
+        for(int i =0; i < includes.size(); i++)
         {
-            newPath[j] = shaderPath[j];
+            bool alreadyVisited = false;
+
+            std::span<wchar_t> newPath = MemoryArena::AllocSpan<wchar_t>(allocator, filenameStart + includes[i].size());
+
+            copySubstring(std::span<wchar_t>(shaderPath).subspan(0, filenameStart), includes[i], newPath);
+            includes[i] = newPath;
+            for (int j = 0; j < allIncludes.ct; j++)
+            {
+                if (includes[i].data() == allIncludes[j].path.data())
+                {
+                    alreadyVisited = true;
+                    break;
+                }
+            }
+            if (alreadyVisited)
+            {
+                MemoryArena::freeLast(allocator);
+                continue;
+            }
+            allIncludes.push_back({includes[i], false});
         }
-        //copy tail
-        for (int j = 0; j < includes[i].size(); j++)
-        {
-            newPath[filenameStart + j] = includes[i][j];
-        }
-       
-        includes[i] = newPath;
+    }
+    for(int i = 0; i < allIncludes.ct; i++)
+    {
+       outputIncludes[i] = allIncludes[i].path;
         //we have includes, now we need to look up files by them
     }
-    return includes;
+    return outputIncludes.subspan(1,allIncludes.size() - 1); //clip off the first one -- it's the shader itself
 }
 //TODO JS: Do includes -- parse includes and check modifieds for them too
 bool ShaderNeedsReciompiled(shaderPaths shaderPath)
@@ -236,7 +288,9 @@ loadedBlob LoadBlobFromDisk(std::wstring shaderPath)
 void ShaderLoader::AddShader(const char* name, std::wstring shaderPath)
 {
     MemoryArena::memoryArena scratch;
-    MemoryArena::initialize(&scratch, 4000);
+    MemoryArena::initialize(&scratch, 80000);
+
+    //TODO JS: get all includes recursively 
     shaderPaths shaderPaths = {.path = shaderPath, .includePaths = findShaderIncludes(&scratch, shaderPath)};
     bool needsCompiled = ShaderNeedsReciompiled(shaderPaths);
     //TODO JS: if no, load a cached version
