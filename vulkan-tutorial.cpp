@@ -721,7 +721,7 @@ std::span<glm::vec4> populateFrustumCornersForSpace(std::span<glm::vec4> output_
 
 }
 
-glm::mat4 calculateLightMatrix(glm::mat4 invCam, glm::vec3 lightPos)
+glm::mat4 calculateLightMatrix(glm::mat4 invCam, glm::vec3 lightPos, glm::vec3 spotDir, float spotRadius, lightType type)
 {
 
     glm::vec4 frustumCornersWorldSpace[8] = {};
@@ -740,7 +740,7 @@ glm::mat4 calculateLightMatrix(glm::mat4 invCam, glm::vec3 lightPos)
 
     //TODO JS: direciton lights only currently
     debugDrawCross(lightPos, 2, {1,1,0});
-    glm::vec3 dir = glm::normalize(lightPos);
+    glm::vec3 dir = type ==  LIGHT_SPOT ? spotDir : glm::normalize(lightPos);
     glm::vec3 center = frustumCenter;
     glm::vec3 up = glm::vec3( 0.0f, 1.0f,  0.0f);
 
@@ -758,21 +758,40 @@ glm::mat4 calculateLightMatrix(glm::mat4 invCam, glm::vec3 lightPos)
         // lightViewFrustum[j] = lightView * frustumCornersWorldSpace[j];
     // }
 
-    float radius = 0.0f;
-    for (uint32_t i = 0; i < 8; i++) {
-        float distance = glm::length(glm::vec3(frustumCornersWorldSpace[i]) - center);
-        radius = glm::max<float>(radius, distance);
-    }
-    radius = std::ceil(radius * 16.0f) / 16.0f;
 
-    glm::vec3 maxExtents = glm::vec3(radius);
-    glm::vec3 minExtents = -maxExtents;
+    glm::mat4 lightViewMatrix = {};
+    glm::mat4 lightProjection = {};
+    switch (type)
+    {
+    case LIGHT_DIR:
+        {
+            float radius = 0.0f;
+            for (uint32_t i = 0; i < 8; i++) {
+                float distance = glm::length(glm::vec3(frustumCornersWorldSpace[i]) - center);
+                radius = glm::max<float>(radius, distance);
+            }
+            radius = std::ceil(radius * 16.0f) / 16.0f;
 
-    glm::mat4 lightViewMatrix = glm::lookAt(glm::vec3(frustumCenter) - -dir * -minExtents.z, center, glm::vec3(0.0f, 1.0f, 0.0f));
+            glm::vec3 maxExtents = glm::vec3(radius);
+            glm::vec3 minExtents = -maxExtents;
 
-    glm::mat4 lightOrthoMatrix = glm::ortho(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, 0.1f, maxExtents.z - minExtents.z);
+            lightViewMatrix = glm::lookAt(glm::vec3(frustumCenter) - -dir * -minExtents.z, center, up);
 
-    const glm::mat4 lightProjection =  lightOrthoMatrix;
+            glm::mat4 lightOrthoMatrix = glm::ortho(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, 0.1f, maxExtents.z - minExtents.z);
+
+            lightProjection =  lightOrthoMatrix;
+            break;
+        }
+    case LIGHT_SPOT:
+        {
+           lightViewMatrix = glm::lookAt(lightPos, lightPos + dir, up);
+            
+            lightProjection = glm::perspective(glm::radians(spotRadius),
+                                      1.0f, 0.1f,
+                                      50.0f);
+            
+        }
+        }
 
     return lightProjection * lightViewMatrix;
 
@@ -819,7 +838,7 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
     for(int i =0; i <scene->lightCount; i++)
     {
         
-        glm::mat4 lightViewProjection =  calculateLightMatrix(invCam, static_cast<glm::vec3>(scene->lightposandradius[i]));
+        glm::mat4 lightViewProjection =  calculateLightMatrix(invCam, static_cast<glm::vec3>(scene->lightposandradius[i]), (glm::vec3)scene->lightDir[i], scene->lightposandradius[i].w, (lightType)scene->lightTypes[i]);
 
         lights[i] = {scene->lightposandradius[i],
             scene->lightcolorAndIntensity[i],
@@ -1549,12 +1568,12 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
     int cube = app->scene->AddBackingMesh(MeshData(app->getHandles(), "Meshes/cube.glb"));
 
     //direciton light
-    app->scene->AddLight(glm::vec3(0, 0, 1), glm::vec3(-1), glm::vec3(0, 1, 0), 5, 3, lightType::LIGHT_DIR);
+    // app->scene->AddLight(glm::vec3(0, 0, 1), glm::vec3(-1), glm::vec3(0, 1, 0), 5, 3, lightType::LIGHT_DIR);
     app->scene->AddLight(glm::vec3(0.00, 1, 0), glm::vec3(-1), glm::vec3(0, 0, 1), 5, 3, lightType::LIGHT_DIR);
+    app->scene->AddLight(glm::vec3(2.5, 3, 3.3), glm::vec3(0, 0, -1), glm::vec3(1, 0, 1), 45, 14000, lightType::LIGHT_SPOT);
 
     //spot light
     //TODO JS: paramaterize better -- hard to set power and radius currently
-    app->scene->AddLight(glm::vec3(0, 5, 2.3), glm::vec3(0, 0, -1), glm::vec3(1, 0, 1), 16, 200, lightType::LIGHT_SPOT);
 
 
     //point lights    
