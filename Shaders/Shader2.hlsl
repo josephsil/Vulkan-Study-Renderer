@@ -30,7 +30,7 @@ struct VSOutput
 // -spirv -T vs_6_5 -E Vert .\Shader1.hlsl -Fo .\triangle.vert.spv
 VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
 {
-    bool mode = globals.lightcount_mode_padding_padding.g;
+    bool mode = globals.lightcount_mode_shadowct_padding.g;
 #ifdef USE_RW
     MyVertexStructure myVertex = BufferTable[VertexIndex + VERTEXOFFSET];
 #else
@@ -77,7 +77,7 @@ VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
 
 bool getMode()
 {
-    return globals.lightcount_mode_padding_padding.g;
+    return globals.lightcount_mode_shadowct_padding.g;
 }
 
 struct FSInput

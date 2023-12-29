@@ -38,7 +38,7 @@ static float2 positions[3] = {
 VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
 {
 
-    bool mode = globals.lightcount_mode_padding_padding.g;
+    bool mode = globals.lightcount_mode_shadowct_padding.g;
 #ifdef USE_RW
     MyVertexStructure myVertex = BufferTable[VertexIndex + VERTEXOFFSET];
 #else
@@ -86,7 +86,7 @@ VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
 
 bool getMode()
 {
-    return globals.lightcount_mode_padding_padding.g;
+    return globals.lightcount_mode_shadowct_padding.g;
 }
 
 struct FSInput

@@ -158,6 +158,19 @@ int Scene::AddLight(glm::vec3 position, glm::vec3 dir, glm::vec3 color, float ra
     lightCount ++;
     return -1; //NOT IMPLEMENTED
 }
+int Scene::AddDirLight(glm::vec3 position, glm::vec3 color,float intensity)
+{
+    return this->AddLight(position, glm::vec3(-1), color, -1, intensity, lightType::LIGHT_DIR);
+}
+int Scene::AddSpotLight(glm::vec3 position, glm::vec3 dir, glm::vec3 color, float radius, float intensity)
+{
+    return this->AddLight(position, dir, color, radius, intensity, lightType::LIGHT_SPOT);
+}
+
+int Scene::AddPointLight(glm::vec3 position, glm::vec3 color,  float intensity)
+{
+    return this->AddLight(position, glm::vec3(-1), color, -1, intensity, lightType::LIGHT_POINT);
+}
 
 void Scene::Cleanup()
 {

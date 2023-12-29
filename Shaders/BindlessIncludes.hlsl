@@ -3,7 +3,7 @@
 #define LIGHT_DIR 0
 #define LIGHT_POINT 1
 #define LIGHT_SPOT 2
-#define LIGHTCOUNT   globals.lightcount_mode_padding_padding.r
+#define LIGHTCOUNT   globals.lightcount_mode_shadowct_padding.r
 #define VERTEXOFFSET pc.indexInfo.g
 #define TEXTURESAMPLERINDEX pc.indexInfo.b
 #define NORMALSAMPLERINDEX TEXTURESAMPLERINDEX +2 //TODO JS: temporary!
@@ -11,6 +11,7 @@
 #define LIGHTINDEX   pc.indexInfo_2.a
 #define SKYBOXLUTINDEX globals.lutIDX_lutSamplerIDX_padding_padding.x
 #define SKYBOXLUTSAMPLERINDEX globals.lutIDX_lutSamplerIDX_padding_padding.y
+#define SHADOWCOUNT globals.lightcount_mode_shadowct_padding.z
 
 
 struct UBO
@@ -26,7 +27,7 @@ struct ShaderGlobals
     float4x4 view;
     float4x4 projection;
     float4 viewPos;
-    float4 lightcount_mode_padding_padding;
+    float4 lightcount_mode_shadowct_padding;
     float4 lutIDX_lutSamplerIDX_padding_padding;
 };
 
@@ -227,7 +228,7 @@ float3 getLighting(float4x4 model, float3 albedo, float3 inNormal, float3 FragPo
 
         //Shadow:
 
-        if (i == 0 || i == 1) //TODO JS: pass in max shadow casters?
+        if (i < SHADOWCOUNT) //TODO JS: pass in max shadow casters?
         {
          
             float4x4 lightMat = light.matrixViewProjeciton;

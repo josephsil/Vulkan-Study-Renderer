@@ -28,7 +28,7 @@ struct VSOutput
 
 VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
 {
-    bool mode = globals.lightcount_mode_padding_padding.g;
+    bool mode = globals.lightcount_mode_shadowct_padding.g;
 #ifdef USE_RW
     MyVertexStructure myVertex = BufferTable[VertexIndex + VERTEXOFFSET];
 #else

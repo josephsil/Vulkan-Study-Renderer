@@ -40,7 +40,7 @@ struct ShaderGlobals
     alignas(16) glm::mat4 view;
     alignas(16) glm::mat4 proj;
     alignas(16) glm::vec4 viewPos;
-    alignas(16) glm::vec4 lightcountx_modey_paddingzw;
+    alignas(16) glm::vec4 lightcountx_modey_shadowcountz_padding_w;
     alignas(16) glm::vec4 cubemaplutidx_cubemaplutsampleridx_paddingzw;
 };
 

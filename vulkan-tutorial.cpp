@@ -452,22 +452,27 @@ void HelloTriangleApplication::updateOpaqueDescriptorSets(RendererHandles handle
     auto [cubeImageInfos, cubeSamplerInfos] = DescriptorSets::ImageInfoFromImageDataVec({
         cube_irradiance, cube_specular});
 
+  
     VkDescriptorImageInfo shadowInfo = {
         //TODO JS: make sure the right stuff is in currentFrame[0]
         .imageView = shadowImageViews[currentFrame][0], .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
     };
 
-    //TODO: replace hardcoded 2 shadows with something driven by const
-    VkDescriptorImageInfo shadowInfo2 = {
-        //TODO JS: make sure the right stuff is in currentFrame[0]
-        .imageView = shadowImageViews[currentFrame][1], .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-    };
+    VkDescriptorImageInfo shadows[MAX_SHADOWCASTERS] = {};
+    for(int i = 0; i < MAX_SHADOWCASTERS; i++)
+    {
+        //TODO: replace hardcoded 2 shadows with something driven by const
+        VkDescriptorImageInfo shadowInfo = {
+            //TODO JS: make sure the right stuff is in currentFrame[0]
+            .imageView = shadowImageViews[currentFrame][i], .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+        };
+        shadows[i] = shadowInfo;
+    }
 
     VkDescriptorImageInfo shadowSamplerInfo = {
         .sampler  = shadowSamplers[currentFrame], .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
     };
 
-    VkDescriptorImageInfo shadows[2] = {shadowInfo, shadowInfo2};
 
     
     VkDescriptorBufferInfo meshBufferinfo = FramesInFlightData[currentFrame].meshBuffers.getBufferInfo();
@@ -484,7 +489,7 @@ void HelloTriangleApplication::updateOpaqueDescriptorSets(RendererHandles handle
 
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, imageInfos.data(),  (uint32_t)imageInfos.size()});
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, cubeImageInfos.data(), (uint32_t)cubeImageInfos.size()});
-    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, &shadows,  (uint32_t)2}); //shadows
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, &shadows,  (uint32_t)MAX_SHADOWCASTERS}); //shadows
 
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, samplerInfos.data(), (uint32_t)samplerInfos.size()});
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, cubeSamplerInfos.data(), (uint32_t)cubeSamplerInfos.size()});
@@ -819,7 +824,7 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
     globals.view = view;
     globals.proj = proj;
     globals.viewPos = glm::vec4(eyePos.x, eyePos.y, eyePos.z, 1);
-    globals.lightcountx_modey_paddingzw = glm::vec4(scene->lightCount, SHADER_MODE, 0, 0);
+    globals.lightcountx_modey_shadowcountz_padding_w = glm::vec4(scene->lightCount, SHADER_MODE, MAX_SHADOWCASTERS, 0);
     globals.cubemaplutidx_cubemaplutsampleridx_paddingzw = glm::vec4(
         scene->materialTextureCount() + cubemaplut_utilitytexture_index,
         scene->materialTextureCount() + cubemaplut_utilitytexture_index, 0, 0);
@@ -1568,18 +1573,18 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
     int cube = app->scene->AddBackingMesh(MeshData(app->getHandles(), "Meshes/cube.glb"));
 
     //direciton light
-    // app->scene->AddLight(glm::vec3(0, 0, 1), glm::vec3(-1), glm::vec3(0, 1, 0), 5, 3, lightType::LIGHT_DIR);
-    app->scene->AddLight(glm::vec3(0.00, 1, 0), glm::vec3(-1), glm::vec3(0, 0, 1), 5, 3, lightType::LIGHT_DIR);
-    app->scene->AddLight(glm::vec3(2.5, 3, 3.3), glm::vec3(0, 0, -1), glm::vec3(1, 0, 1), 45, 14000, lightType::LIGHT_SPOT);
+    app->scene->AddDirLight(glm::vec3(0,0,1), glm::vec3(0,1,0), 3);
+    app->scene->AddDirLight(glm::vec3(0.00, 1, 0),  glm::vec3(0, 0, 1), 3);
+    app->scene->AddSpotLight(glm::vec3(2.5, 3, 3.3), glm::vec3(0, 0, -1), glm::vec3(1, 0, 1), 45, 14000);
 
     //spot light
     //TODO JS: paramaterize better -- hard to set power and radius currently
 
 
     //point lights    
-    // app->scene->AddLight(glm::vec3(1, 1, 0), glm::vec3(-1), glm::vec3(1, 1, 1), 5, 5 / 2, lightType::LIGHT_POINT);
-    // app->scene->AddLight(glm::vec3(0, 4, -5), glm::vec3(-1), glm::vec3(1, 1, 1), 5, 8 / 2, lightType::LIGHT_POINT);
-    // app->scene->AddLight(glm::vec3(0, 8, -10), glm::vec3(-1), glm::vec3(0.2, 0, 1), 5, 44 / 2, lightType::LIGHT_POINT);
+    app->scene->AddPointLight(glm::vec3(1, 1, 0), glm::vec3(1, 1, 1), 5 / 2);
+    app->scene->AddPointLight(glm::vec3(0, 4, -5), glm::vec3(1, 1, 1), 8 / 2);
+    app->scene->AddPointLight(glm::vec3(0, 8, -10), glm::vec3(0.2, 0, 1), 44 / 2);
 
  
 

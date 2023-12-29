@@ -3,6 +3,8 @@
 #include "forward-declarations-renderer.h"
 struct CommandPoolManager;
 
+
+const static int MAX_SHADOWCASTERS = 3;
 namespace  MemoryArena
 {
     struct memoryArena;

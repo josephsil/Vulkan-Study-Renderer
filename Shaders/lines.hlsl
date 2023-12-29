@@ -10,7 +10,7 @@ struct ShaderGlobals
     float4x4 view;
     float4x4 projection;
     float4 viewPos;
-    float4 lightcount_mode_padding_padding;
+    float4 lightcount_mode_shadowct_padding;
     float4 lutIDX_lutSamplerIDX_padding_padding;
 };
 cbuffer globals : register(b0) { ShaderGlobals globals; }

@@ -78,9 +78,14 @@ public:
     int AddUtilityTexture(TextureData T);
     int AddMaterial(TextureData D, TextureData S, TextureData N);
     int AddBackingMesh(MeshData M);
-    int AddLight(glm::vec3 position, glm::vec3 dir = glm::vec3(-1), glm::vec3 color = glm::vec3(1), float radius = 1, float intensity = 1, lightType type = lightType::LIGHT_POINT);
+
+    int AddDirLight(glm::vec3 position, glm::vec3 color,float intensity);
+    int AddSpotLight(glm::vec3 position, glm::vec3 dir, glm::vec3 color, float radius, float intensity);
+    int AddPointLight(glm::vec3 position, glm::vec3 color,  float intensity);
 
     void Cleanup();
 
     std::pair<std::vector<VkDescriptorImageInfo>, std::vector<VkDescriptorImageInfo>> getBindlessTextureInfos();
+private:
+    int AddLight(glm::vec3 position, glm::vec3 dir = glm::vec3(-1), glm::vec3 color = glm::vec3(1), float radius = 1, float intensity = 1, lightType type = lightType::LIGHT_POINT);
 };

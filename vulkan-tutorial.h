@@ -47,7 +47,7 @@ public:
 private:
 
     const static int MAX_FRAMES_IN_FLIGHT = 3;
-    const static int MAX_SHADOWCASTERS = 2;
+    
 
     MemoryArena::memoryArena rendererArena{};
     MemoryArena::memoryArena perFrameArenas[MAX_FRAMES_IN_FLIGHT];
