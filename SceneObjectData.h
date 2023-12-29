@@ -5,6 +5,7 @@
 #include<glm/gtc/quaternion.hpp>
 
 #include "Array.h"
+#include "common-structs.h"
 #include "Material.h"
 
 namespace MemoryArena
@@ -48,6 +49,7 @@ public:
     int lightCount = 0;
     Array<glm::vec4> lightposandradius;
     Array<glm::vec4> lightcolorAndIntensity;
+    Array<glm::vec4> lightDir;
     Array<glm::float32> lightTypes;
 
     //Non parallel arrays //TODO JS: Pack together?
@@ -76,7 +78,7 @@ public:
     int AddUtilityTexture(TextureData T);
     int AddMaterial(TextureData D, TextureData S, TextureData N);
     int AddBackingMesh(MeshData M);
-    int AddLight(glm::vec3 position, glm::vec3 color, float radius = 1, float intensity = 1, float type = 1);
+    int AddLight(glm::vec3 position, glm::vec3 dir = glm::vec3(-1), glm::vec3 color = glm::vec3(1), float radius = 1, float intensity = 1, lightType type = lightType::LIGHT_POINT);
 
     void Cleanup();
 

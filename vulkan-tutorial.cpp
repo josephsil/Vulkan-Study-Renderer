@@ -32,7 +32,7 @@ vkb::Instance GET_INSTANCE()
 {
     vkb::InstanceBuilder instance_builder;
     auto instanceBuilderResult = instance_builder
-                                  .request_validation_layers()
+                                  // .request_validation_layers()
                                  .use_default_debug_messenger()
                                  .require_api_version(1, 3, 240)
                                  .build();
@@ -141,7 +141,7 @@ struct gpulight
 {
     alignas(16) glm::vec4 pos_xyz_range_a;
     alignas(16) glm::vec4 color_xyz_intensity_a;
-    alignas(16) glm::vec4 pointOrSpot_padding_padding_padding;
+    alignas(16) glm::vec4 pointOrSpot_x_dir_yza;
     alignas(16) glm::mat4 matrixViewProjection;
 };
 
@@ -655,6 +655,129 @@ void debugDrawCross(glm::vec3 point, float size, glm::vec3 color)
     debugLines.push_back({point - yoffset, point + yoffset, color});
     debugLines.push_back({point - zoffset, point + zoffset, color});
 }
+
+glm::vec4 maxComponentsFromSpan(std::span<glm::vec4> input)
+{
+
+    float maxX = std::numeric_limits<float>::lowest();
+    float maxY = std::numeric_limits<float>::lowest();
+    float maxZ = std::numeric_limits<float>::lowest();
+    float maxW = std::numeric_limits<float>::lowest();
+    for (int i = 0; i < 8; i++)
+    {
+        auto vec = input[i];
+        maxX = std::max<float>(maxX, vec.x);
+        maxY = std::max<float>(maxY, vec.y);
+        maxZ = std::max<float>(maxZ, vec.z);
+        maxW = std::max<float>(maxW, vec.a);
+    }
+
+    return glm::vec4(maxX,maxY,maxZ,maxW);
+    
+}
+
+
+glm::vec4 minComponentsFromSpan(std::span<glm::vec4> input)
+{
+
+    float minX = std::numeric_limits<float>::infinity();
+    float minY = std::numeric_limits<float>::infinity();
+    float minZ = std::numeric_limits<float>::infinity();
+    float minW = std::numeric_limits<float>::infinity();
+    for (int i = 0; i < 8; i++)
+    {
+        auto vec = input[i];
+        minX = std::min<float>(minX, vec.x);
+        minY = std::min<float>(minY, vec.y);
+        minZ = std::min<float>(minZ, vec.z);
+        minW = std::min<float>(minW, vec.a);
+    }
+
+    return glm::vec4(minX,minY,minZ,minW);
+    
+}
+
+std::span<glm::vec4> populateFrustumCornersForSpace(std::span<glm::vec4> output_span, glm::mat4 matrix)
+{
+   const glm::vec3 frustumCorners[8] = {
+        glm::vec3( 1.0f, -1.0f, 0.0f), // bot right
+        glm::vec3(-1.0f, -1.0f, 0.0f), //bot left
+        glm::vec3(-1.0f,  1.0f, 0.0f), //top rgiht 
+        glm::vec3( 1.0f,  1.0f, 0.0f), // top left
+        glm::vec3( 1.0f, -1.0f,  1.0f), //bot r8ghyt  (far)
+        glm::vec3(-1.0f, -1.0f,  1.0f), //bot left (far)
+        glm::vec3(-1.0f,  1.0f,  1.0f), //top left (far)
+        glm::vec3( 1.0f,  1.0f,  1.0f), //top right (far)
+    };
+
+    assert (output_span.size() == 8);
+    for(int j = 0; j < 8; j++)
+    {
+        glm::vec4 invCorner =  matrix * glm::vec4(frustumCorners[j], 1.0f);
+        output_span[j] =  invCorner /  (invCorner.w ) ;
+    }
+
+    return output_span;
+
+}
+
+glm::mat4 calculateLightMatrix(glm::mat4 invCam, glm::vec3 lightPos)
+{
+
+    glm::vec4 frustumCornersWorldSpace[8] = {};
+
+    populateFrustumCornersForSpace(frustumCornersWorldSpace, invCam);
+
+    glm::vec4 frustumCenter = glm::vec4(0.0f);
+    for (uint32_t j = 0; j < 8; j++) {
+        frustumCenter += frustumCornersWorldSpace[j];
+    }
+    frustumCenter /= 8.0f;
+
+    debugDrawCross(frustumCenter, 20, {0,0,1});
+        
+    debugDrawFrustum(frustumCornersWorldSpace);
+
+    //TODO JS: direciton lights only currently
+    debugDrawCross(lightPos, 2, {1,1,0});
+    glm::vec3 dir = glm::normalize(lightPos);
+    glm::vec3 center = frustumCenter;
+    glm::vec3 up = glm::vec3( 0.0f, 1.0f,  0.0f);
+
+    //offset directions that are invalid for lookat
+    if (abs(up) == abs(dir))
+    {
+        dir += glm::vec3(0.00001);
+        dir = glm::normalize(dir);
+    }
+    glm::mat4 lightView = glm::lookAt(center + dir ,center, up);
+
+    // glm::vec4 lightViewFrustum[8] = {};
+    // for (int j = 0; j < 8; j++)
+    // {
+        // lightViewFrustum[j] = lightView * frustumCornersWorldSpace[j];
+    // }
+
+    float radius = 0.0f;
+    for (uint32_t i = 0; i < 8; i++) {
+        float distance = glm::length(glm::vec3(frustumCornersWorldSpace[i]) - center);
+        radius = glm::max<float>(radius, distance);
+    }
+    radius = std::ceil(radius * 16.0f) / 16.0f;
+
+    glm::vec3 maxExtents = glm::vec3(radius);
+    glm::vec3 minExtents = -maxExtents;
+
+    glm::mat4 lightViewMatrix = glm::lookAt(glm::vec3(frustumCenter) - -dir * -minExtents.z, center, glm::vec3(0.0f, 1.0f, 0.0f));
+
+    glm::mat4 lightOrthoMatrix = glm::ortho(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, 0.1f, maxExtents.z - minExtents.z);
+
+    const glm::mat4 lightProjection =  lightOrthoMatrix;
+
+    return lightProjection * lightViewMatrix;
+
+    
+}
 void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Array<glm::mat4> models,
                                                     inputData input)
 {
@@ -689,106 +812,18 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
     auto lights = MemoryArena::AllocSpan<gpulight>(tempArena, scene->lightCount);
     glm::mat4 projForLight =  glm::perspective(glm::radians(70.0f),
                                       swapChainExtent.width / static_cast<float>(swapChainExtent.height), 0.1f,
-                                      10.0f);;
+                                      10.0f);
     glm::mat4 invCam = glm::inverse(projForLight * view);
     projForLight[1][1] *= -1;
+    
     for(int i =0; i <scene->lightCount; i++)
     {
-       
-      
-        glm::vec3 frustumCorners[8] = {
-            glm::vec3( 1.0f, -1.0f, 0.0f), // bot right
-            glm::vec3(-1.0f, -1.0f, 0.0f), //bot left
-            glm::vec3(-1.0f,  1.0f, 0.0f), //top rgiht 
-            glm::vec3( 1.0f,  1.0f, 0.0f), // top left
-            glm::vec3( 1.0f, -1.0f,  1.0f), //bot r8ghyt  (far)
-            glm::vec3(-1.0f, -1.0f,  1.0f), //bot left (far)
-            glm::vec3(-1.0f,  1.0f,  1.0f), //top left (far)
-            glm::vec3( 1.0f,  1.0f,  1.0f), //top right (far)
-        };
-        glm::vec4 frustumCornersWorldSpace[8] = {};
-
-
         
-     
-
-        for(int j = 0; j < 8; j++)
-        {
-            glm::vec4 invCorner =  invCam * glm::vec4(frustumCorners[j], 1.0f);
-            frustumCornersWorldSpace[j] =  invCorner /  (invCorner.w ) ;
-        }
-
-
-        glm::vec4 frustumCenter = glm::vec4(0.0f);
-        for (uint32_t j = 0; j < 8; j++) {
-            frustumCenter += frustumCornersWorldSpace[j];
-        }
-        frustumCenter /= 8.0f;
-
-        debugDrawCross(frustumCenter, 20, {0,0,1});
-        
-        debugDrawFrustum(frustumCornersWorldSpace);
-
-        //TODO JS Projection per light
-        //TODO JS: Not sure how projection is handled for point lights
-        //TODO JS: direciton lights only currently
-        float near_plane = 0.001f, far_plane = 100.5f;
-        glm::vec3 _eyePos =glm::vec3(0);
-        glm::vec3 lightPos = static_cast<glm::vec3>(scene->lightposandradius[i]);
-        if (i == 0  || i == 1) debugDrawCross(lightPos, 2, {1,1,0});
-        glm::vec3 dir = glm::normalize( lightPos);
-        glm::vec3 center = frustumCenter;
-        glm::vec3 up = glm::vec3( 0.0f, 1.0f,  0.0f);
-        if (abs(up) == abs(dir))
-        {
-            dir += glm::vec3(0.00001);
-            dir = glm::normalize(dir);
-        }
-        glm::mat4 lightView = glm::lookAt(center + dir ,center, up);
-
-
-        float minX = std::numeric_limits<float>::infinity();
-        float maxX = std::numeric_limits<float>::lowest();
-        float minY = std::numeric_limits<float>::infinity();
-        float maxY = std::numeric_limits<float>::lowest();
-        float minZ = std::numeric_limits<float>::infinity();
-        float maxZ = std::numeric_limits<float>::lowest();
-        for (int j = 0; j < 8; j++)
-        {
-            glm::vec4 trf = lightView * frustumCornersWorldSpace[j];
-            minX = std::min<float>(minX, trf.x);
-            maxX = std::max<float>(maxX, trf.x);
-            minY = std::min<float>(minY, trf.y);
-            maxY = std::max<float>(maxY, trf.y);
-            minZ = std::min<float>(minZ, trf.z);
-            maxZ = std::max<float>(maxZ, trf.z);
-        }
-
-        float radius = 0.0f;
-        for (uint32_t i = 0; i < 8; i++) {
-            float distance = glm::length(glm::vec3(frustumCornersWorldSpace[i]) - center);
-            radius = glm::max<float>(radius, distance);
-        }
-        radius = std::ceil(radius * 16.0f) / 16.0f;
-
-        glm::vec3 maxExtents = glm::vec3(radius);
-        glm::vec3 minExtents = -maxExtents;
-
-        glm::vec3 lightDir = normalize(-lightPos);
-        glm::mat4 lightOrthoMatrix = glm::ortho(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, 0.001f, maxExtents.z - minExtents.z);
-
-       
-        glm::mat4 lightViewMatrix = glm::lookAt(glm::vec3(frustumCenter) - -dir * -minExtents.z, center, glm::vec3(0.0f, 1.0f, 0.0f));
-
-        const glm::mat4 lightProjection =  lightOrthoMatrix;//glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);
-
-        // glm::mat4 lightProjection = glm::ortho(minX,maxX, minY, 10.0f, minZ, maxZ); 
-
-        glm::mat4 lightViewProjection =  lightProjection * lightViewMatrix;
+        glm::mat4 lightViewProjection =  calculateLightMatrix(invCam, static_cast<glm::vec3>(scene->lightposandradius[i]));
 
         lights[i] = {scene->lightposandradius[i],
             scene->lightcolorAndIntensity[i],
-            glm::vec4(scene->lightTypes[i], -1,-1,-1),
+            glm::vec4(scene->lightTypes[i], scene->lightDir[i].x, scene->lightDir[i].y, scene->lightDir[i].z),
             lightViewProjection};
     }
 
@@ -876,6 +911,12 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
         // This could change sometimes
 
 
+        //TODO JS: dynamically set bias per shadow caster scaled by depth range of shadow map
+        // vkCmdSetDepthBias(
+        //             commandBuffer,
+        //             100.25,
+        //             0.0f,
+        //             1.75);
 
         //TODO JS: Something other than hardcoded index 2 for shadow pipeline
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, descriptorsetLayoutsData.getPipeline(2));
@@ -1508,22 +1549,25 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
     int cube = app->scene->AddBackingMesh(MeshData(app->getHandles(), "Meshes/cube.glb"));
 
     //direciton light
-    app->scene->AddLight(glm::vec3(0, 0, 1), glm::vec3(0, 1, 0), 5, 3, 0);
-    app->scene->AddLight(glm::vec3(0.00, 1, 0), glm::vec3(0, 0, 1), 5, 3, 0);
+    app->scene->AddLight(glm::vec3(0, 0, 1), glm::vec3(-1), glm::vec3(0, 1, 0), 5, 3, lightType::LIGHT_DIR);
+    app->scene->AddLight(glm::vec3(0.00, 1, 0), glm::vec3(-1), glm::vec3(0, 0, 1), 5, 3, lightType::LIGHT_DIR);
 
-    //direciton light
+    //spot light
+    //TODO JS: paramaterize better -- hard to set power and radius currently
+    app->scene->AddLight(glm::vec3(0, 5, 2.3), glm::vec3(0, 0, -1), glm::vec3(1, 0, 1), 16, 200, lightType::LIGHT_SPOT);
+
 
     //point lights    
-    app->scene->AddLight(glm::vec3(1, 1, 0), glm::vec3(1, 1, 1), 5, 5 / 2);
-    app->scene->AddLight(glm::vec3(0, 4, -5), glm::vec3(1, 1, 1), 5, 8 / 2);
-    app->scene->AddLight(glm::vec3(0, 8, -10), glm::vec3(0.2, 0, 1), 5, 44 / 2);
+    // app->scene->AddLight(glm::vec3(1, 1, 0), glm::vec3(-1), glm::vec3(1, 1, 1), 5, 5 / 2, lightType::LIGHT_POINT);
+    // app->scene->AddLight(glm::vec3(0, 4, -5), glm::vec3(-1), glm::vec3(1, 1, 1), 5, 8 / 2, lightType::LIGHT_POINT);
+    // app->scene->AddLight(glm::vec3(0, 8, -10), glm::vec3(-1), glm::vec3(0.2, 0, 1), 5, 44 / 2, lightType::LIGHT_POINT);
 
  
 
 
     glm::vec3 EulerAngles(0, 0, 0);
     auto MyQuaternion = glm::quat(EulerAngles);
-
+    
     
     for (int i = 0; i < 100; i++)
     {
@@ -1532,7 +1576,7 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
             float rowRoughness = glm::clamp(static_cast<float>(i) / 8.0, 0.0, 1.0);
             bool rowmetlalic = i % 3 == 0;
             int textureIndex = rand() % randomMaterials.size();
-
+    
             app->scene->AddObject(
                 &app->scene->backing_meshes[randomMeshes[rand() % randomMeshes.size()]],
                 randomMaterials[textureIndex], rowRoughness, false,
@@ -1541,7 +1585,7 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
                 glm::vec3(0.5));
             textureIndex = rand() % randomMaterials.size();
         }
-
+    
     }
 
     //add plane
@@ -1551,6 +1595,8 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
         false,
         glm::vec4(0, 9.35, 0, 1),
         glm::quat(),
-        glm::vec3(20,0.05,6)); // basically a plane
+        glm::vec3(20,0.05,3)); // basically a plane
+
+   
 }
 

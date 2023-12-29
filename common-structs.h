@@ -4,6 +4,13 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <vector>
+
+enum lightType
+{
+    LIGHT_DIR = 0,
+    LIGHT_POINT = 1,
+    LIGHT_SPOT = 2,
+};
 struct RenderTextureFormat
 {
     VkFormat ColorFormat;

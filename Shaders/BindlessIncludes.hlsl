@@ -1,5 +1,8 @@
 #define USE_RW
 
+#define LIGHT_DIR 0
+#define LIGHT_POINT 1
+#define LIGHT_SPOT 2
 #define LIGHTCOUNT   globals.lightcount_mode_padding_padding.r
 #define VERTEXOFFSET pc.indexInfo.g
 #define TEXTURESAMPLERINDEX pc.indexInfo.b
@@ -51,7 +54,7 @@ struct MyLightStructure
 {
     float4 position_range;
     float4 color_intensity;
-    float4 light_type_padding;
+    float4 lighttype_lightDir;
     float4x4 matrixViewProjeciton;
     // uint color;
 };
@@ -102,8 +105,15 @@ pconstant pc;
 #define  SPECULAR_INDEX  (TEXTURESAMPLERINDEX * 3) + 1
 #define  NORMAL_INDEX  (TEXTURESAMPLERINDEX * 3) + 2
 
+float3 GET_SPOT_LIGHT_DIR(MyLightStructure light)
+{
+    return light.lighttype_lightDir.yzw;
+}
 
-
+int getLightType(MyLightStructure light)
+{
+    return light.lighttype_lightDir.x;
+}
 
 
 float3 FresnelSchlickRoughness(float cosTheta, float3 F0, float roughness)
@@ -168,29 +178,40 @@ float3 getLighting(float4x4 model, float3 albedo, float3 inNormal, float3 FragPo
         float3 lightDir;
         float3 lightToFrag = lightPos - (FragPos); // frag pos * 0 if it's a directional light
 
-        if (light.light_type_padding[0] == 1)
+        if (getLightType(light) == LIGHT_POINT || getLightType(light) == LIGHT_SPOT)
         {
             lightDir = normalize(lightToFrag);
         }
-        else
+        else if (getLightType(light) == LIGHT_DIR)
         {
             lightDir = lightPos;
         }
+        
         
         float lightDistance = pow(length(lightPos - FragPos), 2);
 
         float3 halfwayDir = normalize(lightDir + viewDir);
 
-        float3 radiance;
-        if (light.light_type_padding[0] == 1)
+        float3 radiance = lightColor;
+        int lightType = getLightType(light);
+        if (lightType == LIGHT_POINT || lightType == LIGHT_SPOT)
         {
             float attenuation = 1.0 / (lightDistance * lightDistance);
-            radiance = lightColor * attenuation;
+            radiance *= attenuation;
         }
-        else
+        if (lightType == LIGHT_SPOT)
         {
-            radiance = lightColor;
+            float3 spotlightDir = GET_SPOT_LIGHT_DIR(light);
+            float theta = dot(normalize(lightDir), normalize(-spotlightDir));
+
+            float cosCutoff = (1.0 - (light.position_range.a) / 180);
+            float softFactor = 1.2; //TODO JS: paramaterize 
+            float cosCutoffOuter = (1.0 - (light.position_range.a * softFactor) / 180);
+            float epsilon   = cosCutoff - cosCutoffOuter ;
+            
+                radiance *= clamp((theta - cosCutoffOuter) / epsilon, 0.0, 1.0);    
         }
+        
         float3 Fresnel = fresnelSchlick(max(dot(halfwayDir, viewDir), 0.0), F0);
         float NDF = DistributionGGX(inNormal, halfwayDir, roughness);
         float G = GeometrySmith(inNormal, viewDir, lightDir, roughness);
