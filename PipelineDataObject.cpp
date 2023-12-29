@@ -247,8 +247,8 @@ void PipelineDataObject::createGraphicsPipeline(std::vector<VkPipelineShaderStag
     rasterizer.cullMode = shadow ? VK_CULL_MODE_FRONT_BIT : VK_CULL_MODE_BACK_BIT;
     rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     rasterizer.depthBiasEnable = shadow ? VK_TRUE : VK_FALSE;
-    rasterizer.depthBiasConstantFactor = shadow ? 1.25 : 0;
-    rasterizer.depthBiasSlopeFactor = shadow ? 1.75 : 0;
+    rasterizer.depthBiasConstantFactor = shadow ? 6 : 0;
+    rasterizer.depthBiasSlopeFactor = shadow ? 3 : 0;
     // rasterizer.depth
 
     VkPipelineMultisampleStateCreateInfo multisampling{};

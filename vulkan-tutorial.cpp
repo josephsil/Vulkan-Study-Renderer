@@ -32,7 +32,7 @@ vkb::Instance GET_INSTANCE()
 {
     vkb::InstanceBuilder instance_builder;
     auto instanceBuilderResult = instance_builder
-                                  // .request_validation_layers()
+                                  .request_validation_layers()
                                  .use_default_debug_messenger()
                                  .require_api_version(1, 3, 240)
                                  .build();
@@ -878,12 +878,6 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
 
 
         //TODO JS: Something other than hardcoded index 2 for shadow pipeline
-        // vkCmdSetDepthBias(
-        //             commandBuffer,
-        //             100.25,
-        //             0.0f,
-        //             1.75);
-
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, descriptorsetLayoutsData.getPipeline(2));
         int meshct =  scene->objectsCount();
         for (int i = 0; i <meshct; i++)
