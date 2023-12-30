@@ -376,7 +376,7 @@ void ShaderLoader::shaderCompile(std::wstring shaderFilename, bool is_frag)
 
     // Configure the compiler arguments for compiling the HLSL shader to SPIR-V
     std::vector arguments = {
-        // (Optional) name of the shader file to be displayed e.g. in an error message
+        // (Optional) name of the shader file to be displayed e.g. in an error mes`ge
         filename.c_str(),
         // Shader main entry point
         L"-E", (is_frag) ? L"Frag" : L"Vert",

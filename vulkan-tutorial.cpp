@@ -261,20 +261,20 @@ void HelloTriangleApplication::initVulkan()
     {
         
         TextureUtilities::createImage(getHandles(),shadowmapsize, shadowmapsize,shadowFormat,VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
-               VK_IMAGE_USAGE_SAMPLED_BIT,0,shadowImages[i],shadowMemory[i],1, MAX_SHADOWCASTERS);
+               VK_IMAGE_USAGE_SAMPLED_BIT,0,shadowImages[i],shadowMemory[i],1, MAX_SHADOWMAPS);
         TextureData::createTextureSampler(&shadowSamplers[i], getHandles(), VK_SAMPLER_ADDRESS_MODE_REPEAT, 0, 1, true);
 
         
-        shadowImageViews[i] =  MemoryArena::AllocSpan<VkImageView>(&rendererArena, MAX_SHADOWCASTERS);
-        for (int j = 0; j < MAX_SHADOWCASTERS; j++)
+        shadowImageViews[i] =  MemoryArena::AllocSpan<VkImageView>(&rendererArena, MAX_SHADOWMAPS);
+        for (int j = 0; j < MAX_SHADOWMAPS; j++)
         {
             shadowImageViews[i][j] = TextureUtilities::createImageView(
                 device, shadowImages[i], shadowFormat,
                 VK_IMAGE_ASPECT_DEPTH_BIT,
-                (VkImageViewType)-1,
+                (VkImageViewType) j == 0 ? VK_IMAGE_VIEW_TYPE_2D_ARRAY : VK_IMAGE_VIEW_TYPE_2D,
                 1,
                 /*first view gets used by opaque pass to sample into shadowmap array*/
-                j == 0 ? MAX_SHADOWCASTERS : 1,
+                j == 0 ? MAX_SHADOWMAPS : 1,
                 j);
         }
 
@@ -466,8 +466,8 @@ void HelloTriangleApplication::updateOpaqueDescriptorSets(RendererHandles handle
         .imageView = shadowImageViews[currentFrame][0], .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
     };
 
-    VkDescriptorImageInfo shadows[MAX_SHADOWCASTERS] = {};
-    for(int i = 0; i < MAX_SHADOWCASTERS; i++)
+    VkDescriptorImageInfo shadows[MAX_SHADOWMAPS] = {};
+    for(int i = 0; i < MAX_SHADOWMAPS; i++)
     {
         //TODO: replace hardcoded 2 shadows with something driven by const
         VkDescriptorImageInfo shadowInfo = {
@@ -497,7 +497,7 @@ void HelloTriangleApplication::updateOpaqueDescriptorSets(RendererHandles handle
 
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, imageInfos.data(),  (uint32_t)imageInfos.size()});
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, cubeImageInfos.data(), (uint32_t)cubeImageInfos.size()});
-    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, &shadows,  (uint32_t)MAX_SHADOWCASTERS}); //shadows
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, &shadows,  (uint32_t)MAX_SHADOWMAPS}); //shadows
 
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, samplerInfos.data(), (uint32_t)samplerInfos.size()});
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, cubeSamplerInfos.data(), (uint32_t)cubeSamplerInfos.size()});
@@ -816,13 +816,18 @@ std::span<glm::mat4> calculateLightMatrix(MemoryArena::memoryArena* allocator, g
            {
         lightProjection = glm::perspective(glm::radians(90.0f),
                                   1.0f, 0.01f,
-                                  50.0f);} //TODO BETTER FAR 
-            outputSpan[0] = lightProjection * glm::lookAt(lightPos, lightPos + glm::vec3( 1.0, 0.0, 0.0), glm::vec3(0.0,-1.0, 0.0));
-            outputSpan[1] = lightProjection * glm::lookAt(lightPos, lightPos + glm::vec3(-1.0, 0.0, 0.0), glm::vec3(0.0,-1.0, 0.0));
-            outputSpan[2] = lightProjection * glm::lookAt(lightPos, lightPos + glm::vec3( 0.0, 1.0, 0.0), glm::vec3(0.0, 0.0, 1.0));
-            outputSpan[3] = lightProjection * glm::lookAt(lightPos, lightPos + glm::vec3( 0.0,-1.0, 0.0), glm::vec3(0.0, 0.0,-1.0));
-            outputSpan[4] = lightProjection * glm::lookAt(lightPos, lightPos + glm::vec3( 0.0, 0.0, 1.0), glm::vec3(0.0,-1.0, 0.0));
-            outputSpan[5] = lightProjection * glm::lookAt(lightPos, lightPos + glm::vec3( 0.0, 0.0,-1.0), glm::vec3(0.0,-1.0, 0.0));
+                                  10.0f);} //TODO BETTER FAR
+
+        glm::mat4 viewMatrix = glm::translate(glm::mat4(1.0f), lightPos);
+    outputSpan[0] =  glm::rotate(viewMatrix, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+              outputSpan[0] =lightProjection *   glm::rotate(  outputSpan[0], glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    outputSpan[1] = glm::rotate(viewMatrix, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+              outputSpan[1] = lightProjection *   glm::rotate(outputSpan[1], glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    outputSpan[2] = lightProjection *  glm::rotate(viewMatrix, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    outputSpan[3] = lightProjection *  glm::rotate(viewMatrix, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    outputSpan[4] = lightProjection *  glm::rotate(viewMatrix, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    outputSpan[5] = lightProjection *  glm::rotate(viewMatrix, glm::radians(180.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        
          break ;
         }
 
@@ -877,7 +882,6 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
         
         std::span<glm::mat4> lightViewProjection =  calculateLightMatrix(&perFrameArenas[currentFrame], invCam, static_cast<glm::vec3>(scene->lightposandradius[i]), (glm::vec3)scene->lightDir[i], scene->lightposandradius[i].w, (lightType)scene->lightTypes[i]);
 
-        int additionalMatrixIndex = lightViewProjection.size() > 1 ? additionalMatrices.ct : -1;
             lights[i] = {
                 scene->lightposandradius[i],
                 scene->lightcolorAndIntensity[i],
@@ -934,20 +938,22 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
     VkPipelineLayout layout = descriptorsetLayoutsData.getLayoutShadow();
 
     
-    int shadowCount = min(scene->lightCount, MAX_SHADOWCASTERS);
+    int shadowCasterCount = min(scene->lightCount, MAX_SHADOWCASTERS);
     //Should I do separate command buffers per shadow index?
-    for(int i = 0; i < shadowCount; i ++)
+    for(int i = 0; i < shadowCasterCount; i ++)
     {
         //TODO JS: next step -- need to get the 6 different point light matrices in. Or transform the one 6 times?
 
         int shadowIndex = i;
+        int shadowCasterOffset = scene->getShadowDataIndex(i);
         lightType type = (lightType)scene->lightTypes[i];
         int subpasses = type == lightType::LIGHT_POINT ? 6 : 1;
         for (int j = 0; j < subpasses; j++)
         {
+            int shadowMapIndex = shadowCasterOffset + j;
             const VkRenderingAttachmentInfoKHR dynamicRenderingDepthAttatchment {
                 .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
-                .imageView = shadowImageViews[imageIndex][shadowIndex],
+                .imageView = shadowImageViews[imageIndex][shadowMapIndex],
                 .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR,
                 .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
                 .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
@@ -956,21 +962,10 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
 
             VkRenderingInfo renderPassInfo{};
             renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
-            switch (type)
-            {
-               case lightType::LIGHT_POINT:
-                {
-                    renderPassInfo.renderArea.extent = {shadowSize /2, shadowSize /3}; //TODO JS: Shadow size
-                    renderPassInfo.renderArea.offset = {(int)(j < 3 ? 0 : shadowSize / 2), (int)((shadowSize/ 3) * (j % 3))};
-                       break;
-                }
-            default:
-                {
-                    renderPassInfo.renderArea.extent = {shadowSize , shadowSize}; //TODO JS: Shadow size
-                    renderPassInfo.renderArea.offset = {0, 0};
-                        break;
-                }
-            }
+
+            renderPassInfo.renderArea.extent = {shadowSize , shadowSize}; //TODO JS: Shadow size
+            renderPassInfo.renderArea.offset = {0, 0};
+         
             renderPassInfo.layerCount =1;
             renderPassInfo.colorAttachmentCount = 0;
             renderPassInfo.pColorAttachments = VK_NULL_HANDLE;
@@ -1014,7 +1009,7 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
                 //Light count, vert offset, texture index, and object data index
                 constants.indexInfo = glm::vec4(-1, (scene->objects.meshOffsets[i]),
                                                 -1, i);
-                constants.Indexinfo2 = glm::vec4(-1,-1,j,shadowIndex);
+                constants.Indexinfo2 = glm::vec4(-1,-1,shadowMapIndex,shadowIndex);
 
                 constants.materialprops = glm::vec4(-1, -1, 0, 0);
 
@@ -1104,7 +1099,7 @@ void HelloTriangleApplication::recordCommandBufferOpaquePass(VkCommandBuffer com
     for (int i = 0; i <meshct; i++)
     {
         Material material = scene->objects.materials[i];
-        int pipelineIndex = material.pipelineidx;
+        int pipelineIndex =1 ;
 #ifdef DEBUG_SHADERS
         pipelineIndex = debugpipelineindexoverride;
 #endif
@@ -1566,7 +1561,7 @@ void HelloTriangleApplication::cleanup()
     {
         VulkanMemory::DestroyImage(allocator, shadowImages[i], shadowMemory[i]);
         vkDestroySampler(device, shadowSamplers[i], nullptr);
-        for(int j = 0; j < MAX_SHADOWCASTERS; j++)
+        for(int j = 0; j < MAX_SHADOWMAPS; j++)
         vkDestroyImageView(device, shadowImageViews[i][j], nullptr);
         
     }
@@ -1648,7 +1643,7 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
 
     //point lights    
     // app->scene->AddPointLight(glm::vec3(1, 1, 0), glm::vec3(1, 1, 1), 5 / 2);
-    app->scene->AddPointLight(glm::vec3(0, 4, -5), glm::vec3(1, 1, 1), 8 / 2);
+    app->scene->AddPointLight(glm::vec3(-2, 4, -5), glm::vec3(1, 1, 1), 4422 / 2);
     // app->scene->AddPointLight(glm::vec3(0, 8, -10), glm::vec3(0.2, 0, 1), 44 / 2);
 
  

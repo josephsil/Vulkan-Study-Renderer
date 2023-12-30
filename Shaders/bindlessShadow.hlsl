@@ -41,7 +41,7 @@ VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
     float4x4 viewProjection;
     if (getLightType(light) == LIGHT_POINT)
     {
-        viewProjection = shadowMatrices[light.matrixIDX_matrixCt_padding.r + MATRIXOFFSET];
+        viewProjection = shadowMatrices[MATRIXOFFSET];
     }
     else
     {

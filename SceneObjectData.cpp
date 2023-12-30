@@ -172,6 +172,16 @@ int Scene::AddPointLight(glm::vec3 position, glm::vec3 color,  float intensity)
     return this->AddLight(position, glm::vec3(-1), color, -1, intensity, lightType::LIGHT_POINT);
 }
 
+int Scene::getShadowDataIndex(int idx)
+{
+    int output = 0;
+    for(int i = 0; i < idx; i++)
+    {
+        output += lightTypes[i] == lightType::LIGHT_POINT ? 6 : 1;
+    }
+    return output;
+}
+
 void Scene::Cleanup()
 {
     for (int i = 0; i < meshCount; i++)

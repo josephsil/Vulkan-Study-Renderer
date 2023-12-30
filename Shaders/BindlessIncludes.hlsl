@@ -125,6 +125,11 @@ int getLightType(MyLightStructure light)
     return light.lighttype_lightDir.x;
 }
 
+int getLightShadowIndex(MyLightStructure light)
+{
+    return light.matrixIDX_matrixCt_padding.r;
+}
+
 
 float3 FresnelSchlickRoughness(float cosTheta, float3 F0, float roughness)
 {
@@ -192,6 +197,27 @@ float GeometrySmith(float3 N, float3 V, float3 L, float roughness)
 //     
 // }
 
+float getShadow(int index, float3 fragPos)
+{
+    MyLightStructure light = lights[index];
+    if (getLightType(light) == LIGHT_POINT)
+    {
+
+        float3 dir = normalize(fragPos - light.position_range.xyz);
+        float4 fragPosLightSpace = mul(  light.matrixViewProjeciton, float4(fragPos, 1.0));
+        float dist =  distance(light.position_range.xyz, fragPos) ;
+        float shadow =shadowmap[getLightShadowIndex(light)].SampleLevel(cubeSamplers[0], dir, 0.0).r  / 4;
+
+        return shadow;
+    }
+    float4x4 lightMat = light.matrixViewProjeciton;
+    float4 fragPosLightSpace = mul( lightMat, float4(fragPos, 1.0));
+    float3 shadowProjection = (fragPosLightSpace.xyz / fragPosLightSpace.w);
+    float3 shadowUV = shadowProjection   * 0.5 + 0.5;
+    // shadowProjection.y *= -1;
+    return shadowmap[getLightShadowIndex(light)].SampleCmpLevelZero(shadowmapSampler[0], shadowUV.xy, shadowProjection.z).r; //TODO JS: dont sample on branch?
+
+}
 
 float3 getLighting(float4x4 model, float3 albedo, float3 inNormal, float3 FragPos, float3 F0, float3 roughness, float metallic)
 {
@@ -258,12 +284,13 @@ float3 getLighting(float4x4 model, float3 albedo, float3 inNormal, float3 FragPo
         if (i < SHADOWCOUNT) //TODO JS: pass in max shadow casters?
         {
          
-            float4x4 lightMat = light.matrixViewProjeciton;
-            float4 fragPosLightSpace = mul( lightMat, float4(FragPos, 1.0));
-            float3 shadowProjection = (fragPosLightSpace.xyz / fragPosLightSpace.w);
-            float3 shadowUV = shadowProjection   * 0.5 + 0.5;
-            // shadowProjection.y *= -1;
-            float shadowMapValue =  shadowmap[i].SampleCmpLevelZero(shadowmapSampler[0], shadowUV.xy, shadowProjection.z).r; //TODO JS: dont sample on branch?
+         
+            float shadowMapValue = getShadow(i, FragPos);
+
+            if (i == 3)
+            {
+                return shadowMapValue;
+            }
             // float shadow = shadowProjection.z < (shadowMapValue) ? 1.0 : 0.0;
             //TODO: vias by normal
             //TODO: cascade
