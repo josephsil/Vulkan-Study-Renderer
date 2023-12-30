@@ -359,7 +359,7 @@ void HelloTriangleApplication::populateMeshBuffers()
     }
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        memcpy(FramesInFlightData[i].meshBuffersMapped, gpuVerts.data(), sizeof(gpuvertex) * scene->getVertexCount());
+        FramesInFlightData[i].meshBuffers.updateMappedMemory(gpuVerts.data(), sizeof(gpuvertex) * scene->getVertexCount());
     }
 }
 
@@ -373,6 +373,7 @@ void HelloTriangleApplication::createUniformBuffers()
     VkDeviceSize ubosSize = sizeof(UniformBufferObject) * scene->objectsCount();
     VkDeviceSize vertsSize = sizeof(gpuvertex) * scene->getVertexCount();
     VkDeviceSize lightdataSize = sizeof(gpulight) * scene->lightCount;
+    VkDeviceSize lightMatricesSize = sizeof(glm::mat4) * scene->lightCount * 10;
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
@@ -390,28 +391,34 @@ void HelloTriangleApplication::createUniformBuffers()
         }
         
         FramesInFlightData[i].opaqueShaderGlobalsBuffer.size = globalsSize;
-        FramesInFlightData[i].opaqueShaderGlobalsMapped = BufferUtilities::createDynamicBuffer(
+        FramesInFlightData[i].opaqueShaderGlobalsBuffer.mapped = BufferUtilities::createDynamicBuffer(
             getHandles(), globalsSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
             &FramesInFlightData[i].opaqueShaderGlobalsMemory,
             FramesInFlightData[i].opaqueShaderGlobalsBuffer.data);
         
         FramesInFlightData[i].uniformBuffers.size = ubosSize;
-        FramesInFlightData[i].uniformBuffersMapped = BufferUtilities::createDynamicBuffer(
+        FramesInFlightData[i].uniformBuffers.mapped = BufferUtilities::createDynamicBuffer(
             getHandles(), ubosSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
             &FramesInFlightData[i].uniformBuffersMemory,
             FramesInFlightData[i].uniformBuffers.data);
         
         FramesInFlightData[i].meshBuffers.size = vertsSize;
-        FramesInFlightData[i].meshBuffersMapped = BufferUtilities::createDynamicBuffer(
+        FramesInFlightData[i].meshBuffers.mapped = BufferUtilities::createDynamicBuffer(
             getHandles(), vertsSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
             &FramesInFlightData[i].meshBuffersMemory,
             FramesInFlightData[i].meshBuffers.data);
 
         FramesInFlightData[i].lightBuffers.size = lightdataSize;
-        FramesInFlightData[i].lightBuffersMapped = BufferUtilities::createDynamicBuffer(
+        FramesInFlightData[i].lightBuffers.mapped = BufferUtilities::createDynamicBuffer(
             getHandles(), lightdataSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
             &FramesInFlightData[i].lightBuffersMemory,
             FramesInFlightData[i].lightBuffers.data);
+
+        // FramesInFlightData[i].lightMatrixBuffers.size = lightMatricesSize;
+        // FramesInFlightData[i].lightMatrixBuffers.mapped = BufferUtilities::createDynamicBuffer(
+        //     getHandles(), lightMatricesSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+        //     &FramesInFlightData[i].lightMatrixBuffersMemory,
+        //     FramesInFlightData[i].lightMatrixBuffers.data);
 
     }
 }
@@ -510,9 +517,11 @@ void HelloTriangleApplication::updateShadowDescriptorSets(RendererHandles handle
 
     //Get data
     VkDescriptorBufferInfo meshBufferinfo = FramesInFlightData[currentFrame].meshBuffers.getBufferInfo();
-    VkDescriptorBufferInfo lightbufferinfo = FramesInFlightData[currentFrame].lightBuffers.getBufferInfo();
     VkDescriptorBufferInfo uniformbufferinfo = FramesInFlightData[currentFrame].uniformBuffers.getBufferInfo();
     VkDescriptorBufferInfo shaderglobalsinfo = FramesInFlightData[currentFrame].perLightShadowShaderGlobalsBuffer[shadowIndex].getBufferInfo();
+
+    VkDescriptorBufferInfo lightbufferinfo = FramesInFlightData[currentFrame].lightBuffers.getBufferInfo();
+    VkDescriptorBufferInfo lightbufferMatinfo = FramesInFlightData[currentFrame].lightMatrixBuffers.getBufferInfo();
 
     std::vector<descriptorUpdateData> descriptorUpdates;
     //Update descriptor sets with data
@@ -520,6 +529,7 @@ void HelloTriangleApplication::updateShadowDescriptorSets(RendererHandles handle
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &shaderglobalsinfo});
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &meshBufferinfo});
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &lightbufferinfo});
+    // descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &lightbufferMatinfo});
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &uniformbufferinfo});
 
     layoutData->updateShadowDescriptorSets(descriptorUpdates, currentFrame);
@@ -794,8 +804,17 @@ glm::mat4 calculateLightMatrix(glm::mat4 invCam, glm::vec3 lightPos, glm::vec3 s
             lightProjection = glm::perspective(glm::radians(spotRadius),
                                       1.0f, 0.1f,
                                       50.0f);
-            
+                                      break;
         }
+    case LIGHT_POINT:
+
+        {
+            lightViewMatrix = glm::lookAt(lightPos, glm::vec3(0) /*todo*/, up);
+            
+            lightProjection = glm::perspective(glm::radians(180.0f),
+                                      1.0f, 0.1f,
+                                      50.0f);}
+                                      break;
         }
 
     return lightProjection * lightViewMatrix;
@@ -828,7 +847,8 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
     globals.cubemaplutidx_cubemaplutsampleridx_paddingzw = glm::vec4(
         scene->materialTextureCount() + cubemaplut_utilitytexture_index,
         scene->materialTextureCount() + cubemaplut_utilitytexture_index, 0, 0);
-    memcpy(FramesInFlightData[currentFrame].opaqueShaderGlobalsMapped, &globals, sizeof(ShaderGlobals));
+    
+    FramesInFlightData[currentFrame].opaqueShaderGlobalsBuffer.updateMappedMemory(&globals, sizeof(ShaderGlobals));
 
   
 
@@ -836,7 +856,7 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
     auto lights = MemoryArena::AllocSpan<gpulight>(tempArena, scene->lightCount);
     glm::mat4 projForLight =  glm::perspective(glm::radians(70.0f),
                                       swapChainExtent.width / static_cast<float>(swapChainExtent.height), 0.1f,
-                                      10.0f);
+                                      10.0f); //TODO JS: same as proj but with a closer zfar -- set per light
     glm::mat4 invCam = glm::inverse(projForLight * view);
     projForLight[1][1] *= -1;
     
@@ -851,7 +871,6 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
             lightViewProjection};
     }
 
-    
 
     //Ubos
     auto ubos = MemoryArena::AllocSpan<UniformBufferObject>(tempArena,scene->objectsCount());
@@ -862,9 +881,12 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
         ubos[i].model = models[i];
         ubos[i].Normal = transpose(inverse(glm::mat3(*model)));
     }
-    memcpy(FramesInFlightData[currentFrame].uniformBuffersMapped, ubos.data(), sizeof(UniformBufferObject) *scene->objectsCount());
+    
+    FramesInFlightData[currentFrame].uniformBuffers.updateMappedMemory(ubos.data(), sizeof(UniformBufferObject) *scene->objectsCount());
 
-    memcpy(FramesInFlightData[currentFrame].lightBuffersMapped, lights.data(), sizeof(gpulight) * lights.size());
+    //TODO JS: Replace gpulight matrix with an index. bind a new list of light matrices to shdaows. look up shadows with index in shader.
+    
+    FramesInFlightData[currentFrame].lightBuffers.updateMappedMemory(lights.data(), sizeof(gpulight) * lights.size());//TODO JS: could probably bump the index in the shader too on the point path rather than rebinding. 
 
 }
 
@@ -893,72 +915,90 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
     //Should I do separate command buffers per shadow index?
     for(int i = 0; i < shadowCount; i ++)
     {
+        //TODO JS: next step -- need to get the 6 different point light matrices in. Or transform the one 6 times?
 
         int shadowIndex = i;
-        const VkRenderingAttachmentInfoKHR dynamicRenderingDepthAttatchment {
-            .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
-            .imageView = shadowImageViews[imageIndex][shadowIndex],
-            .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR,
-            .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-            .clearValue =  {1.0f, 0}
-        };
-
-        VkRenderingInfo renderPassInfo{};
-        renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
-        renderPassInfo.renderArea.extent = {shadowSize , shadowSize }; //TODO JS: Shadow size
-        renderPassInfo.renderArea.offset = {0, 0};
-        renderPassInfo.layerCount =1;
-        renderPassInfo.colorAttachmentCount = 0;
-        renderPassInfo.pColorAttachments = VK_NULL_HANDLE;
-        renderPassInfo.pDepthAttachment = &dynamicRenderingDepthAttatchment;
-
-        vkCmdBeginRendering(commandBuffer, &renderPassInfo);
-   
-        VkViewport viewport{};
-        viewport.x = 0.0f;
-        viewport.y = 0.0f;
-        viewport.width = static_cast<float>(shadowSize );
-        viewport.height = static_cast<float>(shadowSize );
-        viewport.minDepth = 0.0f;
-        viewport.maxDepth = 1.0f;
-        vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-
-        VkRect2D scissor{};
-        scissor.offset = {0, 0};
-        scissor.extent = {shadowSize , shadowSize };
-        vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-
-        //*************
-        //************
-        //** Descriptor Sets update and binding
-        // This could change sometimes
-
-
-        //TODO JS: dynamically set bias per shadow caster scaled by depth range of shadow map
-        // vkCmdSetDepthBias(
-        //             commandBuffer,
-        //             100.25,
-        //             0.0f,
-        //             1.75);
-
-        //TODO JS: Something other than hardcoded index 2 for shadow pipeline
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, descriptorsetLayoutsData.getPipeline(2));
-        int meshct =  scene->objectsCount();
-        for (int i = 0; i <meshct; i++)
+        lightType type = (lightType)scene->lightTypes[i];
+        int subpasses = type == lightType::LIGHT_POINT ? 6 : 1;
+        for (int j = 0; j < subpasses; j++)
         {
-            per_object_data constants;
-            //Light count, vert offset, texture index, and object data index
-            constants.indexInfo = glm::vec4(-1, (scene->objects.meshOffsets[i]),
-                                            -1, i);
-            constants.Indexinfo2 = glm::vec4(-1,-1,-1,shadowIndex);
+            const VkRenderingAttachmentInfoKHR dynamicRenderingDepthAttatchment {
+                .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
+                .imageView = shadowImageViews[imageIndex][shadowIndex],
+                .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR,
+                .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+                .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+                .clearValue =  {1.0f, 0}
+            };
 
-            constants.materialprops = glm::vec4(-1, -1, 0, 0);
+            VkRenderingInfo renderPassInfo{};
+            renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+            switch (type)
+            {
+               case lightType::LIGHT_POINT:
+                {
+                    renderPassInfo.renderArea.extent = {shadowSize /2, shadowSize /3}; //TODO JS: Shadow size
+                    renderPassInfo.renderArea.offset = {j < 3 ? 0 : 1, (j % 3) / 3};
+                }
+            default:
+                {
+                    renderPassInfo.renderArea.extent = {shadowSize , shadowSize}; //TODO JS: Shadow size
+                    renderPassInfo.renderArea.offset = {0, 0};
+                        break;
+                }
+            }
+            renderPassInfo.layerCount =1;
+            renderPassInfo.colorAttachmentCount = 0;
+            renderPassInfo.pColorAttachments = VK_NULL_HANDLE;
+            renderPassInfo.pDepthAttachment = &dynamicRenderingDepthAttatchment;
 
-            vkCmdPushConstants(commandBuffer, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-                               sizeof(per_object_data), &constants);
+            vkCmdBeginRendering(commandBuffer, &renderPassInfo);
+   
+            VkViewport viewport{};
+            viewport.x = 0.0f;
+            viewport.y = 0.0f;
+            viewport.width = static_cast<float>(shadowSize );
+            viewport.height = static_cast<float>(shadowSize );
+            viewport.minDepth = 0.0f;
+            viewport.maxDepth = 1.0f;
+            vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 
-            vkCmdDraw(commandBuffer, static_cast<uint32_t>(scene->objects.meshes[i]->vertcount), 1, 0, 0);
+            VkRect2D scissor{};
+            scissor.offset = {0, 0};
+            scissor.extent = {shadowSize , shadowSize };
+            vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+            //*************
+            //************
+            //** Descriptor Sets update and binding
+            // This could change sometimes
+
+
+            //TODO JS: dynamically set bias per shadow caster scaled by depth range of shadow map
+            // vkCmdSetDepthBias(
+            //             commandBuffer,
+            //             100.25,
+            //             0.0f,
+            //             1.75);
+
+            //TODO JS: Something other than hardcoded index 2 for shadow pipeline
+            vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, descriptorsetLayoutsData.getPipeline(2));
+            int meshct =  scene->objectsCount();
+            for (int i = 0; i <meshct; i++)
+            {
+                per_object_data constants;
+                //Light count, vert offset, texture index, and object data index
+                constants.indexInfo = glm::vec4(-1, (scene->objects.meshOffsets[i]),
+                                                -1, i);
+                constants.Indexinfo2 = glm::vec4(-1,-1,-1,shadowIndex);
+
+                constants.materialprops = glm::vec4(-1, -1, 0, 0);
+
+                vkCmdPushConstants(commandBuffer, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                                   sizeof(per_object_data), &constants);
+
+                vkCmdDraw(commandBuffer, static_cast<uint32_t>(scene->objects.meshes[i]->vertcount), 1, 0, 0);
+            }
         }
 
 
@@ -1466,6 +1506,7 @@ void HelloTriangleApplication::cleanup()
        VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].uniformBuffers.data, FramesInFlightData[i].uniformBuffersMemory);
        VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].meshBuffers.data, FramesInFlightData[i].meshBuffersMemory);
        VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].lightBuffers.data, FramesInFlightData[i].lightBuffersMemory);
+        VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].lightBuffers.data, FramesInFlightData[i].lightMatrixBuffersMemory);
     }
 
     vkDestroyDescriptorPool(device, descriptorPool, nullptr);

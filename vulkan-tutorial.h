@@ -148,20 +148,21 @@ private:
         
         dataBuffer opaqueShaderGlobalsBuffer;
         VmaAllocation opaqueShaderGlobalsMemory;
-        void* opaqueShaderGlobalsMapped;
     
         //TODO JS: Move the data buffer stuff?
         dataBuffer uniformBuffers;
         VmaAllocation uniformBuffersMemory;
-        void* uniformBuffersMapped;
 
         dataBuffer meshBuffers;
         VmaAllocation meshBuffersMemory;
-        void* meshBuffersMapped;
 
+        //Basic data about the light used in all passes 
         dataBuffer lightBuffers;
         VmaAllocation lightBuffersMemory;
-        void* lightBuffersMapped;
+        
+        //Additional light matrices.... Maybe should be additional matrices period? Used in shadow pass
+        dataBuffer lightMatrixBuffers;
+        VmaAllocation lightMatrixBuffersMemory;
 #pragma endregion
     };
     

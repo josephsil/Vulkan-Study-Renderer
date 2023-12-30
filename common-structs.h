@@ -71,8 +71,10 @@ struct dataBuffer
 {
     VkBuffer data;
     uint32_t size;
+    void* mapped;
 
     VkDescriptorBufferInfo getBufferInfo();
+    void updateMappedMemory(void* data, size_t size);
 };
 
 
