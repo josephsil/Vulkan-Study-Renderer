@@ -50,6 +50,7 @@ private:
     
 
     MemoryArena::memoryArena rendererArena{};
+    
     MemoryArena::memoryArena perFrameArenas[MAX_FRAMES_IN_FLIGHT];
 #pragma region SDL
     uint32_t T;

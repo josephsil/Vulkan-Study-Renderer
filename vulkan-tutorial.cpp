@@ -32,7 +32,7 @@ vkb::Instance GET_INSTANCE()
 {
     vkb::InstanceBuilder instance_builder;
     auto instanceBuilderResult = instance_builder
-                                  // .request_validation_layers()
+                                  .request_validation_layers()
                                  .use_default_debug_messenger()
                                  .require_api_version(1, 3, 240)
                                  .build();
@@ -143,6 +143,7 @@ struct gpulight
     alignas(16) glm::vec4 color_xyz_intensity_a;
     alignas(16) glm::vec4 pointOrSpot_x_dir_yza;
     alignas(16) glm::mat4 matrixViewProjection;
+    alignas(16) glm::vec4 matrixIndex_matrixCount_padding_padding; // currently only used by point
 };
 
 
@@ -414,11 +415,11 @@ void HelloTriangleApplication::createUniformBuffers()
             &FramesInFlightData[i].lightBuffersMemory,
             FramesInFlightData[i].lightBuffers.data);
 
-        // FramesInFlightData[i].lightMatrixBuffers.size = lightMatricesSize;
-        // FramesInFlightData[i].lightMatrixBuffers.mapped = BufferUtilities::createDynamicBuffer(
-        //     getHandles(), lightMatricesSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-        //     &FramesInFlightData[i].lightMatrixBuffersMemory,
-        //     FramesInFlightData[i].lightMatrixBuffers.data);
+        FramesInFlightData[i].lightMatrixBuffers.size = lightMatricesSize;
+        FramesInFlightData[i].lightMatrixBuffers.mapped = BufferUtilities::createDynamicBuffer(
+            getHandles(), lightMatricesSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+            &FramesInFlightData[i].lightMatrixBuffersMemory,
+            FramesInFlightData[i].lightMatrixBuffers.data);
 
     }
 }
@@ -529,10 +530,11 @@ void HelloTriangleApplication::updateShadowDescriptorSets(RendererHandles handle
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &shaderglobalsinfo});
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &meshBufferinfo});
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &lightbufferinfo});
-    // descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &lightbufferMatinfo});
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &uniformbufferinfo});
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &lightbufferMatinfo});
 
-    layoutData->updateShadowDescriptorSets(descriptorUpdates, currentFrame);
+    layoutData->
+    updateShadowDescriptorSets(descriptorUpdates, currentFrame);
 
     
 }
@@ -736,8 +738,9 @@ std::span<glm::vec4> populateFrustumCornersForSpace(std::span<glm::vec4> output_
 
 }
 
-glm::mat4 calculateLightMatrix(glm::mat4 invCam, glm::vec3 lightPos, glm::vec3 spotDir, float spotRadius, lightType type)
+std::span<glm::mat4> calculateLightMatrix(MemoryArena::memoryArena* allocator, glm::mat4 invCam, glm::vec3 lightPos, glm::vec3 spotDir, float spotRadius, lightType type)
 {
+    auto outputSpan = MemoryArena::AllocSpan<glm::mat4>(allocator, type == LIGHT_POINT ? 6 : 1);
 
     glm::vec4 frustumCornersWorldSpace[8] = {};
 
@@ -795,6 +798,7 @@ glm::mat4 calculateLightMatrix(glm::mat4 invCam, glm::vec3 lightPos, glm::vec3 s
             glm::mat4 lightOrthoMatrix = glm::ortho(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, 0.1f, maxExtents.z - minExtents.z);
 
             lightProjection =  lightOrthoMatrix;
+            outputSpan[0] = lightProjection * lightViewMatrix;
             break;
         }
     case LIGHT_SPOT:
@@ -803,21 +807,27 @@ glm::mat4 calculateLightMatrix(glm::mat4 invCam, glm::vec3 lightPos, glm::vec3 s
             
             lightProjection = glm::perspective(glm::radians(spotRadius),
                                       1.0f, 0.1f,
-                                      50.0f);
+                                      50.0f); //TODO BETTER FAR 
+                                      outputSpan[0] = lightProjection * lightViewMatrix;
                                       break;
         }
     case LIGHT_POINT:
 
-        {
-            lightViewMatrix = glm::lookAt(lightPos, glm::vec3(0) /*todo*/, up);
-            
-            lightProjection = glm::perspective(glm::radians(180.0f),
-                                      1.0f, 0.1f,
-                                      50.0f);}
-                                      break;
+           {
+        lightProjection = glm::perspective(glm::radians(90.0f),
+                                  1.0f, 0.01f,
+                                  50.0f);} //TODO BETTER FAR 
+            outputSpan[0] = lightProjection * glm::lookAt(lightPos, lightPos + glm::vec3( 1.0, 0.0, 0.0), glm::vec3(0.0,-1.0, 0.0));
+            outputSpan[1] = lightProjection * glm::lookAt(lightPos, lightPos + glm::vec3(-1.0, 0.0, 0.0), glm::vec3(0.0,-1.0, 0.0));
+            outputSpan[2] = lightProjection * glm::lookAt(lightPos, lightPos + glm::vec3( 0.0, 1.0, 0.0), glm::vec3(0.0, 0.0, 1.0));
+            outputSpan[3] = lightProjection * glm::lookAt(lightPos, lightPos + glm::vec3( 0.0,-1.0, 0.0), glm::vec3(0.0, 0.0,-1.0));
+            outputSpan[4] = lightProjection * glm::lookAt(lightPos, lightPos + glm::vec3( 0.0, 0.0, 1.0), glm::vec3(0.0,-1.0, 0.0));
+            outputSpan[5] = lightProjection * glm::lookAt(lightPos, lightPos + glm::vec3( 0.0, 0.0,-1.0), glm::vec3(0.0,-1.0, 0.0));
+         break ;
         }
 
-    return lightProjection * lightViewMatrix;
+
+    return  outputSpan;
 
     
 }
@@ -859,16 +869,28 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
                                       10.0f); //TODO JS: same as proj but with a closer zfar -- set per light
     glm::mat4 invCam = glm::inverse(projForLight * view);
     projForLight[1][1] *= -1;
-    
+
+    Array<glm::mat4> additionalMatrices = Array(MemoryArena::AllocSpan<glm::mat4>(&perFrameArenas[currentFrame],FramesInFlightData[currentFrame].lightMatrixBuffers.size / sizeof(glm::mat4)));
+    int matrixCt = 0;
     for(int i =0; i <scene->lightCount; i++)
     {
         
-        glm::mat4 lightViewProjection =  calculateLightMatrix(invCam, static_cast<glm::vec3>(scene->lightposandradius[i]), (glm::vec3)scene->lightDir[i], scene->lightposandradius[i].w, (lightType)scene->lightTypes[i]);
+        std::span<glm::mat4> lightViewProjection =  calculateLightMatrix(&perFrameArenas[currentFrame], invCam, static_cast<glm::vec3>(scene->lightposandradius[i]), (glm::vec3)scene->lightDir[i], scene->lightposandradius[i].w, (lightType)scene->lightTypes[i]);
 
-        lights[i] = {scene->lightposandradius[i],
-            scene->lightcolorAndIntensity[i],
-            glm::vec4(scene->lightTypes[i], scene->lightDir[i].x, scene->lightDir[i].y, scene->lightDir[i].z),
-            lightViewProjection};
+        int additionalMatrixIndex = lightViewProjection.size() > 1 ? additionalMatrices.ct : -1;
+            lights[i] = {
+                scene->lightposandradius[i],
+                scene->lightcolorAndIntensity[i],
+                glm::vec4(scene->lightTypes[i], scene->lightDir[i].x, scene->lightDir[i].y, scene->lightDir[i].z),
+                lightViewProjection[0],
+                glm::vec4(additionalMatrices.ct,lightViewProjection.size(),-1,-1)};
+
+
+            for (int j = 0; j <  lightViewProjection.size(); j++)
+            {
+                additionalMatrices.push_back(lightViewProjection[j]);
+            }
+       
     }
 
 
@@ -887,6 +909,7 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
     //TODO JS: Replace gpulight matrix with an index. bind a new list of light matrices to shdaows. look up shadows with index in shader.
     
     FramesInFlightData[currentFrame].lightBuffers.updateMappedMemory(lights.data(), sizeof(gpulight) * lights.size());//TODO JS: could probably bump the index in the shader too on the point path rather than rebinding. 
+    FramesInFlightData[currentFrame].lightMatrixBuffers.updateMappedMemory(additionalMatrices.data, additionalMatrices.capacity_bytes()); 
 
 }
 
@@ -938,7 +961,8 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
                case lightType::LIGHT_POINT:
                 {
                     renderPassInfo.renderArea.extent = {shadowSize /2, shadowSize /3}; //TODO JS: Shadow size
-                    renderPassInfo.renderArea.offset = {j < 3 ? 0 : 1, (j % 3) / 3};
+                    renderPassInfo.renderArea.offset = {(int)(j < 3 ? 0 : shadowSize / 2), (int)((shadowSize/ 3) * (j % 3))};
+                       break;
                 }
             default:
                 {
@@ -990,7 +1014,7 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
                 //Light count, vert offset, texture index, and object data index
                 constants.indexInfo = glm::vec4(-1, (scene->objects.meshOffsets[i]),
                                                 -1, i);
-                constants.Indexinfo2 = glm::vec4(-1,-1,-1,shadowIndex);
+                constants.Indexinfo2 = glm::vec4(-1,-1,j,shadowIndex);
 
                 constants.materialprops = glm::vec4(-1, -1, 0, 0);
 
@@ -1616,16 +1640,16 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
     //direciton light
     app->scene->AddDirLight(glm::vec3(0,0,1), glm::vec3(0,1,0), 3);
     app->scene->AddDirLight(glm::vec3(0.00, 1, 0),  glm::vec3(0, 0, 1), 3);
-    app->scene->AddSpotLight(glm::vec3(2.5, 3, 3.3), glm::vec3(0, 0, -1), glm::vec3(1, 0, 1), 45, 14000);
 
     //spot light
     //TODO JS: paramaterize better -- hard to set power and radius currently
+    app->scene->AddSpotLight(glm::vec3(2.5, 3, 3.3), glm::vec3(0, 0, -1), glm::vec3(1, 0, 1), 45, 14000);
 
 
     //point lights    
-    app->scene->AddPointLight(glm::vec3(1, 1, 0), glm::vec3(1, 1, 1), 5 / 2);
+    // app->scene->AddPointLight(glm::vec3(1, 1, 0), glm::vec3(1, 1, 1), 5 / 2);
     app->scene->AddPointLight(glm::vec3(0, 4, -5), glm::vec3(1, 1, 1), 8 / 2);
-    app->scene->AddPointLight(glm::vec3(0, 8, -10), glm::vec3(0.2, 0, 1), 44 / 2);
+    // app->scene->AddPointLight(glm::vec3(0, 8, -10), glm::vec3(0.2, 0, 1), 44 / 2);
 
  
 

@@ -4,7 +4,7 @@
 struct CommandPoolManager;
 
 
-const static int MAX_SHADOWCASTERS = 3;
+const static int MAX_SHADOWCASTERS = 5;
 namespace  MemoryArena
 {
     struct memoryArena;

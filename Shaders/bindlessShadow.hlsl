@@ -1,3 +1,4 @@
+#define SHADOWPASS
 #include "BindlessIncludes.hlsl"
 
 struct VSInput
@@ -37,7 +38,15 @@ VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
     UBO ubo = uboarr[OBJECTINDEX];
     VSOutput output = (VSOutput)0;
     MyLightStructure light = lights[LIGHTINDEX];
-    float4x4 viewProjection = light.matrixViewProjeciton;
+    float4x4 viewProjection;
+    if (getLightType(light) == LIGHT_POINT)
+    {
+        viewProjection = shadowMatrices[light.matrixIDX_matrixCt_padding.r + MATRIXOFFSET];
+    }
+    else
+    {
+        viewProjection = light.matrixViewProjeciton;
+    }
     float4x4 mvp2 = mul(viewProjection, ubo.Model);
     
     output.Pos = mul(mvp2, half4(myVertex.position.xyz, 1.0));

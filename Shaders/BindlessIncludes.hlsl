@@ -13,6 +13,10 @@
 #define SKYBOXLUTSAMPLERINDEX globals.lutIDX_lutSamplerIDX_padding_padding.y
 #define SHADOWCOUNT globals.lightcount_mode_shadowct_padding.z
 
+#ifdef SHADOWPASS
+#define MATRIXOFFSET pc.indexInfo_2.b
+#endif
+
 
 struct UBO
 {
@@ -57,6 +61,7 @@ struct MyLightStructure
     float4 color_intensity;
     float4 lighttype_lightDir;
     float4x4 matrixViewProjeciton;
+    float4 matrixIDX_matrixCt_padding; // currently only used by point
     // uint color;
 };
 
@@ -89,6 +94,10 @@ ByteAddressBuffer BufferTable;
 RWStructuredBuffer<MyLightStructure> lights;
 [[vk::binding(2, 1)]]
 RWStructuredBuffer<UBO> uboarr;
+#ifdef SHADOWPASS
+[[vk::binding(3, 1)]]
+RWStructuredBuffer<float4x4> shadowMatrices;
+#endif 
 
 
 [[vk::binding(1,2)]]
@@ -155,6 +164,19 @@ float GeometrySchlickGGX(float NdotV, float roughness)
     return num / denom;
 }
 
+float2 pointShadowDirection(int idx)
+{
+    return float2((idx < 3 ? 0 : 0.5), (0.333 * (idx % 3)));
+}
+
+float uvToPointShadow(int idx, float2 uv)
+{
+    float2 offset = pointShadowDirection(idx);
+    uv *= float2(0.5,0.33);
+    uv += offset;
+    return uv;
+}
+
 float GeometrySmith(float3 N, float3 V, float3 L, float roughness)
 {
     float NdotV = max(dot(N, V), 0.0);
@@ -164,6 +186,11 @@ float GeometrySmith(float3 N, float3 V, float3 L, float roughness)
 
     return ggx1 * ggx2;
 }
+
+// int uvIndexFromDir(float3 dir)
+// {
+//     
+// }
 
 
 float3 getLighting(float4x4 model, float3 albedo, float3 inNormal, float3 FragPos, float3 F0, float3 roughness, float metallic)

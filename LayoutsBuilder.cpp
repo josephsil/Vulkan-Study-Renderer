@@ -116,13 +116,13 @@ LayoutsBuilder createBindlessLayoutBuilder(
 LayoutsBuilder createShadowLayoutBuilder(
     RendererHandles rendererHandles, Scene* scene)
 {
-    auto builder =LayoutsBuilder(1, 0, 3);
+    auto builder =LayoutsBuilder(1, 0, 4);
   
     builder.addBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT );
   
     builder.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
     builder.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT); //light
-    // builder.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT); //light matrices
     builder.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT); //ubo
+    builder.addBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT); //light matrices
     return builder;
 }
