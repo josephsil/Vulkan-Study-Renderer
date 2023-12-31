@@ -80,6 +80,8 @@ SamplerState bindless_samplers[];
 
 [[vk::binding(2, 2)]]
 Texture2D<float4> shadowmap[];
+[[vk::binding(2, 2)]]
+TextureCube shadowmapCube[];
 
 [[vk::binding(2, 3)]]
 SamplerComparisonState shadowmapSampler[];
@@ -197,18 +199,39 @@ float GeometrySmith(float3 N, float3 V, float3 L, float roughness)
 //     
 // }
 
-float getShadow(int index, float3 fragPos)
+float VectorToDepthValue(float3 Vec)
+{
+    float3 AbsVec = abs(Vec);
+    float LocalZcomp = max(AbsVec.x, max(AbsVec.y, AbsVec.z));
+
+    const float FAR = 10.0;
+    const float NEAR = 0.001;
+    float NormZComp = (FAR+NEAR) / (FAR-NEAR) - (2.0*FAR*NEAR)/(FAR-NEAR)/LocalZcomp;
+    return (NormZComp + 1.0) * 0.5;
+}
+
+
+float3 getShadow(int index, float3 fragPos)
 {
     MyLightStructure light = lights[index];
     if (getLightType(light) == LIGHT_POINT)
     {
+      
+        float3 fragToLight =  fragPos - light.position_range.xyz ;
+        float3 dir = normalize(fragToLight);
+        dir = dir.xyz;
+        dir *= float3(1,1,1);
+//
 
-        float3 dir = normalize(fragPos - light.position_range.xyz);
-        float4 fragPosLightSpace = mul(  light.matrixViewProjeciton, float4(fragPos, 1.0));
+        float distLightSpace = VectorToDepthValue( light.position_range.xyz - fragPos);
         float dist =  distance(light.position_range.xyz, fragPos) ;
-        float shadow =shadowmap[getLightShadowIndex(light)].SampleLevel(cubeSamplers[0], dir, 0.0).r  / 4;
-
-        return shadow;
+        float3 proj = dist / 10;;
+        float3 shadow = (shadowmapCube[0].SampleLevel(cubeSamplers[0], fragToLight, 0.0).r - 0.0) * 1;
+        // shadow = pow(shadow, 700);
+        
+       // return proj.z;
+        float output;
+        return distLightSpace < (shadow.r ); // float3(proj.z, shadow.r, 1.0);
     }
     float4x4 lightMat = light.matrixViewProjeciton;
     float4 fragPosLightSpace = mul( lightMat, float4(fragPos, 1.0));
@@ -224,6 +247,9 @@ float3 getLighting(float4x4 model, float3 albedo, float3 inNormal, float3 FragPo
     float PI = 3.14159265359;
     float3 viewDir = normalize(globals.viewPos - FragPos);
     float3 lightContribution = float3(0, 0, 0);
+    albedo = 1.0;
+    roughness = 1.0;
+metallic = 0.0;
     for (int i = 0; i < LIGHTCOUNT; i++)
     {
         MyLightStructure light = lights[i];
@@ -287,14 +313,14 @@ float3 getLighting(float4x4 model, float3 albedo, float3 inNormal, float3 FragPo
          
             float shadowMapValue = getShadow(i, FragPos);
 
-            if (i == 3)
-            {
-                return shadowMapValue;
-            }
+            // if (i == 0)
+            // {
+            //     return  getShadow(i, FragPos);;
+            // }
             // float shadow = shadowProjection.z < (shadowMapValue) ? 1.0 : 0.0;
             //TODO: vias by normal
             //TODO: cascade
-            lightAdd *= shadowMapValue;
+           lightAdd *= shadowMapValue;
         }
         //
 

@@ -118,8 +118,8 @@ float3x3 calculateNormal(FSInput input)
 
 FSOutput Frag(VSOutput input)
 {
-    FSOutput output;
 
+    FSOutput output;//
     float3 diff = saturate(
         bindless_textures[DIFFUSE_INDEX].Sample(bindless_samplers[TEXTURESAMPLERINDEX], input.Texture_ST));
     float3 albedo = pow(diff, 2.2);
@@ -179,7 +179,7 @@ FSOutput Frag(VSOutput input)
 
     output.Color = output.Color / (output.Color + 1.0);
 
-    output.Color = getLighting(model, diff, normalMap, input.worldPos, F0, roughness, metallic) / 10;
+    output.Color = getLighting(model, diff, input.Normal, input.worldPos, F0, roughness, metallic) / 10;
     //TODO: pcf
     //TODO: cascade
     //

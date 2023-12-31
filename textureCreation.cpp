@@ -14,7 +14,7 @@ VkImageView TextureUtilities::createImageView(VkDevice device, VkImage image, Vk
                                               VkImageViewType type, uint32_t miplevels, uint32_t layerCount, uint32_t layer)
 {
     aspectFlags = aspectFlags == -1 ? VK_IMAGE_ASPECT_COLOR_BIT : aspectFlags;
-    type = (int)type == -1 ? VK_IMAGE_VIEW_TYPE_2D : type; 
+    type = (int)type == -1 ? VK_IMAGE_VIEW_TYPE_2D : VK_IMAGE_VIEW_TYPE_CUBE; //TODO JS: WIP HACK 
     VkImageViewCreateInfo viewInfo{};
     viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     viewInfo.image = image;
@@ -54,6 +54,7 @@ void TextureUtilities::createImage(RendererHandles rendererHandles, uint32_t wid
     imageInfo.usage = usage;
     imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
     imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    imageInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT; //TODO JS: optional?
 
     BufferUtilities::CreateImage(rendererHandles.allocator, &imageInfo, &image, &allocation, nullptr);
 }

@@ -21,9 +21,23 @@ Polish /refactor painful areas
 What's bad?
 1- Descriptor sets still -- too much distant action, need to unify the setup and ingestion part 
 2- Shaders 
-    a- include modified  
+    a- include modified  # DONE 
     b- 
 3- Object updates 
     Don't belong where thye are right now 
 4- Basic structure of application
     Main shou;dn't be renderer 
+
+get point shadows going: 
+
+We're going to just keep adding shadow maps to the array. These will be huge. thats ok, eventually we'll atlas small lights. 
+Steps
+1- 
+update shadow drawing code,  X
+shadowmap image generaiton code, X
+and shader code  X
+to use like 24 shadowmaps and index in with the MATRIXOFFSET param.  X
+2- Correctly read shadow cubemap 
+3- reduce the image count usign atlases, add an atlas offset index to indexinfo_2 
+4- multiple shadow samplers -- for each atlas range and cube type. (? not sure we need this?)
+5- custom pcf (maybe just do poisson?)

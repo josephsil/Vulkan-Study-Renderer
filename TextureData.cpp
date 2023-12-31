@@ -56,7 +56,7 @@ TextureData::TextureData(RendererHandles rendererHandles, const char* path, Text
     case CUBE:
         {
             inputFormat = VK_FORMAT_R8G8B8A8_UNORM;
-            mode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+            mode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
             break;
         }
     case DATA_DONT_COMPRESS:

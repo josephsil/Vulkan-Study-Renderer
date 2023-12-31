@@ -32,7 +32,7 @@ vkb::Instance GET_INSTANCE()
 {
     vkb::InstanceBuilder instance_builder;
     auto instanceBuilderResult = instance_builder
-                                  .request_validation_layers()
+                                  // .request_validation_layers()
                                  .use_default_debug_messenger()
                                  .require_api_version(1, 3, 240)
                                  .build();
@@ -274,7 +274,7 @@ void HelloTriangleApplication::initVulkan()
                 (VkImageViewType) j == 0 ? VK_IMAGE_VIEW_TYPE_2D_ARRAY : VK_IMAGE_VIEW_TYPE_2D,
                 1,
                 /*first view gets used by opaque pass to sample into shadowmap array*/
-                j == 0 ? MAX_SHADOWMAPS : 1,
+                j == 0 ? 6 : 1,
                 j);
         }
 
@@ -814,20 +814,27 @@ std::span<glm::mat4> calculateLightMatrix(MemoryArena::memoryArena* allocator, g
     case LIGHT_POINT:
 
            {
-        lightProjection = glm::perspective(glm::radians(90.0f),
-                                  1.0f, 0.01f,
+        lightProjection = glm::perspective(glm::radians((float)90),
+                                  1.0f, 0.001f,
                                   10.0f);} //TODO BETTER FAR
 
-        glm::mat4 viewMatrix = glm::translate(glm::mat4(1.0f), lightPos);
-    outputSpan[0] =  glm::rotate(viewMatrix, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-              outputSpan[0] =lightProjection *   glm::rotate(  outputSpan[0], glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-    outputSpan[1] = glm::rotate(viewMatrix, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-              outputSpan[1] = lightProjection *   glm::rotate(outputSpan[1], glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-    outputSpan[2] = lightProjection *  glm::rotate(viewMatrix, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-    outputSpan[3] = lightProjection *  glm::rotate(viewMatrix, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-    outputSpan[4] = lightProjection *  glm::rotate(viewMatrix, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-    outputSpan[5] = lightProjection *  glm::rotate(viewMatrix, glm::radians(180.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-        
+        glm::mat4 translation = glm::translate(glm::mat4(1.0f), -lightPos);
+        glm::mat4 rotMatrix = glm::mat4(1.0);
+    
+    outputSpan[0] =  glm::rotate(rotMatrix, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    outputSpan[0] = lightProjection *   (glm::rotate(  outputSpan[0], glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)) /** translation*/);
+      rotMatrix = glm::mat4(1.0);
+    outputSpan[1] = glm::rotate(rotMatrix, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    outputSpan[1] = lightProjection *   (glm::rotate(outputSpan[1], glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)) /** translation*/);
+      rotMatrix = glm::mat4(1.0);
+    outputSpan[2] = lightProjection *  (glm::rotate(rotMatrix, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f)) /** translation*/);
+      rotMatrix = glm::mat4(1.0);
+    outputSpan[3] = lightProjection *  (glm::rotate(rotMatrix, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f)) /** translation*/);
+      rotMatrix = glm::mat4(1.0);
+    outputSpan[4] = lightProjection *  (glm::rotate(rotMatrix, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)) /** translation*/);
+      rotMatrix = glm::mat4(1.0);
+    outputSpan[5] = lightProjection *  (glm::rotate(rotMatrix, glm::radians(180.0f), glm::vec3(0.0f, 0.0f, 1.0f)) /** translation*/);
+       rotMatrix = glm::mat4(1.0);   
          break ;
         }
 
@@ -1633,17 +1640,18 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
     int cube = app->scene->AddBackingMesh(MeshData(app->getHandles(), "Meshes/cube.glb"));
 
     //direciton light
-    app->scene->AddDirLight(glm::vec3(0,0,1), glm::vec3(0,1,0), 3);
-    app->scene->AddDirLight(glm::vec3(0.00, 1, 0),  glm::vec3(0, 0, 1), 3);
+    // app->scene->AddDirLight(glm::vec3(0,0,1), glm::vec3(0,1,0), 3);
+    // app->scene->AddDirLight(glm::vec3(0.00, 1, 0),  glm::vec3(0, 0, 1), 3);
 
     //spot light
     //TODO JS: paramaterize better -- hard to set power and radius currently
-    app->scene->AddSpotLight(glm::vec3(2.5, 3, 3.3), glm::vec3(0, 0, -1), glm::vec3(1, 0, 1), 45, 14000);
+    // app->scene->AddSpotLight(glm::vec3(2.5, 3, 3.3), glm::vec3(0, 0, -1), glm::vec3(1, 0, 1), 45, 14000);
 
 
     //point lights    
     // app->scene->AddPointLight(glm::vec3(1, 1, 0), glm::vec3(1, 1, 1), 5 / 2);
-    app->scene->AddPointLight(glm::vec3(-2, 4, -5), glm::vec3(1, 1, 1), 4422 / 2);
+    app->scene->AddPointLight(glm::vec3(0, 0, 0), glm::vec3(1, 1, 1), 99 / 2);
+    // app->scene->AddPointLight(glm::vec3(2, 2, -5), glm::vec3(1, 1, 1), 4422 / 2);
     // app->scene->AddPointLight(glm::vec3(0, 8, -10), glm::vec3(0.2, 0, 1), 44 / 2);
 
  
@@ -1655,7 +1663,7 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
     
     for (int i = 0; i < 100; i++)
     {
-        for (int j = 0; j < 10; j ++)
+        for (int j = i == 0 ? 1 : 0 ; j < 10; j ++)
         {
             float rowRoughness = glm::clamp(static_cast<float>(i) / 8.0, 0.0, 1.0);
             bool rowmetlalic = i % 3 == 0;
@@ -1664,7 +1672,7 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
             app->scene->AddObject(
                 &app->scene->backing_meshes[randomMeshes[rand() % randomMeshes.size()]],
                 randomMaterials[textureIndex], rowRoughness, false,
-                glm::vec4((j), (i / 10) * 1.0, - (i % 10), 1),
+                glm::vec4((j), (i / 10) * 1.0, - (i % 10), 1) * 1.2f,
                 MyQuaternion,
                 glm::vec3(0.5));
             textureIndex = rand() % randomMaterials.size();
@@ -1673,13 +1681,37 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
     }
 
     //add plane
+    // app->scene->AddObject( &app->scene->backing_meshes[cube],
+    //     0,
+    //     0,
+    //     false,
+    //     glm::vec4(0, 9.35, 0, 1),
+    //     glm::quat(),
+    //     glm::vec3(20,0.05,30)); // basically a plane
+
+    // add plane
+     app->scene->AddObject( &app->scene->backing_meshes[cube],
+         0,
+         0,
+         false,
+         glm::vec4(5, 9.35, 5, 1),
+         glm::quat(),
+         glm::vec3(0.055,30,10)); // basically a plane
+     app->scene->AddObject( &app->scene->backing_meshes[cube],
+         0,
+         0,
+         false,
+         glm::vec4(-5, 9.35, 5, 1),
+         glm::quat(),
+         glm::vec3(20,30,0.05)); // basically a plane
     app->scene->AddObject( &app->scene->backing_meshes[cube],
-        0,
-        0,
-        false,
-        glm::vec4(0, 9.35, 0, 1),
-        glm::quat(),
-        glm::vec3(20,0.05,3)); // basically a plane
+      0,
+      0,
+      false,
+      glm::vec4(-5, 9.35, -5, 1),
+      glm::quat(),
+      glm::vec3(20,30,0.05)); // basically a plane
+    
 
    
 }
