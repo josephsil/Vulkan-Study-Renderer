@@ -20,7 +20,7 @@
 int TEXTURE_INDEX;
 #pragma region textureData
 
-TextureData::TextureData(RendererHandles rendererHandles, const char* path, TextureType textureType)
+TextureData::TextureData(RendererHandles rendererHandles, const char* path, TextureType textureType,VkImageViewType viewType)
 {
 
     this->rendererHandles = rendererHandles;
@@ -71,7 +71,12 @@ TextureData::TextureData(RendererHandles rendererHandles, const char* path, Text
     //TODO JS: branch better
 	
     VkFormat loadedFormat = GetOrLoadTexture(path, inputFormat, textureType, use_mipmaps);
-    createTextureImageView(loadedFormat, textureType == CUBE ? VK_IMAGE_VIEW_TYPE_CUBE : VK_IMAGE_VIEW_TYPE_2D);
+
+	if (viewType == -1)
+	{
+		viewType =   textureType == CUBE ? VK_IMAGE_VIEW_TYPE_CUBE : VK_IMAGE_VIEW_TYPE_2D;
+	}
+    textureImageView = createTextureImageView(loadedFormat,viewType);
     createTextureSampler(&textureSampler, rendererHandles, mode, 0, maxmip);
 }
 
@@ -443,9 +448,9 @@ void TextureData::cacheKTXFromSTB(const char* path, const char* outpath, VkForma
 	VulkanMemory::DestroyImage(rendererHandles.allocator, staging.textureImage, staging.alloc); 
 }
 
-void TextureData::createTextureImageView(VkFormat format, VkImageViewType type)
+VkImageView TextureData::createTextureImageView(VkFormat format, VkImageViewType type)
 {
-    textureImageView = TextureUtilities::createImageView(rendererHandles.device, textureImage, format,
+    return TextureUtilities::createImageView(rendererHandles.device, textureImage, format,
                                                          VK_IMAGE_ASPECT_COLOR_BIT, type, maxmip, layerct);
 }
 

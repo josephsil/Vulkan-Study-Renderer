@@ -181,6 +181,10 @@ int Scene::getShadowDataIndex(int idx)
     }
     return output;
 }
+int Scene::shadowCasterCount()
+{
+    return min(MAX_SHADOWCASTERS, this->lightCount);
+}
 
 void Scene::Cleanup()
 {

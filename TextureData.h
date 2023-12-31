@@ -46,7 +46,7 @@ public:
     bool uncompressed = false;
 
     
-    TextureData(RendererHandles rendererHandles, const char* path, TextureType type);
+    TextureData(RendererHandles rendererHandles, const char* path, TextureType type, VkImageViewType viewType = (VkImageViewType)-1);
     VkFormat GetOrLoadTexture(const char* path, VkFormat format, TextureType textureType, bool use_mipmaps);
 
     TextureData();
@@ -56,15 +56,13 @@ public:
     //TODO JS: move tou tilities?
     // 0 = VK_SAMPLER_ADDRESS_MODE_REPEAT;
     static void createTextureSampler(VkSampler* textureSampler, RendererHandles handles, VkSamplerAddressMode mode, float bias, float maxMip, bool shadow = false);
-    
+    VkImageView createTextureImageView(VkFormat format, VkImageViewType type);
 private:
 
 
     void cacheKTXFromSTB(const char* path, const char* outpath, VkFormat format, TextureType textureType,
                          bool use_mipmaps);
-
-
-    void createTextureImageView(VkFormat format, VkImageViewType type);
+    
 
 
     //TODO JS: 

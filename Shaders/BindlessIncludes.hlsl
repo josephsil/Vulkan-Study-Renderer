@@ -127,7 +127,7 @@ int getLightType(MyLightStructure light)
     return light.lighttype_lightDir.x;
 }
 
-int getLightShadowIndex(MyLightStructure light)
+int getShadowMatrixIndex(MyLightStructure light)
 {
     return light.matrixIDX_matrixCt_padding.r;
 }
@@ -225,8 +225,8 @@ float3 getShadow(int index, float3 fragPos)
 
         float distLightSpace = VectorToDepthValue( light.position_range.xyz - fragPos);
         float dist =  distance(light.position_range.xyz, fragPos) ;
-        float3 proj = dist / 10;;
-        float3 shadow = (shadowmapCube[0].SampleLevel(cubeSamplers[0], fragToLight, 0.0).r - 0.0) * 1;
+        float3 proj = dist / 10;
+        float3 shadow = (shadowmapCube[index].SampleLevel(cubeSamplers[0], fragToLight, 0.0).r - 0.0) * 1;
         // shadow = pow(shadow, 700);
         
        // return proj.z;
@@ -238,7 +238,7 @@ float3 getShadow(int index, float3 fragPos)
     float3 shadowProjection = (fragPosLightSpace.xyz / fragPosLightSpace.w);
     float3 shadowUV = shadowProjection   * 0.5 + 0.5;
     // shadowProjection.y *= -1;
-    return shadowmap[getLightShadowIndex(light)].SampleCmpLevelZero(shadowmapSampler[0], shadowUV.xy, shadowProjection.z).r; //TODO JS: dont sample on branch?
+    return shadowmap[index].SampleCmpLevelZero(shadowmapSampler[0], shadowUV.xy, shadowProjection.z).r; //TODO JS: dont sample on branch?
 
 }
 
@@ -247,9 +247,9 @@ float3 getLighting(float4x4 model, float3 albedo, float3 inNormal, float3 FragPo
     float PI = 3.14159265359;
     float3 viewDir = normalize(globals.viewPos - FragPos);
     float3 lightContribution = float3(0, 0, 0);
-    albedo = 1.0;
-    roughness = 1.0;
-metallic = 0.0;
+    // albedo = 1.0;
+    // roughness = 1.0;
+// metallic = 0.0;
     for (int i = 0; i < LIGHTCOUNT; i++)
     {
         MyLightStructure light = lights[i];

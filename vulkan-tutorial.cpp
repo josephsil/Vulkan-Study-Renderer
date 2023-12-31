@@ -256,32 +256,9 @@ void HelloTriangleApplication::initVulkan()
     shadowImages.resize(MAX_FRAMES_IN_FLIGHT);
     shadowSamplers.resize(MAX_FRAMES_IN_FLIGHT);
     shadowMemory.resize(MAX_FRAMES_IN_FLIGHT);
-    shadowImageViews = MemoryArena::AllocSpan<std::span<VkImageView>>(&rendererArena, MAX_FRAMES_IN_FLIGHT); 
-    for(int i = 0; i < MAX_FRAMES_IN_FLIGHT ; i++)
-    {
-        
-        TextureUtilities::createImage(getHandles(),shadowmapsize, shadowmapsize,shadowFormat,VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
-               VK_IMAGE_USAGE_SAMPLED_BIT,0,shadowImages[i],shadowMemory[i],1, MAX_SHADOWMAPS);
-        TextureData::createTextureSampler(&shadowSamplers[i], getHandles(), VK_SAMPLER_ADDRESS_MODE_REPEAT, 0, 1, true);
+    shadowImage2DViews = MemoryArena::AllocSpan<std::span<VkImageView>>(&rendererArena, MAX_FRAMES_IN_FLIGHT); 
+    shadowImageCubeViews = MemoryArena::AllocSpan<std::span<VkImageView>>(&rendererArena, MAX_FRAMES_IN_FLIGHT); 
 
-        
-        shadowImageViews[i] =  MemoryArena::AllocSpan<VkImageView>(&rendererArena, MAX_SHADOWMAPS);
-        for (int j = 0; j < MAX_SHADOWMAPS; j++)
-        {
-            shadowImageViews[i][j] = TextureUtilities::createImageView(
-                device, shadowImages[i], shadowFormat,
-                VK_IMAGE_ASPECT_DEPTH_BIT,
-                (VkImageViewType) j == 0 ? VK_IMAGE_VIEW_TYPE_2D_ARRAY : VK_IMAGE_VIEW_TYPE_2D,
-                1,
-                /*first view gets used by opaque pass to sample into shadowmap array*/
-                j == 0 ? 6 : 1,
-                j);
-        }
-
-        
-
-    }
-    
     createDepthResources();
 
     //Load shaders
@@ -299,6 +276,42 @@ void HelloTriangleApplication::initVulkan()
     //Initialize scene
     scene = std::make_unique<Scene>(Scene(&rendererArena));
     SET_UP_SCENE(this);
+
+    //shadows
+    for(int i = 0; i < MAX_FRAMES_IN_FLIGHT ; i++)
+    {
+        TextureUtilities::createImage(getHandles(),shadowmapsize, shadowmapsize,shadowFormat,VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
+               VK_IMAGE_USAGE_SAMPLED_BIT,0,shadowImages[i],shadowMemory[i],1, MAX_SHADOWMAPS);
+        TextureData::createTextureSampler(&shadowSamplers[i], getHandles(), VK_SAMPLER_ADDRESS_MODE_REPEAT, 0, 1, true);
+
+        
+        shadowImage2DViews[i] =  MemoryArena::AllocSpan<VkImageView>(&rendererArena, MAX_SHADOWMAPS);
+        for (int j = 0; j < MAX_SHADOWMAPS; j++)
+        {
+            shadowImage2DViews[i][j] = TextureUtilities::createImageView(
+                device, shadowImages[i], shadowFormat,
+                VK_IMAGE_ASPECT_DEPTH_BIT,
+                (VkImageViewType)  VK_IMAGE_TYPE_2D,
+                1,
+                   /*first view gets used by opaque pass to sample into shadowmap array*/
+                1, // j == 0 ? 6 : 1,
+                j);
+        }
+
+        shadowImageCubeViews[i] =  MemoryArena::AllocSpan<VkImageView>(&rendererArena, MAX_SHADOWCASTERS);
+        for (int j = 0; j < scene->shadowCasterCount(); j++)
+        {
+            shadowImageCubeViews[i][j] = TextureUtilities::createImageView(
+                device, shadowImages[i], shadowFormat,
+                VK_IMAGE_ASPECT_DEPTH_BIT,
+                (VkImageViewType)  VK_IMAGE_VIEW_TYPE_CUBE,
+                1,
+                   /*first view gets used by opaque pass to sample into shadowmap array*/
+                6, // j == 0 ? 6 : 1,
+                scene->getShadowDataIndex(j));
+        }
+    }
+    
 
     //Initialize scene-ish objects we don't have a place for yet 
     cubemaplut_utilitytexture_index = scene->AddUtilityTexture(
@@ -460,19 +473,18 @@ void HelloTriangleApplication::updateOpaqueDescriptorSets(RendererHandles handle
     auto [cubeImageInfos, cubeSamplerInfos] = DescriptorSets::ImageInfoFromImageDataVec({
         cube_irradiance, cube_specular});
 
-  
-    VkDescriptorImageInfo shadowInfo = {
-        //TODO JS: make sure the right stuff is in currentFrame[0]
-        .imageView = shadowImageViews[currentFrame][0], .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-    };
+
+    int pointCount = 0;
 
     VkDescriptorImageInfo shadows[MAX_SHADOWMAPS] = {};
-    for(int i = 0; i < MAX_SHADOWMAPS; i++)
+    for(int i = 0; i < scene->lightCount; i++)
     {
-        //TODO: replace hardcoded 2 shadows with something driven by const
+        bool point = scene->lightTypes[i] == LIGHT_POINT;
+        int idx = scene->getShadowDataIndex(i);
+        VkImageView view = point ? shadowImageCubeViews[currentFrame][ i] :  shadowImage2DViews[currentFrame][idx];
         VkDescriptorImageInfo shadowInfo = {
             //TODO JS: make sure the right stuff is in currentFrame[0]
-            .imageView = shadowImageViews[currentFrame][i], .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+            .imageView = view, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
         };
         shadows[i] = shadowInfo;
     }
@@ -822,18 +834,18 @@ std::span<glm::mat4> calculateLightMatrix(MemoryArena::memoryArena* allocator, g
         glm::mat4 rotMatrix = glm::mat4(1.0);
     
     outputSpan[0] =  glm::rotate(rotMatrix, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-    outputSpan[0] = lightProjection *   (glm::rotate(  outputSpan[0], glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)) /** translation*/);
+    outputSpan[0] = lightProjection *   (glm::rotate(  outputSpan[0], glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * translation);
       rotMatrix = glm::mat4(1.0);
     outputSpan[1] = glm::rotate(rotMatrix, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-    outputSpan[1] = lightProjection *   (glm::rotate(outputSpan[1], glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)) /** translation*/);
+    outputSpan[1] = lightProjection *   (glm::rotate(outputSpan[1], glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * translation);
       rotMatrix = glm::mat4(1.0);
-    outputSpan[2] = lightProjection *  (glm::rotate(rotMatrix, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f)) /** translation*/);
+    outputSpan[2] = lightProjection *  (glm::rotate(rotMatrix, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * translation);
       rotMatrix = glm::mat4(1.0);
-    outputSpan[3] = lightProjection *  (glm::rotate(rotMatrix, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f)) /** translation*/);
+    outputSpan[3] = lightProjection *  (glm::rotate(rotMatrix, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * translation);
       rotMatrix = glm::mat4(1.0);
-    outputSpan[4] = lightProjection *  (glm::rotate(rotMatrix, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)) /** translation*/);
+    outputSpan[4] = lightProjection *  (glm::rotate(rotMatrix, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * translation);
       rotMatrix = glm::mat4(1.0);
-    outputSpan[5] = lightProjection *  (glm::rotate(rotMatrix, glm::radians(180.0f), glm::vec3(0.0f, 0.0f, 1.0f)) /** translation*/);
+    outputSpan[5] = lightProjection *  (glm::rotate(rotMatrix, glm::radians(180.0f), glm::vec3(0.0f, 0.0f, 1.0f)) * translation);
        rotMatrix = glm::mat4(1.0);   
          break ;
         }
@@ -960,7 +972,7 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
             int shadowMapIndex = shadowCasterOffset + j;
             const VkRenderingAttachmentInfoKHR dynamicRenderingDepthAttatchment {
                 .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
-                .imageView = shadowImageViews[imageIndex][shadowMapIndex],
+                .imageView = shadowImage2DViews[imageIndex][shadowMapIndex],
                 .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR,
                 .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
                 .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
@@ -1569,8 +1581,10 @@ void HelloTriangleApplication::cleanup()
         VulkanMemory::DestroyImage(allocator, shadowImages[i], shadowMemory[i]);
         vkDestroySampler(device, shadowSamplers[i], nullptr);
         for(int j = 0; j < MAX_SHADOWMAPS; j++)
-        vkDestroyImageView(device, shadowImageViews[i][j], nullptr);
-        
+        {
+            vkDestroyImageView(device, shadowImage2DViews[i][j], nullptr);
+            vkDestroyImageView(device, shadowImageCubeViews[i][j], nullptr);
+        }
     }
 
      // vkb::destroy_surface(vkb_surface);
@@ -1640,9 +1654,7 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
     int cube = app->scene->AddBackingMesh(MeshData(app->getHandles(), "Meshes/cube.glb"));
 
     //direciton light
-    // app->scene->AddDirLight(glm::vec3(0,0,1), glm::vec3(0,1,0), 3);
-    // app->scene->AddDirLight(glm::vec3(0.00, 1, 0),  glm::vec3(0, 0, 1), 3);
-
+       
     //spot light
     //TODO JS: paramaterize better -- hard to set power and radius currently
     // app->scene->AddSpotLight(glm::vec3(2.5, 3, 3.3), glm::vec3(0, 0, -1), glm::vec3(1, 0, 1), 45, 14000);
@@ -1650,11 +1662,15 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
 
     //point lights    
     // app->scene->AddPointLight(glm::vec3(1, 1, 0), glm::vec3(1, 1, 1), 5 / 2);
-    app->scene->AddPointLight(glm::vec3(0, 0, 0), glm::vec3(1, 1, 1), 99 / 2);
-    // app->scene->AddPointLight(glm::vec3(2, 2, -5), glm::vec3(1, 1, 1), 4422 / 2);
+    app->scene->AddDirLight(glm::vec3(0,0,1), glm::vec3(0,1,0), 3);
+    app->scene->AddDirLight(glm::vec3(0.00, 1, 0),  glm::vec3(0, 0, 1), 33);
+    app->scene->AddPointLight(glm::vec3(-2, 2, 0), glm::vec3(1, 0, 0), 4422 / 2);
+    app->scene->AddDirLight(glm::vec3(0,0,1), glm::vec3(0,1,0), 3);
+    app->scene->AddPointLight(glm::vec3(0, 0, 0), glm::vec3(1, 1, 0), 999 / 2);
+
     // app->scene->AddPointLight(glm::vec3(0, 8, -10), glm::vec3(0.2, 0, 1), 44 / 2);
 
- 
+  
 
 
     glm::vec3 EulerAngles(0, 0, 0);
@@ -1697,20 +1713,20 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
          glm::vec4(5, 9.35, 5, 1),
          glm::quat(),
          glm::vec3(0.055,30,10)); // basically a plane
-     app->scene->AddObject( &app->scene->backing_meshes[cube],
-         0,
-         0,
-         false,
-         glm::vec4(-5, 9.35, 5, 1),
-         glm::quat(),
-         glm::vec3(20,30,0.05)); // basically a plane
-    app->scene->AddObject( &app->scene->backing_meshes[cube],
-      0,
-      0,
-      false,
-      glm::vec4(-5, 9.35, -5, 1),
-      glm::quat(),
-      glm::vec3(20,30,0.05)); // basically a plane
+     // app->scene->AddObject( &app->scene->backing_meshes[cube],
+     //     0,
+     //     0,
+     //     false,
+     //     glm::vec4(-5, 9.35, 5, 1),
+     //     glm::quat(),
+     //     glm::vec3(20,30,0.05)); // basically a plane
+    // app->scene->AddObject( &app->scene->backing_meshes[cube],
+    //   0,
+    //   0,
+    //   false,
+    //   glm::vec4(-5, 9.35, -5, 1),
+    //   glm::quat(),
+    //   glm::vec3(20,30,0.05)); // basically a plane
     
 
    

@@ -179,7 +179,7 @@ FSOutput Frag(VSOutput input)
 
     output.Color = output.Color / (output.Color + 1.0);
 
-    output.Color = getLighting(model, diff, input.Normal, input.worldPos, F0, roughness, metallic) / 10;
+    // output.Color = getLighting(model, diff, input.Normal, input.worldPos, F0, roughness, metallic) / 10;
     //TODO: pcf
     //TODO: cascade
     //

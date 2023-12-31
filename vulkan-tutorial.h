@@ -94,7 +94,8 @@ private:
     std::vector<VkImageView> swapChainImageViews;
     std::vector<VkImage> swapChainImages;
 
-    std::span<std::span<VkImageView>> shadowImageViews;
+    std::span<std::span<VkImageView>> shadowImage2DViews;
+    std::span<std::span<VkImageView>> shadowImageCubeViews;
     std::vector<VkSampler> shadowSamplers;
     std::vector<VkImage> shadowImages;
     std::vector<VmaAllocation> shadowMemory;

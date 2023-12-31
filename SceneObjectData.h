@@ -83,6 +83,7 @@ public:
     int AddSpotLight(glm::vec3 position, glm::vec3 dir, glm::vec3 color, float radius, float intensity);
     int AddPointLight(glm::vec3 position, glm::vec3 color,  float intensity);
     int getShadowDataIndex(int i);
+    int shadowCasterCount();
 
     void Cleanup();
 
