@@ -191,6 +191,52 @@ RendererHandles HelloTriangleApplication::getHandles()
 }
 
 
+//TODO JS: Eventually, these should change per frame
+//TODO JS: I think I would create the views up front, and then swap them in and out at bind time 
+void HelloTriangleApplication::updateShadowImageViews(int frame )
+{
+    int i = frame;
+       
+    shadowMapRenderingImageViews[i] =  MemoryArena::AllocSpan<VkImageView>(&rendererArena, MAX_SHADOWMAPS);
+    for (int j = 0; j < MAX_SHADOWMAPS; j++)
+    {
+        shadowMapRenderingImageViews[i][j] = TextureUtilities::createImageView(
+            device, shadowImages[i], shadowFormat,
+            VK_IMAGE_ASPECT_DEPTH_BIT,
+            (VkImageViewType)  VK_IMAGE_TYPE_2D,
+            1,
+            1, 
+            j);
+    }
+
+    shadowMapSamplingImageViews[i] =  MemoryArena::AllocSpan<VkImageView>(&rendererArena, MAX_SHADOWCASTERS);
+    for (int j = 0; j < MAX_SHADOWCASTERS; j++)
+    {
+        if (j < scene->shadowCasterCount())
+        {
+            VkImageViewType type = VK_IMAGE_VIEW_TYPE_2D;
+            int ct = 1;
+            if (scene->lightTypes[j] == LIGHT_POINT)
+            {
+                type = VK_IMAGE_VIEW_TYPE_CUBE;
+                ct = 6;
+            }
+            shadowMapSamplingImageViews[i][j] = TextureUtilities::createImageView(
+                device, shadowImages[i], shadowFormat,
+                VK_IMAGE_ASPECT_DEPTH_BIT,
+                (VkImageViewType)  type,
+                1,
+                   /*first view gets used by opaque pass to sample into shadowmap array*/
+                ct, // j == 0 ? 6 : 1,
+                scene->getShadowDataIndex(j));
+        }
+        else
+        {
+            shadowMapSamplingImageViews[i][j] = shadowMapRenderingImageViews[i][j];
+        }
+    }
+}
+
 
 void HelloTriangleApplication::initVulkan()
 {
@@ -278,6 +324,7 @@ void HelloTriangleApplication::initVulkan()
     scene = std::make_unique<Scene>(Scene(&rendererArena));
     SET_UP_SCENE(this);
 
+   
     //shadows
     //TODO JS: Will radically simplify things if I enforce point lights being first in light list?
     for(int i = 0; i < MAX_FRAMES_IN_FLIGHT ; i++)
@@ -285,57 +332,11 @@ void HelloTriangleApplication::initVulkan()
         TextureUtilities::createImage(getHandles(),shadowmapsize, shadowmapsize,shadowFormat,VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
                VK_IMAGE_USAGE_SAMPLED_BIT,0,shadowImages[i],shadowMemory[i],1, MAX_SHADOWMAPS, true);
         TextureData::createTextureSampler(&shadowSamplers[i], getHandles(), VK_SAMPLER_ADDRESS_MODE_REPEAT, 0, 1, true);
-
         
-        shadowMapRenderingImageViews[i] =  MemoryArena::AllocSpan<VkImageView>(&rendererArena, MAX_SHADOWMAPS);
-        for (int j = 0; j < MAX_SHADOWMAPS; j++)
-        {
-            shadowMapRenderingImageViews[i][j] = TextureUtilities::createImageView(
-                device, shadowImages[i], shadowFormat,
-                VK_IMAGE_ASPECT_DEPTH_BIT,
-                (VkImageViewType)  VK_IMAGE_TYPE_2D,
-                1,
-                   /*first view gets used by opaque pass to sample into shadowmap array*/
-                1, // j == 0 ? 6 : 1,
-                j);
-        }
-
-        shadowMapSamplingImageViews[i] =  MemoryArena::AllocSpan<VkImageView>(&rendererArena, MAX_SHADOWMAPS);
-        for (int j = 0; j < MAX_SHADOWMAPS; j++)
-        {
-            if (j < scene->shadowCasterCount())
-            {
-                VkImageViewType type = VK_IMAGE_VIEW_TYPE_2D;
-                int ct = 1;
-                if (scene->lightTypes[j] == LIGHT_POINT)
-                {
-                    type = VK_IMAGE_VIEW_TYPE_CUBE;
-                    ct = 6;
-                }
-                shadowMapSamplingImageViews[i][j] = TextureUtilities::createImageView(
-                    device, shadowImages[i], shadowFormat,
-                    VK_IMAGE_ASPECT_DEPTH_BIT,
-                    (VkImageViewType)  type,
-                    1,
-                       /*first view gets used by opaque pass to sample into shadowmap array*/
-                    ct, // j == 0 ? 6 : 1,
-                    scene->getShadowDataIndex(j));
-            }
-            else
-            {
-                shadowMapSamplingImageViews[i][j] = shadowMapRenderingImageViews[i][j];
-            }
-        }
+        updateShadowImageViews(i);
     }
+       
 
-    for(int i = 0; i < MAX_FRAMES_IN_FLIGHT ; i++)
-    {
-        for (int j = 0; j < MAX_SHADOWMAPS; j++)
-        {
-            assert( shadowMapSamplingImageViews[i][j] != VK_NULL_HANDLE);
-            assert( shadowMapRenderingImageViews[i][j] != VK_NULL_HANDLE);
-        }
-    }
     
 
     //Initialize scene-ish objects we don't have a place for yet 
@@ -505,7 +506,7 @@ void HelloTriangleApplication::updateOpaqueDescriptorSets(RendererHandles handle
     for(int i = 0; i < MAX_SHADOWCASTERS; i++)
     {
         VkImageView view {};
-        if (i < scene->lightCount)
+        if (i < scene->shadowCasterCount())
         {
             bool point = scene->lightTypes[i] == LIGHT_POINT;
             int idx = scene->getShadowDataIndex(i);
@@ -513,13 +514,13 @@ void HelloTriangleApplication::updateOpaqueDescriptorSets(RendererHandles handle
         }
 
         //Fill out the remaining leftover shadow bindings with something -- using the other shadow view is arbitrary
+        //TODO JS: Should have a "default" view maybe? 
         else
         {
             view = shadowMapRenderingImageViews[currentFrame][0];
         }
-                assert( &view != VK_NULL_HANDLE);
-       
-    
+        
+        assert( &view != VK_NULL_HANDLE);
         VkDescriptorImageInfo shadowInfo = {
             //TODO JS: make sure the right stuff is in currentFrame[0]
             .imageView = view, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
@@ -1696,7 +1697,7 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
        
     //spot light
     //TODO JS: paramaterize better -- hard to set power and radius currently
-    // app->scene->AddSpotLight(glm::vec3(2.5, 3, 3.3), glm::vec3(0, 0, -1), glm::vec3(1, 0, 1), 45, 14000);
+    app->scene->AddSpotLight(glm::vec3(2.5, 3, 3.3), glm::vec3(0, 0, -1), glm::vec3(1, 0, 1), 45, 14000);
 
 
     //point lights    

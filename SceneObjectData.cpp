@@ -149,6 +149,92 @@ int Scene::AddBackingMesh(MeshData M)
     return meshCount ++;
 }
 
+//very dumb/brute force for now
+void Scene::lightSort()
+{
+    int dir_array[LIGHT_MAX];
+    int point_array[LIGHT_MAX];
+    int spot_array[LIGHT_MAX];
+    Array<int> dirlightIndices = std::span<int>(dir_array);
+    Array<int> pointlightIndices = std::span<int>(point_array); 
+    Array<int> spotlightIndices = std::span<int>(spot_array); 
+
+    for(int i = 0; i < lightCount; i++)
+    {
+        switch((lightType)lightTypes[i])
+        {
+        case LIGHT_DIR:
+            dirlightIndices.push_back(i);  
+            break;
+        case LIGHT_SPOT:
+            spotlightIndices.push_back(i); 
+            break;          
+        case LIGHT_POINT:
+            pointlightIndices.push_back(i);
+            break;
+      
+    
+        }
+    }
+    std::span<glm::vec4> tempPos;
+    std::span<glm::vec4> tempCol;
+    std::span<glm::vec4> tempDir;
+    std::span<glm::float32> tempType;
+
+    //if there's room, use the back half of the existing arrays
+    if (lightCount < LIGHT_MAX / 2)
+    {
+    tempPos = std::span<glm::vec4>(&lightposandradius[0], LIGHT_MAX).subspan(LIGHT_MAX / 2, LIGHT_MAX / 2);
+    tempCol =  std::span<glm::vec4>(&lightcolorAndIntensity[0], LIGHT_MAX).subspan(LIGHT_MAX / 2, LIGHT_MAX / 2);   
+    tempDir =  std::span<glm::vec4>(&lightDir[0], LIGHT_MAX).subspan(LIGHT_MAX / 2, LIGHT_MAX / 2);   
+    tempType = std::span<glm::float32>(&lightTypes[0], LIGHT_MAX).subspan(LIGHT_MAX / 2, LIGHT_MAX / 2);    
+    }
+    else
+    {
+        //not implemented
+        assert(lightCount < LIGHT_MAX / 2);
+        // tempPos = MemoryArena::AllocSpan<glm::vec4>(allocator, lightCount);
+        // tempCol = MemoryArena::AllocSpan<glm::vec4>(allocator, lightCount);
+        // tempDir = MemoryArena::AllocSpan<glm::vec4>(allocator, lightCount);
+        // tempType = MemoryArena::AllocSpan<glm::float32>(allocator, lightCount);
+    }
+
+    for(int i =0; i < lightCount; i++)
+    {
+        tempPos[i] = lightposandradius[i];
+        tempCol[i] = lightcolorAndIntensity[i];
+        tempDir[i] = lightDir[i];
+        tempType[i] = lightTypes[i];
+    }
+
+    int i = 0;
+    int j;
+    for(j = 0; j < dirlightIndices.ct; j++)
+    {
+        lightposandradius[i + j ] = tempPos[dirlightIndices[j]];
+        lightcolorAndIntensity[i + j ] = tempCol[dirlightIndices[j]];
+        lightDir[i + j ] = tempDir[dirlightIndices[j]];
+        lightTypes[i + j ] = tempType[dirlightIndices[j]];
+    }
+    i += j;
+    for(j = 0; j < spotlightIndices.ct; j++)
+    {
+        lightposandradius[i + j ] = tempPos[spotlightIndices[j]];
+        lightcolorAndIntensity[i + j ] = tempCol[spotlightIndices[j]];
+        lightDir[i + j ] = tempDir[spotlightIndices[j]];
+        lightTypes[i + j ] = tempType[spotlightIndices[j]];
+    }
+    i += j;
+    for(j = 0; j < pointlightIndices.ct; j++)
+    {
+        lightposandradius[i + j ] = tempPos[pointlightIndices[j]];
+        lightcolorAndIntensity[i + j ] = tempCol[pointlightIndices[j]];
+        lightDir[i + j ] = tempDir[pointlightIndices[j]];
+        lightTypes[i + j ] = tempType[pointlightIndices[j]];
+    }
+
+}
+
 int Scene::AddLight(glm::vec3 position, glm::vec3 dir, glm::vec3 color, float radius, float intensity, lightType type)
 {
     lightposandradius.push_back(glm::vec4(position.x, position.y, position.z, radius));
@@ -156,6 +242,8 @@ int Scene::AddLight(glm::vec3 position, glm::vec3 dir, glm::vec3 color, float ra
     lightDir.push_back(glm::vec4(dir, -1.0));
     lightTypes.push_back(type);
     lightCount ++;
+
+    lightSort();
     return -1; //NOT IMPLEMENTED
 }
 int Scene::AddDirLight(glm::vec3 position, glm::vec3 color,float intensity)

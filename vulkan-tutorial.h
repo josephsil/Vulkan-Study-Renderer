@@ -39,6 +39,7 @@ class HelloTriangleApplication
 public:
     std::unique_ptr<Scene> scene;
     RendererHandles getHandles();
+    void updateShadowImageViews(int frame);
     HelloTriangleApplication();
     
 
