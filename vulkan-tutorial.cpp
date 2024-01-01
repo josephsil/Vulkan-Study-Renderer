@@ -257,8 +257,8 @@ void HelloTriangleApplication::initVulkan()
     shadowImages.resize(MAX_FRAMES_IN_FLIGHT);
     shadowSamplers.resize(MAX_FRAMES_IN_FLIGHT);
     shadowMemory.resize(MAX_FRAMES_IN_FLIGHT);
-    shadowImage2DViews = MemoryArena::AllocSpan<std::span<VkImageView>>(&rendererArena, MAX_FRAMES_IN_FLIGHT); 
-    shadowImageCubeViews = MemoryArena::AllocSpan<std::span<VkImageView>>(&rendererArena, MAX_FRAMES_IN_FLIGHT); 
+    shadowMapRenderingImageViews = MemoryArena::AllocSpan<std::span<VkImageView>>(&rendererArena, MAX_FRAMES_IN_FLIGHT); 
+    shadowMapSamplingImageViews = MemoryArena::AllocSpan<std::span<VkImageView>>(&rendererArena, MAX_FRAMES_IN_FLIGHT); 
 
     createDepthResources();
 
@@ -283,14 +283,14 @@ void HelloTriangleApplication::initVulkan()
     for(int i = 0; i < MAX_FRAMES_IN_FLIGHT ; i++)
     {
         TextureUtilities::createImage(getHandles(),shadowmapsize, shadowmapsize,shadowFormat,VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
-               VK_IMAGE_USAGE_SAMPLED_BIT,0,shadowImages[i],shadowMemory[i],1, MAX_SHADOWMAPS);
+               VK_IMAGE_USAGE_SAMPLED_BIT,0,shadowImages[i],shadowMemory[i],1, MAX_SHADOWMAPS, true);
         TextureData::createTextureSampler(&shadowSamplers[i], getHandles(), VK_SAMPLER_ADDRESS_MODE_REPEAT, 0, 1, true);
 
         
-        shadowImage2DViews[i] =  MemoryArena::AllocSpan<VkImageView>(&rendererArena, MAX_SHADOWMAPS);
+        shadowMapRenderingImageViews[i] =  MemoryArena::AllocSpan<VkImageView>(&rendererArena, MAX_SHADOWMAPS);
         for (int j = 0; j < MAX_SHADOWMAPS; j++)
         {
-            shadowImage2DViews[i][j] = TextureUtilities::createImageView(
+            shadowMapRenderingImageViews[i][j] = TextureUtilities::createImageView(
                 device, shadowImages[i], shadowFormat,
                 VK_IMAGE_ASPECT_DEPTH_BIT,
                 (VkImageViewType)  VK_IMAGE_TYPE_2D,
@@ -300,18 +300,19 @@ void HelloTriangleApplication::initVulkan()
                 j);
         }
 
-        shadowImageCubeViews[i] =  MemoryArena::AllocSpan<VkImageView>(&rendererArena, MAX_SHADOWMAPS);
+        shadowMapSamplingImageViews[i] =  MemoryArena::AllocSpan<VkImageView>(&rendererArena, MAX_SHADOWMAPS);
         for (int j = 0; j < MAX_SHADOWMAPS; j++)
         {
             if (j < scene->shadowCasterCount())
-            {VkImageViewType type = VK_IMAGE_VIEW_TYPE_CUBE;
-                int ct = 6;
+            {
+                VkImageViewType type = VK_IMAGE_VIEW_TYPE_2D;
+                int ct = 1;
                 if (scene->lightTypes[j] == LIGHT_POINT)
                 {
                     type = VK_IMAGE_VIEW_TYPE_CUBE;
                     ct = 6;
                 }
-                shadowImageCubeViews[i][j] = TextureUtilities::createImageView(
+                shadowMapSamplingImageViews[i][j] = TextureUtilities::createImageView(
                     device, shadowImages[i], shadowFormat,
                     VK_IMAGE_ASPECT_DEPTH_BIT,
                     (VkImageViewType)  type,
@@ -322,7 +323,7 @@ void HelloTriangleApplication::initVulkan()
             }
             else
             {
-                shadowImageCubeViews[i][j] = shadowImage2DViews[i][j];
+                shadowMapSamplingImageViews[i][j] = shadowMapRenderingImageViews[i][j];
             }
         }
     }
@@ -331,8 +332,8 @@ void HelloTriangleApplication::initVulkan()
     {
         for (int j = 0; j < MAX_SHADOWMAPS; j++)
         {
-            assert( shadowImageCubeViews[i][j] != VK_NULL_HANDLE);
-            assert( shadowImage2DViews[i][j] != VK_NULL_HANDLE);
+            assert( shadowMapSamplingImageViews[i][j] != VK_NULL_HANDLE);
+            assert( shadowMapRenderingImageViews[i][j] != VK_NULL_HANDLE);
         }
     }
     
@@ -508,13 +509,13 @@ void HelloTriangleApplication::updateOpaqueDescriptorSets(RendererHandles handle
         {
             bool point = scene->lightTypes[i] == LIGHT_POINT;
             int idx = scene->getShadowDataIndex(i);
-            view = point ? shadowImageCubeViews[currentFrame][ i] :  shadowImage2DViews[currentFrame][idx];
+            view =  shadowMapSamplingImageViews[currentFrame][ i] ;
         }
 
-        //Fill out the remaining leftover shadow bindings
+        //Fill out the remaining leftover shadow bindings with something -- using the other shadow view is arbitrary
         else
         {
-            view = shadowImage2DViews[currentFrame][i];
+            view = shadowMapRenderingImageViews[currentFrame][0];
         }
                 assert( &view != VK_NULL_HANDLE);
        
@@ -1009,7 +1010,7 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
             int shadowMapIndex = shadowCasterOffset + j;
             const VkRenderingAttachmentInfoKHR dynamicRenderingDepthAttatchment {
                 .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
-                .imageView = shadowImage2DViews[imageIndex][shadowMapIndex],
+                .imageView = shadowMapRenderingImageViews[imageIndex][shadowMapIndex],
                 .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR,
                 .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
                 .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
@@ -1620,8 +1621,8 @@ void HelloTriangleApplication::cleanup()
         vkDestroySampler(device, shadowSamplers[i], nullptr);
         for(int j = 0; j < MAX_SHADOWMAPS; j++)
         {
-            vkDestroyImageView(device, shadowImage2DViews[i][j], nullptr);
-            vkDestroyImageView(device, shadowImageCubeViews[i][j], nullptr);
+            vkDestroyImageView(device, shadowMapRenderingImageViews[i][j], nullptr);
+            vkDestroyImageView(device, shadowMapSamplingImageViews[i][j], nullptr);
         }
     }
 

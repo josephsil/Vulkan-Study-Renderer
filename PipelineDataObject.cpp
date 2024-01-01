@@ -198,9 +198,11 @@ void PipelineDataObject::createPipelineLayoutForPipeline(perPipelineData* perPip
         return;
     }
     
-    std::vector<VkDescriptorSetLayout> layouts = {
-        perPipelineData->uniformDescriptorLayout,perPipelineData->storageDescriptorLayout,perPipelineData->imageDescriptorLayout,perPipelineData->samplerDescriptorLayout
-    };
+    std::vector<VkDescriptorSetLayout> layouts ={};
+    if (perPipelineData->uniformDescriptorLayout) layouts.push_back(perPipelineData->uniformDescriptorLayout);
+    if (perPipelineData->storageDescriptorLayout) layouts.push_back(perPipelineData->storageDescriptorLayout);
+    if (perPipelineData->imageDescriptorLayout) layouts.push_back(perPipelineData->imageDescriptorLayout);
+    if (perPipelineData->samplerDescriptorLayout) layouts.push_back(perPipelineData->samplerDescriptorLayout);
     
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;

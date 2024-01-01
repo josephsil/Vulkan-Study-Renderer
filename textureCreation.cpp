@@ -36,7 +36,7 @@ VkImageView TextureUtilities::createImageView(VkDevice device, VkImage image, Vk
 void TextureUtilities::createImage(RendererHandles rendererHandles, uint32_t width, uint32_t height, VkFormat format,
                                    VkImageTiling tiling,
                                    VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image,
-                                   VmaAllocation& allocation, uint32_t miplevels, uint32_t araryLayers)
+                                   VmaAllocation& allocation, uint32_t miplevels, uint32_t araryLayers, bool cubeCompatible)
 {
 
     //TODO JS: Properties flags to vma 
@@ -55,10 +55,12 @@ void TextureUtilities::createImage(RendererHandles rendererHandles, uint32_t wid
     imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
     imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    //TODO JS: pass in argument for this!!
-    if (araryLayers > 5 && width == height)
+    if (cubeCompatible)
     {
-        imageInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT ; 
+        if (araryLayers > 5 && width == height)
+        {
+            imageInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT ; 
+        }
     }
     BufferUtilities::CreateImage(rendererHandles.allocator, &imageInfo, &image, &allocation, nullptr);
 }
