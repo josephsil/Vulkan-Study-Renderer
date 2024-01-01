@@ -61,9 +61,11 @@ vkb::PhysicalDevice GET_GPU(vkb::Instance instance)
     VkPhysicalDeviceVulkan13Features features13{};
     features12.descriptorIndexing = VK_TRUE;
     features12.runtimeDescriptorArray = VK_TRUE;
+    features12.descriptorBindingPartiallyBound = VK_TRUE;
     features13.dynamicRendering = VK_TRUE;
     features.wideLines = VK_TRUE;
 
+   
     vkb::PhysicalDeviceSelector phys_device_selector(instance);
     auto physicalDeviceBuilderResult = phys_device_selector
                                        .set_minimum_version(1, 3)
@@ -86,7 +88,6 @@ vkb::PhysicalDevice GET_GPU(vkb::Instance instance)
     
     HAS_HOST_IMAGE_COPY = physicalDeviceBuilderResult.value().enable_extension_if_present(VK_EXT_HOST_IMAGE_COPY_EXTENSION_NAME);
 
-
     auto a =physicalDeviceBuilderResult.value().get_extensions();
     for(auto& v : a)
     {
@@ -99,7 +100,7 @@ vkb::Device GET_DEVICE(vkb::PhysicalDevice gpu)
 {
     vkb::DeviceBuilder device_builder{gpu};
 
-    auto devicebuilderResult = device_builder.build();
+      auto devicebuilderResult =  device_builder.build();
 
     if (!devicebuilderResult)
     {
@@ -278,6 +279,7 @@ void HelloTriangleApplication::initVulkan()
     SET_UP_SCENE(this);
 
     //shadows
+    //TODO JS: Will radically simplify things if I enforce point lights being first in light list?
     for(int i = 0; i < MAX_FRAMES_IN_FLIGHT ; i++)
     {
         TextureUtilities::createImage(getHandles(),shadowmapsize, shadowmapsize,shadowFormat,VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
@@ -298,17 +300,39 @@ void HelloTriangleApplication::initVulkan()
                 j);
         }
 
-        shadowImageCubeViews[i] =  MemoryArena::AllocSpan<VkImageView>(&rendererArena, MAX_SHADOWCASTERS);
-        for (int j = 0; j < scene->shadowCasterCount(); j++)
+        shadowImageCubeViews[i] =  MemoryArena::AllocSpan<VkImageView>(&rendererArena, MAX_SHADOWMAPS);
+        for (int j = 0; j < MAX_SHADOWMAPS; j++)
         {
-            shadowImageCubeViews[i][j] = TextureUtilities::createImageView(
-                device, shadowImages[i], shadowFormat,
-                VK_IMAGE_ASPECT_DEPTH_BIT,
-                (VkImageViewType)  VK_IMAGE_VIEW_TYPE_CUBE,
-                1,
-                   /*first view gets used by opaque pass to sample into shadowmap array*/
-                6, // j == 0 ? 6 : 1,
-                scene->getShadowDataIndex(j));
+            if (j < scene->shadowCasterCount())
+            {VkImageViewType type = VK_IMAGE_VIEW_TYPE_CUBE;
+                int ct = 6;
+                if (scene->lightTypes[j] == LIGHT_POINT)
+                {
+                    type = VK_IMAGE_VIEW_TYPE_CUBE;
+                    ct = 6;
+                }
+                shadowImageCubeViews[i][j] = TextureUtilities::createImageView(
+                    device, shadowImages[i], shadowFormat,
+                    VK_IMAGE_ASPECT_DEPTH_BIT,
+                    (VkImageViewType)  type,
+                    1,
+                       /*first view gets used by opaque pass to sample into shadowmap array*/
+                    ct, // j == 0 ? 6 : 1,
+                    scene->getShadowDataIndex(j));
+            }
+            else
+            {
+                shadowImageCubeViews[i][j] = shadowImage2DViews[i][j];
+            }
+        }
+    }
+
+    for(int i = 0; i < MAX_FRAMES_IN_FLIGHT ; i++)
+    {
+        for (int j = 0; j < MAX_SHADOWMAPS; j++)
+        {
+            assert( shadowImageCubeViews[i][j] != VK_NULL_HANDLE);
+            assert( shadowImage2DViews[i][j] != VK_NULL_HANDLE);
         }
     }
     
@@ -476,12 +500,25 @@ void HelloTriangleApplication::updateOpaqueDescriptorSets(RendererHandles handle
 
     int pointCount = 0;
 
-    VkDescriptorImageInfo shadows[MAX_SHADOWMAPS] = {};
-    for(int i = 0; i < scene->lightCount; i++)
+    VkDescriptorImageInfo shadows[MAX_SHADOWCASTERS] = {};
+    for(int i = 0; i < MAX_SHADOWCASTERS; i++)
     {
-        bool point = scene->lightTypes[i] == LIGHT_POINT;
-        int idx = scene->getShadowDataIndex(i);
-        VkImageView view = point ? shadowImageCubeViews[currentFrame][ i] :  shadowImage2DViews[currentFrame][idx];
+        VkImageView view {};
+        if (i < scene->lightCount)
+        {
+            bool point = scene->lightTypes[i] == LIGHT_POINT;
+            int idx = scene->getShadowDataIndex(i);
+            view = point ? shadowImageCubeViews[currentFrame][ i] :  shadowImage2DViews[currentFrame][idx];
+        }
+
+        //Fill out the remaining leftover shadow bindings
+        else
+        {
+            view = shadowImage2DViews[currentFrame][i];
+        }
+                assert( &view != VK_NULL_HANDLE);
+       
+    
         VkDescriptorImageInfo shadowInfo = {
             //TODO JS: make sure the right stuff is in currentFrame[0]
             .imageView = view, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
@@ -493,7 +530,7 @@ void HelloTriangleApplication::updateOpaqueDescriptorSets(RendererHandles handle
         .sampler  = shadowSamplers[currentFrame], .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
     };
 
-
+   
     
     VkDescriptorBufferInfo meshBufferinfo = FramesInFlightData[currentFrame].meshBuffers.getBufferInfo();
     VkDescriptorBufferInfo lightbufferinfo = FramesInFlightData[currentFrame].lightBuffers.getBufferInfo();
@@ -509,7 +546,7 @@ void HelloTriangleApplication::updateOpaqueDescriptorSets(RendererHandles handle
 
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, imageInfos.data(),  (uint32_t)imageInfos.size()});
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, cubeImageInfos.data(), (uint32_t)cubeImageInfos.size()});
-    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, &shadows,  (uint32_t)MAX_SHADOWMAPS}); //shadows
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, &shadows,  (uint32_t)MAX_SHADOWCASTERS}); //shadows
 
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, samplerInfos.data(), (uint32_t)samplerInfos.size()});
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, cubeSamplerInfos.data(), (uint32_t)cubeSamplerInfos.size()});
@@ -1037,10 +1074,11 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
 
                 vkCmdDraw(commandBuffer, static_cast<uint32_t>(scene->objects.meshes[i]->vertcount), 1, 0, 0);
             }
+            vkCmdEndRendering(commandBuffer);
         }
 
 
-        vkCmdEndRendering(commandBuffer);
+        
     }   
 
      VK_CHECK(vkEndCommandBuffer(commandBuffer));
@@ -1668,7 +1706,7 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
     app->scene->AddDirLight(glm::vec3(0,0,1), glm::vec3(0,1,0), 3);
     app->scene->AddPointLight(glm::vec3(0, 0, 0), glm::vec3(1, 1, 0), 999 / 2);
 
-    // app->scene->AddPointLight(glm::vec3(0, 8, -10), glm::vec3(0.2, 0, 1), 44 / 2);
+    app->scene->AddPointLight(glm::vec3(0, 8, -10), glm::vec3(0.2, 0, 1), 44 / 2);
 
   
 

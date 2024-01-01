@@ -4,7 +4,7 @@
 struct CommandPoolManager;
 
 
-const static int MAX_SHADOWCASTERS = 5;
+const static int MAX_SHADOWCASTERS = 8;
 #define MAX_SHADOWMAPS (MAX_SHADOWCASTERS * 6)
 namespace  MemoryArena
 {

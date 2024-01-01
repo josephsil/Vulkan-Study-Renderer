@@ -42,7 +42,7 @@ void TextureUtilities::createImage(RendererHandles rendererHandles, uint32_t wid
     //TODO JS: Properties flags to vma 
     VkImageCreateInfo imageInfo{};
     imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    imageInfo.imageType = VK_IMAGE_TYPE_2D;
+    imageInfo.imageType = VK_IMAGE_TYPE_2D ;
     imageInfo.extent.width = width;
     imageInfo.extent.height = height;
     imageInfo.extent.depth = 1;
@@ -54,8 +54,12 @@ void TextureUtilities::createImage(RendererHandles rendererHandles, uint32_t wid
     imageInfo.usage = usage;
     imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
     imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    imageInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT; //TODO JS: optional?
 
+    //TODO JS: pass in argument for this!!
+    if (araryLayers > 5 && width == height)
+    {
+        imageInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT ; 
+    }
     BufferUtilities::CreateImage(rendererHandles.allocator, &imageInfo, &image, &allocation, nullptr);
 }
 

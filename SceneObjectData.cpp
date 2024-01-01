@@ -203,6 +203,7 @@ void Scene::Cleanup()
 std::pair<VkDescriptorImageInfo, VkDescriptorImageInfo> ImageInfoFromImageData(
     TextureData texture)
 {
+    assert( &texture.textureImageView != VK_NULL_HANDLE);
     return std::make_pair(
         VkDescriptorImageInfo{
             .imageView = texture.textureImageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL

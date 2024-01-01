@@ -24,6 +24,21 @@ void PipelineDataObject::createOpaqueLayout(RendererHandles handles, Scene* psce
     VkDescriptorSetLayoutCreateInfo samplerDescriptorLayout = builder.getCreateInfo(VK_DESCRIPTOR_TYPE_SAMPLER);
     VkDescriptorSetLayoutCreateInfo storageDescriptorLayout = builder.getCreateInfo(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 
+
+    VkDescriptorBindingFlags binding_flags = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT_EXT; 
+    VkDescriptorSetLayoutBindingFlagsCreateInfoEXT extended_info = {VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO_EXT};
+    extended_info.bindingCount = 3; 
+    // In this example, the first binding is a UBO and the second is a combined image sampler array, so it only needs to be set on the second binding in my case. 
+    VkDescriptorBindingFlagsEXT descriptor_binding_flags[3] = {
+        binding_flags,
+        binding_flags,
+        binding_flags
+       }; 
+    extended_info.pBindingFlags = descriptor_binding_flags;
+    imageDescriptorLayout.pNext = &extended_info;
+    samplerDescriptorLayout.pNext = &extended_info;
+
+    
     VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &uniformDescriptorLayout, nullptr, &this->opaquePipelineData.uniformDescriptorLayout));
     VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &imageDescriptorLayout, nullptr, &this->opaquePipelineData.imageDescriptorLayout));
     VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &samplerDescriptorLayout, nullptr, &this->opaquePipelineData.samplerDescriptorLayout));

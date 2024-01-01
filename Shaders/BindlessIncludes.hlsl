@@ -111,8 +111,6 @@ SamplerState cubeSamplers[];
 [[vk::push_constant]]
 pconstant pc;
 
-
-
 #define  DIFFUSE_INDEX  (TEXTURESAMPLERINDEX * 3) + 0
 #define  SPECULAR_INDEX  (TEXTURESAMPLERINDEX * 3) + 1
 #define  NORMAL_INDEX  (TEXTURESAMPLERINDEX * 3) + 2
@@ -221,7 +219,6 @@ float3 getShadow(int index, float3 fragPos)
         float3 dir = normalize(fragToLight);
         dir = dir.xyz;
         dir *= float3(1,1,1);
-//
 
         float distLightSpace = VectorToDepthValue( light.position_range.xyz - fragPos);
         float dist =  distance(light.position_range.xyz, fragPos) ;
