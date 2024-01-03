@@ -43,7 +43,14 @@ public:
     HelloTriangleApplication();
     
 
-   
+    struct CameraInfo
+    {
+        VkExtent2D extent;
+        glm::vec3 pos;
+        glm::vec2 rot; 
+        float nearPlane;
+        float farPlane;
+    };
 
 private:
 
@@ -69,6 +76,8 @@ private:
 
     glm::vec3 eyePos = glm::vec3(-4.0f, 0.4f, 1.0f);
     glm::vec2 eyeRotation = glm::vec2(55.0f, -22.0f); //yaw, pitch
+    float nearPlane = 0.01f;
+    float farPlane = 90.0f;
     
     VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
     VkDevice device; //Logical device
@@ -88,6 +97,7 @@ private:
         std::vector<VkSurfaceFormatKHR> formats;
         std::vector<VkPresentModeKHR> presentModes;
     };
+   
 
     VkSwapchainKHR swapChain;
     VkFormat swapChainColorFormat;

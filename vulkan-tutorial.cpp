@@ -789,82 +789,129 @@ std::span<glm::vec4> populateFrustumCornersForSpace(std::span<glm::vec4> output_
 
 }
 
-std::span<glm::mat4> calculateLightMatrix(MemoryArena::memoryArena* allocator, glm::mat4 invCam, glm::vec3 lightPos, glm::vec3 spotDir, float spotRadius, lightType type)
+std::span<glm::mat4> calculateLightMatrix(MemoryArena::memoryArena* allocator, HelloTriangleApplication::CameraInfo cam, glm::mat4 view, glm::vec3 lightPos, glm::vec3 spotDir, float spotRadius, lightType type)
 {
-    auto outputSpan = MemoryArena::AllocSpan<glm::mat4>(allocator, type == LIGHT_POINT ? 6 : 1);
 
-    glm::vec4 frustumCornersWorldSpace[8] = {};
-
-    populateFrustumCornersForSpace(frustumCornersWorldSpace, invCam);
-
-    glm::vec4 frustumCenter = glm::vec4(0.0f);
-    for (uint32_t j = 0; j < 8; j++) {
-        frustumCenter += frustumCornersWorldSpace[j];
-    }
-    frustumCenter /= 8.0f;
-
-    debugDrawCross(frustumCenter, 20, {0,0,1});
-        
-    debugDrawFrustum(frustumCornersWorldSpace);
-
-    //TODO JS: direciton lights only currently
-    debugDrawCross(lightPos, 2, {1,1,0});
+ 
+  
+    
     glm::vec3 dir = type ==  LIGHT_SPOT ? spotDir : glm::normalize(lightPos);
-    glm::vec3 center = frustumCenter;
     glm::vec3 up = glm::vec3( 0.0f, 1.0f,  0.0f);
-
     //offset directions that are invalid for lookat
     if (abs(up) == abs(dir))
     {
         dir += glm::vec3(0.00001);
         dir = glm::normalize(dir);
     }
-    glm::mat4 lightView = glm::lookAt(center + dir ,center, up);
-
-    // glm::vec4 lightViewFrustum[8] = {};
-    // for (int j = 0; j < 8; j++)
-    // {
-        // lightViewFrustum[j] = lightView * frustumCornersWorldSpace[j];
-    // }
-
-
     glm::mat4 lightViewMatrix = {};
     glm::mat4 lightProjection = {};
+    
+    std::span<glm::mat4> outputSpan;
     switch (type)
     {
+      
     case LIGHT_DIR:
         {
-            float radius = 0.0f;
-            for (uint32_t i = 0; i < 8; i++) {
-                float distance = glm::length(glm::vec3(frustumCornersWorldSpace[i]) - center);
-                radius = glm::max<float>(radius, distance);
+            outputSpan = MemoryArena::AllocSpan<glm::mat4>(allocator, 4 ); //TODO JS: cascades
+            glm::mat4 projForLight =  glm::perspective(glm::radians(70.0f),
+                               cam.extent.width / static_cast<float>(cam.extent.height), cam.nearPlane,
+                               cam.farPlane); 
+            glm::mat4 invCam = glm::inverse(projForLight * view);
+
+            glm::vec4 frustumCornersWorldSpace[8] = {};
+            populateFrustumCornersForSpace(frustumCornersWorldSpace, invCam);
+
+         
+        
+            debugDrawFrustum(frustumCornersWorldSpace);
+
+            //TODO JS: direciton lights only currently
+            debugDrawCross(lightPos, 2, {1,1,0});
+
+         
+
+            float clipRange = cam.farPlane - cam.nearPlane;
+            float minZ =  cam.nearPlane;
+            float maxZ =  cam.nearPlane + clipRange;
+
+            float range = maxZ - minZ;
+            float ratio = maxZ / minZ;
+         
+            
+            //cascades
+            float cascadeSplits[4] = {};
+            for (uint32_t i = 0; i < 4; i++) {
+                float p = (i + 1) / static_cast<float>(4);
+                float log = minZ * std::pow(ratio, p);
+                float uniform = minZ + range * p;
+                float d = 0.95f * (log - uniform) + uniform;
+                cascadeSplits[i] = (d - cam.nearPlane) / clipRange;
             }
-            radius = std::ceil(radius * 16.0f) / 16.0f;
 
-            glm::vec3 maxExtents = glm::vec3(radius);
-            glm::vec3 minExtents = -maxExtents;
+            for (int i = 0; i < 4; i++)
+            {
+                float splitDist = cascadeSplits[i];
+                float lastSplitDist = i == 0 ? 0 : cascadeSplits[i-1]; 
+                
+                glm::vec3 frustumCornersCascadeSpace[8] = {};
+                for(int j = 0; j < 8; j++)
+                {
+                    frustumCornersCascadeSpace[j] = glm::vec3(frustumCornersWorldSpace[j]);
+                }
+                for(int j = 0; j < 4; j++)
+                {
+                    glm::vec3 dist = frustumCornersCascadeSpace[j + 4] - frustumCornersCascadeSpace[j];
+                    frustumCornersCascadeSpace[j + 4] = frustumCornersCascadeSpace[j] + (dist * splitDist);
+                    frustumCornersCascadeSpace[j] = frustumCornersCascadeSpace[j] + (dist * lastSplitDist);
+                }
 
-            lightViewMatrix = glm::lookAt(glm::vec3(frustumCenter) - -dir * -minExtents.z, center, up);
+                glm::vec3 frustumCenter = glm::vec3(0.0f);
+                for (uint32_t j = 0; j < 8; j++) {
+                    frustumCenter += frustumCornersCascadeSpace[j];
+                }
+                frustumCenter /= 8.0f;
 
-            glm::mat4 lightOrthoMatrix = glm::ortho(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, 0.1f, maxExtents.z - minExtents.z);
+                debugDrawCross(frustumCenter, 20, {0,0,1});
+               
 
-            lightProjection =  lightOrthoMatrix;
-            outputSpan[0] = lightProjection * lightViewMatrix;
-            break;
+   
+                float radius = 0.0f;
+                for (uint32_t i = 0; i < 8; i++) {
+                    float distance = glm::length(glm::vec3(frustumCornersCascadeSpace[i]) - frustumCenter);
+                    radius = glm::max<float>(radius, distance);
+                }
+                
+                radius = std::ceil(radius * 16.0f) / 16.0f;
+
+                glm::vec3 maxExtents = glm::vec3(radius);
+                glm::vec3 minExtents = -maxExtents;
+
+                lightViewMatrix = glm::lookAt(glm::vec3(frustumCenter)  + (dir * (maxExtents.z)), frustumCenter, up);
+
+                glm::mat4 lightOrthoMatrix = glm::ortho(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, 0.1f, maxExtents.z - minExtents.z);
+
+                lightProjection =  lightOrthoMatrix;
+                outputSpan[i] = lightProjection * lightViewMatrix;
+                OUTPUTPOSITION =  (cam.nearPlane + splitDist * clipRange) * -1.0f; //todo js
+            }
+            return  outputSpan;
         }
     case LIGHT_SPOT:
         {
-           lightViewMatrix = glm::lookAt(lightPos, lightPos + dir, up);
+            outputSpan = MemoryArena::AllocSpan<glm::mat4>(allocator, 1 ); 
+            lightViewMatrix = glm::lookAt(lightPos, lightPos + dir, up);
             
             lightProjection = glm::perspective(glm::radians(spotRadius),
                                       1.0f, 0.1f,
                                       50.0f); //TODO BETTER FAR 
-                                      outputSpan[0] = lightProjection * lightViewMatrix;
-                                      break;
+            outputSpan[0] = lightProjection * lightViewMatrix;
+                                  
+            return  outputSpan;
         }
     case LIGHT_POINT:
 
            {
+        outputSpan = MemoryArena::AllocSpan<glm::mat4>(allocator, 6 ); 
         lightProjection = glm::perspective(glm::radians((float)90),
                                   1.0f, 0.001f,
                                   10.0f);} //TODO BETTER FAR
@@ -886,11 +933,11 @@ std::span<glm::mat4> calculateLightMatrix(MemoryArena::memoryArena* allocator, g
       rotMatrix = glm::mat4(1.0);
     outputSpan[5] = lightProjection *  (glm::rotate(rotMatrix, glm::radians(180.0f), glm::vec3(0.0f, 0.0f, 1.0f)) * translation);
        rotMatrix = glm::mat4(1.0);   
-         break ;
+        return  outputSpan;
         }
 
 
-    return  outputSpan;
+   
 
     
 }
@@ -910,8 +957,8 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
     glm::mat4 view = cameraTform.rot * cameraTform.translation;
 
     glm::mat4 proj = glm::perspective(glm::radians(70.0f),
-                                      swapChainExtent.width / static_cast<float>(swapChainExtent.height), 0.1f,
-                                      50.0f);
+                                      swapChainExtent.width / static_cast<float>(swapChainExtent.height), nearPlane,
+                                      farPlane);
     proj[1][1] *= -1;
     globals.view = view;
     globals.proj = proj;
@@ -926,19 +973,18 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
   
 
     //Lights
+
+    //TODO JS: migrate this info all into this struct 
+    CameraInfo cameraInfo =  { swapChainExtent, eyePos, eyeRotation, nearPlane, farPlane};
     auto lights = MemoryArena::AllocSpan<gpulight>(tempArena, scene->lightCount);
-    glm::mat4 projForLight =  glm::perspective(glm::radians(70.0f),
-                                      swapChainExtent.width / static_cast<float>(swapChainExtent.height), 0.1f,
-                                      10.0f); //TODO JS: same as proj but with a closer zfar -- set per light
-    glm::mat4 invCam = glm::inverse(projForLight * view);
-    projForLight[1][1] *= -1;
+
 
     Array<glm::mat4> additionalMatrices = Array(MemoryArena::AllocSpan<glm::mat4>(&perFrameArenas[currentFrame],FramesInFlightData[currentFrame].lightMatrixBuffers.size / sizeof(glm::mat4)));
     int matrixCt = 0;
     for(int i =0; i <scene->lightCount; i++)
     {
         
-        std::span<glm::mat4> lightViewProjection =  calculateLightMatrix(&perFrameArenas[currentFrame], invCam, static_cast<glm::vec3>(scene->lightposandradius[i]), (glm::vec3)scene->lightDir[i], scene->lightposandradius[i].w, (lightType)scene->lightTypes[i]);
+        std::span<glm::mat4> lightViewProjection =  calculateLightMatrix(&perFrameArenas[currentFrame], cameraInfo, view, static_cast<glm::vec3>(scene->lightposandradius[i]), (glm::vec3)scene->lightDir[i], scene->lightposandradius[i].w, (lightType)scene->lightTypes[i]);
 
             lights[i] = {
                 scene->lightposandradius[i],
