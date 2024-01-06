@@ -77,7 +77,7 @@ private:
     glm::vec3 eyePos = glm::vec3(-4.0f, 0.4f, 1.0f);
     glm::vec2 eyeRotation = glm::vec2(55.0f, -22.0f); //yaw, pitch
     float nearPlane = 0.01f;
-    float farPlane = 90.0f;
+    float farPlane = 35.0f;
     
     VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
     VkDevice device; //Logical device
@@ -174,8 +174,8 @@ private:
         VmaAllocation lightBuffersMemory;
         
         //Additional light matrices.... Maybe should be additional matrices period? Used in shadow pass
-        dataBuffer lightMatrixBuffers;
-        VmaAllocation lightMatrixBuffersMemory;
+        dataBuffer shadowDataBuffers;
+        VmaAllocation shadowDataBuffersMemory;
 #pragma endregion
     };
     

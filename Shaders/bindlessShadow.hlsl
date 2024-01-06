@@ -39,14 +39,16 @@ VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
     VSOutput output = (VSOutput)0;
     MyLightStructure light = lights[LIGHTINDEX];
     float4x4 viewProjection;
-    if (getLightType(light) == LIGHT_POINT)
-    {
-        viewProjection = shadowMatrices[MATRIXOFFSET];
-    }
-    else
-    {
-        viewProjection = light.matrixViewProjeciton;
-    }
+
+    //TODO JS !!!! FIX
+    // if (getLightType(light) == LIGHT_POINT)
+    // {
+        // viewProjection = shadowMatrices[MATRIXOFFSET].mat;
+    // }
+    // else
+    // {
+        viewProjection = shadowMatrices[MATRIXOFFSET].mat;
+    // }
     float4x4 mvp2 = mul(viewProjection, ubo.Model);
     
     output.Pos = mul(mvp2, half4(myVertex.position.xyz, 1.0));

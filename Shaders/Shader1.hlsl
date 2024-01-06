@@ -177,6 +177,7 @@ FSOutput Frag(VSOutput input)
 
     //
 
+    
     output.Color = output.Color / (output.Color + 1.0);
 
     // output.Color = getLighting(model, diff, input.Normal, input.worldPos, F0, roughness, metallic) / 10;
@@ -184,5 +185,17 @@ FSOutput Frag(VSOutput input)
     //TODO: cascade
     //
     // output.Color = reflected;
+    //
+    // MyLightStructure light = lights[0];
+    // int lightIndex = getShadowMatrixIndex(light);
+    // int cascadeLevel = findCascadeLevel(lightIndex, input.worldPos);
+    // if (cascadeLevel == 0) output.Color *= float3(0, 0, 1);
+    // if (cascadeLevel == 1) output.Color *= float3(1, 0, 0);
+    // if (cascadeLevel == 2) output.Color *= float3(0, 1, 0);
+    // if (cascadeLevel == 3) output.Color = float3(0.5, 0.5, 0);
+
+    
     return output;
 }
+
+

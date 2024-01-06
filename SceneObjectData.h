@@ -47,6 +47,9 @@ public:
 
     // arallel arrays per Light
     int lightCount = 0;
+
+
+    Array<uint32_t> lightshadowMapCount;
     Array<glm::vec4> lightposandradius;
     Array<glm::vec4> lightcolorAndIntensity;
     Array<glm::vec4> lightDir;

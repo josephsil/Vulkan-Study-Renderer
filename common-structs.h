@@ -91,6 +91,12 @@ struct Transform
     glm::mat4 rot; 
 };
 
+struct PerShadowData
+{
+    glm::mat4 shadowMatrix;
+    float cascadeDepth;
+};
+
 
 struct debugLinePConstants
 {

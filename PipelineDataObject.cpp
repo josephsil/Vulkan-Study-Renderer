@@ -264,8 +264,8 @@ void PipelineDataObject::createGraphicsPipeline(std::vector<VkPipelineShaderStag
     rasterizer.cullMode = shadow ? VK_CULL_MODE_FRONT_BIT : VK_CULL_MODE_BACK_BIT;
     rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     rasterizer.depthBiasEnable = shadow ? VK_TRUE : VK_FALSE;
-    rasterizer.depthBiasConstantFactor = shadow ? 6 : 0;
-    rasterizer.depthBiasSlopeFactor = shadow ? 3 : 0;
+    // rasterizer.depthBiasConstantFactor = shadow ? 6 : 0;
+    // rasterizer.depthBiasSlopeFactor = shadow ? 3 : 0;
     // rasterizer.depth
 
     VkPipelineMultisampleStateCreateInfo multisampling{};
@@ -296,6 +296,10 @@ void PipelineDataObject::createGraphicsPipeline(std::vector<VkPipelineShaderStag
         VK_DYNAMIC_STATE_VIEWPORT,
         VK_DYNAMIC_STATE_SCISSOR
     };
+    if (shadow)
+    {
+        dynamicStates.push_back(VK_DYNAMIC_STATE_DEPTH_BIAS);
+    }
     VkPipelineDynamicStateCreateInfo dynamicState{};
     dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
     dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());

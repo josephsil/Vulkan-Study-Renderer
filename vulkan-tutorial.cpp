@@ -32,7 +32,7 @@ vkb::Instance GET_INSTANCE()
 {
     vkb::InstanceBuilder instance_builder;
     auto instanceBuilderResult = instance_builder
-                                  // .request_validation_layers()
+                                  .request_validation_layers()
                                  .use_default_debug_messenger()
                                  .require_api_version(1, 3, 240)
                                  .build();
@@ -143,9 +143,11 @@ struct gpulight
     alignas(16) glm::vec4 pos_xyz_range_a;
     alignas(16) glm::vec4 color_xyz_intensity_a;
     alignas(16) glm::vec4 pointOrSpot_x_dir_yza;
-    alignas(16) glm::mat4 matrixViewProjection;
+    // alignas(16) glm::mat4 matrixViewProjection;
     alignas(16) glm::vec4 matrixIndex_matrixCount_padding_padding; // currently only used by point
 };
+
+
 
 
 HelloTriangleApplication::HelloTriangleApplication()
@@ -214,20 +216,20 @@ void HelloTriangleApplication::updateShadowImageViews(int frame )
     {
         if (j < scene->shadowCasterCount())
         {
-            VkImageViewType type = VK_IMAGE_VIEW_TYPE_2D;
-            int ct = 1;
+            VkImageViewType type = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+            int ct = scene->lightshadowMapCount[j];
             if (scene->lightTypes[j] == LIGHT_POINT)
             {
                 type = VK_IMAGE_VIEW_TYPE_CUBE;
-                ct = 6;
             }
+           
             shadowMapSamplingImageViews[i][j] = TextureUtilities::createImageView(
                 device, shadowImages[i], shadowFormat,
                 VK_IMAGE_ASPECT_DEPTH_BIT,
                 (VkImageViewType)  type,
                 1,
-                   /*first view gets used by opaque pass to sample into shadowmap array*/
-                ct, // j == 0 ? 6 : 1,
+               
+                ct, 
                 scene->getShadowDataIndex(j));
         }
         else
@@ -236,6 +238,7 @@ void HelloTriangleApplication::updateShadowImageViews(int frame )
         }
     }
 }
+
 
 
 void HelloTriangleApplication::initVulkan()
@@ -413,7 +416,7 @@ void HelloTriangleApplication::createUniformBuffers()
     VkDeviceSize ubosSize = sizeof(UniformBufferObject) * scene->objectsCount();
     VkDeviceSize vertsSize = sizeof(gpuvertex) * scene->getVertexCount();
     VkDeviceSize lightdataSize = sizeof(gpulight) * scene->lightCount;
-    VkDeviceSize lightMatricesSize = sizeof(glm::mat4) * scene->lightCount * 10;
+    VkDeviceSize shadowDataSize = sizeof(PerShadowData) * scene->lightCount * 10; //times six is plenty right?
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
@@ -454,11 +457,11 @@ void HelloTriangleApplication::createUniformBuffers()
             &FramesInFlightData[i].lightBuffersMemory,
             FramesInFlightData[i].lightBuffers.data);
 
-        FramesInFlightData[i].lightMatrixBuffers.size = lightMatricesSize;
-        FramesInFlightData[i].lightMatrixBuffers.mapped = BufferUtilities::createDynamicBuffer(
-            getHandles(), lightMatricesSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-            &FramesInFlightData[i].lightMatrixBuffersMemory,
-            FramesInFlightData[i].lightMatrixBuffers.data);
+        FramesInFlightData[i].shadowDataBuffers.size = shadowDataSize;
+        FramesInFlightData[i].shadowDataBuffers.mapped = BufferUtilities::createDynamicBuffer(
+            getHandles(), shadowDataSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+            &FramesInFlightData[i].shadowDataBuffersMemory,
+            FramesInFlightData[i].shadowDataBuffers.data);
 
     }
 }
@@ -502,8 +505,9 @@ void HelloTriangleApplication::updateOpaqueDescriptorSets(RendererHandles handle
 
     int pointCount = 0;
 
-    VkDescriptorImageInfo shadows[MAX_SHADOWCASTERS] = {};
-    for(int i = 0; i < MAX_SHADOWCASTERS; i++)
+    //TODO JS: !!!! Fix this 
+    VkDescriptorImageInfo shadows[MAX_SHADOWMAPS] = {};
+    for(int i = 0; i < MAX_SHADOWMAPS; i++)
     {
         VkImageView view {};
         if (i < scene->shadowCasterCount())
@@ -538,6 +542,8 @@ void HelloTriangleApplication::updateOpaqueDescriptorSets(RendererHandles handle
     VkDescriptorBufferInfo lightbufferinfo = FramesInFlightData[currentFrame].lightBuffers.getBufferInfo();
     VkDescriptorBufferInfo uniformbufferinfo = FramesInFlightData[currentFrame].uniformBuffers.getBufferInfo();
     VkDescriptorBufferInfo shaderglobalsinfo = FramesInFlightData[currentFrame].opaqueShaderGlobalsBuffer.getBufferInfo();
+    
+      VkDescriptorBufferInfo shadowBuffersInfo = FramesInFlightData[currentFrame].shadowDataBuffers.getBufferInfo();
 
     
 
@@ -548,7 +554,7 @@ void HelloTriangleApplication::updateOpaqueDescriptorSets(RendererHandles handle
 
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, imageInfos.data(),  (uint32_t)imageInfos.size()});
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, cubeImageInfos.data(), (uint32_t)cubeImageInfos.size()});
-    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, &shadows,  (uint32_t)MAX_SHADOWCASTERS}); //shadows
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, &shadows,  (uint32_t)MAX_SHADOWMAPS}); //shadows
 
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, samplerInfos.data(), (uint32_t)samplerInfos.size()});
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, cubeSamplerInfos.data(), (uint32_t)cubeSamplerInfos.size()});
@@ -557,6 +563,9 @@ void HelloTriangleApplication::updateOpaqueDescriptorSets(RendererHandles handle
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &meshBufferinfo});
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &lightbufferinfo});
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &uniformbufferinfo});
+    
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &shadowBuffersInfo});
+    
 
     layoutData->updateOpaqueDescriptorSets(descriptorUpdates, currentFrame);
 }
@@ -573,7 +582,7 @@ void HelloTriangleApplication::updateShadowDescriptorSets(RendererHandles handle
     VkDescriptorBufferInfo shaderglobalsinfo = FramesInFlightData[currentFrame].perLightShadowShaderGlobalsBuffer[shadowIndex].getBufferInfo();
 
     VkDescriptorBufferInfo lightbufferinfo = FramesInFlightData[currentFrame].lightBuffers.getBufferInfo();
-    VkDescriptorBufferInfo lightbufferMatinfo = FramesInFlightData[currentFrame].lightMatrixBuffers.getBufferInfo();
+    VkDescriptorBufferInfo shadowBuffersInfo = FramesInFlightData[currentFrame].shadowDataBuffers.getBufferInfo();
 
     std::vector<descriptorUpdateData> descriptorUpdates;
     //Update descriptor sets with data
@@ -582,7 +591,7 @@ void HelloTriangleApplication::updateShadowDescriptorSets(RendererHandles handle
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &meshBufferinfo});
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &lightbufferinfo});
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &uniformbufferinfo});
-    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &lightbufferMatinfo});
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &shadowBuffersInfo});
 
     layoutData->
     updateShadowDescriptorSets(descriptorUpdates, currentFrame);
@@ -789,7 +798,7 @@ std::span<glm::vec4> populateFrustumCornersForSpace(std::span<glm::vec4> output_
 
 }
 
-std::span<glm::mat4> calculateLightMatrix(MemoryArena::memoryArena* allocator, HelloTriangleApplication::CameraInfo cam, glm::mat4 view, glm::vec3 lightPos, glm::vec3 spotDir, float spotRadius, lightType type)
+std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocator, HelloTriangleApplication::CameraInfo cam, glm::mat4 view, glm::vec3 lightPos, glm::vec3 spotDir, float spotRadius, lightType type)
 {
 
  
@@ -806,13 +815,13 @@ std::span<glm::mat4> calculateLightMatrix(MemoryArena::memoryArena* allocator, H
     glm::mat4 lightViewMatrix = {};
     glm::mat4 lightProjection = {};
     
-    std::span<glm::mat4> outputSpan;
+    std::span<PerShadowData> outputSpan;
     switch (type)
     {
       
     case LIGHT_DIR:
         {
-            outputSpan = MemoryArena::AllocSpan<glm::mat4>(allocator, 4 ); //TODO JS: cascades
+            outputSpan = MemoryArena::AllocSpan<PerShadowData>(allocator, 4 ); //TODO JS: cascades
             glm::mat4 projForLight =  glm::perspective(glm::radians(70.0f),
                                cam.extent.width / static_cast<float>(cam.extent.height), cam.nearPlane,
                                cam.farPlane); 
@@ -844,7 +853,7 @@ std::span<glm::mat4> calculateLightMatrix(MemoryArena::memoryArena* allocator, H
                 float p = (i + 1) / static_cast<float>(4);
                 float log = minZ * std::pow(ratio, p);
                 float uniform = minZ + range * p;
-                float d = 0.95f * (log - uniform) + uniform;
+                float d = 0.98f * (log - uniform) + uniform;
                 cascadeSplits[i] = (d - cam.nearPlane) / clipRange;
             }
 
@@ -888,50 +897,54 @@ std::span<glm::mat4> calculateLightMatrix(MemoryArena::memoryArena* allocator, H
 
                 lightViewMatrix = glm::lookAt(glm::vec3(frustumCenter)  + (dir * (maxExtents.z)), frustumCenter, up);
 
-                glm::mat4 lightOrthoMatrix = glm::ortho(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, 0.1f, maxExtents.z - minExtents.z);
+                glm::mat4 lightOrthoMatrix = glm::ortho(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, 0.0f, maxExtents.z - minExtents.z);
 
                 lightProjection =  lightOrthoMatrix;
-                outputSpan[i] = lightProjection * lightViewMatrix;
-                OUTPUTPOSITION =  (cam.nearPlane + splitDist * clipRange) * -1.0f; //todo js
+                outputSpan[i] = {lightProjection * lightViewMatrix, (cam.nearPlane + splitDist * clipRange) * -1.0f};
+                // OUTPUTPOSITION =  (cam.nearPlane + splitDist * clipRange) * -1.0f; //todo js
             }
-            return  outputSpan;
+            return  outputSpan.subspan(0,4);
         }
     case LIGHT_SPOT:
         {
-            outputSpan = MemoryArena::AllocSpan<glm::mat4>(allocator, 1 ); 
+            outputSpan = MemoryArena::AllocSpan<PerShadowData>(allocator, 1 ); 
             lightViewMatrix = glm::lookAt(lightPos, lightPos + dir, up);
             
             lightProjection = glm::perspective(glm::radians(spotRadius),
                                       1.0f, 0.1f,
                                       50.0f); //TODO BETTER FAR 
-            outputSpan[0] = lightProjection * lightViewMatrix;
+            outputSpan[0] = {lightProjection * lightViewMatrix, 0};
                                   
             return  outputSpan;
         }
     case LIGHT_POINT:
 
            {
-        outputSpan = MemoryArena::AllocSpan<glm::mat4>(allocator, 6 ); 
+        outputSpan = MemoryArena::AllocSpan<PerShadowData>(allocator, 6 ); 
         lightProjection = glm::perspective(glm::radians((float)90),
                                   1.0f, 0.001f,
                                   10.0f);} //TODO BETTER FAR
 
+        for(int i = 0; i < outputSpan.size(); i++)
+        {
+            outputSpan[i].cascadeDepth = 0;
+        }
         glm::mat4 translation = glm::translate(glm::mat4(1.0f), -lightPos);
         glm::mat4 rotMatrix = glm::mat4(1.0);
     
-    outputSpan[0] =  glm::rotate(rotMatrix, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-    outputSpan[0] = lightProjection *   (glm::rotate(  outputSpan[0], glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * translation);
+    outputSpan[0].shadowMatrix =  glm::rotate(rotMatrix, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    outputSpan[0].shadowMatrix = lightProjection *   (glm::rotate(  outputSpan[0].shadowMatrix, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * translation);
       rotMatrix = glm::mat4(1.0);
-    outputSpan[1] = glm::rotate(rotMatrix, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-    outputSpan[1] = lightProjection *   (glm::rotate(outputSpan[1], glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * translation);
+    outputSpan[1].shadowMatrix = glm::rotate(rotMatrix, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    outputSpan[1].shadowMatrix = lightProjection *   (glm::rotate(outputSpan[1].shadowMatrix, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * translation);
       rotMatrix = glm::mat4(1.0);
-    outputSpan[2] = lightProjection *  (glm::rotate(rotMatrix, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * translation);
+    outputSpan[2].shadowMatrix = lightProjection *  (glm::rotate(rotMatrix, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * translation);
       rotMatrix = glm::mat4(1.0);
-    outputSpan[3] = lightProjection *  (glm::rotate(rotMatrix, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * translation);
+    outputSpan[3].shadowMatrix = lightProjection *  (glm::rotate(rotMatrix, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * translation);
       rotMatrix = glm::mat4(1.0);
-    outputSpan[4] = lightProjection *  (glm::rotate(rotMatrix, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * translation);
+    outputSpan[4].shadowMatrix = lightProjection *  (glm::rotate(rotMatrix, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * translation);
       rotMatrix = glm::mat4(1.0);
-    outputSpan[5] = lightProjection *  (glm::rotate(rotMatrix, glm::radians(180.0f), glm::vec3(0.0f, 0.0f, 1.0f)) * translation);
+    outputSpan[5].shadowMatrix = lightProjection *  (glm::rotate(rotMatrix, glm::radians(180.0f), glm::vec3(0.0f, 0.0f, 1.0f)) * translation);
        rotMatrix = glm::mat4(1.0);   
         return  outputSpan;
         }
@@ -979,25 +992,26 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
     auto lights = MemoryArena::AllocSpan<gpulight>(tempArena, scene->lightCount);
 
 
-    Array<glm::mat4> additionalMatrices = Array(MemoryArena::AllocSpan<glm::mat4>(&perFrameArenas[currentFrame],FramesInFlightData[currentFrame].lightMatrixBuffers.size / sizeof(glm::mat4)));
+    Array<PerShadowData> perShadowData = Array(MemoryArena::AllocSpan<PerShadowData>(&perFrameArenas[currentFrame],FramesInFlightData[currentFrame].shadowDataBuffers.size / sizeof(PerShadowData)));
     int matrixCt = 0;
     for(int i =0; i <scene->lightCount; i++)
     {
         
-        std::span<glm::mat4> lightViewProjection =  calculateLightMatrix(&perFrameArenas[currentFrame], cameraInfo, view, static_cast<glm::vec3>(scene->lightposandradius[i]), (glm::vec3)scene->lightDir[i], scene->lightposandradius[i].w, (lightType)scene->lightTypes[i]);
+       std::span<PerShadowData> lightsShadowData =  calculateLightMatrix(&perFrameArenas[currentFrame], cameraInfo, view, static_cast<glm::vec3>(scene->lightposandradius[i]), (glm::vec3)scene->lightDir[i], scene->lightposandradius[i].w, (lightType)scene->lightTypes[i]);
 
             lights[i] = {
                 scene->lightposandradius[i],
                 scene->lightcolorAndIntensity[i],
                 glm::vec4(scene->lightTypes[i], scene->lightDir[i].x, scene->lightDir[i].y, scene->lightDir[i].z),
-                lightViewProjection[0],
-                glm::vec4(additionalMatrices.ct,lightViewProjection.size(),-1,-1)};
+                // lightViewProjection[0],
+                glm::vec4(perShadowData.ct,lightsShadowData.size(),-1,-1)};
 
+        for(int j = 0; j < lightsShadowData.size(); j++  )
+        {
+            perShadowData.push_back(lightsShadowData[j]);
+        }
 
-            for (int j = 0; j <  lightViewProjection.size(); j++)
-            {
-                additionalMatrices.push_back(lightViewProjection[j]);
-            }
+          
        
     }
 
@@ -1017,7 +1031,7 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
     //TODO JS: Replace gpulight matrix with an index. bind a new list of light matrices to shdaows. look up shadows with index in shader.
     
     FramesInFlightData[currentFrame].lightBuffers.updateMappedMemory(lights.data(), sizeof(gpulight) * lights.size());//TODO JS: could probably bump the index in the shader too on the point path rather than rebinding. 
-    FramesInFlightData[currentFrame].lightMatrixBuffers.updateMappedMemory(additionalMatrices.data, additionalMatrices.capacity_bytes()); 
+    FramesInFlightData[currentFrame].shadowDataBuffers.updateMappedMemory(perShadowData.data, perShadowData.capacity_bytes()); 
 
 }
 
@@ -1051,7 +1065,7 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
         int shadowIndex = i;
         int shadowCasterOffset = scene->getShadowDataIndex(i);
         lightType type = (lightType)scene->lightTypes[i];
-        int subpasses = type == lightType::LIGHT_POINT ? 6 : 1;
+        int subpasses = type == lightType::LIGHT_POINT ? 6 : type == LIGHT_DIR ? CASCADE_CT : 1; //TODO JS: look up how many a light should have per light
         for (int j = 0; j < subpasses; j++)
         {
             int shadowMapIndex = shadowCasterOffset + j;
@@ -1097,12 +1111,15 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
             // This could change sometimes
 
 
-            //TODO JS: dynamically set bias per shadow caster scaled by depth range of shadow map
-            // vkCmdSetDepthBias(
-            //             commandBuffer,
-            //             100.25,
-            //             0.0f,
-            //             1.75);
+            //TODO JS: dynamically set bias per shadow caster, especially for cascades
+            float baseDepthBias = 6.0;
+            float baseSLopeBias = 3.0;
+            vkCmdSetDepthBias(
+                        commandBuffer,
+                        baseDepthBias,
+                        0.0f,
+                        baseSLopeBias);
+
 
             //TODO JS: Something other than hardcoded index 2 for shadow pipeline
             vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, descriptorsetLayoutsData.getPipeline(2));
@@ -1630,7 +1647,7 @@ void HelloTriangleApplication::cleanup()
        VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].uniformBuffers.data, FramesInFlightData[i].uniformBuffersMemory);
        VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].meshBuffers.data, FramesInFlightData[i].meshBuffersMemory);
        VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].lightBuffers.data, FramesInFlightData[i].lightBuffersMemory);
-        VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].lightBuffers.data, FramesInFlightData[i].lightMatrixBuffersMemory);
+        VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].lightBuffers.data, FramesInFlightData[i].shadowDataBuffersMemory);
     }
 
     vkDestroyDescriptorPool(device, descriptorPool, nullptr);
@@ -1751,10 +1768,10 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
     app->scene->AddDirLight(glm::vec3(0,0,1), glm::vec3(0,1,0), 3);
     app->scene->AddDirLight(glm::vec3(0.00, 1, 0),  glm::vec3(0, 0, 1), 33);
     app->scene->AddPointLight(glm::vec3(-2, 2, 0), glm::vec3(1, 0, 0), 4422 / 2);
-    app->scene->AddDirLight(glm::vec3(0,0,1), glm::vec3(0,1,0), 3);
+    // app->scene->AddDirLight(glm::vec3(0,0,1), glm::vec3(0,1,0), 3);
     app->scene->AddPointLight(glm::vec3(0, 0, 0), glm::vec3(1, 1, 0), 999 / 2);
 
-    app->scene->AddPointLight(glm::vec3(0, 8, -10), glm::vec3(0.2, 0, 1), 44 / 2);
+    // app->scene->AddPointLight(glm::vec3(0, 8, -10), glm::vec3(0.2, 0, 1), 44 / 2);
 
   
 
@@ -1782,23 +1799,23 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
     
     }
 
-    //add plane
-    // app->scene->AddObject( &app->scene->backing_meshes[cube],
-    //     0,
-    //     0,
-    //     false,
-    //     glm::vec4(0, 9.35, 0, 1),
-    //     glm::quat(),
-    //     glm::vec3(20,0.05,30)); // basically a plane
+    // add plane
+     // app->scene->AddObject( &app->scene->backing_meshes[cube],
+     //     0,
+     //     0,
+     //     false,
+     //     glm::vec4(0, 9.35, 0, 1),
+     //     glm::quat(),
+     //     glm::vec3(20,0.05,30)); // basically a plane
 
     // add plane
-     app->scene->AddObject( &app->scene->backing_meshes[cube],
-         0,
-         0,
-         false,
-         glm::vec4(5, 9.35, 5, 1),
-         glm::quat(),
-         glm::vec3(0.055,30,10)); // basically a plane
+     // app->scene->AddObject( &app->scene->backing_meshes[cube],
+     //     0,
+     //     0,
+     //     false,
+     //     glm::vec4(5, 9.35, 5, 1),
+     //     glm::quat(),
+     //     glm::vec3(0.055,30,10)); // basically a plane
      // app->scene->AddObject( &app->scene->backing_meshes[cube],
      //     0,
      //     0,

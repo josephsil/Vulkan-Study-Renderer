@@ -46,6 +46,12 @@ struct pconstant
     float4 _2;
 };
 
+struct perShadowData
+{
+    float4x4 mat;
+    float depth;
+};
+
 struct MyVertexStructure
 {
     float4 position;
@@ -60,8 +66,8 @@ struct MyLightStructure
     float4 position_range;
     float4 color_intensity;
     float4 lighttype_lightDir;
-    float4x4 matrixViewProjeciton;
     float4 matrixIDX_matrixCt_padding; // currently only used by point
+    // float4x4 _DELETED; //TODO JS: delete for real
     // uint color;
 };
 
@@ -79,7 +85,7 @@ Texture2D<float4> bindless_textures[];
 SamplerState bindless_samplers[];
 
 [[vk::binding(2, 2)]]
-Texture2D<float4> shadowmap[];
+Texture2DArray<float4> shadowmap[];
 [[vk::binding(2, 2)]]
 TextureCube shadowmapCube[];
 
@@ -96,10 +102,10 @@ ByteAddressBuffer BufferTable;
 RWStructuredBuffer<MyLightStructure> lights;
 [[vk::binding(2, 1)]]
 RWStructuredBuffer<UBO> uboarr;
-#ifdef SHADOWPASS
+// #ifdef SHADOWPASS
 [[vk::binding(3, 1)]]
-RWStructuredBuffer<float4x4> shadowMatrices;
-#endif 
+RWStructuredBuffer<perShadowData> shadowMatrices;
+// #endif 
 
 
 [[vk::binding(1,2)]]
@@ -128,6 +134,10 @@ int getLightType(MyLightStructure light)
 int getShadowMatrixIndex(MyLightStructure light)
 {
     return light.matrixIDX_matrixCt_padding.r;
+}
+int getShadowMatrixCount(MyLightStructure light)
+{
+    return light.matrixIDX_matrixCt_padding.g;
 }
 
 
@@ -208,6 +218,25 @@ float VectorToDepthValue(float3 Vec)
     return (NormZComp + 1.0) * 0.5;
 }
 
+int findCascadeLevel(int lightIndex, float3 worldPixel)
+{
+    float4 fragPosViewSpace = mul( mul(globals.projection,  globals.view), float4(worldPixel, 1.0));
+    float depthValue = fragPosViewSpace.z;
+    int cascadeLevel = 3;
+    for (int i = 0; i < 4; i++) //4 == cascade count
+        {
+        if (depthValue <   -shadowMatrices[lightIndex + i].depth)
+        {
+            cascadeLevel = i;
+            break;
+        }
+        }
+
+    return cascadeLevel;
+
+    
+}
+
 
 float3 getShadow(int index, float3 fragPos)
 {
@@ -230,13 +259,29 @@ float3 getShadow(int index, float3 fragPos)
         float output;
         return distLightSpace < (shadow.r ); // float3(proj.z, shadow.r, 1.0);
     }
-    float4x4 lightMat = light.matrixViewProjeciton;
-    float4 fragPosLightSpace = mul( lightMat, float4(fragPos, 1.0));
-    float3 shadowProjection = (fragPosLightSpace.xyz / fragPosLightSpace.w);
-    float3 shadowUV = shadowProjection   * 0.5 + 0.5;
-    // shadowProjection.y *= -1;
-    return shadowmap[index].SampleCmpLevelZero(shadowmapSampler[0], shadowUV.xy, shadowProjection.z).r; //TODO JS: dont sample on branch?
-
+    if (getLightType(light) == LIGHT_SPOT)
+    {
+        int ARRAY_INDEX = 0;
+        float4x4 lightMat = shadowMatrices[getShadowMatrixIndex(light) +ARRAY_INDEX].mat;
+        float4 fragPosLightSpace = mul( lightMat, float4(fragPos, 1.0));
+        float3 shadowProjection = (fragPosLightSpace.xyz / fragPosLightSpace.w);
+        float3 shadowUV = shadowProjection   * 0.5 + 0.5;
+        shadowUV.z = ARRAY_INDEX;
+        // shadowProjection.y *= -1;
+        return shadowmap[index].SampleCmpLevelZero(shadowmapSampler[0], shadowUV.xyz, shadowProjection.z).r; //TODO JS: dont sample on branch?
+    }
+    if (getLightType(light) == LIGHT_DIR)
+    {
+        int lightIndex = getShadowMatrixIndex(light);
+        int cascadeLevel =  findCascadeLevel(lightIndex, fragPos);
+            float4 fragPosShadowSpace = mul(shadowMatrices[lightIndex + cascadeLevel].mat,  float4(fragPos, 1.0));
+            float3 shadowProjection = (fragPosShadowSpace.xyz / fragPosShadowSpace.w);
+            float3 shadowUV = shadowProjection   * 0.5 + 0.5;
+            shadowUV.z = cascadeLevel;
+            // shadowProjection.y *= -1;
+            return shadowmap[index].SampleCmpLevelZero(shadowmapSampler[0], shadowUV.xyz, shadowProjection.z).r; //TODO JS: dont sample on branch?
+        }
+        return -1;
 }
 
 float3 getLighting(float4x4 model, float3 albedo, float3 inNormal, float3 FragPos, float3 F0, float3 roughness, float metallic)
@@ -317,6 +362,7 @@ float3 getLighting(float4x4 model, float3 albedo, float3 inNormal, float3 FragPo
             // float shadow = shadowProjection.z < (shadowMapValue) ? 1.0 : 0.0;
             //TODO: vias by normal
             //TODO: cascade
+            // return pow(shadowMapValue, 44);
            lightAdd *= shadowMapValue;
         }
         //

@@ -35,6 +35,7 @@ Scene::Scene(MemoryArena::memoryArena* arena)
     objects.meshVertCounts = Array(MemoryArena::AllocSpan<uint32_t>(arena, OBJECT_MAX));
 
     // arallel arrays per Light
+    lightshadowMapCount =  Array(MemoryArena::AllocSpan<uint32_t>(arena, LIGHT_MAX));
     lightposandradius = Array(MemoryArena::AllocSpan<glm::vec4>(arena, LIGHT_MAX));
     lightcolorAndIntensity = Array(MemoryArena::AllocSpan<glm::vec4>(arena, LIGHT_MAX));
     lightDir = Array(MemoryArena::AllocSpan<glm::vec4>(arena, LIGHT_MAX));
@@ -59,7 +60,7 @@ void Scene::Update()
         model = glm::mat4(1.0f);
         glm::mat4 objectLocalRotation = toMat4(objects.rotations[i]);
         model = translate(model, objects.translations[i]); //TODO: These should update at a different rate than camera stuff
-        // model *= objectLocalRotation; //TODO JS: temporarily turned off rotation to debug shadows
+        model *= objectLocalRotation; //TODO JS: temporarily turned off rotation to debug shadows
         model = scale(model, objects.scales[i]);
         objects.matrices[i] = model;
     }
@@ -176,6 +177,7 @@ void Scene::lightSort()
     
         }
     }
+    std::span<uint32_t> tempShadowCt;
     std::span<glm::vec4> tempPos;
     std::span<glm::vec4> tempCol;
     std::span<glm::vec4> tempDir;
@@ -184,6 +186,7 @@ void Scene::lightSort()
     //if there's room, use the back half of the existing arrays
     if (lightCount < LIGHT_MAX / 2)
     {
+    tempShadowCt = std::span<uint32_t>(&lightshadowMapCount[0], LIGHT_MAX).subspan(LIGHT_MAX / 2, LIGHT_MAX / 2);
     tempPos = std::span<glm::vec4>(&lightposandradius[0], LIGHT_MAX).subspan(LIGHT_MAX / 2, LIGHT_MAX / 2);
     tempCol =  std::span<glm::vec4>(&lightcolorAndIntensity[0], LIGHT_MAX).subspan(LIGHT_MAX / 2, LIGHT_MAX / 2);   
     tempDir =  std::span<glm::vec4>(&lightDir[0], LIGHT_MAX).subspan(LIGHT_MAX / 2, LIGHT_MAX / 2);   
@@ -201,6 +204,7 @@ void Scene::lightSort()
 
     for(int i =0; i < lightCount; i++)
     {
+        tempShadowCt[i] = lightshadowMapCount[i];
         tempPos[i] = lightposandradius[i];
         tempCol[i] = lightcolorAndIntensity[i];
         tempDir[i] = lightDir[i];
@@ -211,6 +215,7 @@ void Scene::lightSort()
     int j;
     for(j = 0; j < dirlightIndices.ct; j++)
     {
+         lightshadowMapCount[i + j] = tempShadowCt[dirlightIndices[j]];
         lightposandradius[i + j ] = tempPos[dirlightIndices[j]];
         lightcolorAndIntensity[i + j ] = tempCol[dirlightIndices[j]];
         lightDir[i + j ] = tempDir[dirlightIndices[j]];
@@ -219,6 +224,7 @@ void Scene::lightSort()
     i += j;
     for(j = 0; j < spotlightIndices.ct; j++)
     {
+         lightshadowMapCount[i + j] = tempShadowCt[spotlightIndices[j]];
         lightposandradius[i + j ] = tempPos[spotlightIndices[j]];
         lightcolorAndIntensity[i + j ] = tempCol[spotlightIndices[j]];
         lightDir[i + j ] = tempDir[spotlightIndices[j]];
@@ -227,6 +233,7 @@ void Scene::lightSort()
     i += j;
     for(j = 0; j < pointlightIndices.ct; j++)
     {
+         lightshadowMapCount[i + j] = tempShadowCt[pointlightIndices[j]];
         lightposandradius[i + j ] = tempPos[pointlightIndices[j]];
         lightcolorAndIntensity[i + j ] = tempCol[pointlightIndices[j]];
         lightDir[i + j ] = tempDir[pointlightIndices[j]];
@@ -237,6 +244,7 @@ void Scene::lightSort()
 
 int Scene::AddLight(glm::vec3 position, glm::vec3 dir, glm::vec3 color, float radius, float intensity, lightType type)
 {
+    lightshadowMapCount.push_back( type == LIGHT_POINT ? 6 : type == LIGHT_DIR ? CASCADE_CT : 1); //TODO JS
     lightposandradius.push_back(glm::vec4(position.x, position.y, position.z, radius));
     lightcolorAndIntensity.push_back(glm::vec4(color.x, color.y, color.z, intensity));
     lightDir.push_back(glm::vec4(dir, -1.0));
@@ -260,15 +268,17 @@ int Scene::AddPointLight(glm::vec3 position, glm::vec3 color,  float intensity)
     return this->AddLight(position, glm::vec3(-1), color, -1, intensity, lightType::LIGHT_POINT);
 }
 
+
 int Scene::getShadowDataIndex(int idx)
 {
     int output = 0;
     for(int i = 0; i < idx; i++)
     {
-        output += lightTypes[i] == lightType::LIGHT_POINT ? 6 : 1;
+        output +=  lightshadowMapCount[i];
     }
     return output;
 }
+
 int Scene::shadowCasterCount()
 {
     return min(MAX_SHADOWCASTERS, this->lightCount);
