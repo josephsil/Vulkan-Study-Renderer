@@ -1273,9 +1273,24 @@ void HelloTriangleApplication::recordCommandBufferOpaquePass(VkCommandBuffer com
     VkPipelineLayout layout = descriptorsetLayoutsData.getLayoutOpaque();
     
     int meshct = scene->objectsCount();
+    
+    // std::span<int> meshIndices = MemoryArena::AllocSpan<int>(&perFrameArenas[currentFrame], meshct);
+    // for(int i =0; i < meshct; i++)
+    // {
+        // meshIndices[i] = i;
+    // }
+    // Transform cameraTform = getCameraTransform();
+    // glm::mat4 view = cameraTform.rot * cameraTform.translation;
+    // glm::mat4 proj = glm::perspective(glm::radians(70.0f),
+                                      // swapChainExtent.width / static_cast<float>(swapChainExtent.height), nearPlane,
+                                      // farPlane);
+    // scene->OrderedMeshes(proj * view , meshIndices);
+    
     int lastPipelineIndex = -1;
-    for (int i = 0; i <meshct; i++)
+    for (int j = 0; j <meshct; j++)
     {
+        // int i = meshIndices[j];
+        int i = j;
         Material material = scene->objects.materials[i];
         int pipelineIndex =1 ;
 #ifdef DEBUG_SHADERS

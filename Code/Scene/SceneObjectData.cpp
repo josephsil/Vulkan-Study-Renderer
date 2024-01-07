@@ -5,6 +5,8 @@
 
 #include "SceneObjectData.h"
 
+#include <algorithm>
+
 #include "../Renderer/MeshData.h" // TODO JS: I want to separate the backing data from the scene 
 #include "../Renderer/TextureData.h" // TODO JS: I want to separate the backing data from the scene 
 #include <glm/gtc/matrix_transform.hpp>
@@ -146,6 +148,34 @@ int Scene::AddBackingMesh(MeshData M)
     return meshCount ++;
 }
 
+struct sortData
+{
+    glm::mat4 matrix;
+    std::span<glm::vec3> positions;
+    int ct;
+};
+
+int orderComparator(void * context, void const* elem1, void const* elem2 )
+{
+    glm::mat4 mat = ((sortData*)context)->matrix;
+    std::span<glm::vec3> positions = (*(sortData*)context).positions;
+    int idx1 = *((int*)elem1);
+    int idx2 = *((int*)elem2);
+
+    glm::vec4 trf1 = (mat * glm::vec4(positions[idx1], 0.0) );
+    glm::vec4 trf2 = (mat * glm::vec4(positions[idx2], 0.0) );
+
+    return (trf1.w > trf2.w) ? 1 : -1;
+    
+    
+}
+void Scene::OrderedMeshes(glm::mat4 viewProj, std::span<int> indices)
+{
+    assert(indices.size() == objects.translations.ct);
+    sortData s = {viewProj, std::span<glm::vec3>(objects.translations.data, objects.translations.ct),  (int)objects.translations.ct};
+    qsort_s(indices.data(), indices.size(), sizeof(int), orderComparator, &s);
+    return;
+}
 //very dumb/brute force for now
 void Scene::lightSort()
 {

@@ -30,6 +30,7 @@ public:
     int materialCount();
     int materialTextureCount();
 
+    void OrderedMeshes(glm::mat4 viewProj, std::span<int> indices);
     struct Objects
     {
         int objectsCount = 0;
