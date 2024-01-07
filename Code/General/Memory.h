@@ -3,22 +3,9 @@
 #include <memory>
 #include <span>
 
-#include "forward-declarations-renderer.h"
-#include "MeshLibraryImplementations.h"
+
+#include "../../MeshLibraryImplementations.h"
 #include <windows.h>
-
-namespace VulkanMemory
-{
-    VmaAllocator GetAllocator(VkDevice device, VkPhysicalDevice
-    physicalDevice, VkInstance instance);
-
-    
-    void DestroyBuffer(VmaAllocator allocator, VkBuffer buffer, VmaAllocation allocation);
-    void DestroyImage(VmaAllocator allocator, VkImage image, VmaAllocation allocation);
-    void MapMemory(VmaAllocator allocator,  VmaAllocation allocation, void** data);
-    void UnmapMemory(VmaAllocator allocator,  VmaAllocation allocation);
-    
-}
 
 typedef  ptrdiff_t aOFFSET;
 namespace MemoryArena

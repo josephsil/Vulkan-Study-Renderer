@@ -1,8 +1,10 @@
 #define DEBUG 
 #include "TextureData.h"
-#include "ImageLibraryImplementations.h"
+#include "../../ImageLibraryImplementations.h"
 #include "vulkan-utilities.h"
-#include "Vulkan_Includes.h"
+#include "VulkanIncludes/Vulkan_Includes.h"
+
+#include "VulkanIncludes/VulkanMemory.h"
 
 #define KHRONOS_STATIC
 
@@ -12,9 +14,9 @@
 
 #include "bufferCreation.h"
 #include "CommandPoolManager.h"
-#include "FileCaching.h"
-#include "Memory.h"
+#include "../General/Memory.h"
 #include "textureCreation.h"
+#include "../General/FileCaching.h"
 
 
 int TEXTURE_INDEX;

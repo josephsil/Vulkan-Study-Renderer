@@ -1,10 +1,11 @@
 #pragma once
 #include <vector>
 
-#include "AppStruct.h"
-#include "forward-declarations-renderer.h"
-#include "SceneObjectData.h"
+#include "RendererHandles.h"
+#include "VulkanIncludes/forward-declarations-renderer.h"
+// #include "SceneObjectData.h"
 
+class Scene;
 
 struct VkDescriptorSetLayoutCreateInfo;
 struct VkDescriptorSetLayoutBinding;

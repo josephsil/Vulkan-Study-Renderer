@@ -1,5 +1,5 @@
 #include "ShaderLoading.h"
-#include "Vulkan_Includes.h"
+#include "../VulkanIncludes/Vulkan_Includes.h"
 #include <Windows.h>
 #include "dxcapi.h"
 #include <d3dcompiler.h>
@@ -11,9 +11,9 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#include "Array.h"
-#include "FileCaching.h"
-#include "Memory.h"
+#include "../../General/Array.h"
+#include "../../General/FileCaching.h"
+#include "../../General/Memory.h"
 #ifndef WIN32
 #include <unistd.h>
 #endif

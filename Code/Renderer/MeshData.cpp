@@ -1,12 +1,16 @@
 #include "MeshData.h"
-#include "mikktspace.h"
+#include "../../mikktspace.h"
 #include <unordered_map>
-#include "AppStruct.h"
-#include "Array.h"
+#include "RendererHandles.h"
+#include "../General/Array.h"
 #include "bufferCreation.h"
-#include "Memory.h"
+#include "../General/Memory.h"
+#include "../../tinygltf/tiny_gltf.h"
+#include "../../MeshLibraryImplementations.h"
+#include "VulkanIncludes/VulkanMemory.h"
 
 
+//TODO JS 0: Separate mesh import and mesh data
 struct MeshForMikkt
 {
 public:
@@ -476,6 +480,7 @@ MeshData::MeshData(RendererHandles app, const char* path)
     this->id = MESHID++;
 }
 
+//TODO JS 0: Separate memory ownership? give it to the renderer?
 void MeshData::cleanup()
 {
    VulkanMemory::DestroyBuffer(rendererHandles.allocator, vertBuffer, vertMemory);

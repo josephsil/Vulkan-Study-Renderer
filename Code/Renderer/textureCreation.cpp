@@ -4,10 +4,10 @@
 #include <cstdio>
 #include <cstdlib>
 
-#include "AppStruct.h"
+#include "RendererHandles.h"
 #include "bufferCreation.h"
 #include "CommandPoolManager.h"
-#include "Vulkan_Includes.h"
+#include "VulkanIncludes/Vulkan_Includes.h"
 
 VkImageView TextureUtilities::createImageView(VkDevice device, VkImage image, VkFormat format,
                                               VkImageAspectFlags aspectFlags,

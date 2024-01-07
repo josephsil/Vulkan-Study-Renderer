@@ -3,26 +3,24 @@
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <memory>
+#include <span>
 #include <vector>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
-#include "Vulkan_Includes.h"
-
-#include "AppStruct.h"
+#include "./VulkanIncludes/Vulkan_Includes.h"
+#include "../General/Array.h"
+#include "rendererGlobals.h"
 #include "CommandPoolManager.h"
-#include "Memory.h"
+#include "../General/Memory.h"
 #include "PipelineDataObject.h"
-#include "vulkan-utilities.h"
 // My stuff 
 
-struct dataBuffer;
 struct MeshData; //Forward Declaration
 struct Vertex; //Forward Declaration
 struct ShaderLoader;
 struct TextureData;
 using VmaAllocator = struct VmaAllocator_T*;
-class Scene;
 //Include last
 
 const uint32_t SHADOW_MAP_SIZE = 1024;
@@ -37,7 +35,7 @@ struct  semaphoreData
 class HelloTriangleApplication
 {
 public:
-    std::unique_ptr<Scene> scene;
+    Scene* scene;
     RendererHandles getHandles();
     void updateShadowImageViews(int frame);
     HelloTriangleApplication();

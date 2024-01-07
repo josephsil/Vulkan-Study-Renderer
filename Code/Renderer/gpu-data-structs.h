@@ -1,30 +1,9 @@
 #pragma once
-#include "forward-declarations-renderer.h"
+#include "VulkanIncludes/forward-declarations-renderer.h"
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <vector>
-
-enum lightType
-{
-    LIGHT_DIR = 0,
-    LIGHT_POINT = 1,
-    LIGHT_SPOT = 2,
-};
-struct RenderTextureFormat
-{
-    VkFormat ColorFormat;
-    VkFormat DepthFormat;
-};
-
-struct bufferAndPool
-{
-    VkCommandBuffer buffer;
-    VkCommandPool pool;
-    VkQueue queue;
-    std::vector<VkSemaphore> waitSemaphores = {};
-    std::vector<VkSemaphore> signalSemaphores = {};
-};
 
 
 struct UniformBufferObject
@@ -60,36 +39,6 @@ struct per_object_data
 };
 
 
-struct descriptorUpdateData
-{
-    VkDescriptorType type;
-    void* ptr;
-    uint32_t count = 1;
-};
-
-struct dataBuffer
-{
-    VkBuffer data;
-    uint32_t size;
-    void* mapped;
-
-    VkDescriptorBufferInfo getBufferInfo();
-    void updateMappedMemory(void* data, size_t size);
-};
-
-
-struct inputData
-{
-    glm::vec3 keyboardMove;
-    glm::vec2 mouseRot;
-};
-
-struct Transform
-{
-
-    glm::mat4 translation;
-    glm::mat4 rot; 
-};
 
 struct PerShadowData
 {

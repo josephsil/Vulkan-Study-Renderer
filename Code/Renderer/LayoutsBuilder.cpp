@@ -1,9 +1,11 @@
 #include "LayoutsBuilder.h"
-#include "AppStruct.h"
+#include "RendererHandles.h"
 #include <vector>
 
 
-#include "Vulkan_Includes.h"
+#include "rendererGlobals.h"
+#include "VulkanIncludes/Vulkan_Includes.h"
+#include "../Scene/SceneObjectData.h"
 
 LayoutsBuilder::bindingBuilder::bindingBuilder(int size)
 {
@@ -91,6 +93,7 @@ VkDescriptorSetLayoutCreateInfo LayoutsBuilder::getCreateInfo(VkDescriptorType t
     return _createInfo;
 }
 
+//TODO JS 0: break scene dependency 
 LayoutsBuilder createBindlessLayoutBuilder(
     RendererHandles rendererHandles, Scene* scene)
 {

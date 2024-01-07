@@ -2,12 +2,13 @@
 
 #include <cassert>
 
-#include "common-structs.h"
+#include "rendererGlobals.h"
 #include "LayoutsBuilder.h"
 #include "vulkan-utilities.h"
-#include "Vulkan_Includes.h"
+#include "VulkanIncludes/Vulkan_Includes.h"
 
-
+//TODO JS: break this dependency
+#include "gpu-data-structs.h"
 
 PipelineDataObject::PipelineDataObject(RendererHandles handles, Scene* pscene)
 {

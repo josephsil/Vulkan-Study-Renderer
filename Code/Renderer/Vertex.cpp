@@ -1,6 +1,6 @@
 #include "Vertex.h"
 #include <array>
-#include "Vulkan_Includes.h"
+#include "VulkanIncludes/Vulkan_Includes.h"
 
 //TODO JS: this sucks -- it shoudlnt return binding descs i should return raw data?
 VkVertexInputBindingDescription Vertex::getBindingDescription()
