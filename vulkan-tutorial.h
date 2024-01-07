@@ -25,34 +25,47 @@ using VmaAllocator = struct VmaAllocator_T*;
 class Scene;
 //Include last
 
-class HelloTriangleApplication
+const uint32_t SHADOW_MAP_SIZE = 1024;
 
+
+struct  semaphoreData
+{
+    std::span<VkSemaphore> semaphores;
+    std::span<VkPipelineStageFlags> waitStages;
+};
+
+class HelloTriangleApplication
 {
 public:
     std::unique_ptr<Scene> scene;
     RendererHandles getHandles();
+    void updateShadowImageViews(int frame);
     HelloTriangleApplication();
     
 
-   
+    struct CameraInfo
+    {
+        VkExtent2D extent;
+        glm::vec3 pos;
+        glm::vec2 rot; 
+        float nearPlane;
+        float farPlane;
+    };
 
 private:
 
     const static int MAX_FRAMES_IN_FLIGHT = 3;
-    const static int MAX_SHADOWCASTERS = 1;
+    
 
-    MemoryArena::memoryArena arena{};
+    MemoryArena::memoryArena rendererArena{};
+    
     MemoryArena::memoryArena perFrameArenas[MAX_FRAMES_IN_FLIGHT];
 #pragma region SDL
     uint32_t T;
     uint32_t T2;
     float deltaTime;
 
-    struct inputData
-    {
-        glm::vec3 translate;
-        glm::vec3 mouseRot;
-    };
+
    
     //GLFWwindow* window;
     int WIDTH = 1280;
@@ -61,8 +74,10 @@ private:
 
 #pragma endregion
 
-    glm::vec3 eyePos = glm::vec3(2.0f, 1.0f, 0.0f);
-    glm::vec3 eyeEulers;
+    glm::vec3 eyePos = glm::vec3(-4.0f, 0.4f, 1.0f);
+    glm::vec2 eyeRotation = glm::vec2(55.0f, -22.0f); //yaw, pitch
+    float nearPlane = 0.01f;
+    float farPlane = 35.0f;
     
     VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
     VkDevice device; //Logical device
@@ -82,6 +97,7 @@ private:
         std::vector<VkSurfaceFormatKHR> formats;
         std::vector<VkPresentModeKHR> presentModes;
     };
+   
 
     VkSwapchainKHR swapChain;
     VkFormat swapChainColorFormat;
@@ -89,7 +105,9 @@ private:
     std::vector<VkImageView> swapChainImageViews;
     std::vector<VkImage> swapChainImages;
 
-    std::vector<VkImageView> shadowImageViews;
+    std::span<std::span<VkImageView>> shadowMapRenderingImageViews;
+    std::span<std::span<VkImageView>> shadowMapSamplingImageViews;
+    std::vector<VkSampler> shadowSamplers;
     std::vector<VkImage> shadowImages;
     std::vector<VmaAllocation> shadowMemory;
     VkFormat shadowFormat;
@@ -123,12 +141,16 @@ private:
 
         VkSemaphore swapchaintransitionedOutSemaphores {};
         VkSemaphore swapchaintransitionedInSemaphores {};
+        VkSemaphore shadowtransitionedOutSemaphores {};
+        VkSemaphore shadowtransitionedInSemaphores {};
         
         VkFence inFlightFences {};
         VkCommandBuffer opaqueCommandBuffers {};
         VkCommandBuffer shadowCommandBuffers {};
         VkCommandBuffer swapchainTransitionInCommandBuffer {};
         VkCommandBuffer swapchainTransitionOutCommandBuffer {};
+        VkCommandBuffer shadowTransitionInCommandBuffer {};
+        VkCommandBuffer shadowTransitionOutCommandBuffer {};
 
 #pragma region buffers
 
@@ -139,20 +161,21 @@ private:
         
         dataBuffer opaqueShaderGlobalsBuffer;
         VmaAllocation opaqueShaderGlobalsMemory;
-        void* opaqueShaderGlobalsMapped;
     
         //TODO JS: Move the data buffer stuff?
         dataBuffer uniformBuffers;
         VmaAllocation uniformBuffersMemory;
-        void* uniformBuffersMapped;
 
         dataBuffer meshBuffers;
         VmaAllocation meshBuffersMemory;
-        void* meshBuffersMapped;
 
+        //Basic data about the light used in all passes 
         dataBuffer lightBuffers;
         VmaAllocation lightBuffersMemory;
-        void* lightBuffersMapped;
+        
+        //Additional light matrices.... Maybe should be additional matrices period? Used in shadow pass
+        dataBuffer shadowDataBuffers;
+        VmaAllocation shadowDataBuffersMemory;
 #pragma endregion
     };
     
@@ -184,8 +207,10 @@ private:
     void createUniformBuffers();
 
     void updateUniformBuffer(uint32_t currentImage, glm::mat4 model);
+    Transform getCameraTransform();
+    void updateCamera(inputData input);
     //Globals per pass, ubos, and lights are updated every frame
-    void updatePerFrameBuffers(unsigned currentImage, Array<glm::mat4> models, inputData input);
+    void updatePerFrameBuffers(unsigned currentFrame, Array<glm::mat4> models, inputData input);
     void recordCommandBufferShadowPass(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 
 
@@ -208,7 +233,7 @@ private:
 
 
     void createGraphicsPipeline(const char* shaderName,
-                                PipelineDataObject* descriptorsetdata, bool shadow = false);
+                                PipelineDataObject* descriptorsetdata, bool shadow = false, bool lines = false);
     void createInstance();
 
     int _selectedShader{0};
@@ -218,9 +243,11 @@ private:
     void UpdateRotations();
 
     void drawFrame(inputData input);
-    void renderShadowPass(uint32_t currentFrame, uint32_t imageIndex, std::vector<VkSemaphore> waitsemaphores,
+
+
+    void renderShadowPass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphoreData,
                           std::vector<VkSemaphore> signalsemaphores);
-    void renderOpaquePass(uint32_t currentFrame, uint32_t imageIndex, std::vector<VkSemaphore> waitsemaphores, std::vector<VkSemaphore>
+    void renderOpaquePass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphoreData, std::vector<VkSemaphore>
                           signalsemaphores);
 
     void cleanup();

@@ -105,3 +105,10 @@ VkDescriptorBufferInfo dataBuffer::getBufferInfo()
     bufferInfo.range = size;
     return bufferInfo;
 }
+
+void dataBuffer::updateMappedMemory(void* data, size_t size)
+{
+    assert(size == this->size);
+    memcpy(this->mapped, data, size);
+}
+

@@ -5,6 +5,7 @@
 #include<glm/gtc/quaternion.hpp>
 
 #include "Array.h"
+#include "common-structs.h"
 #include "Material.h"
 
 namespace MemoryArena
@@ -34,6 +35,7 @@ public:
         //Parallel arrays per-object
         Array<glm::vec3> translations;
         Array<glm::quat> rotations;
+        Array<glm::vec3> scales;
         Array<MeshData*> meshes; //todo js: are these redundant?
         Array<uint32_t> meshOffsets; //todo js: are these redundant?
         Array<Material> materials;
@@ -45,8 +47,13 @@ public:
 
     // arallel arrays per Light
     int lightCount = 0;
+
+
+    Array<uint32_t> lightshadowMapCount;
     Array<glm::vec4> lightposandradius;
     Array<glm::vec4> lightcolorAndIntensity;
+    Array<glm::vec4> lightDir;
+    Array<glm::float32> lightTypes;
 
     //Non parallel arrays //TODO JS: Pack together?
     int textureSetCount = 0;
@@ -65,7 +72,7 @@ public:
     void Update();
     //Returns the index to the object in the vectors
     int AddObject(MeshData* mesh, int textureidx, float material_roughness, bool material_metallic, glm::vec3 position,
-                  glm::quat rotation);
+                  glm::quat rotation, glm::vec3 scale = glm::vec3(1));
     uint32_t getVertexCount();
     int objectsCount();
     uint32_t getOffsetFromMeshID(int id);
@@ -74,9 +81,17 @@ public:
     int AddUtilityTexture(TextureData T);
     int AddMaterial(TextureData D, TextureData S, TextureData N);
     int AddBackingMesh(MeshData M);
-    int AddLight(glm::vec3 position, glm::vec3 color, float radius = 1, float intensity = 1);
+
+    int AddDirLight(glm::vec3 position, glm::vec3 color,float intensity);
+    int AddSpotLight(glm::vec3 position, glm::vec3 dir, glm::vec3 color, float radius, float intensity);
+    int AddPointLight(glm::vec3 position, glm::vec3 color,  float intensity);
+    int getShadowDataIndex(int i);
+    int shadowCasterCount();
 
     void Cleanup();
 
     std::pair<std::vector<VkDescriptorImageInfo>, std::vector<VkDescriptorImageInfo>> getBindlessTextureInfos();
+private:
+    int AddLight(glm::vec3 position, glm::vec3 dir = glm::vec3(-1), glm::vec3 color = glm::vec3(1), float radius = 1, float intensity = 1, lightType type = lightType::LIGHT_POINT);
+    void lightSort();
 };

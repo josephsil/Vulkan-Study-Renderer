@@ -2,9 +2,9 @@
 
 #include <atlbase.h>
 #include <cassert>
-
 #include <fstream>
-
+#include <iostream>
+#include <sys/utime.h>
 
 #ifdef WIN32
 #define stat _stat
@@ -60,30 +60,18 @@ bool FileCaching::assetOutOfDate(std::string_view assetPath)
  return FileCaching::assetOutOfDate(widenString(std::string(assetPath)));
 }
 
-//TODO JS: Just checking date for now -- prefer some kind of hash
-bool FileCaching::assetOutOfDate(std::wstring_view assetPath)
+long long readdotModifiedTime(std::wstring_view assetPath)
 {
-    //Last changed check 
-    struct stat result;
-    if (_wstat(assetPath.data(), &result) != 0)
-    {
-        printf("Could not read shader file date");
-        assert(false);
-
-    }
-
-    auto modifiedTime = result.st_mtime;
 
     std::wstring assetTimePath = std::wstring(assetPath) + L".modified";
-
-
-    if (_wstat(assetTimePath.c_str(), &result) != 0)
+    struct stat result;
+    if (_wstat(assetTimePath.data(), &result) != 0)
     {
         return true;
     }
 
     int size = result.st_size / sizeof(byte);
-    std::ifstream myFile(assetTimePath, std::ifstream::in | std::ifstream::out);
+    std::ifstream myFile(assetTimePath.data(), std::ifstream::in | std::ifstream::out);
     if (!myFile.is_open())
     {
         //Could not open shadertime file, assume new shader
@@ -97,10 +85,45 @@ bool FileCaching::assetOutOfDate(std::wstring_view assetPath)
 
     myFile.close();
 
-    //TODO JS: update file with current time after compilation finishes
+    return savedTime;
+}
+
+bool FileCaching::compareAssetAge(std::wstring_view assetNewer, std::wstring_view assetOlder)
+{
+    return readdotModifiedTime(assetNewer) > readdotModifiedTime(assetOlder);
+}
+
+void FileCaching::touchFile(std::wstring_view path)
+{
+    _utimbuf new_times;
+    struct stat result;
+    _wstat(path.data(), &result);
+    new_times.actime = result.st_atime;
+    new_times.modtime =time(NULL); //current time
+    _wutime(path.data(), &new_times);
+}
+//TODO JS: Just checking date for now -- prefer some kind of hash
+bool FileCaching::assetOutOfDate(std::wstring_view assetPath)
+{
+    assert(assetPath.data() != nullptr);
+    //Last changed check 
+    struct stat result;
+    if (_wstat(assetPath.data(), &result) != 0)
+    {
+        printf("Could not read shader file date");
+        assert(false);
+
+    }
+
+    auto modifiedTime = result.st_mtime;
+
+   
+long long savedTime = readdotModifiedTime(assetPath);
 
     if (savedTime == modifiedTime)
     {
         return false;
     }
+
+    return true;
 }

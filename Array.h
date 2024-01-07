@@ -51,6 +51,6 @@ struct Array
 
     inline size_t size() const { return ct; }
     inline size_t size_bytes() const { return sizeof(T) * ct; }
-    inline size_t capacity_bytes() const { return sizeof(T) * size; }
+    inline size_t capacity_bytes() const { return sizeof(T) * capacity;}
     
 };

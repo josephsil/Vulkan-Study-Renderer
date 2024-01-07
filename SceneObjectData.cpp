@@ -27,6 +27,7 @@ Scene::Scene(MemoryArena::memoryArena* arena)
     objects.objectsCount = 0;
     objects.translations = Array(MemoryArena::AllocSpan<glm::vec3>(arena, OBJECT_MAX));
     objects.rotations = Array(MemoryArena::AllocSpan<glm::quat>(arena, OBJECT_MAX));
+    objects.scales = Array(MemoryArena::AllocSpan<glm::vec3>(arena, OBJECT_MAX));
     objects.materials = Array(MemoryArena::AllocSpan<Material>(arena, OBJECT_MAX));
     objects.meshOffsets = Array(MemoryArena::AllocSpan<uint32_t>(arena, OBJECT_MAX));
     objects.matrices = Array(MemoryArena::AllocSpan<glm::mat4>(arena, OBJECT_MAX));
@@ -34,8 +35,11 @@ Scene::Scene(MemoryArena::memoryArena* arena)
     objects.meshVertCounts = Array(MemoryArena::AllocSpan<uint32_t>(arena, OBJECT_MAX));
 
     // arallel arrays per Light
+    lightshadowMapCount =  Array(MemoryArena::AllocSpan<uint32_t>(arena, LIGHT_MAX));
     lightposandradius = Array(MemoryArena::AllocSpan<glm::vec4>(arena, LIGHT_MAX));
     lightcolorAndIntensity = Array(MemoryArena::AllocSpan<glm::vec4>(arena, LIGHT_MAX));
+    lightDir = Array(MemoryArena::AllocSpan<glm::vec4>(arena, LIGHT_MAX));
+    lightTypes = Array(MemoryArena::AllocSpan<glm::float32>(arena, LIGHT_MAX));
 
     //Non parallel arrays //TODO JS: Pack together?
     backing_diffuse_textures = Array(MemoryArena::AllocSpan<TextureData>(arena, 300));
@@ -56,9 +60,8 @@ void Scene::Update()
         model = glm::mat4(1.0f);
         glm::mat4 objectLocalRotation = toMat4(objects.rotations[i]);
         model = translate(model, objects.translations[i]); //TODO: These should update at a different rate than camera stuff
-        model *= objectLocalRotation;
-        //TODO: Don't fake apply scale here
-        model = scale(model, glm::vec3(0.5));
+        model *= objectLocalRotation; //TODO JS: temporarily turned off rotation to debug shadows
+        model = scale(model, objects.scales[i]);
         objects.matrices[i] = model;
     }
 }
@@ -67,7 +70,7 @@ void Scene::Update()
 //At some point in the future I can replace this with a more sophisticated reference system if I need
 //Even just returning a pointer is probably plenty, then I can sort the lists, prune stuff, etc.
 int Scene::AddObject(MeshData* mesh, int textureidx, float material_roughness, bool material_metallic,
-                     glm::vec3 position, glm::quat rotation)
+                     glm::vec3 position, glm::quat rotation, glm::vec3 scale)
 {
     //TODD JS: version that can add 
     objects.meshes.push_back(mesh);
@@ -76,6 +79,7 @@ int Scene::AddObject(MeshData* mesh, int textureidx, float material_roughness, b
     });
     objects.translations.push_back(position);
     objects.rotations.push_back(rotation);
+    objects.scales.push_back(scale);
     objects.matrices.push_back(glm::mat4(1.0));
     objects.meshOffsets.push_back(getOffsetFromMeshID(mesh->id));
     objects.meshVertCounts.push_back(mesh->vertcount);
@@ -146,12 +150,138 @@ int Scene::AddBackingMesh(MeshData M)
     return meshCount ++;
 }
 
-int Scene::AddLight(glm::vec3 position, glm::vec3 color, float radius, float intensity)
+//very dumb/brute force for now
+void Scene::lightSort()
 {
+    int dir_array[LIGHT_MAX];
+    int point_array[LIGHT_MAX];
+    int spot_array[LIGHT_MAX];
+    Array<int> dirlightIndices = std::span<int>(dir_array);
+    Array<int> pointlightIndices = std::span<int>(point_array); 
+    Array<int> spotlightIndices = std::span<int>(spot_array); 
+
+    for(int i = 0; i < lightCount; i++)
+    {
+        switch((lightType)lightTypes[i])
+        {
+        case LIGHT_DIR:
+            dirlightIndices.push_back(i);  
+            break;
+        case LIGHT_SPOT:
+            spotlightIndices.push_back(i); 
+            break;          
+        case LIGHT_POINT:
+            pointlightIndices.push_back(i);
+            break;
+      
+    
+        }
+    }
+    std::span<uint32_t> tempShadowCt;
+    std::span<glm::vec4> tempPos;
+    std::span<glm::vec4> tempCol;
+    std::span<glm::vec4> tempDir;
+    std::span<glm::float32> tempType;
+
+    //if there's room, use the back half of the existing arrays
+    if (lightCount < LIGHT_MAX / 2)
+    {
+    tempShadowCt = std::span<uint32_t>(&lightshadowMapCount[0], LIGHT_MAX).subspan(LIGHT_MAX / 2, LIGHT_MAX / 2);
+    tempPos = std::span<glm::vec4>(&lightposandradius[0], LIGHT_MAX).subspan(LIGHT_MAX / 2, LIGHT_MAX / 2);
+    tempCol =  std::span<glm::vec4>(&lightcolorAndIntensity[0], LIGHT_MAX).subspan(LIGHT_MAX / 2, LIGHT_MAX / 2);   
+    tempDir =  std::span<glm::vec4>(&lightDir[0], LIGHT_MAX).subspan(LIGHT_MAX / 2, LIGHT_MAX / 2);   
+    tempType = std::span<glm::float32>(&lightTypes[0], LIGHT_MAX).subspan(LIGHT_MAX / 2, LIGHT_MAX / 2);    
+    }
+    else
+    {
+        //not implemented
+        assert(lightCount < LIGHT_MAX / 2);
+        // tempPos = MemoryArena::AllocSpan<glm::vec4>(allocator, lightCount);
+        // tempCol = MemoryArena::AllocSpan<glm::vec4>(allocator, lightCount);
+        // tempDir = MemoryArena::AllocSpan<glm::vec4>(allocator, lightCount);
+        // tempType = MemoryArena::AllocSpan<glm::float32>(allocator, lightCount);
+    }
+
+    for(int i =0; i < lightCount; i++)
+    {
+        tempShadowCt[i] = lightshadowMapCount[i];
+        tempPos[i] = lightposandradius[i];
+        tempCol[i] = lightcolorAndIntensity[i];
+        tempDir[i] = lightDir[i];
+        tempType[i] = lightTypes[i];
+    }
+
+    int i = 0;
+    int j;
+    for(j = 0; j < dirlightIndices.ct; j++)
+    {
+         lightshadowMapCount[i + j] = tempShadowCt[dirlightIndices[j]];
+        lightposandradius[i + j ] = tempPos[dirlightIndices[j]];
+        lightcolorAndIntensity[i + j ] = tempCol[dirlightIndices[j]];
+        lightDir[i + j ] = tempDir[dirlightIndices[j]];
+        lightTypes[i + j ] = tempType[dirlightIndices[j]];
+    }
+    i += j;
+    for(j = 0; j < spotlightIndices.ct; j++)
+    {
+         lightshadowMapCount[i + j] = tempShadowCt[spotlightIndices[j]];
+        lightposandradius[i + j ] = tempPos[spotlightIndices[j]];
+        lightcolorAndIntensity[i + j ] = tempCol[spotlightIndices[j]];
+        lightDir[i + j ] = tempDir[spotlightIndices[j]];
+        lightTypes[i + j ] = tempType[spotlightIndices[j]];
+    }
+    i += j;
+    for(j = 0; j < pointlightIndices.ct; j++)
+    {
+         lightshadowMapCount[i + j] = tempShadowCt[pointlightIndices[j]];
+        lightposandradius[i + j ] = tempPos[pointlightIndices[j]];
+        lightcolorAndIntensity[i + j ] = tempCol[pointlightIndices[j]];
+        lightDir[i + j ] = tempDir[pointlightIndices[j]];
+        lightTypes[i + j ] = tempType[pointlightIndices[j]];
+    }
+
+}
+
+int Scene::AddLight(glm::vec3 position, glm::vec3 dir, glm::vec3 color, float radius, float intensity, lightType type)
+{
+    lightshadowMapCount.push_back( type == LIGHT_POINT ? 6 : type == LIGHT_DIR ? CASCADE_CT : 1); //TODO JS
     lightposandradius.push_back(glm::vec4(position.x, position.y, position.z, radius));
     lightcolorAndIntensity.push_back(glm::vec4(color.x, color.y, color.z, intensity));
+    lightDir.push_back(glm::vec4(dir, -1.0));
+    lightTypes.push_back(type);
     lightCount ++;
+
+    lightSort();
     return -1; //NOT IMPLEMENTED
+}
+int Scene::AddDirLight(glm::vec3 position, glm::vec3 color,float intensity)
+{
+    return this->AddLight(position, glm::vec3(-1), color, -1, intensity, lightType::LIGHT_DIR);
+}
+int Scene::AddSpotLight(glm::vec3 position, glm::vec3 dir, glm::vec3 color, float radius, float intensity)
+{
+    return this->AddLight(position, dir, color, radius, intensity, lightType::LIGHT_SPOT);
+}
+
+int Scene::AddPointLight(glm::vec3 position, glm::vec3 color,  float intensity)
+{
+    return this->AddLight(position, glm::vec3(-1), color, -1, intensity, lightType::LIGHT_POINT);
+}
+
+
+int Scene::getShadowDataIndex(int idx)
+{
+    int output = 0;
+    for(int i = 0; i < idx; i++)
+    {
+        output +=  lightshadowMapCount[i];
+    }
+    return output;
+}
+
+int Scene::shadowCasterCount()
+{
+    return min(MAX_SHADOWCASTERS, this->lightCount);
 }
 
 void Scene::Cleanup()
@@ -171,6 +301,7 @@ void Scene::Cleanup()
 std::pair<VkDescriptorImageInfo, VkDescriptorImageInfo> ImageInfoFromImageData(
     TextureData texture)
 {
+    assert( &texture.textureImageView != VK_NULL_HANDLE);
     return std::make_pair(
         VkDescriptorImageInfo{
             .imageView = texture.textureImageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL

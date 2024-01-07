@@ -1,3 +1,4 @@
+#define SHADOWPASS
 #include "BindlessIncludes.hlsl"
 
 struct VSInput
@@ -28,7 +29,7 @@ struct VSOutput
 
 VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
 {
-    bool mode = globals.lightcount_mode_padding_padding.g;
+    bool mode = globals.lightcount_mode_shadowct_padding.g;
 #ifdef USE_RW
     MyVertexStructure myVertex = BufferTable[VertexIndex + VERTEXOFFSET];
 #else
@@ -36,9 +37,21 @@ VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
 #endif
     UBO ubo = uboarr[OBJECTINDEX];
     VSOutput output = (VSOutput)0;
-    float4x4 modelView = mul(globals.view, ubo.Model);
-    float4x4 mvp = mul(globals.projection, modelView);
-    output.Pos = mul(mvp, half4(myVertex.position.xyz, 1.0));
+    MyLightStructure light = lights[LIGHTINDEX];
+    float4x4 viewProjection;
+
+    //TODO JS !!!! FIX
+    // if (getLightType(light) == LIGHT_POINT)
+    // {
+        // viewProjection = shadowMatrices[MATRIXOFFSET].mat;
+    // }
+    // else
+    // {
+        viewProjection = shadowMatrices[MATRIXOFFSET].mat;
+    // }
+    float4x4 mvp2 = mul(viewProjection, ubo.Model);
+    
+    output.Pos = mul(mvp2, half4(myVertex.position.xyz, 1.0));
     return output;
 }
 

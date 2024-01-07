@@ -18,12 +18,27 @@ PipelineDataObject::PipelineDataObject(RendererHandles handles, Scene* pscene)
 
 void PipelineDataObject::createOpaqueLayout(RendererHandles handles, Scene* pscene)
 {
-    LayoutsBuilder builder = createBindlessLayout(handles,  pscene);
+    LayoutsBuilder builder = createBindlessLayoutBuilder(handles,  pscene);
     VkDescriptorSetLayoutCreateInfo uniformDescriptorLayout =  builder.getCreateInfo(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
     VkDescriptorSetLayoutCreateInfo imageDescriptorLayout = builder.getCreateInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE);
     VkDescriptorSetLayoutCreateInfo samplerDescriptorLayout = builder.getCreateInfo(VK_DESCRIPTOR_TYPE_SAMPLER);
     VkDescriptorSetLayoutCreateInfo storageDescriptorLayout = builder.getCreateInfo(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 
+
+    VkDescriptorBindingFlags binding_flags = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT_EXT; 
+    VkDescriptorSetLayoutBindingFlagsCreateInfoEXT extended_info = {VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO_EXT};
+    extended_info.bindingCount = 3; 
+    // In this example, the first binding is a UBO and the second is a combined image sampler array, so it only needs to be set on the second binding in my case. 
+    VkDescriptorBindingFlagsEXT descriptor_binding_flags[3] = {
+        binding_flags,
+        binding_flags,
+        binding_flags
+       }; 
+    extended_info.pBindingFlags = descriptor_binding_flags;
+    imageDescriptorLayout.pNext = &extended_info;
+    samplerDescriptorLayout.pNext = &extended_info;
+
+    
     VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &uniformDescriptorLayout, nullptr, &this->opaquePipelineData.uniformDescriptorLayout));
     VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &imageDescriptorLayout, nullptr, &this->opaquePipelineData.imageDescriptorLayout));
     VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &samplerDescriptorLayout, nullptr, &this->opaquePipelineData.samplerDescriptorLayout));
@@ -32,37 +47,33 @@ void PipelineDataObject::createOpaqueLayout(RendererHandles handles, Scene* psce
 }
 void PipelineDataObject::createShadowLayout(RendererHandles handles, Scene* pscene)
 {
-    LayoutsBuilder builder = createBindlessLayout(handles,  pscene); //TODO JS: different layout
+    LayoutsBuilder builder = createShadowLayoutBuilder(handles,  pscene); //TODO JS: different layout
     VkDescriptorSetLayoutCreateInfo uniformDescriptorLayout =  builder.getCreateInfo(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-    VkDescriptorSetLayoutCreateInfo imageDescriptorLayout = builder.getCreateInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE);
-    VkDescriptorSetLayoutCreateInfo samplerDescriptorLayout = builder.getCreateInfo(VK_DESCRIPTOR_TYPE_SAMPLER);
     VkDescriptorSetLayoutCreateInfo storageDescriptorLayout = builder.getCreateInfo(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 
     VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &uniformDescriptorLayout, nullptr, &this->shadowPipelineData.uniformDescriptorLayout));
-    VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &imageDescriptorLayout, nullptr, &this->shadowPipelineData.imageDescriptorLayout));
-    VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &samplerDescriptorLayout, nullptr, &this->shadowPipelineData.samplerDescriptorLayout));
     VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &storageDescriptorLayout, nullptr, &this->shadowPipelineData.storageDescriptorLayout));
     this->shadowPipelineData.slots = builder.bindings;
 }
 
 void PipelineDataObject::bindToCommandBufferOpaque(VkCommandBuffer cmd, uint32_t currentFrame)
 {
-    bindToCommandBuffer(cmd, currentFrame, &opaquePipelineData);
+    assert(opaquePipelineData.descriptorSetsInitialized && opaquePipelineData.pipelinesInitialized);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, opaquePipelineData.bindlessPipelineLayout, 0, 1, &opaquePipelineData.uniformDescriptorSetForFrame[currentFrame], 0, nullptr);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, opaquePipelineData.bindlessPipelineLayout, 1, 1, &opaquePipelineData.storageDescriptorSetForFrame[currentFrame], 0, nullptr);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, opaquePipelineData.bindlessPipelineLayout, 2, 1, &opaquePipelineData.imageDescriptorSetForFrame[currentFrame], 0, nullptr);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, opaquePipelineData.bindlessPipelineLayout, 3, 1, &opaquePipelineData.samplerDescriptorSetForFrame[currentFrame], 0, nullptr);
+    
 }
 
 void PipelineDataObject::bindToCommandBufferShadow(VkCommandBuffer cmd, uint32_t currentFrame)
 {
-    bindToCommandBuffer(cmd, currentFrame, &shadowPipelineData);
+    assert(shadowPipelineData.descriptorSetsInitialized && shadowPipelineData.pipelinesInitialized);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowPipelineData.bindlessPipelineLayout, 0, 1, &shadowPipelineData.uniformDescriptorSetForFrame[currentFrame], 0, nullptr);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowPipelineData.bindlessPipelineLayout, 1, 1, &shadowPipelineData.storageDescriptorSetForFrame[currentFrame], 0, nullptr);
+
 }
-void PipelineDataObject::bindToCommandBuffer(VkCommandBuffer cmd, uint32_t currentFrame, perPipelineData* pipelinedata)
-{
-    assert(pipelinedata->descriptorSetsInitialized && pipelinedata->pipelinesInitialized);
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelinedata->bindlessPipelineLayout, 0, 1, &pipelinedata->uniformDescriptorSetForFrame[currentFrame], 0, nullptr);
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelinedata->bindlessPipelineLayout, 1, 1, &pipelinedata->storageDescriptorSetForFrame[currentFrame], 0, nullptr);
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelinedata->bindlessPipelineLayout, 2, 1, &pipelinedata->imageDescriptorSetForFrame[currentFrame], 0, nullptr);
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelinedata->bindlessPipelineLayout, 3, 1, &pipelinedata->samplerDescriptorSetForFrame[currentFrame], 0, nullptr);
-    
-}
+
 
 void PipelineDataObject::updateDescriptorSetsForPipeline(std::vector<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame, perPipelineData* perPipelineData)
 {
@@ -134,21 +145,21 @@ void PipelineDataObject::createDescriptorSetsShadow(VkDescriptorPool pool, int M
 {
     createDescriptorSetsforPipeline(pool, MAX_FRAMES_IN_FLIGHT, &shadowPipelineData);
 }
-void PipelineDataObject::createDescriptorSetsforPipeline(VkDescriptorPool pool, int MAX_FRAMES_IN_FLIGHT, perPipelineData* perPipelineData)
+void PipelineDataObject::createDescriptorSetsforPipeline(VkDescriptorPool pool, int MAX_FRAMES_IN_FLIGHT, perPipelineData* _perPipelineData)
 {
-    assert(!perPipelineData->descriptorSetsInitialized); // Don't double initialize
-    perPipelineData->uniformDescriptorSetForFrame.resize(MAX_FRAMES_IN_FLIGHT);
-    perPipelineData->imageDescriptorSetForFrame.resize(MAX_FRAMES_IN_FLIGHT);
-    perPipelineData->samplerDescriptorSetForFrame.resize(MAX_FRAMES_IN_FLIGHT);
-    perPipelineData->storageDescriptorSetForFrame.resize(MAX_FRAMES_IN_FLIGHT);
+    assert(!_perPipelineData->descriptorSetsInitialized); // Don't double initialize
+    _perPipelineData->uniformDescriptorSetForFrame.resize(MAX_FRAMES_IN_FLIGHT);
+    _perPipelineData->imageDescriptorSetForFrame.resize(MAX_FRAMES_IN_FLIGHT);
+    _perPipelineData->samplerDescriptorSetForFrame.resize(MAX_FRAMES_IN_FLIGHT);
+    _perPipelineData->storageDescriptorSetForFrame.resize(MAX_FRAMES_IN_FLIGHT);
     for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        DescriptorSets::AllocateDescriptorSet(device, pool,  &perPipelineData->uniformDescriptorLayout, &perPipelineData->uniformDescriptorSetForFrame[i]);
-        DescriptorSets::AllocateDescriptorSet(device, pool,  &perPipelineData->imageDescriptorLayout, &perPipelineData->imageDescriptorSetForFrame[i]);
-        DescriptorSets::AllocateDescriptorSet(device, pool,  &perPipelineData->samplerDescriptorLayout, &perPipelineData->samplerDescriptorSetForFrame[i]);
-        DescriptorSets::AllocateDescriptorSet(device, pool,  &perPipelineData->storageDescriptorLayout, &perPipelineData->storageDescriptorSetForFrame[i]);
+        if (_perPipelineData->uniformDescriptorLayout != nullptr) DescriptorSets::AllocateDescriptorSet(device, pool,  &_perPipelineData->uniformDescriptorLayout, &_perPipelineData->uniformDescriptorSetForFrame[i]);
+        if (_perPipelineData->imageDescriptorLayout != nullptr) DescriptorSets::AllocateDescriptorSet(device, pool,  &_perPipelineData->imageDescriptorLayout, &_perPipelineData->imageDescriptorSetForFrame[i]);
+        if (_perPipelineData->samplerDescriptorLayout != nullptr) DescriptorSets::AllocateDescriptorSet(device, pool,  &_perPipelineData->samplerDescriptorLayout, &_perPipelineData->samplerDescriptorSetForFrame[i]);
+        if (_perPipelineData->storageDescriptorLayout != nullptr) DescriptorSets::AllocateDescriptorSet(device, pool,  &_perPipelineData->storageDescriptorLayout, &_perPipelineData->storageDescriptorSetForFrame[i]);
     }
-    perPipelineData->descriptorSetsInitialized = true;
+    _perPipelineData->descriptorSetsInitialized = true;
             
 }
 
@@ -187,9 +198,11 @@ void PipelineDataObject::createPipelineLayoutForPipeline(perPipelineData* perPip
         return;
     }
     
-    std::vector<VkDescriptorSetLayout> layouts = {
-        perPipelineData->uniformDescriptorLayout,perPipelineData->storageDescriptorLayout,perPipelineData->imageDescriptorLayout,perPipelineData->samplerDescriptorLayout
-    };
+    std::vector<VkDescriptorSetLayout> layouts ={};
+    if (perPipelineData->uniformDescriptorLayout) layouts.push_back(perPipelineData->uniformDescriptorLayout);
+    if (perPipelineData->storageDescriptorLayout) layouts.push_back(perPipelineData->storageDescriptorLayout);
+    if (perPipelineData->imageDescriptorLayout) layouts.push_back(perPipelineData->imageDescriptorLayout);
+    if (perPipelineData->samplerDescriptorLayout) layouts.push_back(perPipelineData->samplerDescriptorLayout);
     
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -216,7 +229,7 @@ void PipelineDataObject::createPipelineLayoutForPipeline(perPipelineData* perPip
     perPipelineData->pipelineLayoutInitialized = true;
 }
 
-void PipelineDataObject::createGraphicsPipeline(std::vector<VkPipelineShaderStageCreateInfo> shaders, VkFormat* swapchainFormat, VkFormat* depthFormat, bool shadow, bool color, bool depth)
+void PipelineDataObject::createGraphicsPipeline(std::vector<VkPipelineShaderStageCreateInfo> shaders, VkFormat* swapchainFormat, VkFormat* depthFormat, bool shadow, bool color, bool depth, bool lines)
 {
 
     auto pipeline = shadow ? &shadowPipelineData : &opaquePipelineData;
@@ -224,8 +237,6 @@ void PipelineDataObject::createGraphicsPipeline(std::vector<VkPipelineShaderStag
     
     assert(pipeline->pipelineLayoutInitialized);
     VkPipeline newGraphicsPipeline {}; 
-
-    VkPipelineShaderStageCreateInfo shaderStages[] = {shaders[0], shaders[1]};
 
     VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
     vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -236,7 +247,7 @@ void PipelineDataObject::createGraphicsPipeline(std::vector<VkPipelineShaderStag
 
     VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
     inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    inputAssembly.topology = lines ? VK_PRIMITIVE_TOPOLOGY_LINE_LIST : VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     inputAssembly.primitiveRestartEnable = VK_FALSE;
 
     VkPipelineViewportStateCreateInfo viewportState{};
@@ -250,29 +261,22 @@ void PipelineDataObject::createGraphicsPipeline(std::vector<VkPipelineShaderStag
     rasterizer.rasterizerDiscardEnable = VK_FALSE;
     rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
     rasterizer.lineWidth = 1.0f;
-    rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+    rasterizer.cullMode = shadow ? VK_CULL_MODE_FRONT_BIT : VK_CULL_MODE_BACK_BIT;
     rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-    rasterizer.depthBiasEnable = VK_FALSE;
+    rasterizer.depthBiasEnable = shadow ? VK_TRUE : VK_FALSE;
+    // rasterizer.depthBiasConstantFactor = shadow ? 6 : 0;
+    // rasterizer.depthBiasSlopeFactor = shadow ? 3 : 0;
+    // rasterizer.depth
 
     VkPipelineMultisampleStateCreateInfo multisampling{};
     multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
     multisampling.sampleShadingEnable = VK_FALSE;
     multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-    multisampling.minSampleShading = 1.0f; // Optional
-    multisampling.pSampleMask = nullptr; // Optional
-    multisampling.alphaToCoverageEnable = VK_FALSE; // Optional
-    multisampling.alphaToOneEnable = VK_FALSE; // Optional
 
     VkPipelineColorBlendAttachmentState colorBlendAttachment{};
     colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
         VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
     colorBlendAttachment.blendEnable = VK_FALSE;
-    colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE; // Optional
-    colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO; // Optional
-    colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD; // Optional
-    colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE; // Optional
-    colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO; // Optional
-    colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD; // Optional
 
     VkPipelineDepthStencilStateCreateInfo depthStencil{};
     depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
@@ -280,27 +284,22 @@ void PipelineDataObject::createGraphicsPipeline(std::vector<VkPipelineShaderStag
     depthStencil.depthWriteEnable = VK_TRUE;
     depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
     depthStencil.depthBoundsTestEnable = VK_FALSE;
-    depthStencil.minDepthBounds = 0.0f; // Optional
-    depthStencil.maxDepthBounds = 1.0f; // Optional
     depthStencil.stencilTestEnable = VK_FALSE;
-    depthStencil.front = {}; // Optional
-    depthStencil.back = {}; // Optional
 
     VkPipelineColorBlendStateCreateInfo colorBlending{};
     colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
     colorBlending.logicOpEnable = VK_FALSE;
-    colorBlending.logicOp = VK_LOGIC_OP_COPY; // Optional
     colorBlending.attachmentCount = 1;
     colorBlending.pAttachments = &colorBlendAttachment;
-    colorBlending.blendConstants[0] = 0.0f; // Optional
-    colorBlending.blendConstants[1] = 0.0f; // Optional
-    colorBlending.blendConstants[2] = 0.0f; // Optional
-    colorBlending.blendConstants[3] = 0.0f; // Optional
 
     std::vector<VkDynamicState> dynamicStates = {
         VK_DYNAMIC_STATE_VIEWPORT,
         VK_DYNAMIC_STATE_SCISSOR
     };
+    if (shadow)
+    {
+        dynamicStates.push_back(VK_DYNAMIC_STATE_DEPTH_BIAS);
+    }
     VkPipelineDynamicStateCreateInfo dynamicState{};
     dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
     dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
@@ -308,8 +307,8 @@ void PipelineDataObject::createGraphicsPipeline(std::vector<VkPipelineShaderStag
     
     VkGraphicsPipelineCreateInfo pipelineInfo{};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    pipelineInfo.stageCount = 2;
-    pipelineInfo.pStages = shaderStages;
+    pipelineInfo.stageCount = shaders.size(); //TODO JS?
+    pipelineInfo.pStages = shaders.data();
 
     pipelineInfo.pVertexInputState = &vertexInputInfo;
     pipelineInfo.pInputAssemblyState = &inputAssembly;

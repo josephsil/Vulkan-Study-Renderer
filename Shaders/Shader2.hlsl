@@ -1,5 +1,5 @@
 #include "BindlessIncludes.hlsl"
-
+//
 struct VSInput
 {
     [[vk::location(0)]] float3 Position : POSITION0;
@@ -30,7 +30,7 @@ struct VSOutput
 // -spirv -T vs_6_5 -E Vert .\Shader1.hlsl -Fo .\triangle.vert.spv
 VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
 {
-    bool mode = globals.lightcount_mode_padding_padding.g;
+    bool mode = globals.lightcount_mode_shadowct_padding.g;
 #ifdef USE_RW
     MyVertexStructure myVertex = BufferTable[VertexIndex + VERTEXOFFSET];
 #else
@@ -77,7 +77,7 @@ VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
 
 bool getMode()
 {
-    return globals.lightcount_mode_padding_padding.g;
+    return globals.lightcount_mode_shadowct_padding.g;
 }
 
 struct FSInput
@@ -105,91 +105,6 @@ float3x3 calculateNormal(FSInput input)
     return TBN;
 }
 
-float3 FresnelSchlickRoughness(float cosTheta, float3 F0, float roughness)
-{
-    return F0 + (max(float3(1.0 - roughness, 1.0 - roughness, 1.0 - roughness), F0) - F0) * pow(
-        clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
-}
-
-float3 fresnelSchlick(float cosTheta, float3 F0)
-{
-    return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
-}
-
-float DistributionGGX(float3 N, float3 H, float roughness)
-{
-    float PI = 3.14159265359;
-
-    float a = roughness * roughness;
-    float a2 = a * a;
-    float NdotH = max(dot(N, H), 0.0);
-    float NdotH2 = NdotH * NdotH;
-
-    float num = a2;
-    float denom = (NdotH2 * (a2 - 1.0) + 1.0);
-    denom = PI * denom * denom;
-
-    return num / denom;
-}
-
-float GeometrySchlickGGX(float NdotV, float roughness)
-{
-    float r = (roughness + 1.0);
-    float k = (r * r) / 8.0;
-
-    float num = NdotV;
-    float denom = NdotV * (1.0 - k) + k;
-
-    return num / denom;
-}
-
-float GeometrySmith(float3 N, float3 V, float3 L, float roughness)
-{
-    float NdotV = max(dot(N, V), 0.0);
-    float NdotL = max(dot(N, L), 0.0);
-    float ggx2 = GeometrySchlickGGX(NdotV, roughness);
-    float ggx1 = GeometrySchlickGGX(NdotL, roughness);
-
-    return ggx1 * ggx2;
-}
-
-
-float3 getLighting(float3 albedo, float3 inNormal, float3 FragPos, float3 F0, float3 roughness, float metallic)
-{
-    float PI = 3.14159265359;
-    float3 viewDir = normalize(globals.viewPos - FragPos);
-    float3 lightContribution = float3(0, 0, 0);
-    for (int i = 0; i < LIGHTCOUNT; i++)
-    {
-        MyLightStructure light = lights[i];
-        float3 lightPos = light.position_range.xyz;
-        float3 lightColor = light.color_intensity.xyz * light.color_intensity.a;
-        float3 lightToFrag = lightPos - FragPos;
-        float3 lightDir = normalize(lightToFrag);
-        float lightDistance = pow(length(lightPos - FragPos), 2);
-
-        float3 halfwayDir = normalize(lightDir + viewDir);
-
-        float attenuation = 1.0 / (lightDistance * lightDistance);
-        float3 radiance = lightColor * attenuation;
-        float3 Fresnel = fresnelSchlick(max(dot(halfwayDir, viewDir), 0.0), F0);
-        float NDF = DistributionGGX(inNormal, halfwayDir, roughness);
-        float G = GeometrySmith(inNormal, viewDir, lightDir, roughness);
-        float3 numerator = NDF * G * Fresnel;
-        float denominator = 4.0 * max(dot(inNormal, viewDir), 0.0) * max(dot(inNormal, lightDir), 0.0) + 0.0001;
-        float3 specular = numerator / denominator;
-        float3 kS = Fresnel;
-        float3 kD = 3.0 - kS;
-
-        kD *= 1.0 - metallic;
-        float NdotL = max(dot(inNormal, lightDir), 0.0);
-        lightContribution += (kD * albedo / PI + specular) * radiance * NdotL;
-    }
-
-
-    return lightContribution;
-}
-
 
 // -spirv -T ps_6_5 -E Frag .\Shader1.hlsl -Fo .\triangle.frag.spv
 
@@ -197,6 +112,9 @@ FSOutput Frag(VSOutput input)
 {
     FSOutput output;
 
+    UBO ubo = uboarr[OBJECTINDEX];
+
+    
     float3 diff = saturate(
         bindless_textures[DIFFUSE_INDEX].Sample(bindless_samplers[TEXTURESAMPLERINDEX], input.Texture_ST));
     float3 albedo = pow(diff, 2.2);
@@ -239,12 +157,13 @@ FSOutput Frag(VSOutput input)
 
     if (getMode())
     {
-        output.Color = getLighting(albedo, normalMap, input.worldPos, F0, roughness, metallic);
+        output.Color = getLighting(ubo.Model, albedo, normalMap, input.worldPos, F0, roughness, metallic);
     }
     else
     {
-        output.Color = ambient + getLighting(albedo, normalMap, input.worldPos, F0, roughness, metallic);
+        output.Color = ambient + getLighting(ubo.Model, albedo, normalMap, input.worldPos, F0, roughness, metallic);
     }
+    //
 
     output.Color = output.Color / (output.Color + 1.0);
     //	output.Color = pow(output.Color, 1.0/2.2); 

@@ -60,10 +60,11 @@ namespace MemoryArena
 
     template<typename T> std::span<T> AllocSpan(memoryArena* a, size_t length = 1)
     {
-        T* start = (T*)alloc(a, length * sizeof(T), alignof(T));
+        T* start = (T*)alloc(a, length * sizeof(T), 16);
         std::span<T> ret {start, length};
         return ret;
     }
+    
 
     template<typename T> std::span<T> copySpan(memoryArena* a, std::span<T> src)
     {

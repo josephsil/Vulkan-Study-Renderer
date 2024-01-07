@@ -20,7 +20,7 @@
 int TEXTURE_INDEX;
 #pragma region textureData
 
-TextureData::TextureData(RendererHandles rendererHandles, const char* path, TextureType textureType)
+TextureData::TextureData(RendererHandles rendererHandles, const char* path, TextureType textureType,VkImageViewType viewType)
 {
 
     this->rendererHandles = rendererHandles;
@@ -56,7 +56,7 @@ TextureData::TextureData(RendererHandles rendererHandles, const char* path, Text
     case CUBE:
         {
             inputFormat = VK_FORMAT_R8G8B8A8_UNORM;
-            mode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+            mode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
             break;
         }
     case DATA_DONT_COMPRESS:
@@ -71,8 +71,13 @@ TextureData::TextureData(RendererHandles rendererHandles, const char* path, Text
     //TODO JS: branch better
 	
     VkFormat loadedFormat = GetOrLoadTexture(path, inputFormat, textureType, use_mipmaps);
-    createTextureImageView(loadedFormat, textureType == CUBE ? VK_IMAGE_VIEW_TYPE_CUBE : VK_IMAGE_VIEW_TYPE_2D);
-    createTextureSampler(mode);
+
+	if (viewType == -1)
+	{
+		viewType =   textureType == CUBE ? VK_IMAGE_VIEW_TYPE_CUBE : VK_IMAGE_VIEW_TYPE_2D;
+	}
+    textureImageView = createTextureImageView(loadedFormat,viewType);
+    createTextureSampler(&textureSampler, rendererHandles, mode, 0, maxmip);
 }
 
 //TODO JS: Lifted from gltfiblsampler -- replace
@@ -343,10 +348,10 @@ void TextureData::cleanup()
 	VulkanMemory::DestroyImage(rendererHandles.allocator, textureImage, textureImageMemory);
 }
 
-void TextureData::createTextureSampler(VkSamplerAddressMode mode, float bias)
+void TextureData::createTextureSampler(VkSampler* textureSampler, RendererHandles handles, VkSamplerAddressMode mode, float bias, float maxMip, bool shadow)
 {
     VkPhysicalDeviceProperties properties{};
-    vkGetPhysicalDeviceProperties(rendererHandles.physicalDevice, &properties);
+    vkGetPhysicalDeviceProperties(handles.physicalDevice, &properties);
 
     VkSamplerCreateInfo samplerInfo{};
     samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -358,16 +363,16 @@ void TextureData::createTextureSampler(VkSamplerAddressMode mode, float bias)
     samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
     samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
     samplerInfo.unnormalizedCoordinates = VK_FALSE;
-    samplerInfo.compareEnable = VK_FALSE;
-    samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+    samplerInfo.compareEnable = shadow ? VK_TRUE : VK_FALSE;
+    samplerInfo.compareOp = shadow ? VK_COMPARE_OP_LESS : VK_COMPARE_OP_ALWAYS;
     samplerInfo.anisotropyEnable = VK_FALSE;
     samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
     samplerInfo.minLod = .0; // Optional
-    samplerInfo.maxLod = maxmip;
+    samplerInfo.maxLod = maxMip;
     samplerInfo.mipLodBias = bias;
 
 
-    if (vkCreateSampler(rendererHandles.device, &samplerInfo, nullptr, &textureSampler) != VK_SUCCESS)
+    if (vkCreateSampler(handles.device, &samplerInfo, nullptr, textureSampler) != VK_SUCCESS)
     {
        std::cerr << ("failed to create texture sampler!");
     exit(-1);
@@ -443,9 +448,9 @@ void TextureData::cacheKTXFromSTB(const char* path, const char* outpath, VkForma
 	VulkanMemory::DestroyImage(rendererHandles.allocator, staging.textureImage, staging.alloc); 
 }
 
-void TextureData::createTextureImageView(VkFormat format, VkImageViewType type)
+VkImageView TextureData::createTextureImageView(VkFormat format, VkImageViewType type)
 {
-    textureImageView = TextureUtilities::createImageView(rendererHandles.device, textureImage, format,
+    return TextureUtilities::createImageView(rendererHandles.device, textureImage, format,
                                                          VK_IMAGE_ASPECT_COLOR_BIT, type, maxmip, layerct);
 }
 
