@@ -1,8 +1,11 @@
 #include "bufferCreation.h"
 
-#include "Memory.h"
-#include "vmaImplementation.h"
-#include "AppStruct.h"
+#include <cstdio>
+#include <cstring>
+
+#include "VulkanIncludes/VulkanMemory.h"
+#include "VulkanIncludes/vmaImplementation.h"
+#include "RendererHandles.h"
 #include "CommandPoolManager.h"
 
 void createBuffer(RendererHandles rendererHandles, VkDeviceSize size, VkBufferUsageFlags usage, VmaAllocationCreateFlags  flags,

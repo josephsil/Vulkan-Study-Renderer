@@ -4,9 +4,8 @@
 #include <glm/glm.hpp>
 #include<glm/gtc/quaternion.hpp>
 
-#include "Array.h"
-#include "common-structs.h"
-#include "Material.h"
+#include "../General/Array.h"
+#include "../Renderer/rendererGlobals.h"
 
 namespace MemoryArena
 {
@@ -18,7 +17,9 @@ namespace MemoryArena
 struct TextureData;
 struct MeshData;
 struct VkDescriptorImageInfo;
+class Scene;
 
+void InitializeScene(MemoryArena::memoryArena* arena, Scene* scene);
 class Scene
 {
     //Should add a like gameobject-y thing that has a mesh and a material
@@ -90,7 +91,7 @@ public:
 
     void Cleanup();
 
-    std::pair<std::vector<VkDescriptorImageInfo>, std::vector<VkDescriptorImageInfo>> getBindlessTextureInfos();
+    std::pair<std::vector<VkDescriptorImageInfo>, std::vector<VkDescriptorImageInfo>> getBindlessTextureInfos(MemoryArena::memoryArena* allocator);
 private:
     int AddLight(glm::vec3 position, glm::vec3 dir = glm::vec3(-1), glm::vec3 color = glm::vec3(1), float radius = 1, float intensity = 1, lightType type = lightType::LIGHT_POINT);
     void lightSort();

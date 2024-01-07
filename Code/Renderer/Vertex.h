@@ -10,7 +10,7 @@
 #include "glm/gtx/hash.hpp"
 
 #pragma region Forward Declarations
-#include "forward-declarations-renderer.h"
+#include "VulkanIncludes/forward-declarations-renderer.h"
 #pragma endregion
 struct Vertex
 {

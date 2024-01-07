@@ -6,12 +6,12 @@
 
 #include <vector>
 #include "vertex.h"
-#include "AppStruct.h"
+#include "RendererHandles.h"
 
 #pragma region forward declarations
 #include <span>
 
-#include "forward-declarations-renderer.h"
+#include "VulkanIncludes/forward-declarations-renderer.h"
 #pragma endregion
 
 

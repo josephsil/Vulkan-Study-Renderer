@@ -3,8 +3,8 @@
 #pragma region forward declarations
 #include <cstdint>
 
-#include "AppStruct.h"
-#include "forward-declarations-renderer.h"
+#include "RendererHandles.h"
+#include "VulkanIncludes/forward-declarations-renderer.h"
 using ktxTexture2 =  struct ktxTexture2;
 using  ktxVulkanTexture = struct ktxVulkanTexture;
 

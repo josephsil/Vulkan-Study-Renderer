@@ -1,8 +1,8 @@
 #pragma once
 #include <cstdint>
 
-#include "forward-declarations-renderer.h"
-#include "common-structs.h"
+#include "VulkanIncludes/forward-declarations-renderer.h"
+#include "rendererGlobals.h"
 
 namespace vkb
 {

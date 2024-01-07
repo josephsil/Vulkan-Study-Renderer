@@ -1,12 +1,8 @@
 #pragma once
 
-#include "forward-declarations-renderer.h"
+#include "VulkanIncludes/forward-declarations-renderer.h"
 struct CommandPoolManager;
 
-
-const static int MAX_SHADOWCASTERS = 8;
-const static int CASCADE_CT = 4;
-#define MAX_SHADOWMAPS (MAX_SHADOWCASTERS * 6)
 namespace  MemoryArena
 {
     struct memoryArena;

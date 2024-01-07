@@ -1,6 +1,6 @@
 #pragma once
 #include <cstdint>
-#include "forward-declarations-renderer.h"
+#include "VulkanIncludes/forward-declarations-renderer.h"
 
 struct RendererHandles;
 struct CommandPoolManager;

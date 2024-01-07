@@ -2,8 +2,8 @@
 #include <unordered_map>
 #include <vector>
 
-#include "forward-declarations-renderer.h"
-#include "common-structs.h"
+#include "VulkanIncludes/forward-declarations-renderer.h"
+#include "rendererGlobals.h"
 
 
 struct Vertex;

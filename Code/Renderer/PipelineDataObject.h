@@ -3,12 +3,11 @@
 #include <unordered_map>
 #include <vector>
 
-#include "AppStruct.h"
-#include "forward-declarations-renderer.h"
+#include "RendererHandles.h"
+#include "VulkanIncludes/forward-declarations-renderer.h"
 #include "LayoutsBuilder.h"
 
 struct Vertex;
-class Scene;
 //Forward declaration
 struct RendererHandles;
 struct CommandPoolManager;

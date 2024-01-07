@@ -1,14 +1,11 @@
 
 #include "vulkan-utilities.h"
 
-#include "AppStruct.h"
-#include "CommandPoolManager.h"
+#include <cassert>
+
+#include "RendererHandles.h"
 #include "TextureData.h"
-#include "Vulkan_Includes.h"
-#include "SceneObjectData.h"
-
-
-
+#include "VulkanIncludes/Vulkan_Includes.h"
 
 
 
