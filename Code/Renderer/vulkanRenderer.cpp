@@ -37,7 +37,7 @@ vkb::Instance GET_INSTANCE()
 {
     vkb::InstanceBuilder instance_builder;
     auto instanceBuilderResult = instance_builder
-                                  .request_validation_layers()
+                                  // .request_validation_layers()
                                  .use_default_debug_messenger()
                                  .require_api_version(1, 3, 240)
                                  .build();
@@ -242,7 +242,6 @@ void HelloTriangleApplication::updateShadowImageViews(int frame )
 
 void HelloTriangleApplication::initVulkan()
 {
-
     this->rendererArena = {};
     MemoryArena::initialize(&rendererArena, 1000000 * 10); // 10mb
 
@@ -323,9 +322,12 @@ void HelloTriangleApplication::initVulkan()
     createCommandBuffers();
 
     //Initialize scene
+    camera.extent = {swapChainExtent.width, swapChainExtent.height};
     scene = MemoryArena::Alloc<Scene>(&rendererArena);
     InitializeScene(&rendererArena, scene);
     SET_UP_SCENE(this);
+
+    perLightShadowData = MemoryArena::AllocSpan<std::span<PerShadowData>>(&rendererArena, scene->lightCount);
 
    
     //shadows
@@ -719,12 +721,12 @@ glm::quat OrientationFromYawPitch(glm::vec2 yawPitch )
     return yawQuat * pitchQUat;
 }
 
-Transform HelloTriangleApplication::getCameraTransform()
+Transform getCameraTransform(HelloTriangleApplication::cameraData camera)
 {
     
     Transform output{};
-    output.translation = glm::translate(glm::mat4(1.0), -eyePos);
-    output.rot = glm::mat4_cast(glm::conjugate(OrientationFromYawPitch(eyeRotation)));
+    output.translation = glm::translate(glm::mat4(1.0), -camera.eyePos);
+    output.rot = glm::mat4_cast(glm::conjugate(OrientationFromYawPitch(camera.eyeRotation)));
 
     return output;
 }
@@ -738,13 +740,13 @@ std::vector<linePair> debugLines;
 //TODO JS: this sucks!
 void HelloTriangleApplication::updateCamera(inputData input)
 {
-    eyeRotation += (input.mouseRot *  30000.0f *  deltaTime);  // 30000 degrees per full screen rotation per second
-    if(eyeRotation.y > 89.0f)
-        eyeRotation.y = 89.0f;
-    if(eyeRotation.y < -89.0f)
-        eyeRotation.y = -89.0f;
+    camera.eyeRotation += (input.mouseRot *  30000.0f *  deltaTime);  // 30000 degrees per full screen rotation per second
+    if(camera.eyeRotation.y > 89.0f)
+        camera.eyeRotation.y = 89.0f;
+    if(camera.eyeRotation.y < -89.0f)
+        camera.eyeRotation.y = -89.0f;
 
-    glm::quat Orientation = OrientationFromYawPitch(eyeRotation);
+    glm::quat Orientation = OrientationFromYawPitch(camera.eyeRotation);
  
     glm::quat forwardQuat = Orientation * glm::quat(0, 0, 0, -1) * glm::conjugate(Orientation);
     glm::vec3 UP = glm::vec3(0,1,0);
@@ -754,7 +756,7 @@ void HelloTriangleApplication::updateCamera(inputData input)
     glm::vec3 translateFWD = Front * input.keyboardMove.y;
     glm::vec3 translateSIDE = RIGHT * input.keyboardMove.x;
 
-    eyePos +=  (translateFWD + translateSIDE) * deltaTime;
+    camera.eyePos +=  (translateFWD + translateSIDE) * deltaTime;
 }
 
 void debugDrawFrustum(std::span<glm::vec4> frustum)
@@ -830,6 +832,7 @@ glm::vec4 minComponentsFromSpan(std::span<glm::vec4> input)
     
 }
 
+
 std::span<glm::vec4> populateFrustumCornersForSpace(std::span<glm::vec4> output_span, glm::mat4 matrix)
 {
    const glm::vec3 frustumCorners[8] = {
@@ -854,11 +857,29 @@ std::span<glm::vec4> populateFrustumCornersForSpace(std::span<glm::vec4> output_
 
 }
 
-std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocator, HelloTriangleApplication::CameraInfo cam, glm::mat4 view, glm::vec3 lightPos, glm::vec3 spotDir, float spotRadius, lightType type)
+struct viewProj
 {
+    glm::mat4 view;
+    glm::mat4 proj;
+};
 
- 
-  
+viewProj viewProjFromCamera( HelloTriangleApplication::cameraData camera)
+{
+    Transform cameraTform = getCameraTransform(camera);
+    glm::mat4 view = cameraTform.rot * cameraTform.translation;
+
+    glm::mat4 proj = glm::perspective(glm::radians(camera.fov),
+                                      camera.extent.width / static_cast<float>(camera.extent.height),
+                                      camera.nearPlane,
+                                      camera.farPlane);
+    proj[1][1] *= -1;
+
+    return {view, proj};
+}
+
+std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocator, HelloTriangleApplication::cameraData cam, glm::vec3 lightPos, glm::vec3 spotDir, float spotRadius, lightType type)
+{
+    viewProj vp = viewProjFromCamera(cam);
     
     glm::vec3 dir = type ==  LIGHT_SPOT ? spotDir : glm::normalize(lightPos);
     glm::vec3 up = glm::vec3( 0.0f, 1.0f,  0.0f);
@@ -870,7 +891,7 @@ std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocato
     }
     glm::mat4 lightViewMatrix = {};
     glm::mat4 lightProjection = {};
-    
+    debugDrawCross(lightPos, 2, {1,1,0});
     std::span<PerShadowData> outputSpan;
     switch (type)
     {
@@ -878,10 +899,8 @@ std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocato
     case LIGHT_DIR:
         {
             outputSpan = MemoryArena::AllocSpan<PerShadowData>(allocator, 4 ); //TODO JS: cascades
-            glm::mat4 projForLight =  glm::perspective(glm::radians(70.0f),
-                               cam.extent.width / static_cast<float>(cam.extent.height), cam.nearPlane,
-                               cam.farPlane); 
-            glm::mat4 invCam = glm::inverse(projForLight * view);
+
+            glm::mat4 invCam = glm::inverse(vp.proj * vp.view);
 
             glm::vec4 frustumCornersWorldSpace[8] = {};
             populateFrustumCornersForSpace(frustumCornersWorldSpace, invCam);
@@ -891,7 +910,7 @@ std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocato
             debugDrawFrustum(frustumCornersWorldSpace);
 
             //TODO JS: direciton lights only currently
-            debugDrawCross(lightPos, 2, {1,1,0});
+          
 
          
 
@@ -1010,66 +1029,63 @@ std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocato
 
     
 }
-void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Array<glm::mat4> models,
-                                                    inputData input)
+
+
+void updateGlobals(HelloTriangleApplication::cameraData camera, Scene* scene, int cubeMapLutIndex, dataBuffer globalsBuffer)
 {
-    //TODO JS: to ring buffer?
-    auto tempArena = getHandles().perframeArena;
-    //Opaque globals
     ShaderGlobals globals;
-
-
-    updateCamera(input);
-  
-  
-    Transform cameraTform = getCameraTransform();
-    glm::mat4 view = cameraTform.rot * cameraTform.translation;
-
-    glm::mat4 proj = glm::perspective(glm::radians(70.0f),
-                                      swapChainExtent.width / static_cast<float>(swapChainExtent.height), nearPlane,
-                                      farPlane);
-    proj[1][1] *= -1;
-    globals.view = view;
-    globals.proj = proj;
-    globals.viewPos = glm::vec4(eyePos.x, eyePos.y, eyePos.z, 1);
+    viewProj vp = viewProjFromCamera(camera);
+    globals.view = vp.view;
+    globals.proj = vp.proj;
+    globals.viewPos = glm::vec4(camera.eyePos.x, camera.eyePos.y, camera.eyePos.z, 1);
     globals.lightcountx_modey_shadowcountz_padding_w = glm::vec4(scene->lightCount, SHADER_MODE, MAX_SHADOWCASTERS, 0);
     globals.cubemaplutidx_cubemaplutsampleridx_paddingzw = glm::vec4(
-        scene->materialTextureCount() + cubemaplut_utilitytexture_index,
-        scene->materialTextureCount() + cubemaplut_utilitytexture_index, 0, 0);
+        scene->materialTextureCount() + cubeMapLutIndex,
+        scene->materialTextureCount() + cubeMapLutIndex, 0, 0);
     
-    FramesInFlightData[currentFrame].opaqueShaderGlobalsBuffer.updateMappedMemory(&globals, sizeof(ShaderGlobals));
+    globalsBuffer.updateMappedMemory(&globals, sizeof(ShaderGlobals));
 
-  
+}
 
-    //Lights
-
-    //TODO JS: migrate this info all into this struct 
-    CameraInfo cameraInfo =  { swapChainExtent, eyePos, eyeRotation, nearPlane, farPlane};
-    auto lights = MemoryArena::AllocSpan<gpulight>(tempArena, scene->lightCount);
-
-
-    Array<PerShadowData> perShadowData = Array(MemoryArena::AllocSpan<PerShadowData>(&perFrameArenas[currentFrame],FramesInFlightData[currentFrame].shadowDataBuffers.size / sizeof(PerShadowData)));
-    int matrixCt = 0;
+void updateShadowData(MemoryArena::memoryArena* allocator, std::span<std::span<PerShadowData>> perLightShadowData, Scene* scene, HelloTriangleApplication::cameraData camera)
+{
     for(int i =0; i <scene->lightCount; i++)
     {
         
-       std::span<PerShadowData> lightsShadowData =  calculateLightMatrix(&perFrameArenas[currentFrame], cameraInfo, view, static_cast<glm::vec3>(scene->lightposandradius[i]), (glm::vec3)scene->lightDir[i], scene->lightposandradius[i].w, (lightType)scene->lightTypes[i]);
-
-            lights[i] = {
-                scene->lightposandradius[i],
-                scene->lightcolorAndIntensity[i],
-                glm::vec4(scene->lightTypes[i], scene->lightDir[i].x, scene->lightDir[i].y, scene->lightDir[i].z),
-                // lightViewProjection[0],
-                glm::vec4(perShadowData.ct,lightsShadowData.size(),-1,-1)};
-
-        for(int j = 0; j < lightsShadowData.size(); j++  )
-        {
-            perShadowData.push_back(lightsShadowData[j]);
-        }
-
-          
-       
+        perLightShadowData[i] =  calculateLightMatrix(allocator, camera,
+             (scene->lightposandradius[i]), scene->lightDir[i], scene->lightposandradius[i].w, static_cast<lightType>(scene->lightTypes[i]));
     }
+}
+
+
+void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Array<glm::mat4> models
+                                                   )
+{
+    //TODO JS: to ring buffer?
+    auto tempArena = getHandles().perframeArena;
+
+    updateGlobals(camera, scene, cubemaplut_utilitytexture_index, FramesInFlightData[currentFrame].opaqueShaderGlobalsBuffer);
+
+    //Lights
+    auto lights = MemoryArena::AllocSpan<gpulight>(tempArena, scene->lightCount);
+    Array<PerShadowData> flattenedPerShadowData = Array(MemoryArena::AllocSpan<PerShadowData>(&perFrameArenas[currentFrame],FramesInFlightData[currentFrame].shadowDataBuffers.size / sizeof(PerShadowData)));
+    for (int i = 0; i < perLightShadowData.size(); i++)
+    {
+        std::span<PerShadowData> lightsShadowData = perLightShadowData[i];
+        lights[i] = {
+            scene->lightposandradius[i],
+            scene->lightcolorAndIntensity[i],
+            glm::vec4(scene->lightTypes[i], scene->lightDir[i].x, scene->lightDir[i].y, scene->lightDir[i].z),
+            glm::vec4(flattenedPerShadowData.ct, lightsShadowData.size(), -1, -1)
+        };
+
+        for (int j = 0; j < lightsShadowData.size(); j++)
+        {
+            flattenedPerShadowData.push_back(lightsShadowData[j]);
+        }
+    }
+    FramesInFlightData[currentFrame].lightBuffers.updateMappedMemory(lights.data(), sizeof(gpulight) * lights.size());//TODO JS: could probably bump the index in the shader too on the point path rather than rebinding. 
+    FramesInFlightData[currentFrame].shadowDataBuffers.updateMappedMemory(flattenedPerShadowData.data, flattenedPerShadowData.capacity_bytes()); 
 
 
     //Ubos
@@ -1084,11 +1100,7 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
     
     FramesInFlightData[currentFrame].uniformBuffers.updateMappedMemory(ubos.data(), sizeof(UniformBufferObject) *scene->objectsCount());
 
-    //TODO JS: Replace gpulight matrix with an index. bind a new list of light matrices to shdaows. look up shadows with index in shader.
     
-    FramesInFlightData[currentFrame].lightBuffers.updateMappedMemory(lights.data(), sizeof(gpulight) * lights.size());//TODO JS: could probably bump the index in the shader too on the point path rather than rebinding. 
-    FramesInFlightData[currentFrame].shadowDataBuffers.updateMappedMemory(perShadowData.data, perShadowData.capacity_bytes()); 
-
 }
 
 
@@ -1114,10 +1126,25 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
     
     int shadowCasterCount = min(scene->lightCount, MAX_SHADOWCASTERS);
     //Should I do separate command buffers per shadow index?
+
+    int meshct = scene->objectsCount();
+    
+
+    std::span<int> meshIndices = MemoryArena::AllocSpan<int>(&perFrameArenas[currentFrame], meshct);
+
+      
+    for(int i =0; i < meshct; i++)
+    {
+        meshIndices[i] = i;
+    }
+
+
+
+    
     for(int i = 0; i < shadowCasterCount; i ++)
     {
         //TODO JS: next step -- need to get the 6 different point light matrices in. Or transform the one 6 times?
-
+        scene->OrderedMeshes(scene->lightTypes[i] == LIGHT_DIR ? glm::vec3(scene->lightposandradius[i]) * 9999.0f : glm::vec3(scene->lightposandradius[i]), meshIndices, false);
         int shadowIndex = i;
         int shadowCasterOffset = scene->getShadowDataIndex(i);
         lightType type = (lightType)scene->lightTypes[i];
@@ -1177,11 +1204,15 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
                         baseSLopeBias);
 
 
+     
+        
+            
             //TODO JS: Something other than hardcoded index 2 for shadow pipeline
             vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, descriptorsetLayoutsData.getPipeline(2));
             int meshct =  scene->objectsCount();
-            for (int i = 0; i <meshct; i++)
+            for (int j = 0; j <meshct; j++)
             {
+                int i = meshIndices[j];
                 per_object_data constants;
                 //Light count, vert offset, texture index, and object data index
                 constants.indexInfo = glm::vec4(-1, (scene->objects.meshOffsets[i]),
@@ -1274,23 +1305,18 @@ void HelloTriangleApplication::recordCommandBufferOpaquePass(VkCommandBuffer com
     
     int meshct = scene->objectsCount();
     
-    // std::span<int> meshIndices = MemoryArena::AllocSpan<int>(&perFrameArenas[currentFrame], meshct);
-    // for(int i =0; i < meshct; i++)
-    // {
-        // meshIndices[i] = i;
-    // }
-    // Transform cameraTform = getCameraTransform();
-    // glm::mat4 view = cameraTform.rot * cameraTform.translation;
-    // glm::mat4 proj = glm::perspective(glm::radians(70.0f),
-                                      // swapChainExtent.width / static_cast<float>(swapChainExtent.height), nearPlane,
-                                      // farPlane);
-    // scene->OrderedMeshes(proj * view , meshIndices);
+    std::span<int> meshIndices = MemoryArena::AllocSpan<int>(&perFrameArenas[currentFrame], meshct);
+    for(int i =0; i < meshct; i++)
+    {
+        meshIndices[i] = i;
+    }
+
+    scene->OrderedMeshes(camera.eyePos , meshIndices, false );
     
     int lastPipelineIndex = -1;
     for (int j = 0; j <meshct; j++)
     {
-        // int i = meshIndices[j];
-        int i = j;
+        int i = meshIndices[j];
         Material material = scene->objects.materials[i];
         int pipelineIndex =1 ;
 #ifdef DEBUG_SHADERS
@@ -1325,7 +1351,6 @@ void HelloTriangleApplication::recordCommandBufferOpaquePass(VkCommandBuffer com
 
         debugLinePConstants constants;
         //Light count, vert offset, texture index, and object data index
-        auto cameraTform = getCameraTransform();
         constants.pos1 = glm::vec4(debugLines[i].start,1.0);
         constants.pos2 = glm::vec4(debugLines[i].end,1.0);
         constants.color = glm::vec4(debugLines[i].color,1.0);
@@ -1477,9 +1502,11 @@ void HelloTriangleApplication::mainLoop()
         }
         inputData input = {translate, mouseRot}; 
         //Temp placeholder for like, object loop
+        updateCamera(input);
         UpdateRotations();
         scene->Update();
-        drawFrame(input);
+        updateShadowData(&perFrameArenas[currentFrame], perLightShadowData, scene, camera);
+        drawFrame();
         debugLines.clear();
         auto t2 = SDL_GetTicks();
     }
@@ -1547,11 +1574,13 @@ void transitionImageForRendering(RendererHandles handles, VkCommandBuffer comman
 }
 VkPipelineStageFlags swapchainWaitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
 VkPipelineStageFlags shadowWaitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-void HelloTriangleApplication::drawFrame(inputData input)
+void HelloTriangleApplication::drawFrame()
 {
     //Update per frame data
-   
-    updatePerFrameBuffers(currentFrame, scene->objects.matrices, input); // TODO JS: Figure out
+
+  
+    
+    updatePerFrameBuffers(currentFrame, scene->objects.matrices); // TODO JS: Figure out
     //Prepare for pass
     uint32_t imageIndex; 
     vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, FramesInFlightData[currentFrame].imageAvailableSemaphores, VK_NULL_HANDLE,
@@ -1835,7 +1864,7 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
 
 
     //point lights    
-    // app->scene->AddPointLight(glm::vec3(1, 1, 0), glm::vec3(1, 1, 1), 5 / 2);
+    app->scene->AddPointLight(glm::vec3(1, 1, 0), glm::vec3(1, 1, 1), 55);
     app->scene->AddDirLight(glm::vec3(0,0,1), glm::vec3(0,1,0), 3);
     app->scene->AddDirLight(glm::vec3(0.00, 1, 0),  glm::vec3(0, 0, 1), 33);
     app->scene->AddPointLight(glm::vec3(-2, 2, 0), glm::vec3(1, 0, 0), 4422 / 2);

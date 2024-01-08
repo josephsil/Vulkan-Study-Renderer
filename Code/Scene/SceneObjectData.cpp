@@ -150,29 +150,30 @@ int Scene::AddBackingMesh(MeshData M)
 
 struct sortData
 {
-    glm::mat4 matrix;
+    glm::vec3 pos;
     std::span<glm::vec3> positions;
     int ct;
+    int invert;
 };
 
 int orderComparator(void * context, void const* elem1, void const* elem2 )
 {
-    glm::mat4 mat = ((sortData*)context)->matrix;
+    glm::vec3 pos = ((sortData*)context)->pos;
     std::span<glm::vec3> positions = (*(sortData*)context).positions;
+    int sign = (*(sortData*)context).invert;
     int idx1 = *((int*)elem1);
     int idx2 = *((int*)elem2);
 
-    glm::vec4 trf1 = (mat * glm::vec4(positions[idx1], 0.0) );
-    glm::vec4 trf2 = (mat * glm::vec4(positions[idx2], 0.0) );
 
-    return (trf1.w > trf2.w) ? 1 : -1;
+
+    return glm::distance2(positions[idx1], pos) -   glm::distance2(positions[idx2], pos);
     
     
 }
-void Scene::OrderedMeshes(glm::mat4 viewProj, std::span<int> indices)
+void Scene::OrderedMeshes(glm::vec3 eyePos, std::span<int> indices, bool invert)
 {
     assert(indices.size() == objects.translations.ct);
-    sortData s = {viewProj, std::span<glm::vec3>(objects.translations.data, objects.translations.ct),  (int)objects.translations.ct};
+    sortData s = {eyePos, std::span<glm::vec3>(objects.translations.data, objects.translations.ct),  (int)objects.translations.ct, invert ? -1 : 1};
     qsort_s(indices.data(), indices.size(), sizeof(int), orderComparator, &s);
     return;
 }
@@ -212,11 +213,11 @@ void Scene::lightSort()
     //if there's room, use the back half of the existing arrays
     if (lightCount < LIGHT_MAX / 2)
     {
-    tempShadowCt = std::span<uint32_t>(&lightshadowMapCount[0], LIGHT_MAX).subspan(LIGHT_MAX / 2, LIGHT_MAX / 2);
-    tempPos = std::span<glm::vec4>(&lightposandradius[0], LIGHT_MAX).subspan(LIGHT_MAX / 2, LIGHT_MAX / 2);
-    tempCol =  std::span<glm::vec4>(&lightcolorAndIntensity[0], LIGHT_MAX).subspan(LIGHT_MAX / 2, LIGHT_MAX / 2);   
-    tempDir =  std::span<glm::vec4>(&lightDir[0], LIGHT_MAX).subspan(LIGHT_MAX / 2, LIGHT_MAX / 2);   
-    tempType = std::span<glm::float32>(&lightTypes[0], LIGHT_MAX).subspan(LIGHT_MAX / 2, LIGHT_MAX / 2);    
+    tempShadowCt = std::span<uint32_t>(lightshadowMapCount.data, LIGHT_MAX).subspan(LIGHT_MAX / 2, LIGHT_MAX / 2);
+    tempPos = std::span<glm::vec4>(lightposandradius.data, LIGHT_MAX).subspan(LIGHT_MAX / 2, LIGHT_MAX / 2);
+    tempCol =  std::span<glm::vec4>(lightcolorAndIntensity.data, LIGHT_MAX).subspan(LIGHT_MAX / 2, LIGHT_MAX / 2);   
+    tempDir =  std::span<glm::vec4>(lightDir.data, LIGHT_MAX).subspan(LIGHT_MAX / 2, LIGHT_MAX / 2);   
+    tempType = std::span<glm::float32>(lightTypes.data, LIGHT_MAX).subspan(LIGHT_MAX / 2, LIGHT_MAX / 2);    
     }
     else
     {

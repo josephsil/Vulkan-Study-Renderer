@@ -16,6 +16,7 @@
 #include "PipelineDataObject.h"
 // My stuff 
 
+struct PerShadowData;
 struct MeshData; //Forward Declaration
 struct Vertex; //Forward Declaration
 struct ShaderLoader;
@@ -35,20 +36,23 @@ struct  semaphoreData
 class HelloTriangleApplication
 {
 public:
+
+    struct cameraData
+    {
+        glm::vec3 eyePos = glm::vec3(-4.0f, 0.4f, 1.0f);
+        glm::vec2 eyeRotation = glm::vec2(55.0f, -22.0f); //yaw, pitch
+        float nearPlane = 0.01f;
+        float farPlane = 35.0f;
+
+        VkExtent2D extent;
+        float fov = 70;
+    };
+    
     Scene* scene;
     RendererHandles getHandles();
     void updateShadowImageViews(int frame);
     HelloTriangleApplication();
-    
 
-    struct CameraInfo
-    {
-        VkExtent2D extent;
-        glm::vec3 pos;
-        glm::vec2 rot; 
-        float nearPlane;
-        float farPlane;
-    };
 
 private:
 
@@ -72,10 +76,10 @@ private:
 
 #pragma endregion
 
-    glm::vec3 eyePos = glm::vec3(-4.0f, 0.4f, 1.0f);
-    glm::vec2 eyeRotation = glm::vec2(55.0f, -22.0f); //yaw, pitch
-    float nearPlane = 0.01f;
-    float farPlane = 35.0f;
+  
+
+    cameraData camera;
+   
     
     VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
     VkDevice device; //Logical device
@@ -108,6 +112,10 @@ private:
     std::vector<VkSampler> shadowSamplers;
     std::vector<VkImage> shadowImages;
     std::vector<VmaAllocation> shadowMemory;
+
+    std::span<std::span<PerShadowData>> perLightShadowData;
+
+
     VkFormat shadowFormat;
     
     VkImage depthImage;
@@ -132,6 +140,7 @@ private:
 
     struct per_frame_data
     {
+        //Below is all vulkan stuff 
         VkSemaphore shadowAvailableSemaphores {};
         VkSemaphore shadowFinishedSemaphores {};
         VkSemaphore imageAvailableSemaphores {};
@@ -152,7 +161,6 @@ private:
 
 #pragma region buffers
 
-        //TODO JS: More expressive pass system
         std::vector<dataBuffer> perLightShadowShaderGlobalsBuffer;
         std::vector<VmaAllocation> perLightShadowShaderGlobalsMemory;
         std::vector<void*> perLightShadowShaderGlobalsMapped;
@@ -205,10 +213,9 @@ private:
     void createUniformBuffers();
 
     void updateUniformBuffer(uint32_t currentImage, glm::mat4 model);
-    Transform getCameraTransform();
     void updateCamera(inputData input);
     //Globals per pass, ubos, and lights are updated every frame
-    void updatePerFrameBuffers(unsigned currentFrame, Array<glm::mat4> models, inputData input);
+    void updatePerFrameBuffers(unsigned currentFrame, Array<glm::mat4> models);
     void recordCommandBufferShadowPass(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 
 
@@ -240,7 +247,7 @@ private:
 
     void UpdateRotations();
 
-    void drawFrame(inputData input);
+    void drawFrame();
 
 
     void renderShadowPass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphoreData,

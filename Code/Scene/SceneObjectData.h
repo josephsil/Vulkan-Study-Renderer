@@ -30,7 +30,7 @@ public:
     int materialCount();
     int materialTextureCount();
 
-    void OrderedMeshes(glm::mat4 viewProj, std::span<int> indices);
+    void OrderedMeshes(glm::vec3 eyePos, std::span<int> indices, bool invert);
     struct Objects
     {
         int objectsCount = 0;
@@ -56,6 +56,7 @@ public:
     Array<glm::vec4> lightcolorAndIntensity;
     Array<glm::vec4> lightDir;
     Array<glm::float32> lightTypes;
+    
 
     //Non parallel arrays //TODO JS: Pack together?
     int textureSetCount = 0;
