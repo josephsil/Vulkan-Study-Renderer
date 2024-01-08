@@ -38,10 +38,8 @@ public:
         Array<glm::vec3> translations;
         Array<glm::quat> rotations;
         Array<glm::vec3> scales;
-        Array<MeshData*> meshes; //todo js: are these redundant?
-        Array<uint32_t> meshOffsets; //todo js: are these redundant?
+        Array<uint32_t> meshIndices;
         Array<Material> materials;
-        Array<uint32_t> meshVertCounts;
         Array<glm::mat4> matrices;
     };
 
@@ -69,6 +67,7 @@ public:
 
     int meshCount = 0;
     Array<MeshData> backing_meshes;
+    Array<float> meshBoundingSphereRad;
 
 
     Scene(MemoryArena::memoryArena* memoryArena);
@@ -84,6 +83,7 @@ public:
     int AddUtilityTexture(TextureData T);
     int AddMaterial(TextureData D, TextureData S, TextureData N);
     int AddBackingMesh(MeshData M);
+    float GetBoundingSphere(int idx);
 
     int AddDirLight(glm::vec3 position, glm::vec3 color,float intensity);
     int AddSpotLight(glm::vec3 position, glm::vec3 dir, glm::vec3 color, float radius, float intensity);

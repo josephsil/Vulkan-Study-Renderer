@@ -1130,12 +1130,12 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
     int meshct = scene->objectsCount();
     
 
-    std::span<int> meshIndices = MemoryArena::AllocSpan<int>(&perFrameArenas[currentFrame], meshct);
+    std::span<int> drawIndices = MemoryArena::AllocSpan<int>(&perFrameArenas[currentFrame], meshct);
 
       
     for(int i =0; i < meshct; i++)
     {
-        meshIndices[i] = i;
+        drawIndices[i] = i;
     }
 
 
@@ -1144,7 +1144,7 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
     for(int i = 0; i < shadowCasterCount; i ++)
     {
         //TODO JS: next step -- need to get the 6 different point light matrices in. Or transform the one 6 times?
-        scene->OrderedMeshes(scene->lightTypes[i] == LIGHT_DIR ? glm::vec3(scene->lightposandradius[i]) * 9999.0f : glm::vec3(scene->lightposandradius[i]), meshIndices, false);
+        scene->OrderedMeshes(scene->lightTypes[i] == LIGHT_DIR ? glm::vec3(scene->lightposandradius[i]) * 9999.0f : glm::vec3(scene->lightposandradius[i]), drawIndices, false);
         int shadowIndex = i;
         int shadowCasterOffset = scene->getShadowDataIndex(i);
         lightType type = (lightType)scene->lightTypes[i];
@@ -1212,10 +1212,10 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
             int meshct =  scene->objectsCount();
             for (int j = 0; j <meshct; j++)
             {
-                int i = meshIndices[j];
+                int i = drawIndices[j];
                 per_object_data constants;
                 //Light count, vert offset, texture index, and object data index
-                constants.indexInfo = glm::vec4(-1, (scene->objects.meshOffsets[i]),
+                constants.indexInfo = glm::vec4(-1, scene->getOffsetFromMeshID(scene->objects.meshIndices[i]),
                                                 -1, i);
                 constants.Indexinfo2 = glm::vec4(-1,-1,shadowMapIndex,shadowIndex);
 
@@ -1224,7 +1224,7 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
                 vkCmdPushConstants(commandBuffer, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                                    sizeof(per_object_data), &constants);
 
-                vkCmdDraw(commandBuffer, static_cast<uint32_t>(scene->objects.meshes[i]->vertcount), 1, 0, 0);
+                vkCmdDraw(commandBuffer, static_cast<uint32_t>(scene->backing_meshes[scene->objects.meshIndices[i]].vertcount), 1, 0, 0);
             }
             vkCmdEndRendering(commandBuffer);
         }
@@ -1305,18 +1305,19 @@ void HelloTriangleApplication::recordCommandBufferOpaquePass(VkCommandBuffer com
     
     int meshct = scene->objectsCount();
     
-    std::span<int> meshIndices = MemoryArena::AllocSpan<int>(&perFrameArenas[currentFrame], meshct);
+    std::span<int> drawIndices = MemoryArena::AllocSpan<int>(&perFrameArenas[currentFrame], meshct);
     for(int i =0; i < meshct; i++)
     {
-        meshIndices[i] = i;
+        debugDrawCross(scene->objects.translations[i], scene->GetBoundingSphere(i), {1,0,0});
+        drawIndices[i] = i;
     }
 
-    scene->OrderedMeshes(camera.eyePos , meshIndices, false );
+    scene->OrderedMeshes(camera.eyePos , drawIndices, false );
     
     int lastPipelineIndex = -1;
     for (int j = 0; j <meshct; j++)
     {
-        int i = meshIndices[j];
+        int i = drawIndices[j];
         Material material = scene->objects.materials[i];
         int pipelineIndex =1 ;
 #ifdef DEBUG_SHADERS
@@ -1331,7 +1332,7 @@ void HelloTriangleApplication::recordCommandBufferOpaquePass(VkCommandBuffer com
         
         per_object_data constants;
         //Light count, vert offset, texture index, and object data index
-        constants.indexInfo = glm::vec4(material.backingTextureidx, (scene->objects.meshOffsets[i]),
+        constants.indexInfo = glm::vec4(material.backingTextureidx, (scene->getOffsetFromMeshID(scene->objects.meshIndices[i])),
                                         material.backingTextureidx, i);
 
         constants.materialprops = glm::vec4(material.roughness, scene->objects.materials[i].metallic, 0, 0);
@@ -1339,7 +1340,7 @@ void HelloTriangleApplication::recordCommandBufferOpaquePass(VkCommandBuffer com
         vkCmdPushConstants(commandBuffer, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                            sizeof(per_object_data), &constants);
 
-        vkCmdDraw(commandBuffer, static_cast<uint32_t>(scene->objects.meshes[i]->vertcount), 1, 0, 0);
+        vkCmdDraw(commandBuffer, static_cast<uint32_t>(scene->backing_meshes[scene->objects.meshIndices[i]].vertcount), 1, 0, 0);
     }
 
     //debug lines -- todo feed from somehwere
@@ -1898,6 +1899,7 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
         }
     
     }
+}
 
     // add plane
      // app->scene->AddObject( &app->scene->backing_meshes[cube],
@@ -1929,9 +1931,4 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
     //   false,
     //   glm::vec4(-5, 9.35, -5, 1),
     //   glm::quat(),
-    //   glm::vec3(20,30,0.05)); // basically a plane
-    
-
-   
-}
-
+    //   glm::vec3(20,30,0.05)); // basically a plan

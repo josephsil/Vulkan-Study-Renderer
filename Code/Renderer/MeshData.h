@@ -1,5 +1,6 @@
 #pragma once
 
+
 #define GLM_FORCE_RADIANS	
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -25,11 +26,13 @@ public:
     VmaAllocation indexMemory;
     std::span<Vertex> vertices; // Span into memoryArena
     std::span<uint32_t> indices; //Span into memoryArena
+    std::span<glm::vec3> boundsCorners;
     VkDevice device; //Device pointers
     size_t vertcount;
     int id;
 
 
+    float getBoundingSphere();
     MeshData(RendererHandles rendererHandles, std::vector<Vertex> vertices,
              std::vector<uint32_t> indices);
 

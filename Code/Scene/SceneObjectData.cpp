@@ -27,10 +27,10 @@ void InitializeScene(MemoryArena::memoryArena* arena, Scene* scene)
     scene->objects.rotations = Array(MemoryArena::AllocSpan<glm::quat>(arena, OBJECT_MAX));
     scene->objects.scales = Array(MemoryArena::AllocSpan<glm::vec3>(arena, OBJECT_MAX));
     scene->objects.materials = Array(MemoryArena::AllocSpan<Material>(arena, OBJECT_MAX));
-    scene->objects.meshOffsets = Array(MemoryArena::AllocSpan<uint32_t>(arena, OBJECT_MAX));
+    scene->objects.meshIndices = Array(MemoryArena::AllocSpan<uint32_t>(arena, OBJECT_MAX));
     scene->objects.matrices = Array(MemoryArena::AllocSpan<glm::mat4>(arena, OBJECT_MAX));
-    scene->objects.meshes = Array(MemoryArena::AllocSpan<MeshData*>(arena, OBJECT_MAX));
-    scene->objects.meshVertCounts = Array(MemoryArena::AllocSpan<uint32_t>(arena, OBJECT_MAX));
+    // scene->objects.meshes = Array(MemoryArena::AllocSpan<MeshData*>(arena, ASSET_MAX));
+    // scene->objects.meshVertCounts = Array(MemoryArena::AllocSpan<uint32_t>(arena, ASSET_MAX));
 
     // arallel arrays per Light
     scene->lightshadowMapCount =  Array(MemoryArena::AllocSpan<uint32_t>(arena, LIGHT_MAX));
@@ -40,12 +40,13 @@ void InitializeScene(MemoryArena::memoryArena* arena, Scene* scene)
     scene->lightTypes = Array(MemoryArena::AllocSpan<glm::float32>(arena, LIGHT_MAX));
 
     //Non parallel arrays //TODO JS: Pack together?
-    scene->backing_diffuse_textures = Array(MemoryArena::AllocSpan<TextureData>(arena, 300));
-    scene->backing_specular_textures = Array(MemoryArena::AllocSpan<TextureData>(arena, 300));
-    scene->backing_normal_textures = Array(MemoryArena::AllocSpan<TextureData>(arena, 300));
-    scene->backing_utility_textures = Array(MemoryArena::AllocSpan<TextureData>(arena, 300));
+    scene->backing_diffuse_textures = Array(MemoryArena::AllocSpan<TextureData>(arena, ASSET_MAX));
+    scene->backing_specular_textures = Array(MemoryArena::AllocSpan<TextureData>(arena, ASSET_MAX));
+    scene->backing_normal_textures = Array(MemoryArena::AllocSpan<TextureData>(arena, ASSET_MAX));
+    scene->backing_utility_textures = Array(MemoryArena::AllocSpan<TextureData>(arena, ASSET_MAX));
 
-    scene->backing_meshes =  Array(MemoryArena::AllocSpan<MeshData>(arena, 300));
+    scene->backing_meshes =  Array(MemoryArena::AllocSpan<MeshData>(arena, ASSET_MAX));
+    scene->meshBoundingSphereRad = Array(MemoryArena::AllocSpan<float>(arena, ASSET_MAX));
     
 }
 
@@ -70,8 +71,8 @@ void Scene::Update()
 int Scene::AddObject(MeshData* mesh, int textureidx, float material_roughness, bool material_metallic,
                      glm::vec3 position, glm::quat rotation, glm::vec3 scale)
 {
-    //TODD JS: version that can add 
-    objects.meshes.push_back(mesh);
+    //TODD JS: version that can add
+    // objects.meshes.push_back(mesh);
     objects.materials.push_back(Material{
         .pipelineidx = (uint32_t)(objects.objectsCount % 20 > 10 ? 0 : 1), .backingTextureidx = textureidx, .metallic = material_metallic, .roughness = material_roughness
     });
@@ -79,8 +80,8 @@ int Scene::AddObject(MeshData* mesh, int textureidx, float material_roughness, b
     objects.rotations.push_back(rotation);
     objects.scales.push_back(scale);
     objects.matrices.push_back(glm::mat4(1.0));
-    objects.meshOffsets.push_back(getOffsetFromMeshID(mesh->id));
-    objects.meshVertCounts.push_back(mesh->vertcount);
+    objects.meshIndices.push_back(mesh->id);
+    // objects.meshVertCounts.push_back(mesh->vertcount);
     return objects.objectsCount++;
 }
 
@@ -145,7 +146,14 @@ int Scene::AddMaterial(TextureData D, TextureData S, TextureData N)
 int Scene::AddBackingMesh(MeshData M)
 {
     backing_meshes.push_back(M);
+    meshBoundingSphereRad.push_back(M.getBoundingSphere());
     return meshCount ++;
+}
+
+float Scene::GetBoundingSphere(int idx)
+{
+    int i = objects.meshIndices[idx];
+    return meshBoundingSphereRad[i] * glm::compMax(objects.scales[i]);
 }
 
 struct sortData
