@@ -171,7 +171,7 @@ private:
         //TODO JS: Move the data buffer stuff?
         dataBuffer uniformBuffers;
         VmaAllocation uniformBuffersMemory;
-
+        
         dataBuffer meshBuffers;
         VmaAllocation meshBuffersMemory;
 

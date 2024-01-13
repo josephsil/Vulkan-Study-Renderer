@@ -27,19 +27,18 @@ struct VSOutput
     // [[vk::location(7)]] float3x3 TBN : TEXCOORD4;
 };
 
-VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
+VSOutput Vert(VSInput input,  [[vk::builtin("BaseInstance")]]  uint InstanceIndex : BaseInstance, uint VertexIndex : SV_VertexID)
 {
-    bool mode = globals.lightcount_mode_shadowct_padding.g;
 #ifdef USE_RW
     MyVertexStructure myVertex = BufferTable[VertexIndex + VERTEXOFFSET];
 #else
  	MyVertexStructure myVertex = BufferTable.Load<MyVertexStructure>((VERTEXOFFSET + VertexIndex) * sizeof(MyVertexStructure));
 #endif
-    UBO ubo = uboarr[OBJECTINDEX];
+    UBO ubo = uboarr[InstanceIndex];
     VSOutput output = (VSOutput)0;
     MyLightStructure light = lights[LIGHTINDEX];
     float4x4 viewProjection;
-
+///
     //TODO JS !!!! FIX
     // if (getLightType(light) == LIGHT_POINT)
     // {

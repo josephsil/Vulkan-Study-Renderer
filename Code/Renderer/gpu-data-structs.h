@@ -12,6 +12,10 @@ struct UniformBufferObject
     alignas(16) glm::mat4 Normal;
     alignas(16) glm::mat4 padding1;
     alignas(16) glm::mat4 padding2;
+    //Light count, vertex offset, texture index, ubo index
+    alignas(16) glm::vec4 indexInfo;
+    alignas(16) glm::vec4 materialprops; //roughness, metalness, padding, padding
+    alignas(16) glm::vec4 Indexinfo2; //a is light index for shadows //TODO JS: remove
 };
 
 struct ShaderGlobals

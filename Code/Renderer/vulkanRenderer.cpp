@@ -1055,6 +1055,14 @@ void updateShadowData(MemoryArena::memoryArena* allocator, std::span<std::span<P
         perLightShadowData[i] =  calculateLightMatrix(allocator, camera,
              (scene->lightposandradius[i]), scene->lightDir[i], scene->lightposandradius[i].w, static_cast<lightType>(scene->lightTypes[i]));
     }
+
+    // for (int i =0; i < scene->lightCount; i++)
+    // {
+        // glm::mat4 invCam = glm::inverse(perLightShadowData[i][0].shadowMatrix);
+        // glm::vec4 shadowmat[8] = {};
+        // populateFrustumCornersForSpace(shadowmat, invCam);
+        // debugDrawFrustum(shadowmat);
+    // }
 }
 
 
@@ -1096,11 +1104,22 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
         glm::mat4* model = &models[i];
         ubos[i].model = models[i];
         ubos[i].Normal = transpose(inverse(glm::mat3(*model)));
+
+
+        
+        // int i = drawIndices[j];
+        Material material = scene->objects.materials[i];
+        
+        //Light count, vert offset, texture index, and object data index
+        ubos[i].indexInfo = glm::vec4(material.backingTextureidx, (scene->getOffsetFromMeshID(scene->objects.meshIndices[i])),
+                                       material.backingTextureidx, 44);
+
+        ubos[i].materialprops = glm::vec4(material.roughness, scene->objects.materials[i].metallic, 0, 0);
     }
     
     FramesInFlightData[currentFrame].uniformBuffers.updateMappedMemory(ubos.data(), sizeof(UniformBufferObject) *scene->objectsCount());
 
-    
+
 }
 
 
@@ -1161,6 +1180,7 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
                 .clearValue =  {1.0f, 0}
             };
 
+            
             VkRenderingInfo renderPassInfo{};
             renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
 
@@ -1206,6 +1226,11 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
 
      
         
+
+            //TODO: frustum cull -- sort by frustum test and set meshct?
+            glm::vec4 worldSpaceFrustum[8] = {};
+            populateFrustumCornersForSpace(worldSpaceFrustum, glm::inverse(perLightShadowData[i][j].shadowMatrix));
+
             
             //TODO JS: Something other than hardcoded index 2 for shadow pipeline
             vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, descriptorsetLayoutsData.getPipeline(2));
@@ -1215,16 +1240,13 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
                 int i = drawIndices[j];
                 per_object_data constants;
                 //Light count, vert offset, texture index, and object data index
-                constants.indexInfo = glm::vec4(-1, scene->getOffsetFromMeshID(scene->objects.meshIndices[i]),
-                                                -1, i);
-                constants.Indexinfo2 = glm::vec4(-1,-1,shadowMapIndex,shadowIndex);
+                constants.Indexinfo2 = glm::vec4(-1,-1,shadowMapIndex,-1);
 
-                constants.materialprops = glm::vec4(-1, -1, 0, 0);
 
                 vkCmdPushConstants(commandBuffer, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                                    sizeof(per_object_data), &constants);
 
-                vkCmdDraw(commandBuffer, static_cast<uint32_t>(scene->backing_meshes[scene->objects.meshIndices[i]].vertcount), 1, 0, 0);
+                vkCmdDraw(commandBuffer, static_cast<uint32_t>(scene->backing_meshes[scene->objects.meshIndices[i]].vertcount), 1, 0, i);
             }
             vkCmdEndRendering(commandBuffer);
         }
@@ -1329,18 +1351,8 @@ void HelloTriangleApplication::recordCommandBufferOpaquePass(VkCommandBuffer com
         }
         
         lastPipelineIndex = pipelineIndex;
-        
-        per_object_data constants;
-        //Light count, vert offset, texture index, and object data index
-        constants.indexInfo = glm::vec4(material.backingTextureidx, (scene->getOffsetFromMeshID(scene->objects.meshIndices[i])),
-                                        material.backingTextureidx, i);
 
-        constants.materialprops = glm::vec4(material.roughness, scene->objects.materials[i].metallic, 0, 0);
-
-        vkCmdPushConstants(commandBuffer, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-                           sizeof(per_object_data), &constants);
-
-        vkCmdDraw(commandBuffer, static_cast<uint32_t>(scene->backing_meshes[scene->objects.meshIndices[i]].vertcount), 1, 0, 0);
+        vkCmdDraw(commandBuffer, static_cast<uint32_t>(scene->backing_meshes[scene->objects.meshIndices[i]].vertcount), 1, 0, i);
     }
 
     //debug lines -- todo feed from somehwere

@@ -293,6 +293,7 @@ void ShaderLoader::AddShader(const char* name, std::wstring shaderPath)
     //TODO JS: get all includes recursively 
     shaderPaths shaderPaths = {.path = shaderPath, .includePaths = findShaderIncludes(&scratch, shaderPath)};
     bool needsCompiled = ShaderNeedsReciompiled(shaderPaths);
+    needsCompiled = true;
     //TODO JS: if no, load a cached version
 
     VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
@@ -384,7 +385,8 @@ void ShaderLoader::shaderCompile(std::wstring shaderFilename, bool is_frag)
         L"-T", targetProfile,
         L"-I", L"./Shaders/Includes",
         // Compile to SPIRV
-        L"-spirv"
+        L"-spirv",
+        L"-fvk-support-nonzero-base-instance"
     };
 
     // Compile shader

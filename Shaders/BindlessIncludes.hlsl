@@ -4,26 +4,34 @@
 #define LIGHT_POINT 1
 #define LIGHT_SPOT 2
 #define LIGHTCOUNT   globals.lightcount_mode_shadowct_padding.r
-#define VERTEXOFFSET pc.indexInfo.g
-#define TEXTURESAMPLERINDEX pc.indexInfo.b
+#define VERTEXOFFSET uboarr[InstanceIndex].indexInfo.g
+#define TEXTURESAMPLERINDEX uboarr[InstanceIndex].indexInfo.b
 #define NORMALSAMPLERINDEX TEXTURESAMPLERINDEX +2 //TODO JS: temporary!
-#define OBJECTINDEX  pc.indexInfo.a
-#define LIGHTINDEX   pc.indexInfo_2.a
+#define OBJECTINDEX  uboarr[InstanceIndex].indexInfo.a
+#define LIGHTINDEX   uboarr[InstanceIndex].indexInfo_2.a
 #define SKYBOXLUTINDEX globals.lutIDX_lutSamplerIDX_padding_padding.x
 #define SKYBOXLUTSAMPLERINDEX globals.lutIDX_lutSamplerIDX_padding_padding.y
 #define SHADOWCOUNT globals.lightcount_mode_shadowct_padding.z
-
+//
 #ifdef SHADOWPASS
 #define MATRIXOFFSET pc.indexInfo_2.b
 #endif
-
-
+//
+//
 struct UBO
 {
     float4x4 Model;
     float4x4 NormalMat;
     float4x4 p1;
     float4x4 p2;
+
+    //Formerly push constants
+    float4 indexInfo;
+    float roughness;
+    float metallic;
+    float _f1;
+    float _f2;
+    float4 indexInfo_2;
 };
 
 struct ShaderGlobals

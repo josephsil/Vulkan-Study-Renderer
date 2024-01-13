@@ -28,9 +28,8 @@ struct VSOutput
 
 
 // -spirv -T vs_6_5 -E Vert .\Shader1.hlsl -Fo .\triangle.vert.spv
-VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
+VSOutput Vert(VSInput input,  [[vk::builtin("BaseInstance")]]  uint InstanceIndex : BaseInstance, uint VertexIndex : SV_VertexID)
 {
-    bool mode = globals.lightcount_mode_shadowct_padding.g;
 #ifdef USE_RW
     MyVertexStructure myVertex = BufferTable[VertexIndex + VERTEXOFFSET];
 #else
@@ -39,7 +38,7 @@ VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
 	// https://github.com/microsoft/DirectXShaderCompiler/issues/2193 	
  	MyVertexStructure myVertex = BufferTable.Load<MyVertexStructure>((VERTEXOFFSET + VertexIndex) * sizeof(MyVertexStructure));
 #endif
-    UBO ubo = uboarr[OBJECTINDEX];
+    UBO ubo = uboarr[InstanceIndex];
     VSOutput output = (VSOutput)0;
     float4x4 modelView = mul(globals.view, ubo.Model);
     float4x4 mvp = mul(globals.projection, modelView);
@@ -108,7 +107,7 @@ float3x3 calculateNormal(FSInput input)
 
 // -spirv -T ps_6_5 -E Frag .\Shader1.hlsl -Fo .\triangle.frag.spv
 
-FSOutput Frag(VSOutput input)
+FSOutput Frag(VSOutput input, [[vk::location(10)]] uint InstanceIndex : SV_InstanceID)
 {
     FSOutput output;
 

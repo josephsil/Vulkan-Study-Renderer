@@ -25,6 +25,7 @@ struct VSOutput
     [[vk::location(5)]] float3 Tangent : TEXCOORD2;
     [[vk::location(6)]] float3 BiTangent : TEXCOORD3;
     [[vk::location(7)]] float3x3 TBN : TEXCOORD4;
+    [[vk::location(10)]] uint InstanceID : SV_InstanceID;
 };
 
 static float2 positions[3] = {
@@ -35,10 +36,9 @@ static float2 positions[3] = {
 
 
 // -spirv -T vs_6_5 -E Vert .\Shader1.hlsl -Fo .\triangle.vert.spv
-VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
-{
 
-    bool mode = globals.lightcount_mode_shadowct_padding.g;
+VSOutput Vert(VSInput input,  [[vk::builtin("BaseInstance")]]  uint InstanceIndex : BaseInstance, uint VertexIndex : SV_VertexID)
+{
 #ifdef USE_RW
     MyVertexStructure myVertex = BufferTable[VertexIndex + VERTEXOFFSET];
 #else
@@ -48,9 +48,10 @@ VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
  	MyVertexStructure myVertex = BufferTable.Load<MyVertexStructure>((VERTEXOFFSET + VertexIndex) * sizeof(MyVertexStructure));
 #endif
     //
-    UBO ubo = uboarr[OBJECTINDEX];
+    UBO ubo = uboarr[InstanceIndex];
     VSOutput output = (VSOutput)0;
-    float4x4 modelView = mul(globals.view, ubo.Model);
+    //
+    float4x4 modelView = mul(globals.view, uboarr[ InstanceIndex].Model);
     float4x4 mvp = mul(globals.projection, modelView);
     output.Pos = mul(mvp, half4(myVertex.position.xyz, 1.0));
     output.Texture_ST = myVertex.uv0.xy;
@@ -79,6 +80,8 @@ VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
     //   float3 bitangentW = cross(normalW, tangentW) * a_Tangent.w;
     //   v_TBN = mat3(tangentW, bitangentW, normalW);
 
+    output.InstanceID = InstanceIndex;
+
 
     output.Color = 1.0;
     return output;
@@ -101,9 +104,12 @@ struct FSInput
     [[vk::location(6)]] float3 BiTangent : TEXCOORD3;
     [[vk::location(7)]] float3x3 TBN : TEXCOORD4;
 };
+
+
 //
 float3x3 calculateNormal(FSInput input)
 {
+   
     // float3 tangentNormal = normalMapTexture.Sample(normalMapSampler, input.UV).xyz * 2.0 - 1.0;
 
     float3 N = normalize(input.Normal);
@@ -118,7 +124,8 @@ float3x3 calculateNormal(FSInput input)
 
 FSOutput Frag(VSOutput input)
 {
-
+    uint InstanceIndex = 0;
+    InstanceIndex = input.InstanceID;
     FSOutput output;//
     float3 diff = saturate(
         bindless_textures[DIFFUSE_INDEX].Sample(bindless_samplers[TEXTURESAMPLERINDEX], input.Texture_ST));
