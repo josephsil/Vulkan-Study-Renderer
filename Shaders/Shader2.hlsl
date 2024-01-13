@@ -122,7 +122,7 @@ FSOutput Frag(VSOutput input, [[vk::location(10)]] uint InstanceIndex : SV_Insta
         Sample(bindless_samplers[NORMALSAMPLERINDEX], input.Texture_ST));
     float4 specMap = bindless_textures[SPECULAR_INDEX].Sample(bindless_samplers[TEXTURESAMPLERINDEX], input.Texture_ST);
     float metallic = specMap.a;
-    metallic = pc.metallic;
+    metallic = ubo.metallic;
 
     // albedo = 0.33;
 
@@ -133,7 +133,7 @@ FSOutput Frag(VSOutput input, [[vk::location(10)]] uint InstanceIndex : SV_Insta
 
     float3 F0 = 0.04;
     F0 = lerp(F0, albedo, metallic);
-    float roughness = pc.roughness;
+    float roughness = ubo.roughness;
     float3 F = FresnelSchlickRoughness(max(dot(normalMap, V), 0.0), F0, roughness);
 
     float3 kS = F;

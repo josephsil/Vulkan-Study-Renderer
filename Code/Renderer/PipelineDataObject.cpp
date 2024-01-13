@@ -215,7 +215,7 @@ void PipelineDataObject::createPipelineLayoutForPipeline(perPipelineData* perPip
     //this push constant range starts at the beginning
     push_constant.offset = 0;
     //this push constant range takes up the size of a MeshPushConstants struct
-    push_constant.size = sizeof(per_object_data);
+    push_constant.size = sizeof(shadowPushConstants);
     
     push_constant.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 

@@ -13,9 +13,7 @@
 #define SKYBOXLUTSAMPLERINDEX globals.lutIDX_lutSamplerIDX_padding_padding.y
 #define SHADOWCOUNT globals.lightcount_mode_shadowct_padding.z
 //
-#ifdef SHADOWPASS
-#define MATRIXOFFSET pc.indexInfo_2.b
-#endif
+
 //
 //
 struct UBO
@@ -41,17 +39,6 @@ struct ShaderGlobals
     float4 viewPos;
     float4 lightcount_mode_shadowct_padding;
     float4 lutIDX_lutSamplerIDX_padding_padding;
-};
-
-struct pconstant
-{
-    float4 indexInfo;
-    float roughness;
-    float metallic;
-    float _f1;
-    float _f2;
-    float4 indexInfo_2;
-    float4 _2;
 };
 
 struct perShadowData
@@ -122,8 +109,6 @@ TextureCube cubes[];
 [[vk::binding(1,3)]]
 SamplerState cubeSamplers[];
 
-[[vk::push_constant]]
-pconstant pc;
 
 #define  DIFFUSE_INDEX  (TEXTURESAMPLERINDEX * 3) + 0
 #define  SPECULAR_INDEX  (TEXTURESAMPLERINDEX * 3) + 1

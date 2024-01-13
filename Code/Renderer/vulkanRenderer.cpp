@@ -1224,6 +1224,11 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
                         baseSLopeBias);
 
 
+            shadowPushConstants constants;
+            //Light count, vert offset, texture index, and object data index
+            constants.shadowIndex = shadowMapIndex;
+            vkCmdPushConstants(commandBuffer, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                               sizeof(shadowPushConstants), &constants);
      
         
 
@@ -1238,13 +1243,8 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
             for (int j = 0; j <meshct; j++)
             {
                 int i = drawIndices[j];
-                per_object_data constants;
-                //Light count, vert offset, texture index, and object data index
-                constants.Indexinfo2 = glm::vec4(-1,-1,shadowMapIndex,-1);
 
 
-                vkCmdPushConstants(commandBuffer, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-                                   sizeof(per_object_data), &constants);
 
                 vkCmdDraw(commandBuffer, static_cast<uint32_t>(scene->backing_meshes[scene->objects.meshIndices[i]].vertcount), 1, 0, i);
             }
@@ -1370,7 +1370,7 @@ void HelloTriangleApplication::recordCommandBufferOpaquePass(VkCommandBuffer com
         constants.m = glm::mat4(1.0);
 
         vkCmdPushConstants(commandBuffer, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-                          sizeof(per_object_data), &constants);
+                          sizeof(shadowPushConstants), &constants);
 
         vkCmdDraw(commandBuffer, 2, 1, 0, 0);
     }

@@ -27,19 +27,9 @@ struct ShaderGlobals
     alignas(16) glm::vec4 cubemaplutidx_cubemaplutsampleridx_paddingzw;
 };
 
-struct per_object_data
+struct shadowPushConstants
 {
-    //Light count, vertex offset, texture index, ubo index
-    alignas(16) glm::vec4 indexInfo;
-
-    alignas(16) glm::vec4 materialprops; //roughness, metalness, padding, padding
-    alignas(16) glm::vec4 Indexinfo2; //a is light index for shadows
-    alignas(16) glm::vec4 padding_2;
-    alignas(16) glm::vec4 padding_3;
-    //Unused
-    alignas(16) glm::mat4 padding1;
-    //Unused
-    alignas(16) glm::mat4 padding2;
+    alignas(16) glm::float32_t shadowIndex; //a is light index for shadows
 };
 
 

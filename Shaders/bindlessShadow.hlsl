@@ -15,6 +15,15 @@ struct FSOutput
 };
 
 
+
+struct pconstant
+{
+    float indexInfo_2;
+};
+
+[[vk::push_constant]]
+pconstant pc;
+
 struct VSOutput
 {
     [[vk::location(0)]] float4 Pos : SV_POSITION;
@@ -26,6 +35,10 @@ struct VSOutput
     // [[vk::location(6)]] float3 BiTangent : TEXCOORD3;
     // [[vk::location(7)]] float3x3 TBN : TEXCOORD4;
 };
+
+#ifdef SHADOWPASS
+#define MATRIXOFFSET pc.indexInfo_2
+#endif
 
 VSOutput Vert(VSInput input,  [[vk::builtin("BaseInstance")]]  uint InstanceIndex : BaseInstance, uint VertexIndex : SV_VertexID)
 {
