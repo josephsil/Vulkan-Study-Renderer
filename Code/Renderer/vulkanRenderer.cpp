@@ -64,6 +64,7 @@ vkb::PhysicalDevice GET_GPU(vkb::Instance instance)
     VkPhysicalDeviceVulkan11Features features11{};
     VkPhysicalDeviceVulkan12Features features12{};
     VkPhysicalDeviceVulkan13Features features13{};
+    features11.shaderDrawParameters = VK_TRUE;
     features12.descriptorIndexing = VK_TRUE;
     features12.runtimeDescriptorArray = VK_TRUE;
     features12.descriptorBindingPartiallyBound = VK_TRUE;
@@ -76,6 +77,7 @@ vkb::PhysicalDevice GET_GPU(vkb::Instance instance)
                                        .set_minimum_version(1, 3)
                                        .set_surface(surface)
                                        .require_separate_transfer_queue()
+    .set_required_features_11(features11)
                                        .set_required_features_12(features12)
     // .set_required_features({.})
     .set_required_features_13(features13)
@@ -327,6 +329,8 @@ void HelloTriangleApplication::initVulkan()
     InitializeScene(&rendererArena, scene);
     SET_UP_SCENE(this);
 
+    
+
     perLightShadowData = MemoryArena::AllocSpan<std::span<PerShadowData>>(&rendererArena, scene->lightCount);
 
    
@@ -350,6 +354,26 @@ void HelloTriangleApplication::initVulkan()
     cube_irradiance = TextureData(getHandles(), "textures/output_cubemap2_diff8.ktx2", TextureData::TextureType::CUBE);
     cube_specular = TextureData(getHandles(), "textures/output_cubemap2_spec8.ktx2", TextureData::TextureType::CUBE);
 
+
+    
+    
+
+    createUniformBuffers();
+    createSyncObjects();
+
+    //TODO JS: Move... Run when meshes change?
+    populateMeshBuffers();
+    
+    for(int i = 0; i < MAX_FRAMES_IN_FLIGHT ; i++)
+    {
+        opaqueUpdates[i] = createOpaqueDescriptorUpdates(i, &rendererArena);
+        shadowUpdates[i] = MemoryArena::AllocSpan<std::span<descriptorUpdateData>>(&rendererArena, MAX_SHADOWCASTERS);
+        for(int j = 0; j < MAX_SHADOWCASTERS; j++)
+        {
+            shadowUpdates[i][j] = createShadowDescriptorUpdates(&rendererArena, i, j);
+            
+        }
+    }
     
     descriptorsetLayoutsData = PipelineDataObject(getHandles(), scene);
 
@@ -366,12 +390,6 @@ void HelloTriangleApplication::initVulkan()
 
     descriptorsetLayoutsData.createDescriptorSetsOpaque(descriptorPool, MAX_FRAMES_IN_FLIGHT);
     descriptorsetLayoutsData.createDescriptorSetsShadow(descriptorPool, MAX_FRAMES_IN_FLIGHT);
-
-    createUniformBuffers();
-    createSyncObjects();
-
-    //TODO JS: Move... Run when meshes change?
-    populateMeshBuffers();
 }
 
 void HelloTriangleApplication::populateMeshBuffers()
@@ -522,17 +540,14 @@ std::span<VkDescriptorImageInfo> getBindlessTextureInfos(MemoryArena::memoryAren
         auto imageInfo = imageInfoFromImageData(
             diffuse[texture_i]);
         imageInfos.push_back(imageInfo);
-        // samplerInfos.push_back(imageInfo);
 
         auto imageInfo2 = imageInfoFromImageData(
             spec[texture_i]);
         imageInfos.push_back(imageInfo2);
-        // samplerInfos.push_back(imageInfo2);
 
         auto imageInfo3 = imageInfoFromImageData(
             norm[texture_i]);
         imageInfos.push_back(imageInfo3);
-        // samplerInfos.push_back(imageInfo3);
     }
 
     for (int texture_i = 0; texture_i < utility.size(); texture_i++)
@@ -540,119 +555,131 @@ std::span<VkDescriptorImageInfo> getBindlessTextureInfos(MemoryArena::memoryAren
         auto imageInfo = imageInfoFromImageData(
             utility[texture_i]);
         imageInfos.push_back(imageInfo);
-        // samplerInfos.push_back(imageInfo);
     }
 
-    return std::span(imageInfos.data, imageInfos.ct);
+    return imageInfos.getSpan();
 }
 
 
-void HelloTriangleApplication::updateOpaqueDescriptorSets(RendererHandles handles, VkDescriptorPool pool, PipelineDataObject* layoutData)
+void HelloTriangleApplication::updateOpaqueDescriptorSets(PipelineDataObject* layoutData)
+{
+    layoutData->updateOpaqueDescriptorSets(opaqueUpdates[currentFrame], currentFrame);
+}
+
+
+
+std::span<descriptorUpdateData> HelloTriangleApplication::createOpaqueDescriptorUpdates(uint32_t frame, MemoryArena::memoryArena* arena)
 {
 
     //Get data
-    auto imageInfos = getBindlessTextureInfos(
-        handles.perframeArena,
+    std::span imageInfos = getBindlessTextureInfos(
+        arena,
         std::span(scene->backing_diffuse_textures.data, scene->backing_diffuse_textures.ct ),
         std::span(scene->backing_specular_textures.data, scene->backing_specular_textures.ct ),
         std::span(scene->backing_normal_textures.data, scene->backing_normal_textures.ct ),
         std::span(scene->backing_utility_textures.data, scene->backing_utility_textures.ct ));
-    auto [cubeImageInfos, cubeSamplerInfos] = DescriptorSets::ImageInfoFromImageDataVec({
+
+    std::span cubeImageInfos= DescriptorSets::ImageInfoFromImageDataVec(arena,{
         cube_irradiance, cube_specular});
 
 
     int pointCount = 0;
 
-    //TODO JS: !!!! Fix this 
-    VkDescriptorImageInfo shadows[MAX_SHADOWMAPS] = {};
+    std::span<VkDescriptorImageInfo> shadows = MemoryArena::AllocSpan<VkDescriptorImageInfo>(arena, MAX_SHADOWMAPS);
     for(int i = 0; i < MAX_SHADOWMAPS; i++)
     {
         VkImageView view {};
         if (i < scene->shadowCasterCount())
         {
-            bool point = scene->lightTypes[i] == LIGHT_POINT;
-            int idx = scene->getShadowDataIndex(i);
-            view =  shadowMapSamplingImageViews[currentFrame][ i] ;
+            view =  shadowMapSamplingImageViews[frame][i] ;
         }
 
         //Fill out the remaining leftover shadow bindings with something -- using the other shadow view is arbitrary
         //TODO JS: Should have a "default" view maybe? 
         else
         {
-            view = shadowMapRenderingImageViews[currentFrame][0];
+            view = shadowMapRenderingImageViews[frame][0];
         }
         
         assert( &view != VK_NULL_HANDLE);
         VkDescriptorImageInfo shadowInfo = {
-            //TODO JS: make sure the right stuff is in currentFrame[0]
             .imageView = view, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
         };
         shadows[i] = shadowInfo;
     }
 
-    VkDescriptorImageInfo shadowSamplerInfo = {
-        .sampler  = shadowSamplers[currentFrame], .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+    VkDescriptorImageInfo* shadowSamplerInfo =  MemoryArena::Alloc<VkDescriptorImageInfo>(arena);
+    *shadowSamplerInfo = {
+        .sampler  = shadowSamplers[frame], .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
     };
-
-   
     
-    VkDescriptorBufferInfo meshBufferinfo = FramesInFlightData[currentFrame].meshBuffers.getBufferInfo();
-    VkDescriptorBufferInfo lightbufferinfo = FramesInFlightData[currentFrame].lightBuffers.getBufferInfo();
-    VkDescriptorBufferInfo uniformbufferinfo = FramesInFlightData[currentFrame].uniformBuffers.getBufferInfo();
-    VkDescriptorBufferInfo shaderglobalsinfo = FramesInFlightData[currentFrame].opaqueShaderGlobalsBuffer.getBufferInfo();
+    VkDescriptorBufferInfo* meshBufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
+    *meshBufferinfo = FramesInFlightData[frame].meshBuffers.getBufferInfo();
+    VkDescriptorBufferInfo* lightbufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
+    *lightbufferinfo = FramesInFlightData[frame].lightBuffers.getBufferInfo();
+    VkDescriptorBufferInfo* uniformbufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
+    *uniformbufferinfo = FramesInFlightData[frame].uniformBuffers.getBufferInfo();
+    VkDescriptorBufferInfo* shaderglobalsinfo =  MemoryArena::Alloc<VkDescriptorBufferInfo>(arena);
+    *shaderglobalsinfo = FramesInFlightData[frame].opaqueShaderGlobalsBuffer.getBufferInfo();
     
-      VkDescriptorBufferInfo shadowBuffersInfo = FramesInFlightData[currentFrame].shadowDataBuffers.getBufferInfo();
+    VkDescriptorBufferInfo* shadowBuffersInfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
+    *shadowBuffersInfo = FramesInFlightData[frame].shadowDataBuffers.getBufferInfo();
 
     
 
-    std::vector<descriptorUpdateData> descriptorUpdates;
+    Array<descriptorUpdateData> descriptorUpdates = MemoryArena::AllocSpan<descriptorUpdateData>(arena, 11);
     //Update descriptor sets with data
- 
-    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &shaderglobalsinfo});
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, shaderglobalsinfo});
 
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, imageInfos.data(),  (uint32_t)imageInfos.size()});
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, cubeImageInfos.data(), (uint32_t)cubeImageInfos.size()});
-    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, &shadows,  (uint32_t)MAX_SHADOWMAPS}); //shadows
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, shadows.data(),  MAX_SHADOWMAPS}); //shadows
 
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, imageInfos.data(), (uint32_t)imageInfos.size()});
-    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, cubeSamplerInfos.data(), (uint32_t)cubeSamplerInfos.size()});
-    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, &shadowSamplerInfo, (uint32_t)1}); //shadows
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, cubeImageInfos.data(), (uint32_t)cubeImageInfos.size()});
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, shadowSamplerInfo, (uint32_t)1}); //shadows
 
-    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &meshBufferinfo});
-    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &lightbufferinfo});
-    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &uniformbufferinfo});
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, meshBufferinfo});
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, lightbufferinfo});
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, uniformbufferinfo});
     
-    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &shadowBuffersInfo});
-    
-
-    layoutData->updateOpaqueDescriptorSets(descriptorUpdates, currentFrame);
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, shadowBuffersInfo});
+ 
+   return descriptorUpdates.getSpan();
 }
 
-
-//TODO JS: Need to use separate descriptors  
-//TODO JS: Probably want to duplicate less code
-void HelloTriangleApplication::updateShadowDescriptorSets(RendererHandles handles,  VkDescriptorPool pool, PipelineDataObject* layoutData, uint32_t shadowIndex)
+std::span<descriptorUpdateData> HelloTriangleApplication::createShadowDescriptorUpdates(MemoryArena::memoryArena* arena, uint32_t frame, uint32_t shadowIndex)
 {
-
     //Get data
-    VkDescriptorBufferInfo meshBufferinfo = FramesInFlightData[currentFrame].meshBuffers.getBufferInfo();
-    VkDescriptorBufferInfo uniformbufferinfo = FramesInFlightData[currentFrame].uniformBuffers.getBufferInfo();
-    VkDescriptorBufferInfo shaderglobalsinfo = FramesInFlightData[currentFrame].perLightShadowShaderGlobalsBuffer[shadowIndex].getBufferInfo();
+    VkDescriptorBufferInfo* meshBufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
+    *meshBufferinfo = FramesInFlightData[frame].meshBuffers.getBufferInfo();
+    VkDescriptorBufferInfo* uniformbufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
+    *uniformbufferinfo = FramesInFlightData[frame].uniformBuffers.getBufferInfo();
+    VkDescriptorBufferInfo* shaderglobalsinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
+    *shaderglobalsinfo = FramesInFlightData[frame].perLightShadowShaderGlobalsBuffer[shadowIndex].getBufferInfo();
 
-    VkDescriptorBufferInfo lightbufferinfo = FramesInFlightData[currentFrame].lightBuffers.getBufferInfo();
-    VkDescriptorBufferInfo shadowBuffersInfo = FramesInFlightData[currentFrame].shadowDataBuffers.getBufferInfo();
+    VkDescriptorBufferInfo* lightbufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
+    *lightbufferinfo = FramesInFlightData[frame].lightBuffers.getBufferInfo();
+    VkDescriptorBufferInfo* shadowBuffersInfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
+    *shadowBuffersInfo = FramesInFlightData[frame].shadowDataBuffers.getBufferInfo();
 
-    std::vector<descriptorUpdateData> descriptorUpdates;
+    Array<descriptorUpdateData> descriptorUpdates = MemoryArena::AllocSpan<descriptorUpdateData>(arena, 5);
     //Update descriptor sets with data
  
-    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &shaderglobalsinfo});
-    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &meshBufferinfo});
-    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &lightbufferinfo});
-    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &uniformbufferinfo});
-    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &shadowBuffersInfo});
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, shaderglobalsinfo});
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, meshBufferinfo});
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, lightbufferinfo});
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, uniformbufferinfo});
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, shadowBuffersInfo});
 
+    return descriptorUpdates.getSpan();
+}
+//TODO JS: Need to use separate descriptors  
+//TODO JS: Probably want to duplicate less code
+void HelloTriangleApplication::updateShadowDescriptorSets(PipelineDataObject* layoutData, uint32_t shadowIndex)
+{
     layoutData->
-    updateShadowDescriptorSets(descriptorUpdates, currentFrame);
+    updateShadowDescriptorSets(shadowUpdates[currentFrame][shadowIndex], currentFrame);
 
     
 }
@@ -1138,7 +1165,7 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
 
 
     uint32_t SHADOW_INDEX = 0; //TODO JS: loop over shadowcasters
-    updateShadowDescriptorSets(getHandles(), descriptorPool, &descriptorsetLayoutsData,SHADOW_INDEX);
+    updateShadowDescriptorSets(&descriptorsetLayoutsData, SHADOW_INDEX);
     descriptorsetLayoutsData.bindToCommandBufferShadow(commandBuffer, currentFrame);
     VkPipelineLayout layout = descriptorsetLayoutsData.getLayoutShadow();
 
@@ -1321,7 +1348,7 @@ void HelloTriangleApplication::recordCommandBufferOpaquePass(VkCommandBuffer com
     //************
     //** Descriptor Sets update and binding
     // This could change sometimes
-    updateOpaqueDescriptorSets(getHandles(), descriptorPool, &descriptorsetLayoutsData);
+    updateOpaqueDescriptorSets(&descriptorsetLayoutsData);
     descriptorsetLayoutsData.bindToCommandBufferOpaque(commandBuffer, currentFrame);
     VkPipelineLayout layout = descriptorsetLayoutsData.getLayoutOpaque();
     
@@ -1370,7 +1397,7 @@ void HelloTriangleApplication::recordCommandBufferOpaquePass(VkCommandBuffer com
         constants.m = glm::mat4(1.0);
 
         vkCmdPushConstants(commandBuffer, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-                          sizeof(shadowPushConstants), &constants);
+                          sizeof(debugLinePConstants), &constants);
 
         vkCmdDraw(commandBuffer, 2, 1, 0, 0);
     }

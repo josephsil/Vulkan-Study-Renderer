@@ -35,6 +35,7 @@ struct descriptorUpdateData
     VkDescriptorType type;
     void* ptr;
     uint32_t count = 1;
+    // layoutInfo* layout = NULL; //TODO JS: set this at creation time
 };
 
 struct dataBuffer

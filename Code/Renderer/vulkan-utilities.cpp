@@ -3,8 +3,10 @@
 
 #include <cassert>
 
+#include "../General/Array.h"
 #include "RendererHandles.h"
 #include "TextureData.h"
+#include "../General/Memory.h"
 #include "VulkanIncludes/Vulkan_Includes.h"
 
 
@@ -62,22 +64,18 @@ uint32_t Capabilities::findMemoryType(RendererHandles rendererHandles, uint32_t 
 
 
 //This probably doesnt need to exisdt
-std::pair<std::vector<VkDescriptorImageInfo>, std::vector<VkDescriptorImageInfo>>
-DescriptorSets::ImageInfoFromImageDataVec(std::vector<TextureData> textures)
+std::span<VkDescriptorImageInfo>
+DescriptorSets::ImageInfoFromImageDataVec(MemoryArena::memoryArena* arena, std::vector<TextureData> textures)
 {
-    std::vector<VkDescriptorImageInfo> imageinfos(textures.size());
-    std::vector<VkDescriptorImageInfo> samplerinfos(textures.size());
+    std::span<VkDescriptorImageInfo> imageinfos = MemoryArena::AllocSpan<VkDescriptorImageInfo>(arena, textures.size());
     for (int i = 0; i < textures.size(); i++)
     {
         imageinfos[i] = VkDescriptorImageInfo{
-            .imageView = textures[i].textureImageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-        };
-        samplerinfos[i] = VkDescriptorImageInfo{
-            .sampler = textures[i].textureSampler, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+             .sampler = textures[i].textureSampler, .imageView = textures[i].textureImageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
         };
     }
 
-    return std::make_pair(imageinfos, samplerinfos);
+    return imageinfos;
 }
 
 void DescriptorSets::AllocateDescriptorSet(VkDevice device, VkDescriptorPool pool, VkDescriptorSetLayout* pdescriptorsetLayout, VkDescriptorSet* pset)

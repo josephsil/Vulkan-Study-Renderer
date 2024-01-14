@@ -132,9 +132,15 @@ private:
 
     
     void createDescriptorSetPool(RendererHandles handles, VkDescriptorPool* pool);
-    void updateOpaqueDescriptorSets(RendererHandles handles, VkDescriptorPool pool, PipelineDataObject* layoutData);
-    void updateShadowDescriptorSets(RendererHandles handles, VkDescriptorPool pool,
-                                    PipelineDataObject* layoutData, uint32_t shadowIndex);
+    void updateOpaqueDescriptorSets(PipelineDataObject* layoutData);
+    std::span<descriptorUpdateData> createOpaqueDescriptorUpdates(uint32_t currentFrame, MemoryArena::memoryArena* arena);
+    std::span<descriptorUpdateData> createShadowDescriptorUpdates(MemoryArena::memoryArena* arena, uint32_t frame, uint32_t shadowIndex);
+
+    void updateShadowDescriptorSets(
+        PipelineDataObject* layoutData, uint32_t shadowIndex);
+
+    std::span<descriptorUpdateData> opaqueUpdates[MAX_FRAMES_IN_FLIGHT] = {};
+    std::span<std::span<descriptorUpdateData>> shadowUpdates[MAX_FRAMES_IN_FLIGHT] = {};
 
 #pragma endregion
 

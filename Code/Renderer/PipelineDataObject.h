@@ -1,5 +1,6 @@
 #pragma once
 
+#include <span>
 #include <unordered_map>
 #include <vector>
 
@@ -32,8 +33,8 @@ struct descriptorUpdateData;
                                     depth = true, bool lines = false);
 
         //Runtime
-        void updateOpaqueDescriptorSets(std::vector<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame);
-        void updateShadowDescriptorSets(std::vector<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame);
+        void updateOpaqueDescriptorSets(std::span<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame);
+        void updateShadowDescriptorSets(std::span<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame);
         void createDescriptorSetsOpaque(VkDescriptorPool pool, int MAX_FRAMES_IN_FLIGHT);
         void createDescriptorSetsShadow(VkDescriptorPool pool, int MAX_FRAMES_IN_FLIGHT);
         void bindToCommandBufferOpaque(VkCommandBuffer cmd, uint32_t currentFrame);
@@ -92,7 +93,7 @@ struct descriptorUpdateData;
         //Descriptor set update
         void createDescriptorSetsforPipeline( VkDescriptorPool pool,  int MAX_FRAMES_IN_FLIGHT, perPipelineData* perPipelineData);
         void createPipelineLayoutForPipeline(perPipelineData* perPipelineData);
-        void updateDescriptorSetsForPipeline(std::vector<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame, perPipelineData* perPipelineData);
+        void updateDescriptorSetsForPipeline(std::span<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame, perPipelineData* perPipelineData);
         std::vector<VkWriteDescriptorSet> writeDescriptorSets;
         std::unordered_map<VkDescriptorSet, int> writeDescriptorSetsBindingIndices;
         

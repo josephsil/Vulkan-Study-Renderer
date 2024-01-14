@@ -8,6 +8,8 @@
 #include "VulkanIncludes/Vulkan_Includes.h"
 
 //TODO JS: break this dependency
+#include <span>
+
 #include "gpu-data-structs.h"
 
 PipelineDataObject::PipelineDataObject(RendererHandles handles, Scene* pscene)
@@ -76,7 +78,7 @@ void PipelineDataObject::bindToCommandBufferShadow(VkCommandBuffer cmd, uint32_t
 }
 
 
-void PipelineDataObject::updateDescriptorSetsForPipeline(std::vector<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame, perPipelineData* perPipelineData)
+void PipelineDataObject::updateDescriptorSetsForPipeline(std::span<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame, perPipelineData* perPipelineData)
 {
     
     writeDescriptorSets.clear();
@@ -126,12 +128,12 @@ void PipelineDataObject::updateDescriptorSetsForPipeline(std::vector<descriptorU
 }
 
 //updates descriptor sets based on vector of descriptorupdatedata, with some light validation that we're binding the right stuff
-void PipelineDataObject::updateOpaqueDescriptorSets(std::vector<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame)
+void PipelineDataObject::updateOpaqueDescriptorSets(std::span<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame)
 {
    updateDescriptorSetsForPipeline(descriptorUpdates, currentFrame, &opaquePipelineData);
 }
 
-void PipelineDataObject::updateShadowDescriptorSets(std::vector<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame)
+void PipelineDataObject::updateShadowDescriptorSets(std::span<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame)
 {
     updateDescriptorSetsForPipeline(descriptorUpdates, currentFrame, &shadowPipelineData);
 }
@@ -215,7 +217,7 @@ void PipelineDataObject::createPipelineLayoutForPipeline(perPipelineData* perPip
     //this push constant range starts at the beginning
     push_constant.offset = 0;
     //this push constant range takes up the size of a MeshPushConstants struct
-    push_constant.size = sizeof(shadowPushConstants);
+    push_constant.size = sizeof(debugLinePConstants);
     
     push_constant.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 

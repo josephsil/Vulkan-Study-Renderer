@@ -23,6 +23,7 @@ struct VSOutput
     [[vk::location(5)]] float3 Tangent : TEXCOORD2;
     [[vk::location(6)]] float3 BiTangent : TEXCOORD3;
     [[vk::location(7)]] float3x3 TBN : TEXCOORD4;
+    [[vk::location(10)]] uint InstanceID : SV_InstanceID;
 };
 
 
@@ -107,8 +108,10 @@ float3x3 calculateNormal(FSInput input)
 
 // -spirv -T ps_6_5 -E Frag .\Shader1.hlsl -Fo .\triangle.frag.spv
 
-FSOutput Frag(VSOutput input, [[vk::location(10)]] uint InstanceIndex : SV_InstanceID)
+FSOutput Frag(VSOutput input)
 {
+    uint InstanceIndex = 0;
+    InstanceIndex = input.InstanceID;
     FSOutput output;
 
     UBO ubo = uboarr[OBJECTINDEX];
