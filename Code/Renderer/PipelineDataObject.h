@@ -7,7 +7,6 @@
 
 #include "RendererHandles.h"
 #include "VulkanIncludes/forward-declarations-renderer.h"
-#include "LayoutsBuilder.h"
 
 struct Vertex;
 //Forward declaration

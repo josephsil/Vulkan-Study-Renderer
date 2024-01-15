@@ -3,7 +3,6 @@
 #include <cassert>
 
 #include "rendererGlobals.h"
-#include "LayoutsBuilder.h"
 #include "vulkan-utilities.h"
 #include "VulkanIncludes/Vulkan_Includes.h"
 

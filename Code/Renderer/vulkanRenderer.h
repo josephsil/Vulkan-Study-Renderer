@@ -16,6 +16,7 @@
 #include "PipelineDataObject.h"
 // My stuff 
 
+class Scene;
 struct PerShadowData;
 struct MeshData; //Forward Declaration
 struct Vertex; //Forward Declaration
