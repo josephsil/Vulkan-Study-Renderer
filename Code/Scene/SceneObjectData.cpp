@@ -178,7 +178,7 @@ int orderComparator(void * context, void const* elem1, void const* elem2 )
     
     
 }
-void Scene::OrderedMeshes(glm::vec3 eyePos, std::span<int> indices, bool invert)
+void Scene::OrderedObjectIndices(glm::vec3 eyePos, std::span<int> indices, bool invert)
 {
     assert(indices.size() == objects.translations.ct);
     sortData s = {eyePos, std::span<glm::vec3>(objects.translations.data, objects.translations.ct),  (int)objects.translations.ct, invert ? -1 : 1};

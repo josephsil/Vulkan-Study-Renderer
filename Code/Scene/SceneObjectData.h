@@ -30,7 +30,7 @@ public:
     int materialCount();
     int materialTextureCount();
 
-    void OrderedMeshes(glm::vec3 eyePos, std::span<int> indices, bool invert);
+    void OrderedObjectIndices(glm::vec3 eyePos, std::span<int> indices, bool invert);
     struct Objects
     {
         int objectsCount = 0;

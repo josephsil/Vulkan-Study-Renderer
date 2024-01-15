@@ -685,7 +685,6 @@ void HelloTriangleApplication::updateShadowDescriptorSets(PipelineDataObject* la
 }
 #pragma endregion
 
-
 void HelloTriangleApplication::createSyncObjects()
 {
     VkSemaphoreCreateInfo semaphoreInfo{};
@@ -696,36 +695,25 @@ void HelloTriangleApplication::createSyncObjects()
     fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
     for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-            if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &FramesInFlightData[i].imageAvailableSemaphores) != VK_SUCCESS ||
-                vkCreateSemaphore(device, &semaphoreInfo, nullptr, &FramesInFlightData[i].renderFinishedSemaphores) != VK_SUCCESS ||
-                vkCreateFence(device, &fenceInfo, nullptr, &FramesInFlightData[i].inFlightFences) != VK_SUCCESS)
-            {
-                printf("failed to create synchronization objects for a frame!");
-                assert(false);
-            }
-    }
-    for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-    {
+        if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &FramesInFlightData[i].imageAvailableSemaphores) != VK_SUCCESS ||
+            vkCreateSemaphore(device, &semaphoreInfo, nullptr, &FramesInFlightData[i].renderFinishedSemaphores) != VK_SUCCESS ||
+            vkCreateFence(device, &fenceInfo, nullptr, &FramesInFlightData[i].inFlightFences) != VK_SUCCESS)
+        {
+            printf("failed to create synchronization objects for a frame!");
+            assert(false);
+        }
         if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &FramesInFlightData[i].shadowAvailableSemaphores) != VK_SUCCESS ||
             vkCreateSemaphore(device, &semaphoreInfo, nullptr, &FramesInFlightData[i].shadowFinishedSemaphores) != VK_SUCCESS)
         {
             printf("failed to create synchronization objects for a shadow pass!");
             assert(false);
         }
-    }
-    for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-    {
         if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &FramesInFlightData[i].swapchaintransitionedOutSemaphores) != VK_SUCCESS ||
             vkCreateSemaphore(device, &semaphoreInfo, nullptr, &FramesInFlightData[i].swapchaintransitionedInSemaphores) != VK_SUCCESS)
         {
             printf("failed to create synchronization objects for swapchain!");
             assert(false);
         }
-    }
-
-    for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-    {
-        //TODO JS: for each
         if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &FramesInFlightData[i].shadowtransitionedOutSemaphores) != VK_SUCCESS ||
             vkCreateSemaphore(device, &semaphoreInfo, nullptr, &FramesInFlightData[i].shadowtransitionedInSemaphores) != VK_SUCCESS)
         {
@@ -1190,7 +1178,7 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
     for(int i = 0; i < shadowCasterCount; i ++)
     {
         //TODO JS: next step -- need to get the 6 different point light matrices in. Or transform the one 6 times?
-        scene->OrderedMeshes(scene->lightTypes[i] == LIGHT_DIR ? glm::vec3(scene->lightposandradius[i]) * 9999.0f : glm::vec3(scene->lightposandradius[i]), drawIndices, false);
+        scene->OrderedObjectIndices(scene->lightTypes[i] == LIGHT_DIR ? glm::vec3(scene->lightposandradius[i]) * 9999.0f : glm::vec3(scene->lightposandradius[i]), drawIndices, false);
         int shadowIndex = i;
         int shadowCasterOffset = scene->getShadowDataIndex(i);
         lightType type = (lightType)scene->lightTypes[i];
@@ -1361,7 +1349,7 @@ void HelloTriangleApplication::recordCommandBufferOpaquePass(VkCommandBuffer com
         drawIndices[i] = i;
     }
 
-    scene->OrderedMeshes(camera.eyePos , drawIndices, false );
+    scene->OrderedObjectIndices(camera.eyePos , drawIndices, false );
     
     int lastPipelineIndex = -1;
     for (int j = 0; j <meshct; j++)
