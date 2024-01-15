@@ -10,7 +10,7 @@
 #include <fstream>
 #include <iostream>
 #include <span>
-// #define SORT_BEFORE_DRAW
+#define SORT_BEFORE_DRAW
 
 #include "bufferCreation.h"
 #include "CommandPoolManager.h"
@@ -1227,7 +1227,7 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
     {
         //TODO JS: next step -- need to get the 6 different point light matrices in. Or transform the one 6 times?
         #ifdef SORT_BEFORE_DRAW
-        scene->OrderedObjectIndices(scene->lightTypes[i] == LIGHT_DIR ? glm::vec3(scene->lightposandradius[i]) * 9999.0f : glm::vec3(scene->lightposandradius[i]), drawIndices, false);
+        scene->OrderedObjectIndices(&perFrameArenas[currentFrame], scene->lightTypes[i] == LIGHT_DIR ? glm::vec3(scene->lightposandradius[i]) * 9999.0f : glm::vec3(scene->lightposandradius[i]), drawIndices, false);
         #endif
         int shadowIndex = i;
         int shadowCasterOffset = scene->getShadowDataIndex(i);
@@ -1409,7 +1409,7 @@ void HelloTriangleApplication::recordCommandBufferOpaquePass(VkCommandBuffer com
     }
 
     #ifdef SORT_BEFORE_DRAW
-    scene->OrderedObjectIndices(camera.eyePos , drawIndices, false );
+    scene->OrderedObjectIndices(&perFrameArenas[currentFrame], camera.eyePos , drawIndices, false );
     #endif
     
     int lastPipelineIndex = -1;
