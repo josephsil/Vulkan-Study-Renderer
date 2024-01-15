@@ -26,7 +26,6 @@
 #include "TextureData.h"
 #include "VkBootstrap.h"
 #include "vulkan-utilities.h"
-#include "../Scene/SceneObjectData.h"
 #include "VulkanIncludes/VulkanMemory.h"
 
 int SHADER_MODE;
@@ -1688,7 +1687,7 @@ void HelloTriangleApplication::drawFrame()
 
   
     
-    updatePerFrameBuffers(currentFrame, scene->objects.matrices); // TODO JS: Figure out
+    
     //Prepare for pass
     uint32_t imageIndex; 
     vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, FramesInFlightData[currentFrame].imageAvailableSemaphores, VK_NULL_HANDLE,
@@ -1698,7 +1697,9 @@ void HelloTriangleApplication::drawFrame()
     ///
     ///    //Wait for IMAGE INDEX to be ready to present
     vkWaitForFences(device, 1, &FramesInFlightData[imageIndex].inFlightFences, VK_TRUE, UINT64_MAX);
-    MemoryArena::free(&perFrameArenas[imageIndex]); // TODO JS: move --but needs to happen after fence!
+    MemoryArena::free(&perFrameArenas[imageIndex]);
+
+    updatePerFrameBuffers(currentFrame, scene->objects.matrices); // TODO JS: timing bugs if it doesn't happen after the fence
 
     vkResetCommandBuffer(FramesInFlightData[currentFrame].opaqueCommandBuffers, 0);
     vkResetCommandBuffer(FramesInFlightData[currentFrame].shadowCommandBuffers, 0);
