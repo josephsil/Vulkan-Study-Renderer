@@ -10,17 +10,17 @@
 #include <fstream>
 #include <iostream>
 #include <span>
-#define SORT_BEFORE_DRAW
+// #define SORT_BEFORE_DRAW
+#include "Vertex.h"
+#include "../../ImageLibraryImplementations.h"
+#include "../General/Array.h"
+#include "../General/Memory.h"
 
 #include "bufferCreation.h"
 #include "CommandPoolManager.h"
 #include "gpu-data-structs.h"
 #include "meshData.h"
 #include "../Scene/SceneObjectData.h"
-#include "Vertex.h"
-#include "../../ImageLibraryImplementations.h"
-#include "../General/Array.h"
-#include "../General/Memory.h"
 #include "Shaders/ShaderLoading.h"
 #include "textureCreation.h"
 #include "TextureData.h"
@@ -1332,6 +1332,12 @@ struct drawBatch
     VkPipeline pipeline;
     
 };
+
+struct pipelineBucket
+{
+    uint32_t pipelineIDX;
+    Array<uint32_t> indices; 
+};
 //command buffer to draw the frame 
 void HelloTriangleApplication::recordCommandBufferOpaquePass(VkCommandBuffer commandBuffer, uint32_t imageIndex)
 {
@@ -1416,38 +1422,62 @@ void HelloTriangleApplication::recordCommandBufferOpaquePass(VkCommandBuffer com
    
     uint32_t lastStart = 0;
 
-    Array batchedDraws = MemoryArena::AllocSpan<drawBatch>(&perFrameArenas[currentFrame], 999); //TODO JS -- sort by pipeline so we don't create so many of these 
+#define PIPELINE_COUNT descriptorsetLayoutsData.getPipelineCt()
+#define MAX_DRAWS_PER_PIPELINE 2000
+    //initialize pipeline buckets
+    Array bucketedPipelines = MemoryArena::AllocSpan<pipelineBucket>(&perFrameArenas[currentFrame], PIPELINE_COUNT);
+    for(int j = 0; j < PIPELINE_COUNT; j++)
+    {
+        bucketedPipelines.push_back({});
+        bucketedPipelines[j].indices = Array<uint32_t>(MemoryArena::AllocSpan<uint32_t>(&perFrameArenas[currentFrame], MAX_DRAWS_PER_PIPELINE));
+        bucketedPipelines[j].pipelineIDX = j;
+    }
+    
 
-      dataBuffer drawBuffer = FramesInFlightData[currentFrame].drawBuffers;
-            std::span<VkDrawIndirectCommand> mappedBuffer =  std::span((VkDrawIndirectCommand*)drawBuffer.mapped, drawBuffer.size / sizeof(VkDrawIndirectCommand));
-
+    //fill buckets
     for (int j = 0; j <meshct; j++)
     {
         int i = drawIndices[j];
         Material material = scene->objects.materials[i];
         int pipelineIndex = material.pipelineidx;
-
 #ifdef DEBUG_SHADERS
         pipelineIndex = debugpipelineindexoverride;
 #endif
-        
-        if (pipelineIndex != lastPipelineIndex)
-        {
-            if (lastPipelineIndex != -1)
-            {
-                batchedDraws.push_back({lastStart, j - lastStart, descriptorsetLayoutsData.getPipeline(pipelineIndex)});
-                lastStart = j;
-            }
+                bucketedPipelines[pipelineIndex].indices.push_back(i);
         }
-        mappedBuffer[FramesInFlightData[currentFrame].currentDrawOffset + j] = {static_cast<uint32_t>(scene->backing_meshes[scene->objects.meshIndices[i]].vertcount), 1, 0, (uint32_t)i};
-        lastPipelineIndex = pipelineIndex;
+
+
+    //Prepare draw from bucekts 
+    Array batchedDraws = MemoryArena::AllocSpan<drawBatch>(&perFrameArenas[currentFrame], 999); //TODO JS -- sort by pipeline so we don't create so many of these 
+    dataBuffer drawBuffer = FramesInFlightData[currentFrame].drawBuffers;
+    std::span<VkDrawIndirectCommand> mappedBuffer =  std::span((VkDrawIndirectCommand*)drawBuffer.mapped, drawBuffer.size / sizeof(VkDrawIndirectCommand));
+    
+    uint32_t drawCt = 0;
+    for (int j = 0; j < bucketedPipelines.size(); j++)
+    {
+        Array<uint32_t> indices = bucketedPipelines[j].indices;
+        for (int k = 0; k < indices.size(); k++)
+        {
+            drawIndices[drawCt + k] = indices[k];
+            mappedBuffer[FramesInFlightData[currentFrame].currentDrawOffset + drawCt + k] = {static_cast<uint32_t>(scene->backing_meshes[scene->objects.meshIndices[indices[k]]].vertcount), 1, 0, (uint32_t)indices[k]};
+
+        }
+        if (indices.size() > 0)
+        {
+            batchedDraws.push_back({drawCt, (uint32_t)indices.size(), descriptorsetLayoutsData.getPipeline(bucketedPipelines[j].pipelineIDX)});
+        }
+
+        drawCt += indices.size();
     }
     
+//draw
     for(int k = 0; k < batchedDraws.ct; k ++)
     {
         auto draw = batchedDraws[k];
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.pipeline);
-        vkCmdDrawIndirect(commandBuffer, drawBuffer.data, (FramesInFlightData[currentFrame].currentDrawOffset * sizeof(VkDrawIndirectCommand)) + (sizeof(VkDrawIndirectCommand) * draw.start), draw.ct, sizeof(VkDrawIndirectCommand));
+       
+            vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.pipeline);
+            vkCmdDrawIndirect(commandBuffer, drawBuffer.data, (FramesInFlightData[currentFrame].currentDrawOffset * sizeof(VkDrawIndirectCommand)) + (sizeof(VkDrawIndirectCommand) * draw.start), draw.ct, sizeof(VkDrawIndirectCommand));
+       
     }
     FramesInFlightData[currentFrame].currentDrawOffset +=( meshct );
     //debug lines -- todo feed from somehwere

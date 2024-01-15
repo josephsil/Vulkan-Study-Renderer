@@ -172,6 +172,12 @@ VkPipeline PipelineDataObject::getPipeline(int index)
     return bindlesspipelineObjects[index];
 }
 
+uint32_t PipelineDataObject::getPipelineCt()
+{
+    //TODO JS
+    // assert(pipelinesInitialized && pipelineLayoutInitialized);
+    return bindlesspipelineObjects.size();
+}
 VkPipelineLayout PipelineDataObject::getLayoutOpaque()
 {
     return opaquePipelineData.bindlessPipelineLayout;

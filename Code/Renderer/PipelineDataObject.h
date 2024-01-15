@@ -41,6 +41,7 @@ struct descriptorUpdateData;
         void bindToCommandBufferShadow(VkCommandBuffer cmd, uint32_t currentFrame);
 
         VkPipeline getPipeline(int index);
+        uint32_t getPipelineCt();
         VkPipelineLayout getLayoutOpaque();
         VkPipelineLayout getLayoutShadow();
         void createPipelineLayoutShadow();
