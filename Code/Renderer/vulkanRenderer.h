@@ -56,7 +56,6 @@ public:
 
 private:
 
-    const static int MAX_FRAMES_IN_FLIGHT = 3;
     
 
     MemoryArena::memoryArena rendererArena{};
@@ -133,13 +132,17 @@ private:
     
     void createDescriptorSetPool(RendererHandles handles, VkDescriptorPool* pool);
     void updateOpaqueDescriptorSets(PipelineDataObject* layoutData);
-    std::span<descriptorUpdateData> createOpaqueDescriptorUpdates(uint32_t currentFrame, MemoryArena::memoryArena* arena);
-    std::span<descriptorUpdateData> createShadowDescriptorUpdates(MemoryArena::memoryArena* arena, uint32_t frame, uint32_t shadowIndex);
+    std::span<descriptorUpdateData> createOpaqueDescriptorUpdates(uint32_t frame, MemoryArena::memoryArena* arena, std::span<VkDescriptorSetLayoutBinding> layoutBindings);
+    std::span<descriptorUpdateData> createShadowDescriptorUpdates(MemoryArena::memoryArena* arena, uint32_t frame, uint32_t shadowIndex, std::span<VkDescriptorSetLayoutBinding>
+                                                                  layoutBindings);
 
     void updateShadowDescriptorSets(
         PipelineDataObject* layoutData, uint32_t shadowIndex);
 
+    std::span<VkDescriptorSetLayoutBinding> opaqueLayout;
     std::span<descriptorUpdateData> opaqueUpdates[MAX_FRAMES_IN_FLIGHT] = {};
+
+    std::span<VkDescriptorSetLayoutBinding> shadowLayout;
     std::span<std::span<descriptorUpdateData>> shadowUpdates[MAX_FRAMES_IN_FLIGHT] = {};
 
 #pragma endregion

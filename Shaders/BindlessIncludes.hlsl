@@ -66,48 +66,58 @@ struct MyLightStructure
     // uint color;
 };
 
-cbuffer globals : register(b0) { ShaderGlobals globals; }
+
 // ShaderGlobals globals;
 // uniformDescriptorSets
 // storageDescriptorSets
 // imageDescriptorSets
 // samplerDescriptorSets
+// [[vk::binding(0,0)]]
+// [[vk::binding(0, 0)]]
+cbuffer globals : register(b0) { ShaderGlobals globals; }
 
-[[vk::binding(0, 2)]]
+[[vk::binding(1, 0)]]
 Texture2D<float4> bindless_textures[];
+[[vk::binding(2,0)]]
+TextureCube cubes[];
 
-[[vk::binding(0, 3)]]
-SamplerState bindless_samplers[];
-
-[[vk::binding(2, 2)]]
+[[vk::binding(3, 0)]]
 Texture2DArray<float4> shadowmap[];
-[[vk::binding(2, 2)]]
+[[vk::binding(3, 0)]]
 TextureCube shadowmapCube[];
 
-[[vk::binding(2, 3)]]
+[[vk::binding(4, 0)]]
+SamplerState bindless_samplers[];
+[[vk::binding(5,0)]]
+SamplerState cubeSamplers[];
+[[vk::binding(6, 0)]]
 SamplerComparisonState shadowmapSampler[];
 
-[[vk::binding(0,1)]]
+
+
+
+
+[[vk::binding(7,0)]]
 #ifdef USE_RW
 RWStructuredBuffer<MyVertexStructure> BufferTable;
 #else
 ByteAddressBuffer BufferTable;
 #endif
-[[vk::binding(1,1)]]
+
+[[vk::binding(8,0)]]
 RWStructuredBuffer<MyLightStructure> lights;
-[[vk::binding(2, 1)]]
+[[vk::binding(9, 0)]]
 RWStructuredBuffer<UBO> uboarr;
+
 // #ifdef SHADOWPASS
-[[vk::binding(3, 1)]]
+[[vk::binding(10, 0)]]
 RWStructuredBuffer<perShadowData> shadowMatrices;
 // #endif 
 
 
-[[vk::binding(1,2)]]
-TextureCube cubes[];
 
-[[vk::binding(1,3)]]
-SamplerState cubeSamplers[];
+
+
 
 
 #define  DIFFUSE_INDEX  (TEXTURESAMPLERINDEX * 3) + 0

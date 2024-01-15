@@ -11,69 +11,74 @@
 #include <span>
 
 #include "gpu-data-structs.h"
+#include "../General/Memory.h"
 
-PipelineDataObject::PipelineDataObject(RendererHandles handles, Scene* pscene)
+
+VkDescriptorSetLayoutCreateInfo createInfoFromSpan( std::span<VkDescriptorSetLayoutBinding> bindings)
+{
+
+
+    VkDescriptorSetLayoutCreateInfo _createInfo = {};
+    _createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    // _createInfo.flags =   VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
+    _createInfo.bindingCount = static_cast<uint32_t>(bindings.size());
+    _createInfo.pBindings = bindings.data();
+
+    return _createInfo;
+}
+PipelineDataObject::PipelineDataObject(RendererHandles handles, std::span<VkDescriptorSetLayoutBinding> opaqueLayout, std::span<VkDescriptorSetLayoutBinding> shadowLayout)
 {
     device = handles.device;
-    createOpaqueLayout(handles , pscene);
-    createShadowLayout(handles , pscene);
+    createOpaqueLayout(handles , opaqueLayout);
+    createShadowLayout(handles , shadowLayout);
 }
 
-void PipelineDataObject::createOpaqueLayout(RendererHandles handles, Scene* pscene)
+
+
+void PipelineDataObject::createOpaqueLayout(RendererHandles handles,  std::span<VkDescriptorSetLayoutBinding> layout)
 {
-    LayoutsBuilder builder = createBindlessLayoutBuilder(handles,  pscene);
-    VkDescriptorSetLayoutCreateInfo uniformDescriptorLayout =  builder.getCreateInfo(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-    VkDescriptorSetLayoutCreateInfo imageDescriptorLayout = builder.getCreateInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE);
-    VkDescriptorSetLayoutCreateInfo samplerDescriptorLayout = builder.getCreateInfo(VK_DESCRIPTOR_TYPE_SAMPLER);
-    VkDescriptorSetLayoutCreateInfo storageDescriptorLayout = builder.getCreateInfo(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+    VkDescriptorSetLayoutCreateInfo perSceneLaout = createInfoFromSpan(layout);
 
 
     VkDescriptorBindingFlags binding_flags = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT_EXT; 
     VkDescriptorSetLayoutBindingFlagsCreateInfoEXT extended_info = {VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO_EXT};
-    extended_info.bindingCount = 3; 
-    // In this example, the first binding is a UBO and the second is a combined image sampler array, so it only needs to be set on the second binding in my case. 
-    VkDescriptorBindingFlagsEXT descriptor_binding_flags[3] = {
-        binding_flags,
-        binding_flags,
-        binding_flags
-       }; 
-    extended_info.pBindingFlags = descriptor_binding_flags;
-    imageDescriptorLayout.pNext = &extended_info;
-    samplerDescriptorLayout.pNext = &extended_info;
+    extended_info.bindingCount = layout.size(); 
+
+    std::span<VkDescriptorBindingFlagsEXT> extFlags = MemoryArena::AllocSpan<VkDescriptorBindingFlagsEXT>(handles.perframeArena, layout.size());
+
+    //enable partially bound bit for all samplers and images
+    for (int i = 0; i < extFlags.size(); i++)
+    {
+        extFlags[i] = (layout[i].descriptorType == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE || layout[i].descriptorType == VK_DESCRIPTOR_TYPE_SAMPLER) ? binding_flags : 0;
+    }
+   
+    extended_info.pBindingFlags = extFlags.data();
+    perSceneLaout.pNext = &extended_info;
+
 
     
-    VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &uniformDescriptorLayout, nullptr, &this->opaquePipelineData.uniformDescriptorLayout));
-    VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &imageDescriptorLayout, nullptr, &this->opaquePipelineData.imageDescriptorLayout));
-    VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &samplerDescriptorLayout, nullptr, &this->opaquePipelineData.samplerDescriptorLayout));
-    VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &storageDescriptorLayout, nullptr, &this->opaquePipelineData.storageDescriptorLayout));
-    this->opaquePipelineData.slots = builder.bindings;
+    VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &perSceneLaout, nullptr, &this->opaquePipelineData.perSceneDescriptorSetLayout));
+    this->opaquePipelineData.slots = layout;
 }
-void PipelineDataObject::createShadowLayout(RendererHandles handles, Scene* pscene)
+void PipelineDataObject::createShadowLayout(RendererHandles handles,  std::span<VkDescriptorSetLayoutBinding> layout)
 {
-    LayoutsBuilder builder = createShadowLayoutBuilder(handles,  pscene); //TODO JS: different layout
-    VkDescriptorSetLayoutCreateInfo uniformDescriptorLayout =  builder.getCreateInfo(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-    VkDescriptorSetLayoutCreateInfo storageDescriptorLayout = builder.getCreateInfo(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+    VkDescriptorSetLayoutCreateInfo perSceneLaout = createInfoFromSpan(layout);
 
-    VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &uniformDescriptorLayout, nullptr, &this->shadowPipelineData.uniformDescriptorLayout));
-    VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &storageDescriptorLayout, nullptr, &this->shadowPipelineData.storageDescriptorLayout));
-    this->shadowPipelineData.slots = builder.bindings;
+    VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &perSceneLaout, nullptr, &this->shadowPipelineData.perSceneDescriptorSetLayout));
+    this->shadowPipelineData.slots = layout;
 }
 
 void PipelineDataObject::bindToCommandBufferOpaque(VkCommandBuffer cmd, uint32_t currentFrame)
 {
     assert(opaquePipelineData.descriptorSetsInitialized && opaquePipelineData.pipelinesInitialized);
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, opaquePipelineData.bindlessPipelineLayout, 0, 1, &opaquePipelineData.uniformDescriptorSetForFrame[currentFrame], 0, nullptr);
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, opaquePipelineData.bindlessPipelineLayout, 1, 1, &opaquePipelineData.storageDescriptorSetForFrame[currentFrame], 0, nullptr);
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, opaquePipelineData.bindlessPipelineLayout, 2, 1, &opaquePipelineData.imageDescriptorSetForFrame[currentFrame], 0, nullptr);
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, opaquePipelineData.bindlessPipelineLayout, 3, 1, &opaquePipelineData.samplerDescriptorSetForFrame[currentFrame], 0, nullptr);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, opaquePipelineData.bindlessPipelineLayout, 0, 1, &opaquePipelineData.perSceneDescriptorSetForFrame[currentFrame], 0, nullptr);
     
 }
 
 void PipelineDataObject::bindToCommandBufferShadow(VkCommandBuffer cmd, uint32_t currentFrame)
 {
     assert(shadowPipelineData.descriptorSetsInitialized && shadowPipelineData.pipelinesInitialized);
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowPipelineData.bindlessPipelineLayout, 0, 1, &shadowPipelineData.uniformDescriptorSetForFrame[currentFrame], 0, nullptr);
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowPipelineData.bindlessPipelineLayout, 1, 1, &shadowPipelineData.storageDescriptorSetForFrame[currentFrame], 0, nullptr);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowPipelineData.bindlessPipelineLayout, 0, 1, &shadowPipelineData.perSceneDescriptorSetForFrame[currentFrame], 0, nullptr);
 
 }
 
@@ -87,26 +92,26 @@ void PipelineDataObject::updateDescriptorSetsForPipeline(std::span<descriptorUpd
     for(int i = 0; i < descriptorUpdates.size(); i++)
     {
         descriptorUpdateData update = descriptorUpdates[i];
-        VkDescriptorSet set = perPipelineData->getSetFromType(descriptorUpdates[i].type, currentFrame);
+        VkDescriptorSet set = perPipelineData-> perSceneDescriptorSetForFrame[currentFrame];
         
         if (!writeDescriptorSetsBindingIndices.contains(set))
         {
             writeDescriptorSetsBindingIndices[set] = 0;
         }
-        
-        layoutInfo info = perPipelineData->slots[writeDescriptorSets.size()];
+
+        VkDescriptorSetLayoutBinding bindingInfo = perPipelineData->slots[writeDescriptorSets.size()];
 
         int bindingIndex = writeDescriptorSetsBindingIndices[set];
         VkWriteDescriptorSet newSet = {};
         newSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        newSet.dstBinding = bindingIndex;
+        newSet.dstBinding = bindingInfo.binding;
         newSet.dstSet = set;
         newSet.descriptorCount = update.count;
         newSet.descriptorType = update.type;
 
-        assert(update.type == info.type);
-        assert(update.count == info.descriptorCount);
-        assert(bindingIndex == info.slot);
+        assert(update.type == bindingInfo.descriptorType);
+        assert(update.count <= bindingInfo.descriptorCount);
+        // assert(bindingIndex == bindingInfo.binding);
 
         if (update.type == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE || update.type == VK_DESCRIPTOR_TYPE_SAMPLER)
         {
@@ -151,16 +156,10 @@ void PipelineDataObject::createDescriptorSetsShadow(VkDescriptorPool pool, int M
 void PipelineDataObject::createDescriptorSetsforPipeline(VkDescriptorPool pool, int MAX_FRAMES_IN_FLIGHT, perPipelineData* _perPipelineData)
 {
     assert(!_perPipelineData->descriptorSetsInitialized); // Don't double initialize
-    _perPipelineData->uniformDescriptorSetForFrame.resize(MAX_FRAMES_IN_FLIGHT);
-    _perPipelineData->imageDescriptorSetForFrame.resize(MAX_FRAMES_IN_FLIGHT);
-    _perPipelineData->samplerDescriptorSetForFrame.resize(MAX_FRAMES_IN_FLIGHT);
-    _perPipelineData->storageDescriptorSetForFrame.resize(MAX_FRAMES_IN_FLIGHT);
+    _perPipelineData->perSceneDescriptorSetForFrame.resize(MAX_FRAMES_IN_FLIGHT);
     for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        if (_perPipelineData->uniformDescriptorLayout != nullptr) DescriptorSets::AllocateDescriptorSet(device, pool,  &_perPipelineData->uniformDescriptorLayout, &_perPipelineData->uniformDescriptorSetForFrame[i]);
-        if (_perPipelineData->imageDescriptorLayout != nullptr) DescriptorSets::AllocateDescriptorSet(device, pool,  &_perPipelineData->imageDescriptorLayout, &_perPipelineData->imageDescriptorSetForFrame[i]);
-        if (_perPipelineData->samplerDescriptorLayout != nullptr) DescriptorSets::AllocateDescriptorSet(device, pool,  &_perPipelineData->samplerDescriptorLayout, &_perPipelineData->samplerDescriptorSetForFrame[i]);
-        if (_perPipelineData->storageDescriptorLayout != nullptr) DescriptorSets::AllocateDescriptorSet(device, pool,  &_perPipelineData->storageDescriptorLayout, &_perPipelineData->storageDescriptorSetForFrame[i]);
+        if (_perPipelineData->perSceneDescriptorSetLayout != nullptr) DescriptorSets::AllocateDescriptorSet(device, pool,  &_perPipelineData->perSceneDescriptorSetLayout, &_perPipelineData->perSceneDescriptorSetForFrame[i]);
     }
     _perPipelineData->descriptorSetsInitialized = true;
             
@@ -202,10 +201,7 @@ void PipelineDataObject::createPipelineLayoutForPipeline(perPipelineData* perPip
     }
     
     std::vector<VkDescriptorSetLayout> layouts ={};
-    if (perPipelineData->uniformDescriptorLayout) layouts.push_back(perPipelineData->uniformDescriptorLayout);
-    if (perPipelineData->storageDescriptorLayout) layouts.push_back(perPipelineData->storageDescriptorLayout);
-    if (perPipelineData->imageDescriptorLayout) layouts.push_back(perPipelineData->imageDescriptorLayout);
-    if (perPipelineData->samplerDescriptorLayout) layouts.push_back(perPipelineData->samplerDescriptorLayout);
+    if (perPipelineData->perSceneDescriptorSetLayout) layouts.push_back(perPipelineData->perSceneDescriptorSetLayout);
     
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -369,30 +365,13 @@ void PipelineDataObject::cleanup()
 VkDescriptorSet PipelineDataObject::perPipelineData::getSetFromType(VkDescriptorType type,
     int currentFrame)
 {
-    switch (type)
-    {
-    case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
-        return uniformDescriptorSetForFrame[currentFrame];
-        break;
-    case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
-        return imageDescriptorSetForFrame[currentFrame];
-        break;
-    case VK_DESCRIPTOR_TYPE_SAMPLER:
-        return samplerDescriptorSetForFrame[currentFrame];
-        break;
-    case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
-        return storageDescriptorSetForFrame[currentFrame];
-        break;
-    default:
-    exit(-1);
-    }
+    printf("Deprecated call to getSetFromType \n");
+    return perSceneDescriptorSetForFrame[currentFrame];
+  
 }
 
 void PipelineDataObject::perPipelineData::cleanup(VkDevice device)
 {
     vkDestroyPipelineLayout(device, bindlessPipelineLayout, nullptr);
-    vkDestroyDescriptorSetLayout(device, uniformDescriptorLayout, nullptr);
-    vkDestroyDescriptorSetLayout(device, imageDescriptorLayout, nullptr);
-    vkDestroyDescriptorSetLayout(device, samplerDescriptorLayout, nullptr);
-    vkDestroyDescriptorSetLayout(device, storageDescriptorLayout, nullptr);
+    vkDestroyDescriptorSetLayout(device, perSceneDescriptorSetLayout, nullptr);
 }

@@ -10,12 +10,6 @@ class Scene;
 struct VkDescriptorSetLayoutCreateInfo;
 struct VkDescriptorSetLayoutBinding;
 
-struct layoutInfo
-{
-    VkDescriptorType type;
-    uint32_t slot;
-    uint32_t descriptorCount = 1;
-};
 
 
 struct LayoutsBuilder //What do you call the aggregate of several layouts?
@@ -33,12 +27,7 @@ struct LayoutsBuilder //What do you call the aggregate of several layouts?
     };
 
     
-    bindingBuilder uniformbuilder = {0};
-    bindingBuilder samplerbuilder = {0};
-    bindingBuilder imagebuilder = {0};
-    bindingBuilder storagebuilder = {0};
-    
-    std::vector<layoutInfo> bindings;
+    bindingBuilder perSceneBindingsLayout = {0};
 
     LayoutsBuilder(int uniformCt, int imageCt, int storageCt);
 
@@ -46,9 +35,3 @@ struct LayoutsBuilder //What do you call the aggregate of several layouts?
 
     VkDescriptorSetLayoutCreateInfo getCreateInfo(VkDescriptorType type);
 };
-
-LayoutsBuilder createBindlessLayoutBuilder(
-    RendererHandles rendererHandles, Scene* scene);
-
-LayoutsBuilder createShadowLayoutBuilder(
-    RendererHandles rendererHandles, Scene* scene);

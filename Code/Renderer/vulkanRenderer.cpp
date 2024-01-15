@@ -39,7 +39,7 @@ vkb::Instance GET_INSTANCE()
     auto instanceBuilderResult = instance_builder
                                   // .request_validation_layers()
                                  .use_default_debug_messenger()
-                                 .require_api_version(1, 3, 240)
+                                 .require_api_version(1, 3, 255)
                                  .build();
     if (!instanceBuilderResult)
     {
@@ -363,19 +363,40 @@ void HelloTriangleApplication::initVulkan()
 
     //TODO JS: Move... Run when meshes change?
     populateMeshBuffers();
-    
+
+    Array opaqueLayout = MemoryArena::AllocSpan<VkDescriptorSetLayoutBinding>(&rendererArena, 11);
+    opaqueLayout.push_back({(uint32_t)opaqueLayout.ct, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL, VK_NULL_HANDLE});
+    opaqueLayout.push_back({(uint32_t)opaqueLayout.ct, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, MAX_TEXTURES, VK_SHADER_STAGE_FRAGMENT_BIT,  VK_NULL_HANDLE});
+    opaqueLayout.push_back({(uint32_t)opaqueLayout.ct, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,2, VK_SHADER_STAGE_FRAGMENT_BIT,  VK_NULL_HANDLE});
+    opaqueLayout.push_back({(uint32_t)opaqueLayout.ct, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, MAX_SHADOWMAPS, VK_SHADER_STAGE_FRAGMENT_BIT  }); //SHADOW
+    opaqueLayout.push_back({(uint32_t)opaqueLayout.ct, VK_DESCRIPTOR_TYPE_SAMPLER, MAX_TEXTURES, VK_SHADER_STAGE_FRAGMENT_BIT , VK_NULL_HANDLE} );
+    opaqueLayout.push_back({(uint32_t)opaqueLayout.ct, VK_DESCRIPTOR_TYPE_SAMPLER, 2, VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE}  );
+    opaqueLayout.push_back({(uint32_t)opaqueLayout.ct, VK_DESCRIPTOR_TYPE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE}  ); //SHADOW
+    opaqueLayout.push_back({(uint32_t)opaqueLayout.ct, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE} );
+    opaqueLayout.push_back({(uint32_t)opaqueLayout.ct, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1,  VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE} ); //light
+    opaqueLayout.push_back({(uint32_t)opaqueLayout.ct, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1,  VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE} ); //ubo
+    opaqueLayout.push_back({(uint32_t)opaqueLayout.ct, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE} ); //shadow matrices
+
+
+    Array shadowLayout = MemoryArena::AllocSpan<VkDescriptorSetLayoutBinding>(&rendererArena, 5);
+    shadowLayout.push_back({6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE});
+    shadowLayout.push_back({7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE});
+    shadowLayout.push_back({8, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE}); //light
+    shadowLayout.push_back({9, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE}); //ubo
+    shadowLayout.push_back({10, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE}); //shadow matrices
+
     for(int i = 0; i < MAX_FRAMES_IN_FLIGHT ; i++)
     {
-        opaqueUpdates[i] = createOpaqueDescriptorUpdates(i, &rendererArena);
+        opaqueUpdates[i] = createOpaqueDescriptorUpdates(i, &rendererArena, opaqueLayout.getSpan());
         shadowUpdates[i] = MemoryArena::AllocSpan<std::span<descriptorUpdateData>>(&rendererArena, MAX_SHADOWCASTERS);
         for(int j = 0; j < MAX_SHADOWCASTERS; j++)
         {
-            shadowUpdates[i][j] = createShadowDescriptorUpdates(&rendererArena, i, j);
+            shadowUpdates[i][j] = createShadowDescriptorUpdates(&rendererArena, i, j, shadowLayout.getSpan());
             
         }
     }
     
-    descriptorsetLayoutsData = PipelineDataObject(getHandles(), scene);
+    descriptorsetLayoutsData = PipelineDataObject(getHandles(), opaqueLayout.getSpan(), shadowLayout.getSpan());
 
 
     //TODO JS: Make pipelines belong to the perPipelineLayout members
@@ -568,7 +589,7 @@ void HelloTriangleApplication::updateOpaqueDescriptorSets(PipelineDataObject* la
 
 
 
-std::span<descriptorUpdateData> HelloTriangleApplication::createOpaqueDescriptorUpdates(uint32_t frame, MemoryArena::memoryArena* arena)
+std::span<descriptorUpdateData> HelloTriangleApplication::createOpaqueDescriptorUpdates(uint32_t frame, MemoryArena::memoryArena* arena, std::span<VkDescriptorSetLayoutBinding> layoutBindings)
 {
 
     //Get data
@@ -644,11 +665,20 @@ std::span<descriptorUpdateData> HelloTriangleApplication::createOpaqueDescriptor
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, uniformbufferinfo});
     
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, shadowBuffersInfo});
+
+    assert(descriptorUpdates.ct == layoutBindings.size());
+    for(int i = 0; i < descriptorUpdates.ct; i++)
+    {
+        auto update = descriptorUpdates[i];
+        auto layout = layoutBindings[i];
+        assert(update.type == layout.descriptorType);
+        assert(update.count <= layout.descriptorCount);
+    }
  
    return descriptorUpdates.getSpan();
 }
 
-std::span<descriptorUpdateData> HelloTriangleApplication::createShadowDescriptorUpdates(MemoryArena::memoryArena* arena, uint32_t frame, uint32_t shadowIndex)
+std::span<descriptorUpdateData> HelloTriangleApplication::createShadowDescriptorUpdates(MemoryArena::memoryArena* arena, uint32_t frame, uint32_t shadowIndex,  std::span<VkDescriptorSetLayoutBinding> layoutBindings)
 {
     //Get data
     VkDescriptorBufferInfo* meshBufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
@@ -671,6 +701,16 @@ std::span<descriptorUpdateData> HelloTriangleApplication::createShadowDescriptor
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, lightbufferinfo});
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, uniformbufferinfo});
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, shadowBuffersInfo});
+
+    assert(descriptorUpdates.ct == layoutBindings.size());
+    for(int i = 0; i < descriptorUpdates.ct; i++)
+    {
+        auto update = descriptorUpdates[i];
+        auto layout = layoutBindings[i];
+        assert(update.type == layout.descriptorType);
+        assert(update.count <= layout.descriptorCount);
+    }
+ 
 
     return descriptorUpdates.getSpan();
 }
@@ -1039,10 +1079,6 @@ std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocato
         return  outputSpan;
         }
 
-
-   
-
-    
 }
 
 

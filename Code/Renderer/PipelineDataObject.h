@@ -3,6 +3,7 @@
 #include <span>
 #include <unordered_map>
 #include <vector>
+#include <vulkan/vulkan_core.h>
 
 #include "RendererHandles.h"
 #include "VulkanIncludes/forward-declarations-renderer.h"
@@ -25,7 +26,7 @@ struct descriptorUpdateData;
     public:
         PipelineDataObject()
         {}
-        PipelineDataObject(RendererHandles handles, Scene* pscene);
+        PipelineDataObject(RendererHandles handles, std::span<VkDescriptorSetLayoutBinding> opaqueLayout, std::span<VkDescriptorSetLayoutBinding> shadowlayout);
 
         //Initialization
        
@@ -60,7 +61,7 @@ struct descriptorUpdateData;
             //TODO JS: System to share these for multiple pipelines. these are really per LAYOUT data
         struct perPipelineData
         {
-            std::vector<layoutInfo> slots;
+            std::span<VkDescriptorSetLayoutBinding> slots;
 
             bool pipelineLayoutInitialized = false;
             bool pipelinesInitialized = false;
@@ -68,15 +69,15 @@ struct descriptorUpdateData;
 
             
             VkPipelineLayout bindlessPipelineLayout;
-            VkDescriptorSetLayout uniformDescriptorLayout = {};
-            VkDescriptorSetLayout storageDescriptorLayout = {};
-            VkDescriptorSetLayout imageDescriptorLayout = {};
-            VkDescriptorSetLayout samplerDescriptorLayout = {};
+            VkDescriptorSetLayout perSceneDescriptorSetLayout = {};
+            // VkDescriptorSetLayout storageDescriptorLayout = {};
+            // VkDescriptorSetLayout imageDescriptorLayout = {};
+            // VkDescriptorSetLayout samplerDescriptorLayout = {};
         
-            std::vector<VkDescriptorSet> uniformDescriptorSetForFrame = {};
-            std::vector<VkDescriptorSet> storageDescriptorSetForFrame = {};
-            std::vector<VkDescriptorSet> imageDescriptorSetForFrame = {};
-            std::vector<VkDescriptorSet> samplerDescriptorSetForFrame = {};
+            std::vector<VkDescriptorSet> perSceneDescriptorSetForFrame = {};
+            // std::vector<VkDescriptorSet> storageDescriptorSetForFrame = {};
+            // std::vector<VkDescriptorSet> imageDescriptorSetForFrame = {};
+            // std::vector<VkDescriptorSet> samplerDescriptorSetForFrame = {};
 
             VkDescriptorSet getSetFromType(VkDescriptorType type, int currentFrame);
             void cleanup(VkDevice device);
@@ -86,8 +87,8 @@ struct descriptorUpdateData;
         perPipelineData shadowPipelineData;
 
         void bindToCommandBuffer(VkCommandBuffer cmd, uint32_t currentFrame,perPipelineData* pipelinedata);
-        void createOpaqueLayout(RendererHandles handles, Scene* pscene);
-        void createShadowLayout(RendererHandles handles, Scene* pscene);
+        void createOpaqueLayout(RendererHandles handles, std::span<VkDescriptorSetLayoutBinding> layout);
+        void createShadowLayout(RendererHandles handles, std::span<VkDescriptorSetLayoutBinding> layout);
 
 
         //Descriptor set update
