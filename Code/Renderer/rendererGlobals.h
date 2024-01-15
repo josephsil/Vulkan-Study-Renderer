@@ -7,6 +7,7 @@ const static int CASCADE_CT = 4;
 #define MAX_SHADOWMAPS (MAX_SHADOWCASTERS * 6)
 
 const static int MAX_FRAMES_IN_FLIGHT = 3;
+const static int MAX_DRAWINDIRECT_COMMANDS = 200000; //Draw commands per frmae 
 
 enum lightType
 {

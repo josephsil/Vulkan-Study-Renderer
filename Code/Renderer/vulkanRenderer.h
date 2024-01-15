@@ -192,6 +192,12 @@ private:
         //Additional light matrices.... Maybe should be additional matrices period? Used in shadow pass
         dataBuffer shadowDataBuffers;
         VmaAllocation shadowDataBuffersMemory;
+
+
+        //Draw indirect
+        uint32_t currentDrawOffset = 0;
+        dataBuffer drawBuffers;
+        VmaAllocation drawBuffersMemory;
 #pragma endregion
     };
     

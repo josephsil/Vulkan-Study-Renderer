@@ -504,6 +504,16 @@ void HelloTriangleApplication::createUniformBuffers()
             &FramesInFlightData[i].shadowDataBuffersMemory,
             FramesInFlightData[i].shadowDataBuffers.data);
 
+
+      
+        VkDeviceSize drawSize = sizeof(VkDrawIndirectCommand) * MAX_DRAWINDIRECT_COMMANDS;
+
+        FramesInFlightData[i].drawBuffers.size = drawSize;
+        FramesInFlightData[i].drawBuffers.mapped = BufferUtilities::createDynamicBuffer(
+            getHandles(), vertsSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT ,
+            &FramesInFlightData[i].drawBuffersMemory,
+            FramesInFlightData[i].drawBuffers.data);
+
     }
 }
 
@@ -1171,6 +1181,8 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
     FramesInFlightData[currentFrame].uniformBuffers.updateMappedMemory(ubos.data(), sizeof(UniformBufferObject) *scene->objectsCount());
 
 
+    FramesInFlightData[currentFrame].currentDrawOffset = 0; //VERY IMPORTANT!
+
 }
 
 
@@ -1291,14 +1303,16 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
             //TODO JS: Something other than hardcoded index 2 for shadow pipeline
             vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, descriptorsetLayoutsData.getPipeline(2));
             int meshct =  scene->objectsCount();
+            dataBuffer drawBuffer = FramesInFlightData[currentFrame].drawBuffers;
+            std::span<VkDrawIndirectCommand> mappedBuffer =  std::span((VkDrawIndirectCommand*)drawBuffer.mapped, drawBuffer.size / sizeof(VkDrawIndirectCommand));
             for (int j = 0; j <meshct; j++)
             {
                 int i = drawIndices[j];
+                mappedBuffer[FramesInFlightData[currentFrame].currentDrawOffset + j] = {static_cast<uint32_t>(scene->backing_meshes[scene->objects.meshIndices[i]].vertcount),1,0,(uint32_t)i};
 
-
-
-                vkCmdDraw(commandBuffer, static_cast<uint32_t>(scene->backing_meshes[scene->objects.meshIndices[i]].vertcount), 1, 0, i);
             }
+            vkCmdDrawIndirect(commandBuffer, drawBuffer.data, FramesInFlightData[currentFrame].currentDrawOffset *  sizeof(VkDrawIndirectCommand), meshct, sizeof(VkDrawIndirectCommand));
+            FramesInFlightData[currentFrame].currentDrawOffset += meshct;
             vkCmdEndRendering(commandBuffer);
         }
 
@@ -1309,6 +1323,13 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
      VK_CHECK(vkEndCommandBuffer(commandBuffer));
 }
 
+struct drawBatch
+{
+    uint32_t start;
+    uint32_t ct;
+    VkPipeline pipeline;
+    
+};
 //command buffer to draw the frame 
 void HelloTriangleApplication::recordCommandBufferOpaquePass(VkCommandBuffer commandBuffer, uint32_t imageIndex)
 {
@@ -1388,24 +1409,43 @@ void HelloTriangleApplication::recordCommandBufferOpaquePass(VkCommandBuffer com
     scene->OrderedObjectIndices(camera.eyePos , drawIndices, false );
     
     int lastPipelineIndex = -1;
+   
+    uint32_t lastStart = 0;
+
+    Array batchedDraws = MemoryArena::AllocSpan<drawBatch>(&perFrameArenas[currentFrame], 999); //TODO JS -- sort by pipeline so we don't create so many of these 
+
+      dataBuffer drawBuffer = FramesInFlightData[currentFrame].drawBuffers;
+            std::span<VkDrawIndirectCommand> mappedBuffer =  std::span((VkDrawIndirectCommand*)drawBuffer.mapped, drawBuffer.size / sizeof(VkDrawIndirectCommand));
+
     for (int j = 0; j <meshct; j++)
     {
         int i = drawIndices[j];
         Material material = scene->objects.materials[i];
-        int pipelineIndex =1 ;
+        int pipelineIndex = material.pipelineidx;
+
 #ifdef DEBUG_SHADERS
         pipelineIndex = debugpipelineindexoverride;
 #endif
+        
         if (pipelineIndex != lastPipelineIndex)
         {
-            vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, descriptorsetLayoutsData.getPipeline(pipelineIndex));
+            if (lastPipelineIndex != -1)
+            {
+                batchedDraws.push_back({lastStart, j - lastStart, descriptorsetLayoutsData.getPipeline(pipelineIndex)});
+                lastStart = j;
+            }
         }
-        
+        mappedBuffer[FramesInFlightData[currentFrame].currentDrawOffset + j] = {static_cast<uint32_t>(scene->backing_meshes[scene->objects.meshIndices[i]].vertcount), 1, 0, (uint32_t)i};
         lastPipelineIndex = pipelineIndex;
-
-        vkCmdDraw(commandBuffer, static_cast<uint32_t>(scene->backing_meshes[scene->objects.meshIndices[i]].vertcount), 1, 0, i);
     }
-
+    
+    for(int k = 0; k < batchedDraws.ct; k ++)
+    {
+        auto draw = batchedDraws[k];
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.pipeline);
+        vkCmdDrawIndirect(commandBuffer, drawBuffer.data, (FramesInFlightData[currentFrame].currentDrawOffset * sizeof(VkDrawIndirectCommand)) + (sizeof(VkDrawIndirectCommand) * draw.start), draw.ct, sizeof(VkDrawIndirectCommand));
+    }
+    FramesInFlightData[currentFrame].currentDrawOffset +=( meshct );
     //debug lines -- todo feed from somehwere
                                                                             //TODO JS: something other than hardcoded 3
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, descriptorsetLayoutsData.getPipeline(3));
