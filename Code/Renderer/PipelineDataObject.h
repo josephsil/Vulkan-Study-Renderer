@@ -24,7 +24,7 @@ struct descriptorUpdateData;
     {
     public:
 
-        struct pipelineSettings
+        struct graphicsPipelineSettings
         {
             std::span<VkFormat> colorFormats;
             VkFormat depthFormat;
@@ -37,12 +37,13 @@ struct descriptorUpdateData;
         
         PipelineDataObject()
         {}
-        PipelineDataObject(RendererHandles handles, std::span<VkDescriptorSetLayoutBinding> opaqueLayout);
+        PipelineDataObject(RendererHandles handles, VkDescriptorPool pool, std::span<VkDescriptorSetLayoutBinding> opaqueLayout);
 
         //Initialization
         
 
-        void createGraphicsPipeline(std::vector<VkPipelineShaderStageCreateInfo> shaders, pipelineSettings settings);
+        void createGraphicsPipeline(std::vector<VkPipelineShaderStageCreateInfo> shaders, graphicsPipelineSettings settings);
+        void createComputePipeline(VkPipelineShaderStageCreateInfo shader);
         struct perPipelineData;
 
         //Runtime
@@ -91,7 +92,7 @@ struct descriptorUpdateData;
         VkDevice device;
 
       
-        std::vector<VkPipeline> bindlesspipelineObjects;
+        std::vector<VkPipeline> pipelines;
 
             //TODO JS: System to share these for multiple pipelines. these are really per LAYOUT data
     
@@ -99,7 +100,6 @@ struct descriptorUpdateData;
  
 
         void createLayout(RendererHandles handles, std::span<VkDescriptorSetLayoutBinding> layout);
-        void createShadowLayout(RendererHandles handles, std::span<VkDescriptorSetLayoutBinding> layout);
 
 
      

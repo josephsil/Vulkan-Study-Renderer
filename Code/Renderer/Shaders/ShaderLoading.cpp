@@ -285,7 +285,7 @@ loadedBlob LoadBlobFromDisk(std::wstring shaderPath)
     return blob;
 }
 
-void ShaderLoader::AddShader(const char* name, std::wstring shaderPath)
+void ShaderLoader::AddShader(const char* name, std::wstring shaderPath, bool compute)
 {
     MemoryArena::memoryArena scratch;
     MemoryArena::initialize(&scratch, 80000);
@@ -295,33 +295,50 @@ void ShaderLoader::AddShader(const char* name, std::wstring shaderPath)
     bool needsCompiled = ShaderNeedsReciompiled(shaderPaths);
     needsCompiled = true;
     //TODO JS: if no, load a cached version
-
-    VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
-    vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-    if (needsCompiled) { shaderCompile(shaderPaths.path, false); }
-    vertShaderStageInfo.module = shaderLoad(shaderPaths.path, false);
-    vertShaderStageInfo.pName = "Vert"; //Entry point name 
-
-    VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
-    fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-    if (needsCompiled) { shaderCompile(shaderPaths.path, true); }
-    fragShaderStageInfo.module = shaderLoad(shaderPaths.path, true);
-    fragShaderStageInfo.pName = "Frag"; //Entry point name   
-    std::vector shaderStages = {vertShaderStageInfo, fragShaderStageInfo};
-    // VkPipelineShaderStageCreateInfo test[] = { vertShaderStageInfo, fragShaderStageInfo };
-    compiledShaders.insert({name, shaderStages});
-    if (needsCompiled)
-    {
-         FileCaching::saveAssetChangedTime(shaderPaths.path);
-    }
     
-  
-
+    switch (compute)
+    {
+    case false:
+        {
+            VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
+            vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+            vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+            if (needsCompiled) { shaderCompile(shaderPaths.path, vert); }
+            vertShaderStageInfo.module = shaderLoad(shaderPaths.path, vert);
+            vertShaderStageInfo.pName = "Vert"; //Entry point name 
+            VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
+            fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+            fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+            if (needsCompiled) { shaderCompile(shaderPaths.path, frag); }
+            fragShaderStageInfo.module = shaderLoad(shaderPaths.path, frag);
+            fragShaderStageInfo.pName = "Frag"; //Entry point name   
+            std::vector shaderStages = {vertShaderStageInfo, fragShaderStageInfo};
+            // VkPipelineShaderStageCreateInfo test[] = { vertShaderStageInfo, fragShaderStageInfo };
+            compiledShaders.insert({name, shaderStages});
+            break;
+        }
+    case true:
+        {
+            VkPipelineShaderStageCreateInfo computeShaderStage{};
+            computeShaderStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+            computeShaderStage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+            if (needsCompiled) { shaderCompile(shaderPaths.path, comp); }
+            computeShaderStage.module = shaderLoad(shaderPaths.path, comp);
+            computeShaderStage.pName = "Main"; //Entry point name
+            std::vector shaderStages = {computeShaderStage};
+            compiledShaders.insert({name, shaderStages});
+            break;
+        }
+    }
+        if (needsCompiled)
+        {
+            FileCaching::saveAssetChangedTime(shaderPaths.path);
+        }
 }
 
-void ShaderLoader::shaderCompile(std::wstring shaderFilename, bool is_frag)
+
+
+void ShaderLoader::shaderCompile(std::wstring shaderFilename, shaderType stagetype)
 {
     HRESULT hres;
     auto filename = shaderFilename;
@@ -360,17 +377,29 @@ void ShaderLoader::shaderCompile(std::wstring shaderFilename, bool is_frag)
     std::wstring extension;
     // Select target profile based on shader file extension
     LPCWSTR targetProfile{};
+    LPCWSTR entryPoint{};
+    LPCWSTR suffix{};
     size_t idx = filename.rfind('.');
     if (idx != std::string::npos)
     {
         extension = filename.substr(idx + 1);
-        if (is_frag)
+        if (stagetype == frag)
         {
             targetProfile = L"ps_6_5";
+            entryPoint = L"Frag";
+            suffix = L".frag";
         }
-        else
+        if (stagetype == vert)
         {
             targetProfile = L"vs_6_5";
+            entryPoint = L"Vert";
+            suffix = L".vert";
+        }
+        if (stagetype == comp)
+        {
+            targetProfile = L"cs_6_5";
+            entryPoint = L"Main";
+            suffix = L".comp";
         }
         // Mapping for other file types go here (cs_x_y, lib_x_y, etc.)
     }
@@ -380,7 +409,7 @@ void ShaderLoader::shaderCompile(std::wstring shaderFilename, bool is_frag)
         // (Optional) name of the shader file to be displayed e.g. in an error mes`ge
         filename.c_str(),
         // Shader main entry point
-        L"-E", (is_frag) ? L"Frag" : L"Vert",
+        L"-E", entryPoint,
         // Shader target profile
         L"-T", targetProfile,
         L"-I", L"./Shaders/Includes",
@@ -428,13 +457,27 @@ void ShaderLoader::shaderCompile(std::wstring shaderFilename, bool is_frag)
 
     result->GetResult(&code);
 
-    SaveBlobToDisk(filename + (is_frag ? L".frag" : L".vert"), code->GetBufferSize(),
+    SaveBlobToDisk(filename + (suffix), code->GetBufferSize(),
                    static_cast<uint32_t*>(code->GetBufferPointer()));
 }
 
-VkShaderModule ShaderLoader::shaderLoad(std::wstring shaderFilename, bool is_frag)
+VkShaderModule ShaderLoader::shaderLoad(std::wstring shaderFilename, shaderType  stagetype)
 {
-    loadedBlob blob = LoadBlobFromDisk(shaderFilename + (is_frag ? L".frag" : L".vert"));
+    LPCWSTR suffix{};
+    if (stagetype == frag)
+    {
+        suffix = L".frag";
+    }
+    if (stagetype == vert)
+    {
+        suffix = L".vert";
+    }
+    if (stagetype == comp)
+    {
+        suffix = L".comp";
+    }
+    
+    loadedBlob blob = LoadBlobFromDisk(shaderFilename + (suffix));
 
     // Create a Vulkan shader module from the compilation result
     VkShaderModuleCreateInfo shaderModuleCI{};

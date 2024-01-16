@@ -318,6 +318,7 @@ void HelloTriangleApplication::initVulkan()
     shaderLoader->AddShader("triangle_alt", L"./Shaders/shader2.hlsl");
     shaderLoader->AddShader("shadow", L"./Shaders/bindlessShadow.hlsl");
     shaderLoader->AddShader("lines", L"./Shaders/lines.hlsl");
+    shaderLoader->AddShader("cull", L"./Shaders/cull_compute.hlsl", true);
 
     //Command buffer stuff
     createCommandBuffers();
@@ -363,26 +364,33 @@ void HelloTriangleApplication::initVulkan()
     //TODO JS: Move... Run when meshes change?
     populateMeshBuffers();
 
+    createDescriptorSetPool(getHandles(), &descriptorPool);
+
     Array opaqueLayout = MemoryArena::AllocSpan<VkDescriptorSetLayoutBinding>(&rendererArena, 11);
-    opaqueLayout.push_back({(uint32_t)opaqueLayout.ct, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL, VK_NULL_HANDLE});
+    opaqueLayout.push_back({(uint32_t)opaqueLayout.ct, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL, VK_NULL_HANDLE}); //Globals
     opaqueLayout.push_back({(uint32_t)opaqueLayout.ct, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, MAX_TEXTURES, VK_SHADER_STAGE_FRAGMENT_BIT,  VK_NULL_HANDLE});
     opaqueLayout.push_back({(uint32_t)opaqueLayout.ct, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,2, VK_SHADER_STAGE_FRAGMENT_BIT,  VK_NULL_HANDLE});
     opaqueLayout.push_back({(uint32_t)opaqueLayout.ct, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, MAX_SHADOWMAPS, VK_SHADER_STAGE_FRAGMENT_BIT  }); //SHADOW
     opaqueLayout.push_back({(uint32_t)opaqueLayout.ct, VK_DESCRIPTOR_TYPE_SAMPLER, MAX_TEXTURES, VK_SHADER_STAGE_FRAGMENT_BIT , VK_NULL_HANDLE} );
     opaqueLayout.push_back({(uint32_t)opaqueLayout.ct, VK_DESCRIPTOR_TYPE_SAMPLER, 2, VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE}  );
     opaqueLayout.push_back({(uint32_t)opaqueLayout.ct, VK_DESCRIPTOR_TYPE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE}  ); //SHADOW
-    opaqueLayout.push_back({(uint32_t)opaqueLayout.ct, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE} );
+    opaqueLayout.push_back({(uint32_t)opaqueLayout.ct, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE} ); //Geometry
     opaqueLayout.push_back({(uint32_t)opaqueLayout.ct, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1,  VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE} ); //light
     opaqueLayout.push_back({(uint32_t)opaqueLayout.ct, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1,  VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE} ); //ubo
     opaqueLayout.push_back({(uint32_t)opaqueLayout.ct, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE} ); //shadow matrices
 
 
     Array shadowLayout = MemoryArena::AllocSpan<VkDescriptorSetLayoutBinding>(&rendererArena, 5);
-    shadowLayout.push_back({6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE});
+    shadowLayout.push_back({6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE}); //Vertices
     shadowLayout.push_back({7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE});
     shadowLayout.push_back({8, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE}); //light
     shadowLayout.push_back({9, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE}); //ubo
     shadowLayout.push_back({10, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE}); //shadow matrices
+
+    Array computeLayout = MemoryArena::AllocSpan<VkDescriptorSetLayoutBinding>(&rendererArena, 3);
+    computeLayout.push_back({6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}); //Globals 
+    computeLayout.push_back({9, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}); //geometry
+    computeLayout.push_back({10, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}); //draws
 
     for(int i = 0; i < MAX_FRAMES_IN_FLIGHT ; i++)
     {
@@ -395,23 +403,27 @@ void HelloTriangleApplication::initVulkan()
         }
     }
     
-    descriptorsetLayoutsData = PipelineDataObject(getHandles(), opaqueLayout.getSpan());
-    descriptorsetLayoutsDataShadow = PipelineDataObject(getHandles(), shadowLayout.getSpan());
+    descriptorsetLayoutsData = PipelineDataObject(getHandles(), descriptorPool, opaqueLayout.getSpan());
+    descriptorsetLayoutsDataShadow = PipelineDataObject(getHandles(), descriptorPool, shadowLayout.getSpan());
+    descriptorsetLayoutsDataCompute = PipelineDataObject(getHandles(), descriptorPool, computeLayout.getSpan());
 
-    const PipelineDataObject::pipelineSettings opaquePipelineSettings =  {std::span(&swapChainColorFormat, 1), depthFormat};
-    createGraphicsPipeline("triangle_alt",  &descriptorsetLayoutsData, opaquePipelineSettings);
-    createGraphicsPipeline("triangle",  &descriptorsetLayoutsData, opaquePipelineSettings);
+    //opaque
+    const PipelineDataObject::graphicsPipelineSettings opaquePipelineSettings =  {std::span(&swapChainColorFormat, 1), depthFormat};
+    createGraphicsPipeline("triangle_alt",  &descriptorsetLayoutsData, opaquePipelineSettings,false);
+    createGraphicsPipeline("triangle",  &descriptorsetLayoutsData, opaquePipelineSettings,false);
+    const PipelineDataObject::graphicsPipelineSettings linePipelineSettings =  {std::span(&swapChainColorFormat, 1), depthFormat, VK_CULL_MODE_NONE, VK_PRIMITIVE_TOPOLOGY_LINE_LIST };
+    createGraphicsPipeline("lines",  &descriptorsetLayoutsData, linePipelineSettings,false);
 
-    const PipelineDataObject::pipelineSettings shadowPipelineSettings =  {std::span(&swapChainColorFormat, 0), shadowFormat, VK_CULL_MODE_FRONT_BIT, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_TRUE, true };
-    createGraphicsPipeline("shadow",  &descriptorsetLayoutsDataShadow, shadowPipelineSettings);
+    //shadow 
+    const PipelineDataObject::graphicsPipelineSettings shadowPipelineSettings =  {std::span(&swapChainColorFormat, 0), shadowFormat, VK_CULL_MODE_FRONT_BIT, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_TRUE, true };
+    createGraphicsPipeline("shadow",  &descriptorsetLayoutsDataShadow, shadowPipelineSettings,false);
 
-    const PipelineDataObject::pipelineSettings linePipelineSettings =  {std::span(&swapChainColorFormat, 1), depthFormat, VK_CULL_MODE_NONE, VK_PRIMITIVE_TOPOLOGY_LINE_LIST };
-    createGraphicsPipeline("lines",  &descriptorsetLayoutsData, linePipelineSettings);
+    //compute
+    // createGraphicsPipeline("cull",  &descriptorsetLayoutsDataCompute, {},true);
 
     
-    createDescriptorSetPool(getHandles(), &descriptorPool);
-    descriptorsetLayoutsData.createDescriptorSets(descriptorPool, MAX_FRAMES_IN_FLIGHT);
-    descriptorsetLayoutsDataShadow.createDescriptorSets(descriptorPool, MAX_FRAMES_IN_FLIGHT);
+    
+ 
 }
 
 void HelloTriangleApplication::populateMeshBuffers()
@@ -1553,15 +1565,14 @@ void HelloTriangleApplication::createDepthResources()
 
 
 
-void HelloTriangleApplication::createGraphicsPipeline(const char* shaderName, PipelineDataObject* descriptorsetdata, PipelineDataObject::pipelineSettings settings)
+void HelloTriangleApplication::createGraphicsPipeline(const char* shaderName, PipelineDataObject* descriptorsetdata,  PipelineDataObject::graphicsPipelineSettings settings, bool compute)
 {
     VkPipeline newGraphicsPipeline; 
     auto shaders = shaderLoader->compiledShaders[shaderName];
-
-
+    if (!compute)
     descriptorsetdata->createGraphicsPipeline(shaders, settings);
-   
-
+    else
+        descriptorsetdata->createComputePipeline(shaders[0]);
     auto val = shaderLoader->compiledShaders[shaderName];
 
     for (auto v : val)
@@ -1570,6 +1581,7 @@ void HelloTriangleApplication::createGraphicsPipeline(const char* shaderName, Pi
     }
 
 }
+
 
 
 #pragma region perFrameUpdate

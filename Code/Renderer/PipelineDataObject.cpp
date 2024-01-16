@@ -23,10 +23,12 @@ VkDescriptorSetLayoutCreateInfo createInfoFromSpan( std::span<VkDescriptorSetLay
 
     return _createInfo;
 }
-PipelineDataObject::PipelineDataObject(RendererHandles handles, std::span<VkDescriptorSetLayoutBinding> opaqueLayout)
+PipelineDataObject::PipelineDataObject(RendererHandles handles, VkDescriptorPool pool, std::span<VkDescriptorSetLayoutBinding> opaqueLayout)
 {
     device = handles.device;
     createLayout(handles , opaqueLayout);
+    createDescriptorSets(pool, MAX_FRAMES_IN_FLIGHT);
+    
 }
 
 void PipelineDataObject::createLayout(RendererHandles handles,  std::span<VkDescriptorSetLayoutBinding> layout )
@@ -123,7 +125,7 @@ void PipelineDataObject::updateDescriptorSets(std::span<descriptorUpdateData> de
 
 void PipelineDataObject::createDescriptorSets(VkDescriptorPool pool, int MAX_FRAMES_IN_FLIGHT)
 {
-    assert(!_perPipelineData->descriptorSetsInitialized); // Don't double initialize
+    assert(!this->pipelineData.descriptorSetsInitialized); // Don't double initialize
     pipelineData.perSceneDescriptorSetForFrame.resize(MAX_FRAMES_IN_FLIGHT);
     for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
@@ -137,15 +139,15 @@ VkPipeline PipelineDataObject::getPipeline(int index)
 {
     //TODO JS
     // assert(pipelinesInitialized && pipelineLayoutInitialized);
-    assert(index < bindlesspipelineObjects.size());
-    return bindlesspipelineObjects[index];
+    assert(index < pipelines.size());
+    return pipelines[index];
 }
 
 uint32_t PipelineDataObject::getPipelineCt()
 {
     //TODO JS
     // assert(pipelinesInitialized && pipelineLayoutInitialized);
-    return bindlesspipelineObjects.size();
+    return pipelines.size();
 }
 
 void PipelineDataObject::createPipelineLayoutForPipeline(perPipelineData* perPipelineData)
@@ -186,7 +188,7 @@ void PipelineDataObject::createPipelineLayoutForPipeline(perPipelineData* perPip
 
 
 
-void PipelineDataObject::createGraphicsPipeline(std::vector<VkPipelineShaderStageCreateInfo> shaders, pipelineSettings settings)
+void PipelineDataObject::createGraphicsPipeline(std::vector<VkPipelineShaderStageCreateInfo> shaders, graphicsPipelineSettings settings)
 {
     auto pipeline =  &pipelineData;
     createPipelineLayoutForPipeline(pipeline);
@@ -299,18 +301,38 @@ void PipelineDataObject::createGraphicsPipeline(std::vector<VkPipelineShaderStag
     }
 
     pipeline->pipelinesInitialized = true;
-    bindlesspipelineObjects.push_back(newGraphicsPipeline);
+    pipelines.push_back(newGraphicsPipeline);
 }
 
+void PipelineDataObject::createComputePipeline(VkPipelineShaderStageCreateInfo shader)
+{
 
+    auto pipeline =  &pipelineData;
+    createPipelineLayoutForPipeline(pipeline);
+    assert(pipeline->pipelineLayoutInitialized);
+    VkPipeline newPipeline {}; 
+    
+    VkComputePipelineCreateInfo pipelineInfo{};
+    pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    pipelineInfo.layout =  pipeline->bindlessPipelineLayout;
+    VkPipelineShaderStageCreateInfo computeShaderStageInfo = shader;
+
+ 
+    
+    pipelineInfo.stage = computeShaderStageInfo;
+
+    VK_CHECK(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &newPipeline));
+
+    pipelines.push_back(newPipeline);
+}
 
 void PipelineDataObject::cleanup()
 {
     
    
-    for(int i = 0; i < bindlesspipelineObjects.size(); i++)
+    for(int i = 0; i < pipelines.size(); i++)
     {
-        vkDestroyPipeline(device, bindlesspipelineObjects[i], nullptr);
+        vkDestroyPipeline(device, pipelines[i], nullptr);
     }
 
     pipelineData.cleanup(device);

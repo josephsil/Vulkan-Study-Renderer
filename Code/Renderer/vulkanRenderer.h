@@ -130,6 +130,7 @@ private:
     
     PipelineDataObject descriptorsetLayoutsData; //uhhh
     PipelineDataObject descriptorsetLayoutsDataShadow; //uhhh
+    PipelineDataObject descriptorsetLayoutsDataCompute;
 
     
     void createDescriptorSetPool(RendererHandles handles, VkDescriptorPool* pool);
@@ -253,7 +254,8 @@ private:
 
 
     void createGraphicsPipeline(const char* shaderName,
-                                 PipelineDataObject* descriptorsetdata, PipelineDataObject::pipelineSettings settings);
+                                PipelineDataObject* descriptorsetdata, PipelineDataObject::graphicsPipelineSettings settings, bool compute);
+    
 
     void createInstance();
 
