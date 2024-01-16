@@ -398,21 +398,20 @@ void HelloTriangleApplication::initVulkan()
     descriptorsetLayoutsData = PipelineDataObject(getHandles(), opaqueLayout.getSpan());
     descriptorsetLayoutsDataShadow = PipelineDataObject(getHandles(), shadowLayout.getSpan());
 
+    const PipelineDataObject::pipelineSettings opaquePipelineSettings =  {std::span(&swapChainColorFormat, 1), depthFormat};
+    createGraphicsPipeline("triangle_alt",  &descriptorsetLayoutsData, opaquePipelineSettings);
+    createGraphicsPipeline("triangle",  &descriptorsetLayoutsData, opaquePipelineSettings);
 
-    //TODO JS: Make pipelines belong to the perPipelineLayout members
-    createGraphicsPipeline("triangle_alt",  &descriptorsetLayoutsData);
-    createGraphicsPipeline("triangle",  &descriptorsetLayoutsData);
-    //TODO JS: separate shadow layout?
-    createGraphicsPipeline("shadow",  &descriptorsetLayoutsDataShadow, true);
+    const PipelineDataObject::pipelineSettings shadowPipelineSettings =  {std::span(&swapChainColorFormat, 0), shadowFormat, VK_CULL_MODE_FRONT_BIT, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_TRUE, true };
+    createGraphicsPipeline("shadow",  &descriptorsetLayoutsDataShadow, shadowPipelineSettings);
 
-    createGraphicsPipeline("lines",  &descriptorsetLayoutsData, false, true);
+    const PipelineDataObject::pipelineSettings linePipelineSettings =  {std::span(&swapChainColorFormat, 1), depthFormat, VK_CULL_MODE_NONE, VK_PRIMITIVE_TOPOLOGY_LINE_LIST };
+    createGraphicsPipeline("lines",  &descriptorsetLayoutsData, linePipelineSettings);
+
     
     createDescriptorSetPool(getHandles(), &descriptorPool);
-
-    descriptorsetLayoutsData.createDescriptorSetsforPipeline(descriptorPool, MAX_FRAMES_IN_FLIGHT, &descriptorsetLayoutsData.pipelineData);
-       // descriptorsetLayoutsData.createDescriptorSetsforPipeline(descriptorPool, MAX_FRAMES_IN_FLIGHT, &descriptorsetLayoutsData.shadowPipelineData);
-    descriptorsetLayoutsDataShadow.createDescriptorSetsforPipeline(descriptorPool, MAX_FRAMES_IN_FLIGHT, &descriptorsetLayoutsDataShadow.pipelineData);
-        // descriptorsetLayoutsDataShadow.createDescriptorSetsforPipeline(descriptorPool, MAX_FRAMES_IN_FLIGHT, &descriptorsetLayoutsDataShadow.shadowPipelineData);
+    descriptorsetLayoutsData.createDescriptorSets(descriptorPool, MAX_FRAMES_IN_FLIGHT);
+    descriptorsetLayoutsDataShadow.createDescriptorSets(descriptorPool, MAX_FRAMES_IN_FLIGHT);
 }
 
 void HelloTriangleApplication::populateMeshBuffers()
@@ -1553,17 +1552,15 @@ void HelloTriangleApplication::createDepthResources()
 #pragma endregion
 
 
-void HelloTriangleApplication::createGraphicsPipeline(const char* shaderName, PipelineDataObject* descriptorsetdata, bool shadow, bool lines)
+
+void HelloTriangleApplication::createGraphicsPipeline(const char* shaderName, PipelineDataObject* descriptorsetdata, PipelineDataObject::pipelineSettings settings)
 {
     VkPipeline newGraphicsPipeline; 
     auto shaders = shaderLoader->compiledShaders[shaderName];
 
-    if (!shadow)
-    descriptorsetdata->createGraphicsPipeline(shaders,&swapChainColorFormat, &depthFormat, false, true, true, lines);
-    else
-    {
-        descriptorsetdata->createGraphicsPipeline(shaders,&swapChainColorFormat, &depthFormat,  true, false, true);
-    } 
+
+    descriptorsetdata->createGraphicsPipeline(shaders, settings);
+   
 
     auto val = shaderLoader->compiledShaders[shaderName];
 

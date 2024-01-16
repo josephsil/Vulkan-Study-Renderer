@@ -23,15 +23,26 @@ struct descriptorUpdateData;
     class PipelineDataObject
     {
     public:
-       
+
+        struct pipelineSettings
+        {
+            std::span<VkFormat> colorFormats;
+            VkFormat depthFormat;
+            VkCullModeFlags cullMode = VK_CULL_MODE_BACK_BIT;
+            VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+            VkBool32 depthBias = VK_FALSE;
+            bool dynamicBias = false;
+        };
+
+        
         PipelineDataObject()
         {}
         PipelineDataObject(RendererHandles handles, std::span<VkDescriptorSetLayoutBinding> opaqueLayout);
 
         //Initialization
-       
-        void createGraphicsPipeline(std::vector<VkPipelineShaderStageCreateInfo> shaders, VkFormat* swapchainFormat, VkFormat* depthFormat, bool shadow, bool color = true, bool
-                                    depth = true, bool lines = false);
+        
+
+        void createGraphicsPipeline(std::vector<VkPipelineShaderStageCreateInfo> shaders, pipelineSettings settings);
         struct perPipelineData;
 
         //Runtime
@@ -71,7 +82,7 @@ struct descriptorUpdateData;
         perPipelineData pipelineData;
         // perPipelineData shadowPipelineData;
         //Descriptor set update
-        void createDescriptorSetsforPipeline( VkDescriptorPool pool,  int MAX_FRAMES_IN_FLIGHT, perPipelineData* perPipelineData);
+        void createDescriptorSets(VkDescriptorPool pool, int MAX_FRAMES_IN_FLIGHT);
 
     private:
 

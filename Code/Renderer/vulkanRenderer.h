@@ -141,10 +141,8 @@ private:
     void updateShadowDescriptorSets(
         PipelineDataObject* layoutData, uint32_t shadowIndex);
 
-    std::span<VkDescriptorSetLayoutBinding> opaqueLayout;
     std::span<descriptorUpdateData> opaqueUpdates[MAX_FRAMES_IN_FLIGHT] = {};
 
-    std::span<VkDescriptorSetLayoutBinding> shadowLayout;
     std::span<std::span<descriptorUpdateData>> shadowUpdates[MAX_FRAMES_IN_FLIGHT] = {};
 
 #pragma endregion
@@ -255,7 +253,8 @@ private:
 
 
     void createGraphicsPipeline(const char* shaderName,
-                                PipelineDataObject* descriptorsetdata, bool shadow = false, bool lines = false);
+                                 PipelineDataObject* descriptorsetdata, PipelineDataObject::pipelineSettings settings);
+
     void createInstance();
 
     int _selectedShader{0};

@@ -121,15 +121,15 @@ void PipelineDataObject::updateDescriptorSets(std::span<descriptorUpdateData> de
 
 
 
-void PipelineDataObject::createDescriptorSetsforPipeline(VkDescriptorPool pool, int MAX_FRAMES_IN_FLIGHT, perPipelineData* _perPipelineData)
+void PipelineDataObject::createDescriptorSets(VkDescriptorPool pool, int MAX_FRAMES_IN_FLIGHT)
 {
     assert(!_perPipelineData->descriptorSetsInitialized); // Don't double initialize
-    _perPipelineData->perSceneDescriptorSetForFrame.resize(MAX_FRAMES_IN_FLIGHT);
+    pipelineData.perSceneDescriptorSetForFrame.resize(MAX_FRAMES_IN_FLIGHT);
     for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        if (_perPipelineData->perSceneDescriptorSetLayout != nullptr) DescriptorSets::AllocateDescriptorSet(device, pool,  &_perPipelineData->perSceneDescriptorSetLayout, &_perPipelineData->perSceneDescriptorSetForFrame[i]);
+        if ( pipelineData.perSceneDescriptorSetLayout != nullptr) DescriptorSets::AllocateDescriptorSet(device, pool,  & pipelineData.perSceneDescriptorSetLayout, & pipelineData.perSceneDescriptorSetForFrame[i]);
     }
-    _perPipelineData->descriptorSetsInitialized = true;
+    pipelineData.descriptorSetsInitialized = true;
             
 }
 
@@ -184,10 +184,11 @@ void PipelineDataObject::createPipelineLayoutForPipeline(perPipelineData* perPip
     perPipelineData->pipelineLayoutInitialized = true;
 }
 
-void PipelineDataObject::createGraphicsPipeline(std::vector<VkPipelineShaderStageCreateInfo> shaders, VkFormat* swapchainFormat, VkFormat* depthFormat, bool shadow, bool color, bool depth, bool lines)
-{
 
-    auto pipeline = shadow ? &pipelineData : &pipelineData;
+
+void PipelineDataObject::createGraphicsPipeline(std::vector<VkPipelineShaderStageCreateInfo> shaders, pipelineSettings settings)
+{
+    auto pipeline =  &pipelineData;
     createPipelineLayoutForPipeline(pipeline);
     
     assert(pipeline->pipelineLayoutInitialized);
@@ -202,7 +203,7 @@ void PipelineDataObject::createGraphicsPipeline(std::vector<VkPipelineShaderStag
 
     VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
     inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    inputAssembly.topology = lines ? VK_PRIMITIVE_TOPOLOGY_LINE_LIST : VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    inputAssembly.topology = settings.topology;
     inputAssembly.primitiveRestartEnable = VK_FALSE;
 
     VkPipelineViewportStateCreateInfo viewportState{};
@@ -216,9 +217,9 @@ void PipelineDataObject::createGraphicsPipeline(std::vector<VkPipelineShaderStag
     rasterizer.rasterizerDiscardEnable = VK_FALSE;
     rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
     rasterizer.lineWidth = 1.0f;
-    rasterizer.cullMode = shadow ? VK_CULL_MODE_FRONT_BIT : VK_CULL_MODE_BACK_BIT;
+    rasterizer.cullMode =  settings.cullMode;
     rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-    rasterizer.depthBiasEnable = shadow ? VK_TRUE : VK_FALSE;
+    rasterizer.depthBiasEnable = settings.depthBias;
     // rasterizer.depthBiasConstantFactor = shadow ? 6 : 0;
     // rasterizer.depthBiasSlopeFactor = shadow ? 3 : 0;
     // rasterizer.depth
@@ -251,7 +252,7 @@ void PipelineDataObject::createGraphicsPipeline(std::vector<VkPipelineShaderStag
         VK_DYNAMIC_STATE_VIEWPORT,
         VK_DYNAMIC_STATE_SCISSOR
     };
-    if (shadow)
+    if (settings.dynamicBias)
     {
         dynamicStates.push_back(VK_DYNAMIC_STATE_DEPTH_BIAS);
     }
@@ -281,9 +282,9 @@ void PipelineDataObject::createGraphicsPipeline(std::vector<VkPipelineShaderStag
 
     const VkPipelineRenderingCreateInfo dynamicRenderingInfo {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR,
-        .colorAttachmentCount = (uint32_t)(color ? 1 : 0),
-        .pColorAttachmentFormats = color ? swapchainFormat : VK_NULL_HANDLE ,
-        .depthAttachmentFormat =  (VkFormat) (depth ? *depthFormat : 0)
+        .colorAttachmentCount = (uint32_t)settings.colorFormats.size(),
+        .pColorAttachmentFormats = settings.colorFormats.size() ? settings.colorFormats.data() : VK_NULL_HANDLE ,
+        .depthAttachmentFormat =  (VkFormat) (settings.depthFormat)
     };
 
     pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
@@ -300,7 +301,7 @@ void PipelineDataObject::createGraphicsPipeline(std::vector<VkPipelineShaderStag
     pipeline->pipelinesInitialized = true;
     bindlesspipelineObjects.push_back(newGraphicsPipeline);
 }
-   
+
 
 
 void PipelineDataObject::cleanup()
