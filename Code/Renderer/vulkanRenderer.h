@@ -128,7 +128,8 @@ private:
     VkDescriptorSetLayout pushDescriptorSetLayout;
     VkDescriptorSetLayout perMaterialSetLayout;
     
-    PipelineDataObject descriptorsetLayoutsData;
+    PipelineDataObject descriptorsetLayoutsData; //uhhh
+    PipelineDataObject descriptorsetLayoutsDataShadow; //uhhh
 
     
     void createDescriptorSetPool(RendererHandles handles, VkDescriptorPool* pool);

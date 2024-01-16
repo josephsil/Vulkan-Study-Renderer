@@ -15,8 +15,6 @@
 
 VkDescriptorSetLayoutCreateInfo createInfoFromSpan( std::span<VkDescriptorSetLayoutBinding> bindings)
 {
-
-
     VkDescriptorSetLayoutCreateInfo _createInfo = {};
     _createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     // _createInfo.flags =   VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
@@ -25,16 +23,13 @@ VkDescriptorSetLayoutCreateInfo createInfoFromSpan( std::span<VkDescriptorSetLay
 
     return _createInfo;
 }
-PipelineDataObject::PipelineDataObject(RendererHandles handles, std::span<VkDescriptorSetLayoutBinding> opaqueLayout, std::span<VkDescriptorSetLayoutBinding> shadowLayout)
+PipelineDataObject::PipelineDataObject(RendererHandles handles, std::span<VkDescriptorSetLayoutBinding> opaqueLayout)
 {
     device = handles.device;
-    createOpaqueLayout(handles , opaqueLayout);
-    createShadowLayout(handles , shadowLayout);
+    createLayout(handles , opaqueLayout);
 }
 
-
-
-void PipelineDataObject::createOpaqueLayout(RendererHandles handles,  std::span<VkDescriptorSetLayoutBinding> layout)
+void PipelineDataObject::createLayout(RendererHandles handles,  std::span<VkDescriptorSetLayoutBinding> layout )
 {
     VkDescriptorSetLayoutCreateInfo perSceneLaout = createInfoFromSpan(layout);
 
@@ -56,30 +51,16 @@ void PipelineDataObject::createOpaqueLayout(RendererHandles handles,  std::span<
 
 
     
-    VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &perSceneLaout, nullptr, &this->opaquePipelineData.perSceneDescriptorSetLayout));
-    this->opaquePipelineData.slots = layout;
+    VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &perSceneLaout, nullptr, &this->pipelineData.perSceneDescriptorSetLayout));
+    this->pipelineData.slots = layout;
 }
-void PipelineDataObject::createShadowLayout(RendererHandles handles,  std::span<VkDescriptorSetLayoutBinding> layout)
+
+void PipelineDataObject::bindToCommandBuffer(VkCommandBuffer cmd, uint32_t currentFrame)
 {
-    VkDescriptorSetLayoutCreateInfo perSceneLaout = createInfoFromSpan(layout);
-
-    VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &perSceneLaout, nullptr, &this->shadowPipelineData.perSceneDescriptorSetLayout));
-    this->shadowPipelineData.slots = layout;
+    assert(pipelineData.descriptorSetsInitialized && pipelineData.pipelinesInitialized);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, this->pipelineData.bindlessPipelineLayout, 0, 1, &this->pipelineData.perSceneDescriptorSetForFrame[currentFrame], 0, nullptr);
 }
 
-void PipelineDataObject::bindToCommandBufferOpaque(VkCommandBuffer cmd, uint32_t currentFrame)
-{
-    assert(opaquePipelineData.descriptorSetsInitialized && opaquePipelineData.pipelinesInitialized);
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, opaquePipelineData.bindlessPipelineLayout, 0, 1, &opaquePipelineData.perSceneDescriptorSetForFrame[currentFrame], 0, nullptr);
-    
-}
-
-void PipelineDataObject::bindToCommandBufferShadow(VkCommandBuffer cmd, uint32_t currentFrame)
-{
-    assert(shadowPipelineData.descriptorSetsInitialized && shadowPipelineData.pipelinesInitialized);
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowPipelineData.bindlessPipelineLayout, 0, 1, &shadowPipelineData.perSceneDescriptorSetForFrame[currentFrame], 0, nullptr);
-
-}
 
 
 void PipelineDataObject::updateDescriptorSetsForPipeline(std::span<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame, perPipelineData* perPipelineData)
@@ -132,26 +113,14 @@ void PipelineDataObject::updateDescriptorSetsForPipeline(std::span<descriptorUpd
 }
 
 //updates descriptor sets based on vector of descriptorupdatedata, with some light validation that we're binding the right stuff
-void PipelineDataObject::updateOpaqueDescriptorSets(std::span<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame)
+void PipelineDataObject::updateDescriptorSets(std::span<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame)
 {
-   updateDescriptorSetsForPipeline(descriptorUpdates, currentFrame, &opaquePipelineData);
-}
-
-void PipelineDataObject::updateShadowDescriptorSets(std::span<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame)
-{
-    updateDescriptorSetsForPipeline(descriptorUpdates, currentFrame, &shadowPipelineData);
+   updateDescriptorSetsForPipeline(descriptorUpdates, currentFrame, &pipelineData);
 }
 
 
-void PipelineDataObject::createDescriptorSetsOpaque(VkDescriptorPool pool, int MAX_FRAMES_IN_FLIGHT)
-{
-    createDescriptorSetsforPipeline(pool, MAX_FRAMES_IN_FLIGHT, &opaquePipelineData);
-}
 
-void PipelineDataObject::createDescriptorSetsShadow(VkDescriptorPool pool, int MAX_FRAMES_IN_FLIGHT)
-{
-    createDescriptorSetsforPipeline(pool, MAX_FRAMES_IN_FLIGHT, &shadowPipelineData);
-}
+
 void PipelineDataObject::createDescriptorSetsforPipeline(VkDescriptorPool pool, int MAX_FRAMES_IN_FLIGHT, perPipelineData* _perPipelineData)
 {
     assert(!_perPipelineData->descriptorSetsInitialized); // Don't double initialize
@@ -172,23 +141,11 @@ VkPipeline PipelineDataObject::getPipeline(int index)
     return bindlesspipelineObjects[index];
 }
 
-VkPipelineLayout PipelineDataObject::getLayoutOpaque()
+uint32_t PipelineDataObject::getPipelineCt()
 {
-    return opaquePipelineData.bindlessPipelineLayout;
-}
-
-VkPipelineLayout PipelineDataObject::getLayoutShadow()
-{
-    return shadowPipelineData.bindlessPipelineLayout;
-}
-
-void PipelineDataObject::createPipelineLayoutShadow()
-{
-    createPipelineLayoutForPipeline(&shadowPipelineData);
-}
-void PipelineDataObject::createPipelineLayoutOpaque()
-{
-    createPipelineLayoutForPipeline(&opaquePipelineData);
+    //TODO JS
+    // assert(pipelinesInitialized && pipelineLayoutInitialized);
+    return bindlesspipelineObjects.size();
 }
 
 void PipelineDataObject::createPipelineLayoutForPipeline(perPipelineData* perPipelineData)
@@ -230,7 +187,7 @@ void PipelineDataObject::createPipelineLayoutForPipeline(perPipelineData* perPip
 void PipelineDataObject::createGraphicsPipeline(std::vector<VkPipelineShaderStageCreateInfo> shaders, VkFormat* swapchainFormat, VkFormat* depthFormat, bool shadow, bool color, bool depth, bool lines)
 {
 
-    auto pipeline = shadow ? &shadowPipelineData : &opaquePipelineData;
+    auto pipeline = shadow ? &pipelineData : &pipelineData;
     createPipelineLayoutForPipeline(pipeline);
     
     assert(pipeline->pipelineLayoutInitialized);
@@ -355,10 +312,8 @@ void PipelineDataObject::cleanup()
         vkDestroyPipeline(device, bindlesspipelineObjects[i], nullptr);
     }
 
-    opaquePipelineData.cleanup(device);
-    shadowPipelineData.cleanup(device);
-    
- 
+    pipelineData.cleanup(device);
+
 }
 
 VkDescriptorSet PipelineDataObject::perPipelineData::getSetFromType(VkDescriptorType type,

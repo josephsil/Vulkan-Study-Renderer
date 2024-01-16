@@ -11,16 +11,16 @@
 #include <iostream>
 #include <span>
 // #define SORT_BEFORE_DRAW
+#include "Vertex.h"
+#include "../../ImageLibraryImplementations.h"
+#include "../General/Array.h"
+#include "../General/Memory.h"
 
 #include "bufferCreation.h"
 #include "CommandPoolManager.h"
 #include "gpu-data-structs.h"
 #include "meshData.h"
 #include "../Scene/SceneObjectData.h"
-#include "Vertex.h"
-#include "../../ImageLibraryImplementations.h"
-#include "../General/Array.h"
-#include "../General/Memory.h"
 #include "Shaders/ShaderLoading.h"
 #include "textureCreation.h"
 #include "TextureData.h"
@@ -395,21 +395,24 @@ void HelloTriangleApplication::initVulkan()
         }
     }
     
-    descriptorsetLayoutsData = PipelineDataObject(getHandles(), opaqueLayout.getSpan(), shadowLayout.getSpan());
+    descriptorsetLayoutsData = PipelineDataObject(getHandles(), opaqueLayout.getSpan());
+    descriptorsetLayoutsDataShadow = PipelineDataObject(getHandles(), shadowLayout.getSpan());
 
 
     //TODO JS: Make pipelines belong to the perPipelineLayout members
     createGraphicsPipeline("triangle_alt",  &descriptorsetLayoutsData);
     createGraphicsPipeline("triangle",  &descriptorsetLayoutsData);
     //TODO JS: separate shadow layout?
-    createGraphicsPipeline("shadow",  &descriptorsetLayoutsData, true);
+    createGraphicsPipeline("shadow",  &descriptorsetLayoutsDataShadow, true);
 
     createGraphicsPipeline("lines",  &descriptorsetLayoutsData, false, true);
     
     createDescriptorSetPool(getHandles(), &descriptorPool);
 
-    descriptorsetLayoutsData.createDescriptorSetsOpaque(descriptorPool, MAX_FRAMES_IN_FLIGHT);
-    descriptorsetLayoutsData.createDescriptorSetsShadow(descriptorPool, MAX_FRAMES_IN_FLIGHT);
+    descriptorsetLayoutsData.createDescriptorSetsforPipeline(descriptorPool, MAX_FRAMES_IN_FLIGHT, &descriptorsetLayoutsData.pipelineData);
+       // descriptorsetLayoutsData.createDescriptorSetsforPipeline(descriptorPool, MAX_FRAMES_IN_FLIGHT, &descriptorsetLayoutsData.shadowPipelineData);
+    descriptorsetLayoutsDataShadow.createDescriptorSetsforPipeline(descriptorPool, MAX_FRAMES_IN_FLIGHT, &descriptorsetLayoutsDataShadow.pipelineData);
+        // descriptorsetLayoutsDataShadow.createDescriptorSetsforPipeline(descriptorPool, MAX_FRAMES_IN_FLIGHT, &descriptorsetLayoutsDataShadow.shadowPipelineData);
 }
 
 void HelloTriangleApplication::populateMeshBuffers()
@@ -593,7 +596,7 @@ std::span<VkDescriptorImageInfo> getBindlessTextureInfos(MemoryArena::memoryAren
 
 void HelloTriangleApplication::updateOpaqueDescriptorSets(PipelineDataObject* layoutData)
 {
-    layoutData->updateOpaqueDescriptorSets(opaqueUpdates[currentFrame], currentFrame);
+    layoutData->updateDescriptorSets(opaqueUpdates[currentFrame], currentFrame);
 }
 
 
@@ -728,7 +731,7 @@ std::span<descriptorUpdateData> HelloTriangleApplication::createShadowDescriptor
 void HelloTriangleApplication::updateShadowDescriptorSets(PipelineDataObject* layoutData, uint32_t shadowIndex)
 {
     layoutData->
-    updateShadowDescriptorSets(shadowUpdates[currentFrame][shadowIndex], currentFrame);
+    updateDescriptorSets(shadowUpdates[currentFrame][shadowIndex], currentFrame);
 
     
 }
@@ -1200,9 +1203,9 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
 
 
     uint32_t SHADOW_INDEX = 0; //TODO JS: loop over shadowcasters
-    updateShadowDescriptorSets(&descriptorsetLayoutsData, SHADOW_INDEX);
-    descriptorsetLayoutsData.bindToCommandBufferShadow(commandBuffer, currentFrame);
-    VkPipelineLayout layout = descriptorsetLayoutsData.getLayoutShadow();
+    updateShadowDescriptorSets(&descriptorsetLayoutsDataShadow, SHADOW_INDEX);
+    descriptorsetLayoutsDataShadow.bindToCommandBuffer(commandBuffer, currentFrame);
+    VkPipelineLayout layout = descriptorsetLayoutsDataShadow.pipelineData.bindlessPipelineLayout;
 
     
     int shadowCasterCount = min(scene->lightCount, MAX_SHADOWCASTERS);
@@ -1226,7 +1229,7 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
     {
         //TODO JS: next step -- need to get the 6 different point light matrices in. Or transform the one 6 times?
         #ifdef SORT_BEFORE_DRAW
-        scene->OrderedObjectIndices(scene->lightTypes[i] == LIGHT_DIR ? glm::vec3(scene->lightposandradius[i]) * 9999.0f : glm::vec3(scene->lightposandradius[i]), drawIndices, false);
+        scene->OrderedObjectIndices(&perFrameArenas[currentFrame], scene->lightTypes[i] == LIGHT_DIR ? glm::vec3(scene->lightposandradius[i]) * 9999.0f : glm::vec3(scene->lightposandradius[i]), drawIndices, false);
         #endif
         int shadowIndex = i;
         int shadowCasterOffset = scene->getShadowDataIndex(i);
@@ -1302,7 +1305,7 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
 
             
             //TODO JS: Something other than hardcoded index 2 for shadow pipeline
-            vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, descriptorsetLayoutsData.getPipeline(2));
+            vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, descriptorsetLayoutsDataShadow.getPipeline(0));
             int meshct =  scene->objectsCount();
             dataBuffer drawBuffer = FramesInFlightData[currentFrame].drawBuffers;
             std::span<VkDrawIndirectCommand> mappedBuffer =  std::span((VkDrawIndirectCommand*)drawBuffer.mapped, drawBuffer.size / sizeof(VkDrawIndirectCommand));
@@ -1330,6 +1333,12 @@ struct drawBatch
     uint32_t ct;
     VkPipeline pipeline;
     
+};
+
+struct pipelineBucket
+{
+    uint32_t pipelineIDX;
+    Array<uint32_t> indices; 
 };
 //command buffer to draw the frame 
 void HelloTriangleApplication::recordCommandBufferOpaquePass(VkCommandBuffer commandBuffer, uint32_t imageIndex)
@@ -1395,8 +1404,8 @@ void HelloTriangleApplication::recordCommandBufferOpaquePass(VkCommandBuffer com
     //** Descriptor Sets update and binding
     // This could change sometimes
     updateOpaqueDescriptorSets(&descriptorsetLayoutsData);
-    descriptorsetLayoutsData.bindToCommandBufferOpaque(commandBuffer, currentFrame);
-    VkPipelineLayout layout = descriptorsetLayoutsData.getLayoutOpaque();
+    descriptorsetLayoutsData.bindToCommandBuffer(commandBuffer, currentFrame);
+    VkPipelineLayout layout = descriptorsetLayoutsData.pipelineData.bindlessPipelineLayout;
     
     int meshct = scene->objectsCount();
     
@@ -1408,50 +1417,74 @@ void HelloTriangleApplication::recordCommandBufferOpaquePass(VkCommandBuffer com
     }
 
     #ifdef SORT_BEFORE_DRAW
-    scene->OrderedObjectIndices(camera.eyePos , drawIndices, false );
+    scene->OrderedObjectIndices(&perFrameArenas[currentFrame], camera.eyePos , drawIndices, false );
     #endif
     
     int lastPipelineIndex = -1;
    
     uint32_t lastStart = 0;
 
-    Array batchedDraws = MemoryArena::AllocSpan<drawBatch>(&perFrameArenas[currentFrame], 999); //TODO JS -- sort by pipeline so we don't create so many of these 
+#define PIPELINE_COUNT descriptorsetLayoutsData.getPipelineCt()
+#define MAX_DRAWS_PER_PIPELINE 2000
+    //initialize pipeline buckets
+    Array bucketedPipelines = MemoryArena::AllocSpan<pipelineBucket>(&perFrameArenas[currentFrame], PIPELINE_COUNT);
+    for(int j = 0; j < PIPELINE_COUNT; j++)
+    {
+        bucketedPipelines.push_back({});
+        bucketedPipelines[j].indices = Array<uint32_t>(MemoryArena::AllocSpan<uint32_t>(&perFrameArenas[currentFrame], MAX_DRAWS_PER_PIPELINE));
+        bucketedPipelines[j].pipelineIDX = j;
+    }
+    
 
-      dataBuffer drawBuffer = FramesInFlightData[currentFrame].drawBuffers;
-            std::span<VkDrawIndirectCommand> mappedBuffer =  std::span((VkDrawIndirectCommand*)drawBuffer.mapped, drawBuffer.size / sizeof(VkDrawIndirectCommand));
-
+    //fill buckets
     for (int j = 0; j <meshct; j++)
     {
         int i = drawIndices[j];
         Material material = scene->objects.materials[i];
         int pipelineIndex = material.pipelineidx;
-
 #ifdef DEBUG_SHADERS
         pipelineIndex = debugpipelineindexoverride;
 #endif
-        
-        if (pipelineIndex != lastPipelineIndex)
-        {
-            if (lastPipelineIndex != -1)
-            {
-                batchedDraws.push_back({lastStart, j - lastStart, descriptorsetLayoutsData.getPipeline(pipelineIndex)});
-                lastStart = j;
-            }
+                bucketedPipelines[pipelineIndex].indices.push_back(i);
         }
-        mappedBuffer[FramesInFlightData[currentFrame].currentDrawOffset + j] = {static_cast<uint32_t>(scene->backing_meshes[scene->objects.meshIndices[i]].vertcount), 1, 0, (uint32_t)i};
-        lastPipelineIndex = pipelineIndex;
+
+
+    //Prepare draw from bucekts 
+    Array batchedDraws = MemoryArena::AllocSpan<drawBatch>(&perFrameArenas[currentFrame], 999); //TODO JS -- sort by pipeline so we don't create so many of these 
+    dataBuffer drawBuffer = FramesInFlightData[currentFrame].drawBuffers;
+    std::span<VkDrawIndirectCommand> mappedBuffer =  std::span((VkDrawIndirectCommand*)drawBuffer.mapped, drawBuffer.size / sizeof(VkDrawIndirectCommand));
+    
+    uint32_t drawCt = 0;
+    for (int j = 0; j < bucketedPipelines.size(); j++)
+    {
+        Array<uint32_t> indices = bucketedPipelines[j].indices;
+        for (int k = 0; k < indices.size(); k++)
+        {
+            drawIndices[drawCt + k] = indices[k];
+            mappedBuffer[FramesInFlightData[currentFrame].currentDrawOffset + drawCt + k] = {static_cast<uint32_t>(scene->backing_meshes[scene->objects.meshIndices[indices[k]]].vertcount), 1, 0, (uint32_t)indices[k]};
+
+        }
+        if (indices.size() > 0)
+        {
+            batchedDraws.push_back({drawCt, (uint32_t)indices.size(), descriptorsetLayoutsData.getPipeline(bucketedPipelines[j].pipelineIDX)});
+        }
+
+        drawCt += indices.size();
     }
     
+//draw
     for(int k = 0; k < batchedDraws.ct; k ++)
     {
         auto draw = batchedDraws[k];
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.pipeline);
-        vkCmdDrawIndirect(commandBuffer, drawBuffer.data, (FramesInFlightData[currentFrame].currentDrawOffset * sizeof(VkDrawIndirectCommand)) + (sizeof(VkDrawIndirectCommand) * draw.start), draw.ct, sizeof(VkDrawIndirectCommand));
+       
+            vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.pipeline);
+            vkCmdDrawIndirect(commandBuffer, drawBuffer.data, (FramesInFlightData[currentFrame].currentDrawOffset * sizeof(VkDrawIndirectCommand)) + (sizeof(VkDrawIndirectCommand) * draw.start), draw.ct, sizeof(VkDrawIndirectCommand));
+       
     }
     FramesInFlightData[currentFrame].currentDrawOffset +=( meshct );
     //debug lines -- todo feed from somehwere
-                                                                            //TODO JS: something other than hardcoded 3
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, descriptorsetLayoutsData.getPipeline(3));
+                                                                            //TODO JS: something other than hardcoded 2
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, descriptorsetLayoutsData.getPipeline(2));
     debugLines.push_back({{0,0,0},{20,40,20}, {0,0,1}});
     for (int i = 0; i <debugLines.size(); i++)
     {

@@ -13,6 +13,7 @@
 #include <glm/gtx/quaternion.hpp>
 
 #include "../General/Memory.h"
+
 const int OBJECT_MAX = 3000; 
 const int LIGHT_MAX = 3000; 
 const int ASSET_MAX = 300; 
@@ -158,33 +159,34 @@ float Scene::GetBoundingSphere(int idx)
 
 struct sortData
 {
-    glm::vec3 pos;
-    std::span<glm::vec3> positions;
-    int ct;
-    int invert;
+    glm::float32_t* data;
+    uint32_t ct;
 };
 
 int orderComparator(void * context, void const* elem1, void const* elem2 )
 {
-    glm::vec3 pos = ((sortData*)context)->pos;
-    std::span<glm::vec3> positions = (*(sortData*)context).positions;
-    int sign = (*(sortData*)context).invert;
-    int idx1 = *((int*)elem1);
-    int idx2 = *((int*)elem2);
-
-
-
-    return glm::distance2(positions[idx1], pos) -   glm::distance2(positions[idx2], pos);
-    
-    
+    sortData dists = *(sortData*)context;
+    glm::float32_t _1 = (dists.data[*(int*)elem1]);
+    glm::float32_t _2 = (dists.data[*(int*)elem2]);
+    return ( _1 - _2 );
 }
-void Scene::OrderedObjectIndices(glm::vec3 eyePos, std::span<int> indices, bool invert)
+
+
+void Scene::OrderedObjectIndices(MemoryArena::memoryArena* allocator, glm::vec3 eyePos, std::span<int> indices, bool invert)
 {
+    auto dists = MemoryArena::AllocSpan<glm::float32_t>(allocator, indices.size());
+    for(int i = 0; i < dists.size(); i++)
+    {
+        dists[i] = glm::distance2(objects.translations[i], eyePos);
+    }
     assert(indices.size() == objects.translations.ct);
-    sortData s = {eyePos, std::span<glm::vec3>(objects.translations.data, objects.translations.ct),  (int)objects.translations.ct, invert ? -1 : 1};
+    sortData s = {dists.data(), (uint32_t)dists.size()};
+
     qsort_s(indices.data(), indices.size(), sizeof(int), orderComparator, &s);
+
     return;
 }
+
 //very dumb/brute force for now
 void Scene::lightSort()
 {
