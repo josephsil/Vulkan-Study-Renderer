@@ -63,12 +63,13 @@ vkb::PhysicalDevice GET_GPU(vkb::Instance instance)
     VkPhysicalDeviceVulkan11Features features11{};
     VkPhysicalDeviceVulkan12Features features12{};
     VkPhysicalDeviceVulkan13Features features13{};
+    features.multiDrawIndirect = VK_TRUE;
+    features.wideLines = VK_TRUE;
     features11.shaderDrawParameters = VK_TRUE;
     features12.descriptorIndexing = VK_TRUE;
     features12.runtimeDescriptorArray = VK_TRUE;
     features12.descriptorBindingPartiallyBound = VK_TRUE;
     features13.dynamicRendering = VK_TRUE;
-    features.wideLines = VK_TRUE;
 
    
     vkb::PhysicalDeviceSelector phys_device_selector(instance);
@@ -76,6 +77,7 @@ vkb::PhysicalDevice GET_GPU(vkb::Instance instance)
                                        .set_minimum_version(1, 3)
                                        .set_surface(surface)
                                        .require_separate_transfer_queue()
+    .set_required_features(features)
     .set_required_features_11(features11)
                                        .set_required_features_12(features12)
     // .set_required_features({.})
@@ -419,7 +421,7 @@ void HelloTriangleApplication::initVulkan()
     createGraphicsPipeline("shadow",  &descriptorsetLayoutsDataShadow, shadowPipelineSettings,false);
 
     //compute
-    // createGraphicsPipeline("cull",  &descriptorsetLayoutsDataCompute, {},true);
+    createGraphicsPipeline("cull",  &descriptorsetLayoutsDataCompute, {},true);
 
     
     
