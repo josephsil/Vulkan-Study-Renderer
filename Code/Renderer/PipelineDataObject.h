@@ -48,7 +48,7 @@ struct descriptorUpdateData;
 
         //Runtime
         void updateDescriptorSets(std::span<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame);
-        void bindToCommandBuffer(VkCommandBuffer cmd, uint32_t currentFrame);
+        void bindToCommandBuffer(VkCommandBuffer cmd, uint32_t currentFrame, VkPipelineBindPoint bindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS);
 
         VkPipeline getPipeline(int index);
         uint32_t getPipelineCt();

@@ -390,9 +390,9 @@ void HelloTriangleApplication::initVulkan()
     shadowLayout.push_back({10, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE}); //shadow matrices
 
     Array computeLayout = MemoryArena::AllocSpan<VkDescriptorSetLayoutBinding>(&rendererArena, 3);
-    computeLayout.push_back({6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}); //Globals 
-    computeLayout.push_back({9, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}); //geometry
-    computeLayout.push_back({10, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}); //draws
+    computeLayout.push_back({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}); //Globals 
+    computeLayout.push_back({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}); //geometry
+    computeLayout.push_back({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}); //draws
 
     for(int i = 0; i < MAX_FRAMES_IN_FLIGHT ; i++)
     {
@@ -1353,6 +1353,73 @@ struct pipelineBucket
     uint32_t pipelineIDX;
     Array<uint32_t> indices; 
 };
+
+void HelloTriangleApplication::recordCommandBufferCompute(VkCommandBuffer commandBuffer, uint32_t currentFrame)
+{
+    VkCommandBufferBeginInfo beginInfo{};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = 0; // Optional
+    beginInfo.pInheritanceInfo = nullptr; // Optional
+    //Transition swapchain for rendering
+    
+    VK_CHECK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
+
+    
+
+    MemoryArena::memoryArena* arena = &perFrameArenas[currentFrame];
+
+    VkDescriptorBufferInfo* shaderglobalsinfo =  MemoryArena::Alloc<VkDescriptorBufferInfo>(arena);
+    *shaderglobalsinfo = FramesInFlightData[currentFrame].opaqueShaderGlobalsBuffer.getBufferInfo();
+
+    
+    VkDescriptorBufferInfo* meshBufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
+    *meshBufferinfo = FramesInFlightData[currentFrame].meshBuffers.getBufferInfo();
+
+    VkDescriptorBufferInfo* computeBufferInfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
+    *computeBufferInfo = FramesInFlightData[currentFrame].drawBuffers.getBufferInfo();
+    
+    Array<descriptorUpdateData> descriptorUpdates = MemoryArena::AllocSpan<descriptorUpdateData>(arena, 3);
+
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, shaderglobalsinfo});
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, meshBufferinfo});
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, computeBufferInfo});
+
+    
+    descriptorsetLayoutsDataCompute.bindToCommandBuffer(commandBuffer, currentFrame, VK_PIPELINE_BIND_POINT_COMPUTE);
+
+    descriptorsetLayoutsDataCompute.updateDescriptorSets(descriptorUpdates.getSpan(), currentFrame);
+
+
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, descriptorsetLayoutsDataCompute.getPipeline(0));
+
+    const uint32_t dispatch_x = scene->objectsCount() != 0 ? 1 + static_cast<uint32_t>((scene->objectsCount() - 1) / 64) : 1;
+    vkCmdDispatch(commandBuffer, dispatch_x, 1, 1);
+    vkEndCommandBuffer(commandBuffer);
+}
+
+
+void HelloTriangleApplication::submitComputePass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores, std::vector<VkSemaphore> signalsemaphores)
+{
+    recordCommandBufferCompute(FramesInFlightData[imageIndex].computeCommandBuffers, imageIndex);
+
+    VkSubmitInfo submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    VkPipelineStageFlags _waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+    submitInfo.waitSemaphoreCount = waitSemaphores.semaphores.size();
+    submitInfo.pWaitSemaphores = waitSemaphores.semaphores.data();
+    submitInfo.pWaitDstStageMask = waitSemaphores.waitStages.data();
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &FramesInFlightData[imageIndex].computeCommandBuffers;
+
+    submitInfo.signalSemaphoreCount = signalsemaphores.size();
+    submitInfo.pSignalSemaphores = signalsemaphores.data();
+    
+    //Submit pass 
+    VK_CHECK(vkQueueSubmit(commandPoolmanager.Queues.graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE));
+    
+    
+    
+}
 //command buffer to draw the frame 
 void HelloTriangleApplication::recordCommandBufferOpaquePass(VkCommandBuffer commandBuffer, uint32_t imageIndex)
 {
@@ -1466,7 +1533,7 @@ void HelloTriangleApplication::recordCommandBufferOpaquePass(VkCommandBuffer com
     Array batchedDraws = MemoryArena::AllocSpan<drawBatch>(&perFrameArenas[currentFrame], 999); //TODO JS -- sort by pipeline so we don't create so many of these 
     dataBuffer drawBuffer = FramesInFlightData[currentFrame].drawBuffers;
     std::span<VkDrawIndirectCommand> mappedBuffer =  std::span((VkDrawIndirectCommand*)drawBuffer.mapped, drawBuffer.size / sizeof(VkDrawIndirectCommand));
-    
+
     uint32_t drawCt = 0;
     for (int j = 0; j < bucketedPipelines.size(); j++)
     {
@@ -1535,6 +1602,7 @@ void HelloTriangleApplication::createCommandBuffers()
         allocInfo.commandBufferCount = 1;
 
         VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, &FramesInFlightData[i].opaqueCommandBuffers));
+        VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, &FramesInFlightData[i].computeCommandBuffers));
         VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, &FramesInFlightData[i].shadowCommandBuffers));
         VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, &FramesInFlightData[i].swapchainTransitionInCommandBuffer));
         VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, &FramesInFlightData[i].swapchainTransitionOutCommandBuffer));
@@ -1746,6 +1814,7 @@ void HelloTriangleApplication::drawFrame()
     updatePerFrameBuffers(currentFrame, scene->objects.matrices); // TODO JS: timing bugs if it doesn't happen after the fence
 
     vkResetCommandBuffer(FramesInFlightData[currentFrame].opaqueCommandBuffers, 0);
+    vkResetCommandBuffer(FramesInFlightData[currentFrame].computeCommandBuffers, 0);
     vkResetCommandBuffer(FramesInFlightData[currentFrame].shadowCommandBuffers, 0);
     vkResetCommandBuffer(FramesInFlightData[currentFrame].swapchainTransitionOutCommandBuffer, 0);
     vkResetCommandBuffer(FramesInFlightData[currentFrame].swapchainTransitionInCommandBuffer, 0);
@@ -1756,6 +1825,7 @@ void HelloTriangleApplication::drawFrame()
 
     ///////////////////////// </Transition swapChain 
 
+    submitComputePass(currentFrame, currentFrame, {}, {});
 
     semaphoreData waitSemaphores = getSemaphoreDataFromSemaphores({&FramesInFlightData[currentFrame].imageAvailableSemaphores, 1}, &perFrameArenas[currentFrame]);
     //Transition swapchain for rendering

@@ -57,10 +57,10 @@ void PipelineDataObject::createLayout(RendererHandles handles,  std::span<VkDesc
     this->pipelineData.slots = layout;
 }
 
-void PipelineDataObject::bindToCommandBuffer(VkCommandBuffer cmd, uint32_t currentFrame)
+void PipelineDataObject::bindToCommandBuffer(VkCommandBuffer cmd, uint32_t currentFrame, VkPipelineBindPoint bindPoint)
 {
     assert(pipelineData.descriptorSetsInitialized && pipelineData.pipelinesInitialized);
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, this->pipelineData.bindlessPipelineLayout, 0, 1, &this->pipelineData.perSceneDescriptorSetForFrame[currentFrame], 0, nullptr);
+    vkCmdBindDescriptorSets(cmd, bindPoint, this->pipelineData.bindlessPipelineLayout, 0, 1, &this->pipelineData.perSceneDescriptorSetForFrame[currentFrame], 0, nullptr);
 }
 
 
@@ -83,7 +83,6 @@ void PipelineDataObject::updateDescriptorSetsForPipeline(std::span<descriptorUpd
 
         VkDescriptorSetLayoutBinding bindingInfo = perPipelineData->slots[writeDescriptorSets.size()];
 
-        int bindingIndex = writeDescriptorSetsBindingIndices[set];
         VkWriteDescriptorSet newSet = {};
         newSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         newSet.dstBinding = bindingInfo.binding;
@@ -322,7 +321,8 @@ void PipelineDataObject::createComputePipeline(VkPipelineShaderStageCreateInfo s
     pipelineInfo.stage = computeShaderStageInfo;
 
     VK_CHECK(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &newPipeline));
-
+    
+    pipeline->pipelinesInitialized = true;
     pipelines.push_back(newPipeline);
 }
 

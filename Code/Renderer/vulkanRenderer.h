@@ -144,6 +144,8 @@ private:
 
     std::span<descriptorUpdateData> opaqueUpdates[MAX_FRAMES_IN_FLIGHT] = {};
 
+    std::span<descriptorUpdateData> computeUpdates[MAX_FRAMES_IN_FLIGHT] = {};
+
     std::span<std::span<descriptorUpdateData>> shadowUpdates[MAX_FRAMES_IN_FLIGHT] = {};
 
 #pragma endregion
@@ -162,6 +164,7 @@ private:
         VkSemaphore shadowtransitionedInSemaphores {};
         
         VkFence inFlightFences {};
+        VkCommandBuffer computeCommandBuffers {};
         VkCommandBuffer opaqueCommandBuffers {};
         VkCommandBuffer shadowCommandBuffers {};
         VkCommandBuffer swapchainTransitionInCommandBuffer {};
@@ -242,6 +245,9 @@ private:
     void createSyncObjects();
 
     void createCommandBuffers();
+    void recordCommandBufferCompute(VkCommandBuffer commandBuffer, uint32_t currentFrame);
+    void submitComputePass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores,
+                           std::vector<VkSemaphore> signalsemaphores);
     void recordCommandBufferOpaquePass(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 
     void createGraphicsCommandPool();

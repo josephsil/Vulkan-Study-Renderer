@@ -38,7 +38,7 @@ namespace MemoryArena
 
     void* copy(memoryArena* a, void* ptr, size_t size_in_bytes);
     template<typename T> T *Alloc(memoryArena* a, size_t ct = 1) {
-        T *ret = (T*)alloc(a, ct * sizeof(T));
+        T *ret = (T*)alloc(a, ct * sizeof(T)); 
         return ret;
     }
 

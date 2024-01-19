@@ -10,6 +10,8 @@ void MemoryArena::initialize(memoryArena* arena, uint32_t size)
 
 void* MemoryArena::alloc(memoryArena* a, ptrdiff_t allocSize, ptrdiff_t allocAlignment)
 {
+    allocSize = max(allocSize, allocAlignment); //TODO JS: we repeatedly alloc same place if size < alignment
+    assert(allocSize >= allocAlignment);
     void* headPtr = (char *)a->base + a->head;
     size_t sizeLeft = a->size - a->head;
     void* res = std::align(allocAlignment, allocSize, headPtr, sizeLeft);

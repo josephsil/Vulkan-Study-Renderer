@@ -1,5 +1,6 @@
 #include "structs.hlsl"
 
+#define USE_RW
 cbuffer globals : register(b0) { ShaderGlobals globals; }
 
 [[vk::binding(1,0)]]
@@ -23,6 +24,8 @@ RWStructuredBuffer<drawdata> drawData;
 void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
 {
 
+	drawdata d = drawData[0];
+	BufferTable[2].position = mul(float4(1,1,1,0), globals.projection) + d.test;
 	//sascha willems example code 
 	// float imageData[9];
 	// // Fetch neighbouring texels
