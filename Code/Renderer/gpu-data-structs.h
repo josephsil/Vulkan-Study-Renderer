@@ -48,3 +48,16 @@ struct debugLinePConstants
         glm::vec4 pos2;
         glm::vec4 color;
 };
+
+//Compute
+struct cullPConstants
+{
+    glm::mat4 matrix;
+    uint32_t index;
+};
+
+struct positionRadius
+{
+      alignas(16) glm::vec4 pos;
+      alignas(16) glm::float32_t radius;
+};

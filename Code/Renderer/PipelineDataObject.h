@@ -42,8 +42,8 @@ struct descriptorUpdateData;
         //Initialization
         
 
-        void createGraphicsPipeline(std::vector<VkPipelineShaderStageCreateInfo> shaders, graphicsPipelineSettings settings);
-        void createComputePipeline(VkPipelineShaderStageCreateInfo shader);
+        void createGraphicsPipeline(std::vector<VkPipelineShaderStageCreateInfo> shaders, graphicsPipelineSettings settings, size_t pconstantSize = 0);
+        void createComputePipeline(VkPipelineShaderStageCreateInfo shader, size_t pconstantSize = 0);
         struct perPipelineData;
 
         //Runtime
@@ -90,6 +90,7 @@ struct descriptorUpdateData;
        
         
         VkDevice device;
+     
 
       
         std::vector<VkPipeline> pipelines;
@@ -103,7 +104,7 @@ struct descriptorUpdateData;
 
 
      
-        void createPipelineLayoutForPipeline(perPipelineData* perPipelineData);
+        void createPipelineLayoutForPipeline(perPipelineData* perPipelineData, size_t pconstantSize, bool compute);
         void updateDescriptorSetsForPipeline(std::span<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame, perPipelineData* perPipelineData);
         std::vector<VkWriteDescriptorSet> writeDescriptorSets;
         std::unordered_map<VkDescriptorSet, int> writeDescriptorSetsBindingIndices;

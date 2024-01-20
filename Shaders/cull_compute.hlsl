@@ -1,51 +1,44 @@
-#include "structs.hlsl"
-
-#define USE_RW
-cbuffer globals : register(b0) { ShaderGlobals globals; }
-
-[[vk::binding(1,0)]]
-#ifdef USE_RW
-RWStructuredBuffer<MyVertexStructure> BufferTable;
-#else
-ByteAddressBuffer BufferTable;
-#endif
+struct cullComputeGLobals
+{
+	float4x4 viewProjection;
+	uint frustumOffset;
+};
 
 struct drawdata
 {
-	int test;
+	// VkDrawIndirectCommand
+	uint vertexCount;
+	uint instanceCount;
+	uint firstVertex;
+	uint firstInstance;
 };
+struct objectData
+{
+	float4 boundsCenter;
+	float boundsRadius;
+};
+
+[[vk::push_constant]]
+cullComputeGLobals globals;
+
+[[vk::binding(1,0)]]
+RWStructuredBuffer<float3> frustumData;
+
 // #ifdef SHADOWPASS
 [[vk::binding(2, 0)]]
 RWStructuredBuffer<drawdata> drawData;
-// #endif 
+// #endif
+// #ifdef SHADOWPASS
+[[vk::binding(3, 0)]]
+RWStructuredBuffer<objectData> objectData;
+// #endif
 
 
-[numthreads(16, 16, 1)]
+
+[numthreads(16, 1, 1)]
 void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
 {
-
-	drawdata d = drawData[0];
-	BufferTable[2].position = mul(float4(1,1,1,0), globals.projection) + d.test;
-	//sascha willems example code 
-	// float imageData[9];
-	// // Fetch neighbouring texels
-	// int n = -1;
-	// for (int i=-1; i<2; ++i)
-	// {
-	// 	for(int j=-1; j<2; ++j)
-	// 	{
-	// 		n++;
-	// 		float3 rgb = inputImage[uint2(GlobalInvocationID.x + i, GlobalInvocationID.y + j)].rgb;
-	// 		imageData[n] = (rgb.r + rgb.g + rgb.b) / 3.0;
-	// 	}
-	// }
-
-	// float kernel[9];
-	// kernel[0] = -1.0/8.0; kernel[1] = -1.0/8.0; kernel[2] = -1.0/8.0;
-	// kernel[3] = -1.0/8.0; kernel[4] =  1.0;     kernel[5] = -1.0/8.0;
-	// kernel[6] = -1.0/8.0; kernel[7] = -1.0/8.0; kernel[8] = -1.0/8.0;
-
-	// float4 res = float4(conv(kernel, imageData, 0.1, 0.0).xxx, 1.0);
-
-	// resultImage[int2(GlobalInvocationID.xy)] = res;
+	
+	// BufferTable[2].position = mul(float4(1,1,1,0), globals.projection) + d.indexCount;
+	
 }

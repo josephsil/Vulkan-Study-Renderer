@@ -390,9 +390,9 @@ void HelloTriangleApplication::initVulkan()
     shadowLayout.push_back({10, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE}); //shadow matrices
 
     Array computeLayout = MemoryArena::AllocSpan<VkDescriptorSetLayoutBinding>(&rendererArena, 3);
-    computeLayout.push_back({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}); //Globals 
-    computeLayout.push_back({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}); //geometry
-    computeLayout.push_back({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}); //draws
+    computeLayout.push_back({0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}); //frustum data //todo do these need to bestorage?
+    computeLayout.push_back({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}); //draws 
+    computeLayout.push_back({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}); //objectData  //todo do these need to bestorage?
 
     for(int i = 0; i < MAX_FRAMES_IN_FLIGHT ; i++)
     {
@@ -411,17 +411,17 @@ void HelloTriangleApplication::initVulkan()
 
     //opaque
     const PipelineDataObject::graphicsPipelineSettings opaquePipelineSettings =  {std::span(&swapChainColorFormat, 1), depthFormat};
-    createGraphicsPipeline("triangle_alt",  &descriptorsetLayoutsData, opaquePipelineSettings,false);
-    createGraphicsPipeline("triangle",  &descriptorsetLayoutsData, opaquePipelineSettings,false);
+    createGraphicsPipeline("triangle_alt",  &descriptorsetLayoutsData, opaquePipelineSettings,false, sizeof(debugLinePConstants));
+    createGraphicsPipeline("triangle",  &descriptorsetLayoutsData, opaquePipelineSettings,false, sizeof(debugLinePConstants));
     const PipelineDataObject::graphicsPipelineSettings linePipelineSettings =  {std::span(&swapChainColorFormat, 1), depthFormat, VK_CULL_MODE_NONE, VK_PRIMITIVE_TOPOLOGY_LINE_LIST };
-    createGraphicsPipeline("lines",  &descriptorsetLayoutsData, linePipelineSettings,false);
+    createGraphicsPipeline("lines",  &descriptorsetLayoutsData, linePipelineSettings,false, sizeof(debugLinePConstants));
 
     //shadow 
     const PipelineDataObject::graphicsPipelineSettings shadowPipelineSettings =  {std::span(&swapChainColorFormat, 0), shadowFormat, VK_CULL_MODE_FRONT_BIT, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_TRUE, true };
-    createGraphicsPipeline("shadow",  &descriptorsetLayoutsDataShadow, shadowPipelineSettings,false);
+    createGraphicsPipeline("shadow",  &descriptorsetLayoutsDataShadow, shadowPipelineSettings,false, sizeof(debugLinePConstants));
 
     //compute
-    createGraphicsPipeline("cull",  &descriptorsetLayoutsDataCompute, {},true);
+    createGraphicsPipeline("cull",  &descriptorsetLayoutsDataCompute, {},true, sizeof(cullPConstants));
 
     
     
@@ -525,9 +525,25 @@ void HelloTriangleApplication::createUniformBuffers()
 
         FramesInFlightData[i].drawBuffers.size = drawSize;
         FramesInFlightData[i].drawBuffers.mapped = BufferUtilities::createDynamicBuffer(
-            getHandles(), vertsSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT ,
+            getHandles(), drawSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT ,
             &FramesInFlightData[i].drawBuffersMemory,
             FramesInFlightData[i].drawBuffers.data);
+
+        VkDeviceSize positionRadiusSize = sizeof(positionRadius) * scene->objectsCount();
+
+        FramesInFlightData[i].positionRadiusBuffers.size = positionRadiusSize;
+        FramesInFlightData[i].positionRadiusBuffers.mapped = BufferUtilities::createDynamicBuffer(
+            getHandles(), positionRadiusSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT ,
+            &FramesInFlightData[i].positionRadiusBuffersMemory,
+            FramesInFlightData[i].positionRadiusBuffers.data);
+
+        VkDeviceSize frustumsForCullSize = sizeof(glm::vec4) * (MAX_SHADOWMAPS + 1) * 6;
+
+        FramesInFlightData[i].frustumsForCullBuffers.size = frustumsForCullSize;
+        FramesInFlightData[i].frustumsForCullBuffers.mapped = BufferUtilities::createDynamicBuffer(
+            getHandles(), frustumsForCullSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT ,
+            &FramesInFlightData[i].frustumsForCullBuffersMemory,
+            FramesInFlightData[i].frustumsForCullBuffers.data);
 
     }
 }
@@ -1368,26 +1384,36 @@ void HelloTriangleApplication::recordCommandBufferCompute(VkCommandBuffer comman
 
     MemoryArena::memoryArena* arena = &perFrameArenas[currentFrame];
 
-    VkDescriptorBufferInfo* shaderglobalsinfo =  MemoryArena::Alloc<VkDescriptorBufferInfo>(arena);
-    *shaderglobalsinfo = FramesInFlightData[currentFrame].opaqueShaderGlobalsBuffer.getBufferInfo();
+    VkDescriptorBufferInfo* frustumData =  MemoryArena::Alloc<VkDescriptorBufferInfo>(&perFrameArenas[currentFrame], 1);
+    *frustumData = FramesInFlightData[currentFrame].frustumsForCullBuffers.getBufferInfo(); //TODO JS: pass frustums 
 
     
-    VkDescriptorBufferInfo* meshBufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
-    *meshBufferinfo = FramesInFlightData[currentFrame].meshBuffers.getBufferInfo();
 
-    VkDescriptorBufferInfo* computeBufferInfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
-    *computeBufferInfo = FramesInFlightData[currentFrame].drawBuffers.getBufferInfo();
+
+    VkDescriptorBufferInfo* computeDrawBuffer = MemoryArena::Alloc<VkDescriptorBufferInfo>(&perFrameArenas[currentFrame], 1); 
+    *computeDrawBuffer = FramesInFlightData[currentFrame].drawBuffers.getBufferInfo();
+
+    VkDescriptorBufferInfo* objectBufferInfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(&perFrameArenas[currentFrame], 1); 
+    assert((char*)computeDrawBuffer != (char*)objectBufferInfo);
+    *objectBufferInfo = FramesInFlightData[currentFrame].positionRadiusBuffers.getBufferInfo();
     
-    Array<descriptorUpdateData> descriptorUpdates = MemoryArena::AllocSpan<descriptorUpdateData>(arena, 3);
+    std::span<descriptorUpdateData> descriptorUpdates = MemoryArena::AllocSpan<descriptorUpdateData>(arena, 3);
 
-    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, shaderglobalsinfo});
-    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, meshBufferinfo});
-    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, computeBufferInfo});
+    descriptorUpdates[0] = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, frustumData};  //frustum data
+    descriptorUpdates[1] = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, computeDrawBuffer}; //draws 
+    descriptorUpdates[2] = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, objectBufferInfo}; //objectData  //
 
+    cullPConstants constants = {};
+    ShaderGlobals* globals = (ShaderGlobals*)FramesInFlightData[currentFrame].opaqueShaderGlobalsBuffer.mapped;
+    //viewprojection matrix, offset for frustums 
+    constants.matrix = globals->view * globals->proj;
+    constants.index = 0;
+    vkCmdPushConstants(commandBuffer,   descriptorsetLayoutsDataCompute.pipelineData.bindlessPipelineLayout,  VK_SHADER_STAGE_COMPUTE_BIT, 0,
+                      sizeof(cullPConstants), &constants);
     
     descriptorsetLayoutsDataCompute.bindToCommandBuffer(commandBuffer, currentFrame, VK_PIPELINE_BIND_POINT_COMPUTE);
 
-    descriptorsetLayoutsDataCompute.updateDescriptorSets(descriptorUpdates.getSpan(), currentFrame);
+    descriptorsetLayoutsDataCompute.updateDescriptorSets(descriptorUpdates, currentFrame);
 
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, descriptorsetLayoutsDataCompute.getPipeline(0));
@@ -1635,14 +1661,14 @@ void HelloTriangleApplication::createDepthResources()
 
 
 
-void HelloTriangleApplication::createGraphicsPipeline(const char* shaderName, PipelineDataObject* descriptorsetdata,  PipelineDataObject::graphicsPipelineSettings settings, bool compute)
+void HelloTriangleApplication::createGraphicsPipeline(const char* shaderName, PipelineDataObject* descriptorsetdata,  PipelineDataObject::graphicsPipelineSettings settings, bool compute, size_t pconstantSize)
 {
     VkPipeline newGraphicsPipeline; 
     auto shaders = shaderLoader->compiledShaders[shaderName];
     if (!compute)
-    descriptorsetdata->createGraphicsPipeline(shaders, settings);
+    descriptorsetdata->createGraphicsPipeline(shaders, settings, pconstantSize);
     else
-        descriptorsetdata->createComputePipeline(shaders[0]);
+        descriptorsetdata->createComputePipeline(shaders[0], pconstantSize);
     auto val = shaderLoader->compiledShaders[shaderName];
 
     for (auto v : val)
@@ -1970,7 +1996,10 @@ void HelloTriangleApplication::cleanup()
        VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].uniformBuffers.data, FramesInFlightData[i].uniformBuffersMemory);
        VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].meshBuffers.data, FramesInFlightData[i].meshBuffersMemory);
        VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].lightBuffers.data, FramesInFlightData[i].lightBuffersMemory);
-        VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].lightBuffers.data, FramesInFlightData[i].shadowDataBuffersMemory);
+       VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].lightBuffers.data, FramesInFlightData[i].shadowDataBuffersMemory);
+        VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].lightBuffers.data, FramesInFlightData[i].drawBuffersMemory);
+        VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].lightBuffers.data, FramesInFlightData[i].positionRadiusBuffersMemory);
+
     }
 
     vkDestroyDescriptorPool(device, descriptorPool, nullptr);

@@ -104,12 +104,12 @@ void PipelineDataObject::updateDescriptorSetsForPipeline(std::span<descriptorUpd
         }
     
         writeDescriptorSets.push_back(newSet);
-    
+        
         writeDescriptorSetsBindingIndices[set]++;
     }
     
     assert(writeDescriptorSets.size() == perPipelineData->slots.size());
-    
+
     vkUpdateDescriptorSets(device, writeDescriptorSets.size(), writeDescriptorSets.data(), 0, nullptr);
 }
 
@@ -149,7 +149,7 @@ uint32_t PipelineDataObject::getPipelineCt()
     return pipelines.size();
 }
 
-void PipelineDataObject::createPipelineLayoutForPipeline(perPipelineData* perPipelineData)
+void PipelineDataObject::createPipelineLayoutForPipeline(perPipelineData* perPipelineData, size_t pconstantSize, bool compute)
 {
 
     if(perPipelineData->pipelineLayoutInitialized)
@@ -165,17 +165,21 @@ void PipelineDataObject::createPipelineLayoutForPipeline(perPipelineData* perPip
     pipelineLayoutInfo.setLayoutCount = layouts.size(); // Optional
     pipelineLayoutInfo.pSetLayouts = layouts.data();
 
+    if (pconstantSize != 0)
+    {
     //setup push constants
     VkPushConstantRange push_constant;
     //this push constant range starts at the beginning
     push_constant.offset = 0;
     //this push constant range takes up the size of a MeshPushConstants struct
-    push_constant.size = sizeof(debugLinePConstants);
+    push_constant.size = pconstantSize;
     
-    push_constant.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+    push_constant.stageFlags = compute ? VK_SHADER_STAGE_COMPUTE_BIT : VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 
-    pipelineLayoutInfo.pPushConstantRanges = &push_constant;
-    pipelineLayoutInfo.pushConstantRangeCount = 1;
+  
+        pipelineLayoutInfo.pPushConstantRanges = &push_constant;
+        pipelineLayoutInfo.pushConstantRangeCount = 1;
+    }
 
     if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &perPipelineData->bindlessPipelineLayout) != VK_SUCCESS)
     {
@@ -187,10 +191,10 @@ void PipelineDataObject::createPipelineLayoutForPipeline(perPipelineData* perPip
 
 
 
-void PipelineDataObject::createGraphicsPipeline(std::vector<VkPipelineShaderStageCreateInfo> shaders, graphicsPipelineSettings settings)
+void PipelineDataObject::createGraphicsPipeline(std::vector<VkPipelineShaderStageCreateInfo> shaders, graphicsPipelineSettings settings, size_t pconstantSize)
 {
     auto pipeline =  &pipelineData;
-    createPipelineLayoutForPipeline(pipeline);
+    createPipelineLayoutForPipeline(pipeline, pconstantSize,false);
     
     assert(pipeline->pipelineLayoutInitialized);
     VkPipeline newGraphicsPipeline {}; 
@@ -303,11 +307,11 @@ void PipelineDataObject::createGraphicsPipeline(std::vector<VkPipelineShaderStag
     pipelines.push_back(newGraphicsPipeline);
 }
 
-void PipelineDataObject::createComputePipeline(VkPipelineShaderStageCreateInfo shader)
+void PipelineDataObject::createComputePipeline(VkPipelineShaderStageCreateInfo shader, size_t pconstantSize)
 {
 
     auto pipeline =  &pipelineData;
-    createPipelineLayoutForPipeline(pipeline);
+    createPipelineLayoutForPipeline(pipeline, pconstantSize,true);
     assert(pipeline->pipelineLayoutInitialized);
     VkPipeline newPipeline {}; 
     
@@ -316,9 +320,10 @@ void PipelineDataObject::createComputePipeline(VkPipelineShaderStageCreateInfo s
     pipelineInfo.layout =  pipeline->bindlessPipelineLayout;
     VkPipelineShaderStageCreateInfo computeShaderStageInfo = shader;
 
- 
+
     
     pipelineInfo.stage = computeShaderStageInfo;
+   
 
     VK_CHECK(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &newPipeline));
     

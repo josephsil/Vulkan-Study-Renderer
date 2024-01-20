@@ -201,6 +201,13 @@ private:
         uint32_t currentDrawOffset = 0;
         dataBuffer drawBuffers;
         VmaAllocation drawBuffersMemory;
+
+        //Compute culling for draw indirect 
+        dataBuffer positionRadiusBuffers;
+        VmaAllocation positionRadiusBuffersMemory;
+
+        dataBuffer frustumsForCullBuffers;
+        VmaAllocation frustumsForCullBuffersMemory;
 #pragma endregion
     };
     
@@ -260,7 +267,7 @@ private:
 
 
     void createGraphicsPipeline(const char* shaderName,
-                                PipelineDataObject* descriptorsetdata, PipelineDataObject::graphicsPipelineSettings settings, bool compute);
+                                PipelineDataObject* descriptorsetdata, PipelineDataObject::graphicsPipelineSettings settings, bool compute, size_t pconstantsize);
     
 
     void createInstance();
