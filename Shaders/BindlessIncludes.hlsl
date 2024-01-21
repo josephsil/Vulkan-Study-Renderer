@@ -8,7 +8,6 @@
 #define TEXTURESAMPLERINDEX uboarr[InstanceIndex].indexInfo.b
 #define NORMALSAMPLERINDEX TEXTURESAMPLERINDEX +2 //TODO JS: temporary!
 #define OBJECTINDEX  uboarr[InstanceIndex].indexInfo.a
-#define LIGHTINDEX   uboarr[InstanceIndex].indexInfo_2.a
 #define SKYBOXLUTINDEX globals.lutIDX_lutSamplerIDX_padding_padding.x
 #define SKYBOXLUTSAMPLERINDEX globals.lutIDX_lutSamplerIDX_padding_padding.y
 #define SHADOWCOUNT globals.lightcount_mode_shadowct_padding.z
@@ -59,7 +58,7 @@ ByteAddressBuffer BufferTable;
 [[vk::binding(8,0)]]
 RWStructuredBuffer<MyLightStructure> lights;
 [[vk::binding(9, 0)]]
-RWStructuredBuffer<UBO> uboarr;
+RWStructuredBuffer<objectData> uboarr;
 
 // #ifdef SHADOWPASS
 [[vk::binding(10, 0)]]

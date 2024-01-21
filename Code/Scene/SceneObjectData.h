@@ -7,6 +7,8 @@
 #include "../General/Array.h"
 #include "../Renderer/rendererGlobals.h"
 
+struct positionRadius;
+
 namespace MemoryArena
 {
     struct memoryArena;
@@ -67,7 +69,7 @@ public:
 
     int meshCount = 0;
     Array<MeshData> backing_meshes;
-    Array<float> meshBoundingSphereRad;
+    Array<positionRadius> meshBoundingSphereRad;
 
 
     Scene(MemoryArena::memoryArena* memoryArena);
@@ -83,7 +85,7 @@ public:
     int AddUtilityTexture(TextureData T);
     int AddMaterial(TextureData D, TextureData S, TextureData N);
     int AddBackingMesh(MeshData M);
-    float GetBoundingSphere(int idx);
+    positionRadius GetBoundingSphere(int idx);
 
     int AddDirLight(glm::vec3 position, glm::vec3 color,float intensity);
     int AddSpotLight(glm::vec3 position, glm::vec3 dir, glm::vec3 color, float radius, float intensity);

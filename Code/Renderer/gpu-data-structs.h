@@ -6,17 +6,30 @@
 #include <vector>
 
 
+struct objectProperties
+{
+    alignas(16) glm::vec4 indexInfo; //Light count, vertex offset, texture index, ubo index
+    alignas(16) glm::vec4 materialprops; //roughness, metalness, padding, padding
+};
+
+struct positionRadius
+{
+    alignas(16) glm::vec4 objectSpacePos;
+    alignas(16) glm::float32_t objectSpaceRadius;
+};
+
 struct UniformBufferObject
 {
     alignas(16) glm::mat4 model;
     alignas(16) glm::mat4 Normal;
-    alignas(16) glm::mat4 padding1;
-    alignas(16) glm::mat4 padding2;
-    //Light count, vertex offset, texture index, ubo index
-    alignas(16) glm::vec4 indexInfo;
-    alignas(16) glm::vec4 materialprops; //roughness, metalness, padding, padding
-    alignas(16) glm::vec4 Indexinfo2; //a is light index for shadows //TODO JS: remove
+    //Per object properties -- indices and material props
+    objectProperties props;
+    
+    //Culling info
+    //This data is really per model, not per object, but I'm lazy
+    positionRadius cullingInfo;
 };
+
 
 struct ShaderGlobals
 {
@@ -54,10 +67,4 @@ struct cullPConstants
 {
     glm::mat4 matrix;
     uint32_t index;
-};
-
-struct positionRadius
-{
-      alignas(16) glm::vec4 pos;
-      alignas(16) glm::float32_t radius;
 };

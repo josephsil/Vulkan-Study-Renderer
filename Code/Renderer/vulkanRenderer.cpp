@@ -1203,10 +1203,12 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
         Material material = scene->objects.materials[i];
         
         //Light count, vert offset, texture index, and object data index
-        ubos[i].indexInfo = glm::vec4(material.backingTextureidx, (scene->getOffsetFromMeshID(scene->objects.meshIndices[i])),
+        ubos[i].props.indexInfo = glm::vec4(material.backingTextureidx, (scene->getOffsetFromMeshID(scene->objects.meshIndices[i])),
                                        material.backingTextureidx, 44);
 
-        ubos[i].materialprops = glm::vec4(material.roughness, scene->objects.materials[i].metallic, 0, 0);
+        ubos[i].props.materialprops = glm::vec4(material.roughness, scene->objects.materials[i].metallic, 0, 0);
+
+        ubos[i].cullingInfo = {scene->meshBoundingSphereRad[scene->objects.meshIndices[i]]};
     }
     
     FramesInFlightData[currentFrame].uniformBuffers.updateMappedMemory(ubos.data(), sizeof(UniformBufferObject) *scene->objectsCount());
@@ -1394,8 +1396,7 @@ void HelloTriangleApplication::recordCommandBufferCompute(VkCommandBuffer comman
     *computeDrawBuffer = FramesInFlightData[currentFrame].drawBuffers.getBufferInfo();
 
     VkDescriptorBufferInfo* objectBufferInfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(&perFrameArenas[currentFrame], 1); 
-    assert((char*)computeDrawBuffer != (char*)objectBufferInfo);
-    *objectBufferInfo = FramesInFlightData[currentFrame].positionRadiusBuffers.getBufferInfo();
+    *objectBufferInfo = FramesInFlightData[currentFrame].uniformBuffers.getBufferInfo();
     
     std::span<descriptorUpdateData> descriptorUpdates = MemoryArena::AllocSpan<descriptorUpdateData>(arena, 3);
 
@@ -1518,7 +1519,8 @@ void HelloTriangleApplication::recordCommandBufferOpaquePass(VkCommandBuffer com
     std::span<int> drawIndices = MemoryArena::AllocSpan<int>(&perFrameArenas[currentFrame], meshct);
     for(int i =0; i < meshct; i++)
     {
-        debugDrawCross(scene->objects.translations[i], scene->GetBoundingSphere(i), {1,0,0});
+        positionRadius bounds = scene->meshBoundingSphereRad[scene->objects.meshIndices[i]];
+        debugDrawCross(scene->objects.translations[i] + glm::vec3(scene->objects.matrices[i] * (bounds.objectSpacePos)), bounds.objectSpaceRadius * max(max(scene->objects.scales[i].x,scene->objects.scales[i].y), scene->objects.scales[i].z), {1,0,0});
         drawIndices[i] = i;
     }
 

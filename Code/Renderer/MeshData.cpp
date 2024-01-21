@@ -4,6 +4,7 @@
 #include "RendererHandles.h"
 #include "../General/Array.h"
 #include "bufferCreation.h"
+#include "gpu-data-structs.h"
 #include "../General/Memory.h"
 #include "../../tinygltf/tiny_gltf.h"
 #include "../../MeshLibraryImplementations.h"
@@ -495,9 +496,9 @@ MeshData::MeshData(RendererHandles app, const char* path)
     this->id = MESHID++;
 }
 
-float MeshData::getBoundingSphere()
+positionRadius MeshData::getBoundingSphere()
 {
-    return glm::distance(boundsCorners[0], boundsCorners[1]) / 2.0f;
+    return { {(boundsCorners[0] +  boundsCorners[1]) / 2.0f, 0.0}, glm::distance(boundsCorners[0], boundsCorners[1]) / 2.0f};
 }
 //TODO JS 0: Separate memory ownership? give it to the renderer?
 void MeshData::cleanup()

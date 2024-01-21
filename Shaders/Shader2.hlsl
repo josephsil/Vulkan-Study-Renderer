@@ -39,7 +39,7 @@ VSOutput Vert(VSInput input,  [[vk::builtin("BaseInstance")]]  uint InstanceInde
 	// https://github.com/microsoft/DirectXShaderCompiler/issues/2193 	
  	MyVertexStructure myVertex = BufferTable.Load<MyVertexStructure>((VERTEXOFFSET + VertexIndex) * sizeof(MyVertexStructure));
 #endif
-    UBO ubo = uboarr[InstanceIndex];
+    objectData ubo = uboarr[InstanceIndex];
     VSOutput output = (VSOutput)0;
     float4x4 modelView = mul(globals.view, ubo.Model);
     float4x4 mvp = mul(globals.projection, modelView);
@@ -114,7 +114,7 @@ FSOutput Frag(VSOutput input)
     InstanceIndex = input.InstanceID;
     FSOutput output;
 
-    UBO ubo = uboarr[OBJECTINDEX];
+    objectData ubo = uboarr[OBJECTINDEX];
 
     
     float3 diff = saturate(

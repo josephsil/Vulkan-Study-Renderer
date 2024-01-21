@@ -1,17 +1,20 @@
-struct UBO
+struct objectData
 {
     float4x4 Model;
     float4x4 NormalMat;
-    float4x4 p1;
-    float4x4 p2;
 
+    //objectProperties
     //Formerly push constants
     float4 indexInfo;
     float roughness;
     float metallic;
     float _f1;
     float _f2;
-    float4 indexInfo_2;
+    
+    //Culling info
+    //This data is really per model, not per object, but I'm lazy
+    float4 objectSpaceboundsCenter;  
+    float objectSpaceboundsRadius;  
 };
 
 struct ShaderGlobals

@@ -12,6 +12,7 @@
 #pragma region forward declarations
 #include <span>
 
+#include "gpu-data-structs.h"
 #include "VulkanIncludes/forward-declarations-renderer.h"
 #pragma endregion
 
@@ -32,7 +33,7 @@ public:
     int id;
 
 
-    float getBoundingSphere();
+    positionRadius getBoundingSphere();
     MeshData(RendererHandles rendererHandles, std::vector<Vertex> vertices,
              std::vector<uint32_t> indices);
 

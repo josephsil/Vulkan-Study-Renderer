@@ -47,7 +47,7 @@ void InitializeScene(MemoryArena::memoryArena* arena, Scene* scene)
     scene->backing_utility_textures = Array(MemoryArena::AllocSpan<TextureData>(arena, ASSET_MAX));
 
     scene->backing_meshes =  Array(MemoryArena::AllocSpan<MeshData>(arena, ASSET_MAX));
-    scene->meshBoundingSphereRad = Array(MemoryArena::AllocSpan<float>(arena, ASSET_MAX));
+    scene->meshBoundingSphereRad = Array(MemoryArena::AllocSpan<positionRadius>(arena, ASSET_MAX));
     
 }
 
@@ -151,10 +151,10 @@ int Scene::AddBackingMesh(MeshData M)
     return meshCount ++;
 }
 
-float Scene::GetBoundingSphere(int idx)
+positionRadius Scene::GetBoundingSphere(int idx)
 {
     int i = objects.meshIndices[idx];
-    return meshBoundingSphereRad[i] * glm::compMax(objects.scales[i]);
+    return meshBoundingSphereRad[i];
 }
 
 struct sortData

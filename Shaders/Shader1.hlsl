@@ -48,7 +48,7 @@ VSOutput Vert(VSInput input,  [[vk::builtin("BaseInstance")]]  uint InstanceInde
  	MyVertexStructure myVertex = BufferTable.Load<MyVertexStructure>((VERTEXOFFSET + VertexIndex) * sizeof(MyVertexStructure));
 #endif
     //
-    UBO ubo = uboarr[InstanceIndex];
+    objectData ubo = uboarr[InstanceIndex];
     VSOutput output = (VSOutput)0;
     //
     float4x4 modelView = mul(globals.view, uboarr[ InstanceIndex].Model);
@@ -136,7 +136,7 @@ FSOutput Frag(VSOutput input)
     float4 specMap = bindless_textures[SPECULAR_INDEX].Sample(bindless_samplers[TEXTURESAMPLERINDEX], input.Texture_ST);
     float metallic = specMap.a;
 
-    UBO ubo = uboarr[OBJECTINDEX];
+    objectData ubo = uboarr[OBJECTINDEX];
 
     float4x4 model = ubo.Model;
     // albedo = 0.33;

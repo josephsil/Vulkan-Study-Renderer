@@ -14,7 +14,7 @@ struct VSInput
     // [[vk::location(3)]] uint vertex_id : SV_VertexID;
 };
 
-struct UBO
+struct objectData
 {
     float4x4 Model;
     float4x4 NormalMat;
@@ -81,7 +81,7 @@ ByteAddressBuffer BufferTable;
 RWStructuredBuffer<MyLightStructure> lights;
 
 [[vk::binding(5)]]
-RWStructuredBuffer<UBO> uboarr;
+RWStructuredBuffer<objectData> uboarr;
 
 [[vk::push_constant]]
 pconstant pc;
@@ -112,7 +112,7 @@ static float2 positions[3] = {
 // -spirv -T vs_6_5 -E Vert .\Shader1.hlsl -Fo .\triangle.vert.spv
 VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
 {
-    UBO ubo = uboarr[OBJECTINDEX];
+    objectData ubo = uboarr[OBJECTINDEX];
     VSOutput output = (VSOutput)0;
     output.Texture_ST = Pos;
     // Convert cubemap coordinates into Vulkan coordinate space

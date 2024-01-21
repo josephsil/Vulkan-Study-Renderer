@@ -1,3 +1,4 @@
+#include "structs.hlsl"
 struct cullComputeGLobals
 {
 	float4x4 viewProjection;
@@ -11,11 +12,6 @@ struct drawdata
 	uint instanceCount;
 	uint firstVertex;
 	uint firstInstance;
-};
-struct objectData
-{
-	float4 boundsCenter;
-	float boundsRadius;
 };
 
 [[vk::push_constant]]
