@@ -521,7 +521,7 @@ void HelloTriangleApplication::createUniformBuffers()
 
 
       
-        VkDeviceSize drawSize = sizeof(VkDrawIndirectCommand) * MAX_DRAWINDIRECT_COMMANDS;
+        VkDeviceSize drawSize = sizeof(drawCommandData) * MAX_DRAWINDIRECT_COMMANDS;
 
         FramesInFlightData[i].drawBuffers.size = drawSize;
         FramesInFlightData[i].drawBuffers.mapped = BufferUtilities::createDynamicBuffer(
@@ -1339,14 +1339,16 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
             vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, descriptorsetLayoutsDataShadow.getPipeline(0));
             int meshct =  scene->objectsCount();
             dataBuffer drawBuffer = FramesInFlightData[currentFrame].drawBuffers;
-            std::span<VkDrawIndirectCommand> mappedBuffer =  std::span((VkDrawIndirectCommand*)drawBuffer.mapped, drawBuffer.size / sizeof(VkDrawIndirectCommand));
+            std::span<drawCommandData> mappedBuffer =  std::span((drawCommandData*)drawBuffer.mapped, drawBuffer.size / sizeof(drawCommandData));
             for (int j = 0; j <meshct; j++)
             {
                 int i = drawIndices[j];
-                mappedBuffer[FramesInFlightData[currentFrame].currentDrawOffset + j] = {static_cast<uint32_t>(scene->backing_meshes[scene->objects.meshIndices[i]].vertcount),1,0,(uint32_t)i};
+                mappedBuffer[FramesInFlightData[currentFrame].currentDrawOffset + j] = {i, static_cast<uint32_t>(scene->backing_meshes[scene->objects.meshIndices[i]].vertcount),1,0,(uint32_t)i};
 
             }
-            vkCmdDrawIndirect(commandBuffer, drawBuffer.data, FramesInFlightData[currentFrame].currentDrawOffset *  sizeof(VkDrawIndirectCommand), meshct, sizeof(VkDrawIndirectCommand));
+            uint32_t offset_base = FramesInFlightData[currentFrame].currentDrawOffset *  sizeof(drawCommandData);
+            uint32_t offset_into_struct = offsetof(drawCommandData, command);
+            vkCmdDrawIndirect(commandBuffer, drawBuffer.data, offset_base + offset_into_struct, meshct, sizeof(drawCommandData));
             FramesInFlightData[currentFrame].currentDrawOffset += meshct;
             vkCmdEndRendering(commandBuffer);
         }
@@ -1560,7 +1562,7 @@ void HelloTriangleApplication::recordCommandBufferOpaquePass(VkCommandBuffer com
     //Prepare draw from bucekts 
     Array batchedDraws = MemoryArena::AllocSpan<drawBatch>(&perFrameArenas[currentFrame], 999); //TODO JS -- sort by pipeline so we don't create so many of these 
     dataBuffer drawBuffer = FramesInFlightData[currentFrame].drawBuffers;
-    std::span<VkDrawIndirectCommand> mappedBuffer =  std::span((VkDrawIndirectCommand*)drawBuffer.mapped, drawBuffer.size / sizeof(VkDrawIndirectCommand));
+    std::span<drawCommandData> mappedBuffer =  std::span((drawCommandData*)drawBuffer.mapped, drawBuffer.size / sizeof(drawCommandData));
 
     uint32_t drawCt = 0;
     for (int j = 0; j < bucketedPipelines.size(); j++)
@@ -1569,7 +1571,7 @@ void HelloTriangleApplication::recordCommandBufferOpaquePass(VkCommandBuffer com
         for (int k = 0; k < indices.size(); k++)
         {
             drawIndices[drawCt + k] = indices[k];
-            mappedBuffer[FramesInFlightData[currentFrame].currentDrawOffset + drawCt + k] = {static_cast<uint32_t>(scene->backing_meshes[scene->objects.meshIndices[indices[k]]].vertcount), 1, 0, (uint32_t)indices[k]};
+            mappedBuffer[FramesInFlightData[currentFrame].currentDrawOffset + drawCt + k] = {indices[k], static_cast<uint32_t>(scene->backing_meshes[scene->objects.meshIndices[indices[k]]].vertcount), 1, 0, (uint32_t)indices[k]};
 
         }
         if (indices.size() > 0)
@@ -1586,11 +1588,13 @@ void HelloTriangleApplication::recordCommandBufferOpaquePass(VkCommandBuffer com
         auto draw = batchedDraws[k];
        
             vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.pipeline);
-            vkCmdDrawIndirect(commandBuffer, drawBuffer.data, (FramesInFlightData[currentFrame].currentDrawOffset * sizeof(VkDrawIndirectCommand)) + (sizeof(VkDrawIndirectCommand) * draw.start), draw.ct, sizeof(VkDrawIndirectCommand));
+            uint32_t offset_base = (FramesInFlightData[currentFrame].currentDrawOffset * sizeof(drawCommandData)) + (sizeof(drawCommandData) * draw.start);
+            uint32_t offset_into_struct = offsetof(drawCommandData, command);
+            vkCmdDrawIndirect(commandBuffer, drawBuffer.data, offset_base + offset_into_struct, draw.ct, sizeof(drawCommandData));
        
     }
     FramesInFlightData[currentFrame].currentDrawOffset +=( meshct );
-    //debug lines -- todo feed from somehwere
+    //debug lines -- todo feed from somehwere   
                                                                             //TODO JS: something other than hardcoded 2
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, descriptorsetLayoutsData.getPipeline(2));
     debugLines.push_back({{0,0,0},{20,40,20}, {0,0,1}});

@@ -5,6 +5,12 @@
 #include <glm/gtc/quaternion.hpp>
 #include <vector>
 
+struct __VkDrawIndirectCommand {
+    uint32_t    vertexCount;
+    uint32_t    instanceCount;
+    uint32_t    firstVertex;
+    uint32_t    firstInstance;
+};
 
 struct objectProperties
 {
@@ -39,6 +45,14 @@ struct ShaderGlobals
     alignas(16) glm::vec4 lightcountx_modey_shadowcountz_padding_w;
     alignas(16) glm::vec4 cubemaplutidx_cubemaplutsampleridx_paddingzw;
 };
+
+struct drawCommandData
+{
+    alignas(16) glm::uint32_t objectIndex;
+    // VkDrawIndirectCommand
+    __VkDrawIndirectCommand command;
+};
+
 
 struct shadowPushConstants
 {

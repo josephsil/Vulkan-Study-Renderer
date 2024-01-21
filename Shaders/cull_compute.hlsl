@@ -5,8 +5,9 @@ struct cullComputeGLobals
 	uint frustumOffset;
 };
 
-struct drawdata
+struct drawCommandData
 {
+	uint objectIndex;
 	// VkDrawIndirectCommand
 	uint vertexCount;
 	uint instanceCount;
@@ -22,7 +23,7 @@ RWStructuredBuffer<float3> frustumData;
 
 // #ifdef SHADOWPASS
 [[vk::binding(2, 0)]]
-RWStructuredBuffer<drawdata> drawData;
+RWStructuredBuffer<drawCommandData> drawData;
 // #endif
 // #ifdef SHADOWPASS
 [[vk::binding(3, 0)]]
