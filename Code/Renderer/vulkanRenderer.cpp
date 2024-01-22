@@ -458,7 +458,7 @@ void HelloTriangleApplication::populateMeshBuffers()
     }
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        FramesInFlightData[i].meshBuffers.updateMappedMemory(gpuVerts.data(), sizeof(gpuvertex) * scene->getVertexCount());
+        FramesInFlightData[i].meshBuffers.updateMappedMemory({gpuVerts.data(), scene->getVertexCount()});
     }
 }
 
@@ -474,76 +474,29 @@ void HelloTriangleApplication::createUniformBuffers()
     VkDeviceSize lightdataSize = sizeof(gpulight) * scene->lightCount;
     VkDeviceSize shadowDataSize = sizeof(PerShadowData) * scene->lightCount * 10; //times six is plenty right?
 
+    RendererHandles handles = getHandles();
+
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
         FramesInFlightData[i].perLightShadowShaderGlobalsBuffer.resize(MAX_SHADOWCASTERS);
-        FramesInFlightData[i].perLightShadowShaderGlobalsMapped.resize(MAX_SHADOWCASTERS);
-        FramesInFlightData[i].perLightShadowShaderGlobalsMemory.resize(MAX_SHADOWCASTERS);
 
         for (size_t j = 0; j < MAX_SHADOWCASTERS ; j++)
         {
-            FramesInFlightData[i].perLightShadowShaderGlobalsBuffer[j].size = globalsSize;
-            FramesInFlightData[i].perLightShadowShaderGlobalsMapped[j] = BufferUtilities::createDynamicBuffer(
-                getHandles(), globalsSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                &FramesInFlightData[i].perLightShadowShaderGlobalsMemory[j],
-                FramesInFlightData[i].perLightShadowShaderGlobalsBuffer[j].data);
+            FramesInFlightData[i].perLightShadowShaderGlobalsBuffer[j] = createDataBuffer<ShaderGlobals>(&handles, 1);
         }
-        
-        FramesInFlightData[i].opaqueShaderGlobalsBuffer.size = globalsSize;
-        FramesInFlightData[i].opaqueShaderGlobalsBuffer.mapped = BufferUtilities::createDynamicBuffer(
-            getHandles(), globalsSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-            &FramesInFlightData[i].opaqueShaderGlobalsMemory,
-            FramesInFlightData[i].opaqueShaderGlobalsBuffer.data);
-        
-        FramesInFlightData[i].uniformBuffers.size = ubosSize;
-        FramesInFlightData[i].uniformBuffers.mapped = BufferUtilities::createDynamicBuffer(
-            getHandles(), ubosSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-            &FramesInFlightData[i].uniformBuffersMemory,
-            FramesInFlightData[i].uniformBuffers.data);
-        
-        FramesInFlightData[i].meshBuffers.size = vertsSize;
-        FramesInFlightData[i].meshBuffers.mapped = BufferUtilities::createDynamicBuffer(
-            getHandles(), vertsSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-            &FramesInFlightData[i].meshBuffersMemory,
-            FramesInFlightData[i].meshBuffers.data);
 
-        FramesInFlightData[i].lightBuffers.size = lightdataSize;
-        FramesInFlightData[i].lightBuffers.mapped = BufferUtilities::createDynamicBuffer(
-            getHandles(), lightdataSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-            &FramesInFlightData[i].lightBuffersMemory,
-            FramesInFlightData[i].lightBuffers.data);
+       
 
-        FramesInFlightData[i].shadowDataBuffers.size = shadowDataSize;
-        FramesInFlightData[i].shadowDataBuffers.mapped = BufferUtilities::createDynamicBuffer(
-            getHandles(), shadowDataSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-            &FramesInFlightData[i].shadowDataBuffersMemory,
-            FramesInFlightData[i].shadowDataBuffers.data);
-
+        FramesInFlightData[i].opaqueShaderGlobalsBuffer = createDataBuffer<ShaderGlobals>(&handles, 1);
+        FramesInFlightData[i].uniformBuffers = createDataBuffer<UniformBufferObject>(&handles, scene->objectsCount());
+        FramesInFlightData[i].meshBuffers = createDataBuffer<gpuvertex>(&handles,scene->getVertexCount());
+        FramesInFlightData[i].lightBuffers = createDataBuffer<gpulight>(&handles, scene->lightCount);
+        FramesInFlightData[i].shadowDataBuffers = createDataBuffer<PerShadowData>(&handles, scene->lightCount * 10);
 
       
-        VkDeviceSize drawSize = sizeof(drawCommandData) * MAX_DRAWINDIRECT_COMMANDS;
-
-        FramesInFlightData[i].drawBuffers.size = drawSize;
-        FramesInFlightData[i].drawBuffers.mapped = BufferUtilities::createDynamicBuffer(
-            getHandles(), drawSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT ,
-            &FramesInFlightData[i].drawBuffersMemory,
-            FramesInFlightData[i].drawBuffers.data);
-
-        VkDeviceSize positionRadiusSize = sizeof(positionRadius) * scene->objectsCount();
-
-        FramesInFlightData[i].positionRadiusBuffers.size = positionRadiusSize;
-        FramesInFlightData[i].positionRadiusBuffers.mapped = BufferUtilities::createDynamicBuffer(
-            getHandles(), positionRadiusSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT ,
-            &FramesInFlightData[i].positionRadiusBuffersMemory,
-            FramesInFlightData[i].positionRadiusBuffers.data);
-
-        VkDeviceSize frustumsForCullSize = sizeof(glm::vec4) * (MAX_SHADOWMAPS + 1) * 6;
-
-        FramesInFlightData[i].frustumsForCullBuffers.size = frustumsForCullSize;
-        FramesInFlightData[i].frustumsForCullBuffers.mapped = BufferUtilities::createDynamicBuffer(
-            getHandles(), frustumsForCullSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT ,
-            &FramesInFlightData[i].frustumsForCullBuffersMemory,
-            FramesInFlightData[i].frustumsForCullBuffers.data);
+        FramesInFlightData[i].drawBuffers = createDataBuffer<drawCommandData>(&handles, MAX_DRAWINDIRECT_COMMANDS);
+        FramesInFlightData[i].frustumsForCullBuffers = createDataBuffer<glm::vec4>(&handles, MAX_SHADOWMAPS + MAX_CAMERAS);
+     
 
     }
 }
@@ -676,16 +629,16 @@ std::span<descriptorUpdateData> HelloTriangleApplication::createOpaqueDescriptor
     };
     
     VkDescriptorBufferInfo* meshBufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
-    *meshBufferinfo = FramesInFlightData[frame].meshBuffers.getBufferInfo();
+    *meshBufferinfo = FramesInFlightData[frame].meshBuffers._buffer.getBufferInfo();
     VkDescriptorBufferInfo* lightbufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
-    *lightbufferinfo = FramesInFlightData[frame].lightBuffers.getBufferInfo();
+    *lightbufferinfo = FramesInFlightData[frame].lightBuffers._buffer.getBufferInfo();
     VkDescriptorBufferInfo* uniformbufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
-    *uniformbufferinfo = FramesInFlightData[frame].uniformBuffers.getBufferInfo();
+    *uniformbufferinfo = FramesInFlightData[frame].uniformBuffers._buffer.getBufferInfo();
     VkDescriptorBufferInfo* shaderglobalsinfo =  MemoryArena::Alloc<VkDescriptorBufferInfo>(arena);
-    *shaderglobalsinfo = FramesInFlightData[frame].opaqueShaderGlobalsBuffer.getBufferInfo();
+    *shaderglobalsinfo = FramesInFlightData[frame].opaqueShaderGlobalsBuffer._buffer.getBufferInfo();
     
     VkDescriptorBufferInfo* shadowBuffersInfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
-    *shadowBuffersInfo = FramesInFlightData[frame].shadowDataBuffers.getBufferInfo();
+    *shadowBuffersInfo = FramesInFlightData[frame].shadowDataBuffers._buffer.getBufferInfo();
 
     
 
@@ -723,16 +676,16 @@ std::span<descriptorUpdateData> HelloTriangleApplication::createShadowDescriptor
 {
     //Get data
     VkDescriptorBufferInfo* meshBufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
-    *meshBufferinfo = FramesInFlightData[frame].meshBuffers.getBufferInfo();
+    *meshBufferinfo = getDescriptorBufferInfo(FramesInFlightData[frame].meshBuffers);
     VkDescriptorBufferInfo* uniformbufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
-    *uniformbufferinfo = FramesInFlightData[frame].uniformBuffers.getBufferInfo();
+    *uniformbufferinfo = getDescriptorBufferInfo(FramesInFlightData[frame].uniformBuffers);
     VkDescriptorBufferInfo* shaderglobalsinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
-    *shaderglobalsinfo = FramesInFlightData[frame].perLightShadowShaderGlobalsBuffer[shadowIndex].getBufferInfo();
+    *shaderglobalsinfo = getDescriptorBufferInfo(FramesInFlightData[frame].perLightShadowShaderGlobalsBuffer[shadowIndex]);
 
     VkDescriptorBufferInfo* lightbufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
-    *lightbufferinfo = FramesInFlightData[frame].lightBuffers.getBufferInfo();
+    *lightbufferinfo = getDescriptorBufferInfo(FramesInFlightData[frame].lightBuffers);
     VkDescriptorBufferInfo* shadowBuffersInfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
-    *shadowBuffersInfo = FramesInFlightData[frame].shadowDataBuffers.getBufferInfo();
+    *shadowBuffersInfo = getDescriptorBufferInfo(FramesInFlightData[frame].shadowDataBuffers);
 
     Array<descriptorUpdateData> descriptorUpdates = MemoryArena::AllocSpan<descriptorUpdateData>(arena, 5);
     //Update descriptor sets with data
@@ -1123,9 +1076,9 @@ std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocato
 }
 
 
-void updateGlobals(HelloTriangleApplication::cameraData camera, Scene* scene, int cubeMapLutIndex, dataBuffer globalsBuffer)
+void updateGlobals(HelloTriangleApplication::cameraData camera, Scene* scene, int cubeMapLutIndex, dataBufferObject<ShaderGlobals> globalsBuffer)
 {
-    ShaderGlobals globals;
+    ShaderGlobals globals{};
     viewProj vp = viewProjFromCamera(camera);
     globals.view = vp.view;
     globals.proj = vp.proj;
@@ -1135,7 +1088,7 @@ void updateGlobals(HelloTriangleApplication::cameraData camera, Scene* scene, in
         scene->materialTextureCount() + cubeMapLutIndex,
         scene->materialTextureCount() + cubeMapLutIndex, 0, 0);
     
-    globalsBuffer.updateMappedMemory(&globals, sizeof(ShaderGlobals));
+    globalsBuffer.updateMappedMemory({&globals, 1});
 
 }
 
@@ -1168,7 +1121,7 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
 
     //Lights
     auto lights = MemoryArena::AllocSpan<gpulight>(tempArena, scene->lightCount);
-    Array<PerShadowData> flattenedPerShadowData = Array(MemoryArena::AllocSpan<PerShadowData>(&perFrameArenas[currentFrame],FramesInFlightData[currentFrame].shadowDataBuffers.size / sizeof(PerShadowData)));
+    Array<PerShadowData> flattenedPerShadowData = Array(MemoryArena::AllocSpan<PerShadowData>(&perFrameArenas[currentFrame],FramesInFlightData[currentFrame].shadowDataBuffers.count()));
     for (int i = 0; i < perLightShadowData.size(); i++)
     {
         std::span<PerShadowData> lightsShadowData = perLightShadowData[i];
@@ -1184,8 +1137,8 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
             flattenedPerShadowData.push_back(lightsShadowData[j]);
         }
     }
-    FramesInFlightData[currentFrame].lightBuffers.updateMappedMemory(lights.data(), sizeof(gpulight) * lights.size());//TODO JS: could probably bump the index in the shader too on the point path rather than rebinding. 
-    FramesInFlightData[currentFrame].shadowDataBuffers.updateMappedMemory(flattenedPerShadowData.data, flattenedPerShadowData.capacity_bytes()); 
+    FramesInFlightData[currentFrame].lightBuffers.updateMappedMemory(std::span(lights.data(), lights.size()));//TODO JS: could probably bump the index in the shader too on the point path rather than rebinding. 
+    FramesInFlightData[currentFrame].shadowDataBuffers.updateMappedMemory(std::span(flattenedPerShadowData.data, flattenedPerShadowData.capacity)); 
 
 
     //Ubos
@@ -1211,7 +1164,7 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
         ubos[i].cullingInfo = {scene->meshBoundingSphereRad[scene->objects.meshIndices[i]]};
     }
     
-    FramesInFlightData[currentFrame].uniformBuffers.updateMappedMemory(ubos.data(), sizeof(UniformBufferObject) *scene->objectsCount());
+    FramesInFlightData[currentFrame].uniformBuffers.updateMappedMemory({ubos.data(), (size_t)scene->objectsCount()});
 
 
     FramesInFlightData[currentFrame].currentDrawOffset = 0; //VERY IMPORTANT!
@@ -1327,28 +1280,24 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
             constants.shadowIndex = shadowMapIndex;
             vkCmdPushConstants(commandBuffer, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                                sizeof(shadowPushConstants), &constants);
-     
-        
-
-            //TODO: frustum cull -- sort by frustum test and set meshct?
+            
             glm::vec4 worldSpaceFrustum[8] = {};
             populateFrustumCornersForSpace(worldSpaceFrustum, glm::inverse(perLightShadowData[i][j].shadowMatrix));
 
             
-            //TODO JS: Something other than hardcoded index 2 for shadow pipeline
+            //TODO JS: Something other than hardcoded index 0 for shadow pipeline
             vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, descriptorsetLayoutsDataShadow.getPipeline(0));
             int meshct =  scene->objectsCount();
-            dataBuffer drawBuffer = FramesInFlightData[currentFrame].drawBuffers;
-            std::span<drawCommandData> mappedBuffer =  std::span((drawCommandData*)drawBuffer.mapped, drawBuffer.size / sizeof(drawCommandData));
+            std::span<drawCommandData> mappedBuffer =  FramesInFlightData[currentFrame].drawBuffers.getMappedSpan();
             for (int j = 0; j <meshct; j++)
             {
                 int i = drawIndices[j];
-                mappedBuffer[FramesInFlightData[currentFrame].currentDrawOffset + j] = {i, static_cast<uint32_t>(scene->backing_meshes[scene->objects.meshIndices[i]].vertcount),1,0,(uint32_t)i};
+                mappedBuffer[FramesInFlightData[currentFrame].currentDrawOffset + j] = {(uint32_t)i, static_cast<uint32_t>(scene->backing_meshes[scene->objects.meshIndices[i]].vertcount),1,0,(uint32_t)i};
 
             }
             uint32_t offset_base = FramesInFlightData[currentFrame].currentDrawOffset *  sizeof(drawCommandData);
             uint32_t offset_into_struct = offsetof(drawCommandData, command);
-            vkCmdDrawIndirect(commandBuffer, drawBuffer.data, offset_base + offset_into_struct, meshct, sizeof(drawCommandData));
+            vkCmdDrawIndirect(commandBuffer,  FramesInFlightData[currentFrame].drawBuffers._buffer.data, offset_base + offset_into_struct, meshct, sizeof(drawCommandData));
             FramesInFlightData[currentFrame].currentDrawOffset += meshct;
             vkCmdEndRendering(commandBuffer);
         }
@@ -1383,22 +1332,17 @@ void HelloTriangleApplication::recordCommandBufferCompute(VkCommandBuffer comman
     //Transition swapchain for rendering
     
     VK_CHECK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
-
     
-
     MemoryArena::memoryArena* arena = &perFrameArenas[currentFrame];
 
     VkDescriptorBufferInfo* frustumData =  MemoryArena::Alloc<VkDescriptorBufferInfo>(&perFrameArenas[currentFrame], 1);
-    *frustumData = FramesInFlightData[currentFrame].frustumsForCullBuffers.getBufferInfo(); //TODO JS: pass frustums 
-
+    *frustumData = getDescriptorBufferInfo(FramesInFlightData[currentFrame].frustumsForCullBuffers); //TODO JS: pass frustums
     
-
-
     VkDescriptorBufferInfo* computeDrawBuffer = MemoryArena::Alloc<VkDescriptorBufferInfo>(&perFrameArenas[currentFrame], 1); 
-    *computeDrawBuffer = FramesInFlightData[currentFrame].drawBuffers.getBufferInfo();
+    *computeDrawBuffer = getDescriptorBufferInfo(FramesInFlightData[currentFrame].drawBuffers);
 
     VkDescriptorBufferInfo* objectBufferInfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(&perFrameArenas[currentFrame], 1); 
-    *objectBufferInfo = FramesInFlightData[currentFrame].uniformBuffers.getBufferInfo();
+    *objectBufferInfo = getDescriptorBufferInfo(FramesInFlightData[currentFrame].uniformBuffers);
     
     std::span<descriptorUpdateData> descriptorUpdates = MemoryArena::AllocSpan<descriptorUpdateData>(arena, 3);
 
@@ -1407,7 +1351,7 @@ void HelloTriangleApplication::recordCommandBufferCompute(VkCommandBuffer comman
     descriptorUpdates[2] = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, objectBufferInfo}; //objectData  //
 
     cullPConstants constants = {};
-    ShaderGlobals* globals = (ShaderGlobals*)FramesInFlightData[currentFrame].opaqueShaderGlobalsBuffer.mapped;
+    ShaderGlobals* globals = (ShaderGlobals*)FramesInFlightData[currentFrame].opaqueShaderGlobalsBuffer._buffer.mapped;
     //viewprojection matrix, offset for frustums 
     constants.matrix = globals->view * globals->proj;
     constants.index = 0;
@@ -1561,8 +1505,7 @@ void HelloTriangleApplication::recordCommandBufferOpaquePass(VkCommandBuffer com
 
     //Prepare draw from bucekts 
     Array batchedDraws = MemoryArena::AllocSpan<drawBatch>(&perFrameArenas[currentFrame], 999); //TODO JS -- sort by pipeline so we don't create so many of these 
-    dataBuffer drawBuffer = FramesInFlightData[currentFrame].drawBuffers;
-    std::span<drawCommandData> mappedBuffer =  std::span((drawCommandData*)drawBuffer.mapped, drawBuffer.size / sizeof(drawCommandData));
+    std::span<drawCommandData> mappedBuffer =   FramesInFlightData[currentFrame].drawBuffers.getMappedSpan();
 
     uint32_t drawCt = 0;
     for (int j = 0; j < bucketedPipelines.size(); j++)
@@ -1590,7 +1533,7 @@ void HelloTriangleApplication::recordCommandBufferOpaquePass(VkCommandBuffer com
             vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.pipeline);
             uint32_t offset_base = (FramesInFlightData[currentFrame].currentDrawOffset * sizeof(drawCommandData)) + (sizeof(drawCommandData) * draw.start);
             uint32_t offset_into_struct = offsetof(drawCommandData, command);
-            vkCmdDrawIndirect(commandBuffer, drawBuffer.data, offset_base + offset_into_struct, draw.ct, sizeof(drawCommandData));
+            vkCmdDrawIndirect(commandBuffer,    FramesInFlightData[currentFrame].drawBuffers._buffer.data, offset_base + offset_into_struct, draw.ct, sizeof(drawCommandData));
        
     }
     FramesInFlightData[currentFrame].currentDrawOffset +=( meshct );
@@ -1999,12 +1942,11 @@ void HelloTriangleApplication::cleanup()
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-       VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].uniformBuffers.data, FramesInFlightData[i].uniformBuffersMemory);
-       VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].meshBuffers.data, FramesInFlightData[i].meshBuffersMemory);
-       VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].lightBuffers.data, FramesInFlightData[i].lightBuffersMemory);
-       VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].lightBuffers.data, FramesInFlightData[i].shadowDataBuffersMemory);
-        VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].lightBuffers.data, FramesInFlightData[i].drawBuffersMemory);
-        VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].lightBuffers.data, FramesInFlightData[i].positionRadiusBuffersMemory);
+       VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].uniformBuffers._buffer.data, FramesInFlightData[i].uniformBuffers.allocation);
+       VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].meshBuffers._buffer.data, FramesInFlightData[i].meshBuffers.allocation);
+       VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].lightBuffers._buffer.data, FramesInFlightData[i].lightBuffers.allocation);
+       VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].shadowDataBuffers._buffer.data, FramesInFlightData[i].shadowDataBuffers.allocation);
+        VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].drawBuffers._buffer.data, FramesInFlightData[i].drawBuffers.allocation);
 
     }
 

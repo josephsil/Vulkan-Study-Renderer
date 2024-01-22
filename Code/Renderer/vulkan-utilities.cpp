@@ -3,6 +3,7 @@
 
 #include <cassert>
 
+#include "bufferCreation.h"
 #include "../General/Array.h"
 #include "RendererHandles.h"
 #include "TextureData.h"
@@ -105,5 +106,13 @@ void dataBuffer::updateMappedMemory(void* data, size_t size)
 {
     assert(size == this->size);
     memcpy(this->mapped, data, size);
+}
+
+void dataBuffer::allocateVulkanMemory(RendererHandles h, VmaAllocation* allocation)
+{
+   mapped = BufferUtilities::createDynamicBuffer(
+      h,  size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+     allocation,
+    data);
 }
 

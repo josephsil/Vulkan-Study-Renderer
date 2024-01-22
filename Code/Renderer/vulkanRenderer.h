@@ -12,10 +12,13 @@
 #include "../General/Array.h"
 #include "rendererGlobals.h"
 #include "CommandPoolManager.h"
+#include "gpu-data-structs.h"
 #include "../General/Memory.h"
 #include "PipelineDataObject.h"
 // My stuff 
 
+struct gpulight;
+struct gpuvertex;
 class Scene;
 struct PerShadowData;
 struct MeshData; //Forward Declaration
@@ -174,44 +177,29 @@ private:
 
 #pragma region buffers
 
-        std::vector<dataBuffer> perLightShadowShaderGlobalsBuffer;
-        std::vector<VmaAllocation> perLightShadowShaderGlobalsMemory;
-        std::vector<void*> perLightShadowShaderGlobalsMapped;
+        std::vector<dataBufferObject<ShaderGlobals>> perLightShadowShaderGlobalsBuffer;
+       
         
-        dataBuffer opaqueShaderGlobalsBuffer;
-        VmaAllocation opaqueShaderGlobalsMemory;
-    
-        //TODO JS: Move the data buffer stuff?
-        dataBuffer uniformBuffers;
-        VmaAllocation uniformBuffersMemory;
-        
-        dataBuffer meshBuffers;
-        VmaAllocation meshBuffersMemory;
+        dataBufferObject<ShaderGlobals> opaqueShaderGlobalsBuffer;
 
+      
+  
+
+ 
+        dataBufferObject<UniformBufferObject> uniformBuffers;
+         dataBufferObject<gpuvertex> meshBuffers;
         //Basic data about the light used in all passes 
-        dataBuffer lightBuffers;
-        VmaAllocation lightBuffersMemory;
-        
-        //Additional light matrices.... Maybe should be additional matrices period? Used in shadow pass
-        dataBuffer shadowDataBuffers;
-        VmaAllocation shadowDataBuffersMemory;
-
-
+        dataBufferObject<gpulight> lightBuffers;
+        dataBufferObject<PerShadowData> shadowDataBuffers;
         //Draw indirect
         uint32_t currentDrawOffset = 0;
-        dataBuffer drawBuffers;
-        VmaAllocation drawBuffersMemory;
-
+        dataBufferObject<drawCommandData> drawBuffers;
         //Compute culling for draw indirect 
-        dataBuffer positionRadiusBuffers;
-        VmaAllocation positionRadiusBuffersMemory;
-
-        dataBuffer frustumsForCullBuffers;
-        VmaAllocation frustumsForCullBuffersMemory;
+        dataBufferObject<glm::vec4> frustumsForCullBuffers;
 #pragma endregion
     };
-    
     std::vector<per_frame_data> FramesInFlightData;
+
     
     
 

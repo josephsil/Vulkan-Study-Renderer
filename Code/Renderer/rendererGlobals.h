@@ -1,10 +1,13 @@
 #pragma once
 #include <glm/glm.hpp>
 #include <vector>
+#include <span>
 #include "VulkanIncludes/forward-declarations-renderer.h"
+struct RendererHandles;
 const static int MAX_SHADOWCASTERS = 8;
 const static int CASCADE_CT = 4;
 #define MAX_SHADOWMAPS (MAX_SHADOWCASTERS * 6)
+const static int MAX_CAMERAS = 1;
 
 const static int MAX_FRAMES_IN_FLIGHT = 3;
 const static int MAX_DRAWINDIRECT_COMMANDS = 200000; //Draw commands per frmae 
@@ -48,8 +51,49 @@ struct dataBuffer
 
     VkDescriptorBufferInfo getBufferInfo();
     void updateMappedMemory(void* data, size_t size);
+    void allocateVulkanMemory(RendererHandles h, VmaAllocation* allocation);
 };
 
+template < typename T >
+struct dataBufferObject //todo js: name 
+{
+    dataBuffer _buffer;
+    VmaAllocation allocation;
+    std::span<T> getMappedSpan();
+    void updateMappedMemory(std::span<T> source);
+    uint32_t count();
+};
+template < typename T >
+VkDescriptorBufferInfo getDescriptorBufferInfo(dataBufferObject<T> d)
+{
+    return d._buffer.getBufferInfo();
+}
+template <typename T>
+std::span<T> dataBufferObject<T>::getMappedSpan()
+{
+    return  std::span<T>(static_cast<T*>(_buffer.mapped), _buffer.size / sizeof(T));
+}
+
+template <typename T>
+void dataBufferObject<T>::updateMappedMemory(std::span<T> source)
+{
+    _buffer.updateMappedMemory(source.data(), source.size_bytes());
+}
+
+template <typename T>
+uint32_t dataBufferObject<T>::count()
+{
+    return _buffer.size / sizeof(T); 
+}
+
+template<typename T> dataBufferObject<T> createDataBuffer(RendererHandles* h, uint32_t size)
+{
+
+  dataBufferObject<T> buffer{};
+  buffer._buffer.size = sizeof(T) * size;
+  buffer._buffer.allocateVulkanMemory(*h, &buffer.allocation);
+  return buffer;
+}
 
 struct inputData
 {

@@ -19,7 +19,7 @@ struct drawCommandData
 cullComputeGLobals globals;
 
 [[vk::binding(1,0)]]
-RWStructuredBuffer<float3> frustumData;
+RWStructuredBuffer<float4> frustumData;
 
 // #ifdef SHADOWPASS
 [[vk::binding(2, 0)]]
