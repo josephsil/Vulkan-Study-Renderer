@@ -130,24 +130,7 @@ unsigned int frames;
 
 unsigned int MAX_TEXTURES = 30;
 
-//TODO JS: move
-struct gpuvertex
-{
-    alignas(16) glm::vec4 pos;
-    alignas(16) glm::vec4 texCoord;
-    alignas(16) glm::vec4 normal;
-    alignas(16) glm::vec4 tangent;
-};
 
-//TODO JS: move
-struct gpulight
-{
-    alignas(16) glm::vec4 pos_xyz_range_a;
-    alignas(16) glm::vec4 color_xyz_intensity_a;
-    alignas(16) glm::vec4 pointOrSpot_x_dir_yza;
-    // alignas(16) glm::mat4 matrixViewProjection;
-    alignas(16) glm::vec4 matrixIndex_matrixCount_padding_padding; // currently only used by point
-};
 
 
 
@@ -346,19 +329,12 @@ void HelloTriangleApplication::initVulkan()
         
         updateShadowImageViews(i);
     }
-       
-
-    
 
     //Initialize scene-ish objects we don't have a place for yet 
     cubemaplut_utilitytexture_index = scene->AddUtilityTexture(
         TextureData(getHandles(), "textures/outputLUT.png", TextureData::DATA_DONT_COMPRESS));
     cube_irradiance = TextureData(getHandles(), "textures/output_cubemap2_diff8.ktx2", TextureData::TextureType::CUBE);
     cube_specular = TextureData(getHandles(), "textures/output_cubemap2_spec8.ktx2", TextureData::TextureType::CUBE);
-
-
-    
-    
 
     createUniformBuffers();
     createSyncObjects();
@@ -369,17 +345,18 @@ void HelloTriangleApplication::initVulkan()
     createDescriptorSetPool(getHandles(), &descriptorPool);
 
     Array opaqueLayout = MemoryArena::AllocSpan<VkDescriptorSetLayoutBinding>(&rendererArena, 11);
-    opaqueLayout.push_back({(uint32_t)opaqueLayout.ct, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL, VK_NULL_HANDLE}); //Globals
-    opaqueLayout.push_back({(uint32_t)opaqueLayout.ct, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, MAX_TEXTURES, VK_SHADER_STAGE_FRAGMENT_BIT,  VK_NULL_HANDLE});
-    opaqueLayout.push_back({(uint32_t)opaqueLayout.ct, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,2, VK_SHADER_STAGE_FRAGMENT_BIT,  VK_NULL_HANDLE});
-    opaqueLayout.push_back({(uint32_t)opaqueLayout.ct, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, MAX_SHADOWMAPS, VK_SHADER_STAGE_FRAGMENT_BIT  }); //SHADOW
-    opaqueLayout.push_back({(uint32_t)opaqueLayout.ct, VK_DESCRIPTOR_TYPE_SAMPLER, MAX_TEXTURES, VK_SHADER_STAGE_FRAGMENT_BIT , VK_NULL_HANDLE} );
-    opaqueLayout.push_back({(uint32_t)opaqueLayout.ct, VK_DESCRIPTOR_TYPE_SAMPLER, 2, VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE}  );
-    opaqueLayout.push_back({(uint32_t)opaqueLayout.ct, VK_DESCRIPTOR_TYPE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE}  ); //SHADOW
-    opaqueLayout.push_back({(uint32_t)opaqueLayout.ct, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE} ); //Geometry
-    opaqueLayout.push_back({(uint32_t)opaqueLayout.ct, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1,  VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE} ); //light
-    opaqueLayout.push_back({(uint32_t)opaqueLayout.ct, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1,  VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE} ); //ubo
-    opaqueLayout.push_back({(uint32_t)opaqueLayout.ct, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE} ); //shadow matrices
+    uint32_t i =0;
+    opaqueLayout.push_back({i++, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL, VK_NULL_HANDLE}); //Globals
+    opaqueLayout.push_back({i++, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, MAX_TEXTURES, VK_SHADER_STAGE_FRAGMENT_BIT,  VK_NULL_HANDLE});
+    opaqueLayout.push_back({i++, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,2, VK_SHADER_STAGE_FRAGMENT_BIT,  VK_NULL_HANDLE});
+    opaqueLayout.push_back({i++, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, MAX_SHADOWMAPS, VK_SHADER_STAGE_FRAGMENT_BIT  }); //SHADOW
+    opaqueLayout.push_back({i++, VK_DESCRIPTOR_TYPE_SAMPLER, MAX_TEXTURES, VK_SHADER_STAGE_FRAGMENT_BIT , VK_NULL_HANDLE} );
+    opaqueLayout.push_back({i++, VK_DESCRIPTOR_TYPE_SAMPLER, 2, VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE}  );
+    opaqueLayout.push_back({i++, VK_DESCRIPTOR_TYPE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE}  ); //SHADOW
+    opaqueLayout.push_back({i++, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE} ); //Geometry
+    opaqueLayout.push_back({i++, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1,  VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE} ); //light
+    opaqueLayout.push_back({i++, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1,  VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE} ); //ubo
+    opaqueLayout.push_back({i++, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE} ); //shadow matrices
 
 
     Array shadowLayout = MemoryArena::AllocSpan<VkDescriptorSetLayoutBinding>(&rendererArena, 5);
@@ -640,7 +617,6 @@ std::span<descriptorUpdateData> HelloTriangleApplication::createOpaqueDescriptor
     VkDescriptorBufferInfo* shadowBuffersInfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
     *shadowBuffersInfo = FramesInFlightData[frame].shadowDataBuffers._buffer.getBufferInfo();
 
-    
 
     Array<descriptorUpdateData> descriptorUpdates = MemoryArena::AllocSpan<descriptorUpdateData>(arena, 11);
     //Update descriptor sets with data
@@ -719,6 +695,7 @@ void HelloTriangleApplication::updateShadowDescriptorSets(PipelineDataObject* la
 }
 #pragma endregion
 
+
 void HelloTriangleApplication::createSyncObjects()
 {
     VkSemaphoreCreateInfo semaphoreInfo{};
@@ -729,31 +706,21 @@ void HelloTriangleApplication::createSyncObjects()
     fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
     for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &FramesInFlightData[i].imageAvailableSemaphores) != VK_SUCCESS ||
-            vkCreateSemaphore(device, &semaphoreInfo, nullptr, &FramesInFlightData[i].renderFinishedSemaphores) != VK_SUCCESS ||
-            vkCreateFence(device, &fenceInfo, nullptr, &FramesInFlightData[i].inFlightFences) != VK_SUCCESS)
-        {
-            printf("failed to create synchronization objects for a frame!");
-            assert(false);
-        }
-        if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &FramesInFlightData[i].shadowAvailableSemaphores) != VK_SUCCESS ||
-            vkCreateSemaphore(device, &semaphoreInfo, nullptr, &FramesInFlightData[i].shadowFinishedSemaphores) != VK_SUCCESS)
-        {
-            printf("failed to create synchronization objects for a shadow pass!");
-            assert(false);
-        }
-        if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &FramesInFlightData[i].swapchaintransitionedOutSemaphores) != VK_SUCCESS ||
-            vkCreateSemaphore(device, &semaphoreInfo, nullptr, &FramesInFlightData[i].swapchaintransitionedInSemaphores) != VK_SUCCESS)
-        {
-            printf("failed to create synchronization objects for swapchain!");
-            assert(false);
-        }
-        if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &FramesInFlightData[i].shadowtransitionedOutSemaphores) != VK_SUCCESS ||
-            vkCreateSemaphore(device, &semaphoreInfo, nullptr, &FramesInFlightData[i].shadowtransitionedInSemaphores) != VK_SUCCESS)
-        {
-            printf("failed to create synchronization objects for swapchain!");
-            assert(false);
-        }
+        per_frame_data* frame = &FramesInFlightData[i];
+        VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &frame->imageAvailableSemaphores));
+        VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &frame->renderFinishedSemaphores));
+
+        VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &frame->shadowAvailableSemaphores));
+        VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &frame->shadowFinishedSemaphores));
+
+        VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &frame->swapchaintransitionedOutSemaphores));
+        VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &frame->swapchaintransitionedInSemaphores));
+     
+
+        VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &frame->shadowtransitionedOutSemaphores));
+        VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &frame->shadowtransitionedInSemaphores));
+
+        VK_CHECK(vkCreateFence(device, &fenceInfo, nullptr, &FramesInFlightData[i].inFlightFences));
     }
    
 
@@ -1100,14 +1067,6 @@ void updateShadowData(MemoryArena::memoryArena* allocator, std::span<std::span<P
         perLightShadowData[i] =  calculateLightMatrix(allocator, camera,
              (scene->lightposandradius[i]), scene->lightDir[i], scene->lightposandradius[i].w, static_cast<lightType>(scene->lightTypes[i]));
     }
-
-    // for (int i =0; i < scene->lightCount; i++)
-    // {
-        // glm::mat4 invCam = glm::inverse(perLightShadowData[i][0].shadowMatrix);
-        // glm::vec4 shadowmat[8] = {};
-        // populateFrustumCornersForSpace(shadowmat, invCam);
-        // debugDrawFrustum(shadowmat);
-    // }
 }
 
 
@@ -1946,8 +1905,7 @@ void HelloTriangleApplication::cleanup()
        VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].meshBuffers._buffer.data, FramesInFlightData[i].meshBuffers.allocation);
        VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].lightBuffers._buffer.data, FramesInFlightData[i].lightBuffers.allocation);
        VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].shadowDataBuffers._buffer.data, FramesInFlightData[i].shadowDataBuffers.allocation);
-        VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].drawBuffers._buffer.data, FramesInFlightData[i].drawBuffers.allocation);
-
+       VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].drawBuffers._buffer.data, FramesInFlightData[i].drawBuffers.allocation);
     }
 
     vkDestroyDescriptorPool(device, descriptorPool, nullptr);

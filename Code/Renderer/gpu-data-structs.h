@@ -82,3 +82,23 @@ struct cullPConstants
     glm::mat4 matrix;
     uint32_t index;
 };
+
+
+
+struct gpuvertex
+{
+    alignas(16) glm::vec4 pos;
+    alignas(16) glm::vec4 texCoord;
+    alignas(16) glm::vec4 normal;
+    alignas(16) glm::vec4 tangent;
+};
+
+
+struct gpulight
+{
+    alignas(16) glm::vec4 pos_xyz_range_a;
+    alignas(16) glm::vec4 color_xyz_intensity_a;
+    alignas(16) glm::vec4 pointOrSpot_x_dir_yza;
+    // alignas(16) glm::mat4 matrixViewProjection;
+    alignas(16) glm::vec4 matrixIndex_matrixCount_padding_padding; // currently only used by point
+};
