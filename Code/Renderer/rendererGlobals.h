@@ -10,7 +10,9 @@ const static int CASCADE_CT = 4;
 const static int MAX_CAMERAS = 1;
 
 const static int MAX_FRAMES_IN_FLIGHT = 3;
-const static int MAX_DRAWINDIRECT_COMMANDS = 200000; //Draw commands per frmae 
+const static int MAX_DRAWINDIRECT_COMMANDS = 200000; //Draw commands per frmae
+const static int MAX_DRAWS_PER_PIPELINE = 2000; //whatever, probably could be dynamic, will fix later 
+const static int MAX_PIPELINES = 80; //whatever, probably could be dynamic, will fix later 
 
 enum lightType
 {
@@ -51,7 +53,7 @@ struct dataBuffer
 
     VkDescriptorBufferInfo getBufferInfo();
     void updateMappedMemory(void* data, size_t size);
-    void allocateVulkanMemory(RendererHandles h, VmaAllocation* allocation);
+    void allocateVulkanMemory(RendererHandles h, VmaAllocation* allocation, VkBufferUsageFlags usage);
 };
 
 template < typename T >
@@ -86,12 +88,12 @@ uint32_t dataBufferObject<T>::count()
     return _buffer.size / sizeof(T); 
 }
 
-template<typename T> dataBufferObject<T> createDataBuffer(RendererHandles* h, uint32_t size)
+template<typename T> dataBufferObject<T> createDataBuffer(RendererHandles* h, uint32_t size, VkBufferUsageFlags usage)
 {
 
   dataBufferObject<T> buffer{};
   buffer._buffer.size = sizeof(T) * size;
-  buffer._buffer.allocateVulkanMemory(*h, &buffer.allocation);
+  buffer._buffer.allocateVulkanMemory(*h, &buffer.allocation,usage);
   return buffer;
 }
 

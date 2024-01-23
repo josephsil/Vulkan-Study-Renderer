@@ -17,6 +17,7 @@
 #include "PipelineDataObject.h"
 // My stuff 
 
+struct drawBatch;
 struct gpulight;
 struct gpuvertex;
 class Scene;
@@ -82,7 +83,9 @@ private:
   
 
     cameraData camera;
-   
+
+    bool freeze = false;
+    glm::mat4 freezeView = {};
     
     VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
     VkDevice device; //Logical device
@@ -243,7 +246,7 @@ private:
     void recordCommandBufferCompute(VkCommandBuffer commandBuffer, uint32_t currentFrame);
     void submitComputePass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores,
                            std::vector<VkSemaphore> signalsemaphores);
-    void recordCommandBufferOpaquePass(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+    void recordCommandBufferOpaquePass(VkCommandBuffer commandBuffer, uint32_t imageIndex, Array<drawBatch> batchedDraws);
 
     void createGraphicsCommandPool();
     void createTransferCommandPool();
@@ -272,7 +275,7 @@ private:
     void renderShadowPass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphoreData,
                           std::vector<VkSemaphore> signalsemaphores);
     void renderOpaquePass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphoreData, std::vector<VkSemaphore>
-                          signalsemaphores);
+                          signalsemaphores, Array<drawBatch> batchedDraws);
 
     void cleanup();
 

@@ -48,8 +48,9 @@ struct ShaderGlobals
 
 struct drawCommandData
 {
-    alignas(16) glm::uint32_t objectIndex;
+    uint32_t objectIndex;
     // VkDrawIndirectCommand
+    alignas(16) glm::vec4 debugdata;
     __VkDrawIndirectCommand command;
 };
 
@@ -79,7 +80,9 @@ struct debugLinePConstants
 //Compute
 struct cullPConstants
 {
-    glm::mat4 matrix;
+    alignas(16) glm::mat4 view;
+    alignas(16) glm::mat4 proj;
+    alignas(16) glm::vec4 viewPos;
     uint32_t index;
 };
 

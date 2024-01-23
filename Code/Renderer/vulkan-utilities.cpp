@@ -108,10 +108,10 @@ void dataBuffer::updateMappedMemory(void* data, size_t size)
     memcpy(this->mapped, data, size);
 }
 
-void dataBuffer::allocateVulkanMemory(RendererHandles h, VmaAllocation* allocation)
+void dataBuffer::allocateVulkanMemory(RendererHandles h, VmaAllocation* allocation, VkBufferUsageFlags usage)
 {
    mapped = BufferUtilities::createDynamicBuffer(
-      h,  size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+      h,  size, usage,
      allocation,
     data);
 }
