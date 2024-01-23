@@ -64,6 +64,13 @@ struct shadowPushConstants
 
 struct PerShadowData
 {
+    glm::mat4 view;
+    glm::mat4 proj;
+    float cascadeDepth;
+};
+
+struct gpuPerShadowData
+{
     glm::mat4 shadowMatrix;
     float cascadeDepth;
 };
@@ -81,9 +88,8 @@ struct debugLinePConstants
 struct cullPConstants
 {
     alignas(16) glm::mat4 view;
-    alignas(16) glm::mat4 proj;
-    alignas(16) glm::vec4 viewPos;
-    uint32_t index;
+    uint32_t firstDraw;
+    uint32_t frustumIndex;
 };
 
 

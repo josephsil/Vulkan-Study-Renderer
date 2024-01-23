@@ -28,6 +28,7 @@
 #include "vulkan-utilities.h"
 #include "VulkanIncludes/VulkanMemory.h"
 
+struct gpuPerShadowData;
 int SHADER_MODE;
 VkSurfaceKHR surface;
 
@@ -474,7 +475,7 @@ void HelloTriangleApplication::createUniformBuffers()
         FramesInFlightData[i].uniformBuffers = createDataBuffer<UniformBufferObject>(&handles, scene->objectsCount(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT); //
         FramesInFlightData[i].meshBuffers = createDataBuffer<gpuvertex>(&handles,scene->getVertexCount(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
         FramesInFlightData[i].lightBuffers = createDataBuffer<gpulight>(&handles, scene->lightCount, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-        FramesInFlightData[i].shadowDataBuffers = createDataBuffer<PerShadowData>(&handles, scene->lightCount * 10, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+        FramesInFlightData[i].shadowDataBuffers = createDataBuffer<gpuPerShadowData>(&handles, scene->lightCount * 10, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 
       
         FramesInFlightData[i].drawBuffers = createDataBuffer<drawCommandData>(&handles, MAX_DRAWINDIRECT_COMMANDS, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
@@ -997,7 +998,7 @@ std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocato
                 glm::mat4 lightOrthoMatrix = glm::ortho(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, 0.0f, maxExtents.z - minExtents.z);
 
                 lightProjection =  lightOrthoMatrix;
-                outputSpan[i] = {lightProjection * lightViewMatrix, (cam.nearPlane + splitDist * clipRange) * -1.0f};
+                outputSpan[i] = {lightViewMatrix, lightProjection,  (cam.nearPlane + splitDist * clipRange) * -1.0f};
                 // OUTPUTPOSITION =  (cam.nearPlane + splitDist * clipRange) * -1.0f; //todo js
             }
             return  outputSpan.subspan(0,4);
@@ -1010,7 +1011,7 @@ std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocato
             lightProjection = glm::perspective(glm::radians(spotRadius),
                                       1.0f, 0.1f,
                                       50.0f); //TODO BETTER FAR 
-            outputSpan[0] = {lightProjection * lightViewMatrix, 0};
+            outputSpan[0] = {lightViewMatrix, lightProjection,  0};
                                   
             return  outputSpan;
         }
@@ -1029,20 +1030,25 @@ std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocato
         glm::mat4 translation = glm::translate(glm::mat4(1.0f), -lightPos);
         glm::mat4 rotMatrix = glm::mat4(1.0);
     
-    outputSpan[0].shadowMatrix =  glm::rotate(rotMatrix, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-    outputSpan[0].shadowMatrix = lightProjection *   (glm::rotate(  outputSpan[0].shadowMatrix, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * translation);
+    outputSpan[0].view =  glm::rotate(rotMatrix, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    outputSpan[0].view =  (glm::rotate(  outputSpan[0].view, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * translation);
       rotMatrix = glm::mat4(1.0);
-    outputSpan[1].shadowMatrix = glm::rotate(rotMatrix, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-    outputSpan[1].shadowMatrix = lightProjection *   (glm::rotate(outputSpan[1].shadowMatrix, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * translation);
+    outputSpan[1].view = glm::rotate(rotMatrix, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    outputSpan[1].view =  (glm::rotate(outputSpan[1].view, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * translation);
       rotMatrix = glm::mat4(1.0);
-    outputSpan[2].shadowMatrix = lightProjection *  (glm::rotate(rotMatrix, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * translation);
+    outputSpan[2].view = (glm::rotate(rotMatrix, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * translation);
       rotMatrix = glm::mat4(1.0);
-    outputSpan[3].shadowMatrix = lightProjection *  (glm::rotate(rotMatrix, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * translation);
+    outputSpan[3].view = (glm::rotate(rotMatrix, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * translation);
       rotMatrix = glm::mat4(1.0);
-    outputSpan[4].shadowMatrix = lightProjection *  (glm::rotate(rotMatrix, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * translation);
+    outputSpan[4].view = (glm::rotate(rotMatrix, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * translation);
       rotMatrix = glm::mat4(1.0);
-    outputSpan[5].shadowMatrix = lightProjection *  (glm::rotate(rotMatrix, glm::radians(180.0f), glm::vec3(0.0f, 0.0f, 1.0f)) * translation);
-       rotMatrix = glm::mat4(1.0);   
+    outputSpan[5].view = (glm::rotate(rotMatrix, glm::radians(180.0f), glm::vec3(0.0f, 0.0f, 1.0f)) * translation);
+       rotMatrix = glm::mat4(1.0);
+
+        for(int i =0; i < 6; i++)
+        {
+            outputSpan[i].proj = lightProjection;
+        }
         return  outputSpan;
         }
 
@@ -1071,7 +1077,6 @@ void updateShadowData(MemoryArena::memoryArena* allocator, std::span<std::span<P
 {
     for(int i =0; i <scene->lightCount; i++)
     {
-        
         perLightShadowData[i] =  calculateLightMatrix(allocator, camera,
              (scene->lightposandradius[i]), scene->lightDir[i], scene->lightposandradius[i].w, static_cast<lightType>(scene->lightTypes[i]));
     }
@@ -1093,10 +1098,14 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
 
     //Lights
     auto lights = MemoryArena::AllocSpan<gpulight>(tempArena, scene->lightCount);
-    Array<PerShadowData> flattenedPerShadowData = Array(MemoryArena::AllocSpan<PerShadowData>(&perFrameArenas[currentFrame],FramesInFlightData[currentFrame].shadowDataBuffers.count()));
+    Array<gpuPerShadowData> flattenedPerShadowData = Array(MemoryArena::AllocSpan<gpuPerShadowData>(&perFrameArenas[currentFrame],FramesInFlightData[currentFrame].shadowDataBuffers.count()));
     for (int i = 0; i < perLightShadowData.size(); i++)
     {
-        std::span<PerShadowData> lightsShadowData = perLightShadowData[i];
+        std::span<gpuPerShadowData> lightsShadowData  =  MemoryArena::AllocSpan<gpuPerShadowData>(tempArena, perLightShadowData[i].size());
+        for (int j = 0; j < perLightShadowData[i].size(); j++)
+        {
+            lightsShadowData[j] = {perLightShadowData[i][j].proj * perLightShadowData[i][j].view, perLightShadowData[i][j].cascadeDepth};
+        }
         lights[i] = {
             scene->lightposandradius[i],
             scene->lightcolorAndIntensity[i],
@@ -1273,8 +1282,8 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
             vkCmdPushConstants(commandBuffer, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                                sizeof(shadowPushConstants), &constants);
             
-            glm::vec4 worldSpaceFrustum[8] = {};
-            populateFrustumCornersForSpace(worldSpaceFrustum, glm::inverse(perLightShadowData[i][j].shadowMatrix));
+            // glm::vec4 worldSpaceFrustum[8] = {};
+            // populateFrustumCornersForSpace(worldSpaceFrustum, glm::inverse(perLightShadowData[i][j].shadowMatrix));
 
             
             //TODO JS: Something other than hardcoded index 0 for shadow pipeline
@@ -1342,41 +1351,45 @@ void HelloTriangleApplication::recordCommandBufferCompute(VkCommandBuffer comman
     descriptorUpdates[1] = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, computeDrawBuffer}; //draws 
     descriptorUpdates[2] = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, objectBufferInfo}; //objectData  //
 
-    cullPConstants constants = {};
-    ShaderGlobals* globals = (ShaderGlobals*)FramesInFlightData[currentFrame].opaqueShaderGlobalsBuffer._buffer.mapped;
-    //viewprojection matrix, offset for frustums
-
-    constants.view = globals->view;
-    if (!freeze)
+    //TODO JS: get a flattened list of light matrices -- loop over them -- bump offset by meshct each time -- move this before shadow pass -- set up semaphores -- then you're done?
+    int offset = 0;
+    for(int i = 0; i <1; i ++)
     {
-        freezeView = constants.view;
-    }
-    else
-    {
-        auto frustum = MemoryArena::AllocSpan<glm::vec4>(&perFrameArenas[currentFrame], 8);
-        populateFrustumCornersForSpace(frustum,  glm::inverse(globals->proj * freezeView));
-        debugDrawFrustum(frustum);
-        
-        constants.view = freezeView;
-    }
-    constants.proj = globals->proj;
-    constants.viewPos = globals->viewPos;
-    constants.index = FramesInFlightData[currentFrame].currentDrawOffset; //TODO JS: IMPROVE
- 
+        cullPConstants constants = {};
+        ShaderGlobals* globals = (ShaderGlobals*)FramesInFlightData[currentFrame].opaqueShaderGlobalsBuffer._buffer.mapped;
+        //viewprojection matrix, offset for frustums
+
+        if (i ==  scene->shadowCasterCount() - 1)
+        {
+            constants.view = globals->view;
+            // if (!freeze)
+            // {
+            //     freezeView = constants.view;
+            // }
+            // else
+            // {
+            //     auto frustum = MemoryArena::AllocSpan<glm::vec4>(&perFrameArenas[currentFrame], 8);
+            //     populateFrustumCornersForSpace(frustum,  glm::inverse(globals->proj * freezeView));
+            //     debugDrawFrustum(frustum);
+            //     constants.view = freezeView;
+            // }
+        }
+        constants.firstDraw = FramesInFlightData[currentFrame].currentDrawOffset; //TODO JS: IMPROVE
+        constants.frustumIndex = 0;
     
-    
-    descriptorsetLayoutsDataCompute.updateDescriptorSets(descriptorUpdates, currentFrame);
-    descriptorsetLayoutsDataCompute.bindToCommandBuffer(commandBuffer, currentFrame, VK_PIPELINE_BIND_POINT_COMPUTE);
+        descriptorsetLayoutsDataCompute.updateDescriptorSets(descriptorUpdates, currentFrame);
+        descriptorsetLayoutsDataCompute.bindToCommandBuffer(commandBuffer, currentFrame, VK_PIPELINE_BIND_POINT_COMPUTE);
 
 
 
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, descriptorsetLayoutsDataCompute.getPipeline(0));
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, descriptorsetLayoutsDataCompute.getPipeline(0));
 
-    vkCmdPushConstants(commandBuffer,   descriptorsetLayoutsDataCompute.pipelineData.bindlessPipelineLayout,  VK_SHADER_STAGE_COMPUTE_BIT, 0,
-                   sizeof(cullPConstants), &constants);
+        vkCmdPushConstants(commandBuffer,   descriptorsetLayoutsDataCompute.pipelineData.bindlessPipelineLayout,  VK_SHADER_STAGE_COMPUTE_BIT, 0,
+                       sizeof(cullPConstants), &constants);
 
-    const uint32_t dispatch_x = scene->objectsCount() != 0 ? 1 + static_cast<uint32_t>((scene->objectsCount() - 1) / 64) : 1;
-    vkCmdDispatch(commandBuffer, dispatch_x, 1, 1);
+        const uint32_t dispatch_x = scene->objectsCount() != 0 ? 1 + static_cast<uint32_t>((scene->objectsCount() - 1) / 64) : 1;
+        vkCmdDispatch(commandBuffer, dispatch_x, 1, 1);
+    }
     vkEndCommandBuffer(commandBuffer);
 }
 

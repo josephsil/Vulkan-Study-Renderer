@@ -193,7 +193,7 @@ private:
          dataBufferObject<gpuvertex> meshBuffers;
         //Basic data about the light used in all passes 
         dataBufferObject<gpulight> lightBuffers;
-        dataBufferObject<PerShadowData> shadowDataBuffers;
+        dataBufferObject<gpuPerShadowData> shadowDataBuffers;
         //Draw indirect
         uint32_t currentDrawOffset = 0;
         dataBufferObject<drawCommandData> drawBuffers;

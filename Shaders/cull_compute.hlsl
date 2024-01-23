@@ -2,9 +2,8 @@
 struct cullComputeGLobals
 {
 	float4x4 view;
-	float4x4 proj;
-	float4 pos;
 	uint offset;
+	uint frustumOffset;
 	//TODO JS: frustum should just go in here
 };
 
@@ -49,7 +48,7 @@ void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
  
 	bool visible = true;
 
-	for(int i = 0; i < 6; i++)
+	for(int i = 0 + globals.frustumOffset; i < 6 + globals.frustumOffset; i++)
 	{
 		visible = visible && dot(frustumData[i], float4(center.xyz,1)) > -(radius/2);
 	}
