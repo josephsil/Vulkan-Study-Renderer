@@ -91,6 +91,7 @@ struct cullPConstants
     alignas(16) glm::mat4 view;
     uint32_t firstDraw;
     uint32_t frustumIndex;
+    uint32_t objectCount;
 };
 
 

@@ -4,6 +4,7 @@ struct cullComputeGLobals
 	float4x4 view;
 	uint offset;
 	uint frustumOffset;
+	uint objectCount;
 	//TODO JS: frustum should just go in here
 };
 
@@ -38,6 +39,7 @@ RWStructuredBuffer<objectData> _objectData;
 [numthreads(64, 1, 1)]
 void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
 {
+	if (GlobalInvocationID.x > globals.objectCount) return;
 	uint objIndex = drawData[globals.offset + GlobalInvocationID.x].objectIndex;
 	objectData object = _objectData[objIndex];
 	float4x4 modelView = mul(globals.view, object.Model);

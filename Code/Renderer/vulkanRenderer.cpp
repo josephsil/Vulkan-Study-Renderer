@@ -71,6 +71,7 @@ vkb::PhysicalDevice GET_GPU(vkb::Instance instance)
     features12.runtimeDescriptorArray = VK_TRUE;
     features12.descriptorBindingPartiallyBound = VK_TRUE;
     features13.dynamicRendering = VK_TRUE;
+    features13.synchronization2 = VK_TRUE;
 
    
     vkb::PhysicalDeviceSelector phys_device_selector(instance);
@@ -761,6 +762,38 @@ struct linePair
     glm::vec3 end;
     glm::vec3 color;
 };
+
+//zoux code
+VkBufferMemoryBarrier2 bufferBarrier(VkBuffer buffer, VkPipelineStageFlags2 srcStageMask, VkAccessFlags2 srcAccessMask, VkPipelineStageFlags2 dstStageMask, VkAccessFlags2 dstAccessMask)
+{
+    VkBufferMemoryBarrier2 result = { VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2 };
+
+    result.srcStageMask = srcStageMask;
+    result.srcAccessMask = srcAccessMask;
+    result.dstStageMask = dstStageMask;
+    result.dstAccessMask = dstAccessMask;
+    result.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    result.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    result.buffer = buffer;
+    result.offset = 0;
+    result.size = VK_WHOLE_SIZE;
+
+    return result;
+}
+//zoux code
+void pipelineBarrier(VkCommandBuffer commandBuffer, VkDependencyFlags dependencyFlags, size_t bufferBarrierCount, const VkBufferMemoryBarrier2* bufferBarriers, size_t imageBarrierCount, const VkImageMemoryBarrier2* imageBarriers)
+{
+    VkDependencyInfo dependencyInfo = { VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+    dependencyInfo.dependencyFlags = dependencyFlags;
+    dependencyInfo.bufferMemoryBarrierCount = unsigned(bufferBarrierCount);
+    dependencyInfo.pBufferMemoryBarriers = bufferBarriers;
+    dependencyInfo.imageMemoryBarrierCount = unsigned(imageBarrierCount);
+    dependencyInfo.pImageMemoryBarriers = imageBarriers;
+
+    vkCmdPipelineBarrier2(commandBuffer, &dependencyInfo);
+}
+
+
 std::vector<linePair> debugLines;
 //TODO JS: this sucks!
 void HelloTriangleApplication::updateCamera(inputData input)
@@ -1133,7 +1166,7 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
         for (int j = 0; j < perLightShadowData[i].size(); j++)
         {
             viewProj vp = viewProjFromCamera(camera);
-            glm::mat4  projT =   perLightShadowData[i][j].proj  ;
+            glm::mat4  projT =   transpose(perLightShadowData[i][j].proj)  ;
     
             frustums[offset + 0] = projT[3] + projT[0];
             frustums[offset + 1] = projT[3] - projT[0];
@@ -1146,7 +1179,7 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
     }
 
     viewProj vp = viewProjFromCamera(camera);
-    glm::mat4  projT =   vp.proj;
+    glm::mat4  projT =   transpose(vp.proj);
     frustums[offset + 0] = projT[3] + projT[0];
     frustums[offset + 1] = projT[3] - projT[0];
     frustums[offset + 2] = projT[3] + projT[1];
@@ -1201,7 +1234,7 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
 
 
     uint32_t SHADOW_INDEX = 0; //TODO JS: loop over shadowcasters
-    updateShadowDescriptorSets(&descriptorsetLayoutsDataShadow, SHADOW_INDEX);
+ 
     descriptorsetLayoutsDataShadow.bindToCommandBuffer(commandBuffer, currentFrame);
     VkPipelineLayout layout = descriptorsetLayoutsDataShadow.pipelineData.bindlessPipelineLayout;
 
@@ -1374,35 +1407,28 @@ void HelloTriangleApplication::recordCommandBufferCompute(VkCommandBuffer comman
     ShaderGlobals* globals = (ShaderGlobals*)FramesInFlightData[currentFrame].opaqueShaderGlobalsBuffer._buffer.mapped;
     for(int i = 0; i < scene->lightCount + 1; i ++)
     {
-        int jmax =  i == scene->lightCount ? 1 : scene->lightshadowMapCount[i];
+        bool lastPass = i == scene->lightCount;
+        int jmax =  lastPass ?  1 : scene->lightshadowMapCount[i];
         for (int j = 0; j < jmax; j++)
         {
-            cullPConstants constants = {};
+            cullPConstants constants = *MemoryArena::Alloc<cullPConstants>(&perFrameArenas[currentFrame]);
 
             //viewprojection matrix, offset for frustums
 
-            if (i ==  scene->shadowCasterCount() - 1)
+            if (lastPass)
             {
                 constants.view = globals->view;
-                // if (!freeze)
-                // {
-                //     freezeView = constants.view;
-                // }
-                // else
-                // {
-                //     auto frustum = MemoryArena::AllocSpan<glm::vec4>(&perFrameArenas[currentFrame], 8);
-                //     populateFrustumCornersForSpace(frustum,  glm::inverse(globals->proj * freezeView));
-                //     debugDrawFrustum(frustum);
-                //     constants.view = freezeView;
-                // }
+
             }
             else
             {
                 constants.view = shadowData[lightIndexoffset].view;
+                lightIndexoffset ++;
             }
-            constants.firstDraw = offset; //TODO JS: IMPROVE
-            constants.frustumIndex = (lightIndexoffset) * 6;
-    
+            constants.firstDraw = offset * scene->objectsCount(); //TODO JS: IMPROVE
+            constants.frustumIndex = (offset) * 6;
+
+            constants.objectCount = scene->objectsCount();
        
 
 
@@ -1411,13 +1437,19 @@ void HelloTriangleApplication::recordCommandBufferCompute(VkCommandBuffer comman
             vkCmdPushConstants(commandBuffer,   descriptorsetLayoutsDataCompute.pipelineData.bindlessPipelineLayout,  VK_SHADER_STAGE_COMPUTE_BIT, 0,
                            sizeof(cullPConstants), &constants);
 
-            const uint32_t dispatch_x = scene->objectsCount() != 0 ? 1 + static_cast<uint32_t>((scene->objectsCount() - 1) / 64) : 1;
+            const uint32_t dispatch_x = scene->objectsCount() != 0 ? 1 + static_cast<uint32_t>((scene->objectsCount() - 1) / 16) : 1;
             vkCmdDispatch(commandBuffer, dispatch_x, 1, 1);
-            offset += scene->objectsCount();
-            lightIndexoffset ++;
+            offset ++;
             
         }
     }
+    VkBufferMemoryBarrier2 barrier = bufferBarrier(FramesInFlightData[currentFrame].drawBuffers._buffer.data,
+                                                   VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+                                                   VK_ACCESS_2_SHADER_WRITE_BIT,
+                                                   VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT |
+                                                   VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT,
+                                                   VK_ACCESS_2_MEMORY_READ_BIT);
+    pipelineBarrier(commandBuffer,0, 1, &barrier, 0, 0);
     vkEndCommandBuffer(commandBuffer);
 }
 
@@ -1507,7 +1539,7 @@ void HelloTriangleApplication::recordCommandBufferOpaquePass(VkCommandBuffer com
     //************
     //** Descriptor Sets update and binding
     // This could change sometimes
-    updateOpaqueDescriptorSets(&descriptorsetLayoutsData);
+   
     descriptorsetLayoutsData.bindToCommandBuffer(commandBuffer, currentFrame);
     VkPipelineLayout layout = descriptorsetLayoutsData.pipelineData.bindlessPipelineLayout;
     
@@ -1533,24 +1565,24 @@ void HelloTriangleApplication::recordCommandBufferOpaquePass(VkCommandBuffer com
     }
     FramesInFlightData[currentFrame].currentDrawOffset +=( meshct );
     //debug lines -- todo feed from somehwere   
-                                                                            //TODO JS: something other than hardcoded 2
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, descriptorsetLayoutsData.getPipeline(2));
-    debugLines.push_back({{0,0,0},{20,40,20}, {0,0,1}});
-    for (int i = 0; i <debugLines.size(); i++)
-    {
-
-        debugLinePConstants constants;
-        //Light count, vert offset, texture index, and object data index
-        constants.pos1 = glm::vec4(debugLines[i].start,1.0);
-        constants.pos2 = glm::vec4(debugLines[i].end,1.0);
-        constants.color = glm::vec4(debugLines[i].color,1.0);
-        constants.m = glm::mat4(1.0);
-
-        vkCmdPushConstants(commandBuffer, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-                          sizeof(debugLinePConstants), &constants);
-
-        vkCmdDraw(commandBuffer, 2, 1, 0, 0);
-    }
+    //                                                                         //TODO JS: something other than hardcoded 2
+    // vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, descriptorsetLayoutsData.getPipeline(2));
+    // debugLines.push_back({{0,0,0},{20,40,20}, {0,0,1}});
+    // for (int i = 0; i <debugLines.size(); i++)
+    // {
+    //
+    //     debugLinePConstants constants;
+    //     //Light count, vert offset, texture index, and object data index
+    //     constants.pos1 = glm::vec4(debugLines[i].start,1.0);
+    //     constants.pos2 = glm::vec4(debugLines[i].end,1.0);
+    //     constants.color = glm::vec4(debugLines[i].color,1.0);
+    //     constants.m = glm::mat4(1.0);
+    //
+    //     vkCmdPushConstants(commandBuffer, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+    //                       sizeof(debugLinePConstants), &constants);
+    //
+    //     vkCmdDraw(commandBuffer, 2, 1, 0, 0);
+    // }
 
     vkCmdEndRendering(commandBuffer);
 
@@ -1791,6 +1823,9 @@ void HelloTriangleApplication::drawFrame()
 
     updatePerFrameBuffers(currentFrame, scene->objects.matrices); // TODO JS: timing bugs if it doesn't happen after the fence
 
+    updateOpaqueDescriptorSets(&descriptorsetLayoutsData);
+    updateShadowDescriptorSets(&descriptorsetLayoutsDataShadow, 0);
+    
     vkResetCommandBuffer(FramesInFlightData[currentFrame].opaqueCommandBuffers, 0);
     vkResetCommandBuffer(FramesInFlightData[currentFrame].computeCommandBuffers, 0);
     vkResetCommandBuffer(FramesInFlightData[currentFrame].shadowCommandBuffers, 0);
