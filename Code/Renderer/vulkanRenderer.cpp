@@ -1469,13 +1469,10 @@ void HelloTriangleApplication::recordCommandBufferCompute(VkCommandBuffer comman
         }
     }
     VkBufferMemoryBarrier2 barrier = bufferBarrier(FramesInFlightData[currentFrame].drawBuffers._buffer.data,
-                                                   VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-                                                   VK_ACCESS_2_MEMORY_READ_BIT_KHR |
-                  VK_ACCESS_2_MEMORY_WRITE_BIT_KHR,
-                                                   VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT |
-                                                   VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT_KHR,
-                                                   VK_ACCESS_2_MEMORY_READ_BIT_KHR |
-                   VK_ACCESS_2_MEMORY_WRITE_BIT_KHR);
+    VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+      VK_ACCESS_2_SHADER_WRITE_BIT,
+      VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT,
+     VK_ACCESS_2_MEMORY_READ_BIT_KHR );
     pipelineBarrier(commandBuffer,0, 1, &barrier, 0, 0);
     vkEndCommandBuffer(commandBuffer);
 }
