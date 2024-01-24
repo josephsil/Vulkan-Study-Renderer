@@ -71,7 +71,8 @@ struct PerShadowData
 
 struct gpuPerShadowData
 {
-    glm::mat4 shadowMatrix;
+    glm::mat4 view;
+    glm::mat4 proj;
     float cascadeDepth;
 };
 

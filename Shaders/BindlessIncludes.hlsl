@@ -216,7 +216,7 @@ float3 getShadow(int index, float3 fragPos)
     if (getLightType(light) == LIGHT_SPOT)
     {
         int ARRAY_INDEX = 0;
-        float4x4 lightMat = shadowMatrices[getShadowMatrixIndex(light) +ARRAY_INDEX].mat;
+        float4x4 lightMat = mul(shadowMatrices[getShadowMatrixIndex(light) +ARRAY_INDEX].proj,  shadowMatrices[getShadowMatrixIndex(light) +ARRAY_INDEX].view);
         float4 fragPosLightSpace = mul( lightMat, float4(fragPos, 1.0));
         float3 shadowProjection = (fragPosLightSpace.xyz / fragPosLightSpace.w);
         float3 shadowUV = shadowProjection   * 0.5 + 0.5;
@@ -228,7 +228,7 @@ float3 getShadow(int index, float3 fragPos)
     {
         int lightIndex = getShadowMatrixIndex(light);
         int cascadeLevel =  findCascadeLevel(lightIndex, fragPos);
-            float4 fragPosShadowSpace = mul(shadowMatrices[lightIndex + cascadeLevel].mat,  float4(fragPos, 1.0));
+            float4 fragPosShadowSpace = mul(mul(shadowMatrices[lightIndex + cascadeLevel].proj, shadowMatrices[lightIndex + cascadeLevel].view),  float4(fragPos, 1.0));
             float3 shadowProjection = (fragPosShadowSpace.xyz / fragPosShadowSpace.w);
             float3 shadowUV = shadowProjection   * 0.5 + 0.5;
             shadowUV.z = cascadeLevel;

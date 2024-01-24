@@ -158,7 +158,8 @@ private:
 
     struct per_frame_data
     {
-        //Below is all vulkan stuff 
+        //Below is all vulkan stuff
+        VkSemaphore computeFinishedSemaphores {};
         VkSemaphore shadowAvailableSemaphores {};
         VkSemaphore shadowFinishedSemaphores {};
         VkSemaphore imageAvailableSemaphores {};

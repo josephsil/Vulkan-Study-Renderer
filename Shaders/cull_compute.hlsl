@@ -48,9 +48,9 @@ void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
  
 	bool visible = true;
 
-	for(int i = 0 + globals.frustumOffset; i < 6 + globals.frustumOffset; i++)
+	for(int i = 0 ; i < 6; i++)
 	{
-		visible = visible && dot(frustumData[i], float4(center.xyz,1)) > -(radius/2);
+		visible = visible && dot(frustumData[i + globals.frustumOffset], float4(center.xyz,1)) > -(radius/2);
 	}
 
 	// visible = 0;

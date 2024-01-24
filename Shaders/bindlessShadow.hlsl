@@ -51,7 +51,8 @@ VSOutput Vert(VSInput input,  [[vk::builtin("BaseInstance")]]  uint InstanceInde
     VSOutput output = (VSOutput)0;
     float4x4 viewProjection;
 ///
-        viewProjection = shadowMatrices[MATRIXOFFSET].mat;
+        viewProjection = mul(shadowMatrices[MATRIXOFFSET].proj, shadowMatrices[MATRIXOFFSET].view);
+    
     float4x4 mvp2 = mul(viewProjection, ubo.Model);
     
     output.Pos = mul(mvp2, half4(myVertex.position.xyz, 1.0));

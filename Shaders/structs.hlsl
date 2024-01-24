@@ -28,7 +28,8 @@ struct ShaderGlobals
 
 struct perShadowData
 {
-    float4x4 mat;
+    float4x4 view;
+    float4x4 proj;
     float depth;
 };
 
