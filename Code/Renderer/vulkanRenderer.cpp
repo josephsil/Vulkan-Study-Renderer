@@ -1779,7 +1779,8 @@ VkPipelineStageFlags shadowWaitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OU
 
 drawInfo updateIndirectCommandBufferAndreturnDraws(Scene* scene, HelloTriangleApplication::cameraData camera, MemoryArena::memoryArena* allocator, std::span<drawCommandData> mappedDrawCommandBuffer,      std::span<std::span<PerShadowData>> inputShadowdata, PipelineDataObject opaquePipelineData)
 {
-
+    LARGE_INTEGER count1;
+    QueryPerformanceCounter(&count1);
     int PIPELINE_COUNT = opaquePipelineData.getPipelineCt();
     int FILL_OFFSET = 0;
     int drawOffset = 0;
@@ -1797,6 +1798,8 @@ drawInfo updateIndirectCommandBufferAndreturnDraws(Scene* scene, HelloTriangleAp
             drawOffset++;
         }
     }
+    LARGE_INTEGER count2;
+    QueryPerformanceCounter(&count2);
     std::span<shadow_or_compute_PassInfo> shadowPasses = shadowAndComputePasses.getSpan();
 
 
@@ -1815,7 +1818,7 @@ drawInfo updateIndirectCommandBufferAndreturnDraws(Scene* scene, HelloTriangleAp
     {
         bucketedPipelines[scene->objects.materials[j].pipelineidx].indices.push_back(j);
     }
-
+ 
 
         //Fill opaque pass infos
     Array batchedDraws = MemoryArena::AllocSpan<opaquePassInfo>(allocator, MAX_PIPELINES);
@@ -1832,18 +1835,29 @@ drawInfo updateIndirectCommandBufferAndreturnDraws(Scene* scene, HelloTriangleAp
 
         drawCt += indices.size();
     }
+    LARGE_INTEGER count3;
+    QueryPerformanceCounter(&count3);
 
     //FILL DRAW COMMANDS
-    
+
+    std::span<uint32_t> meshIndices = MemoryArena::AllocSpan<uint32_t>(allocator, scene->objectsCount());
+    for(int i = 0; i < scene->objectsCount(); i++)
+    {
+        meshIndices[i] = scene->objects.meshIndices[i];
+    }
 
         //draw commands for shadows
     for(int i =0; i < shadowPasses.size(); i++)
     {
-        for (int j = 0; j < scene->objectsCount(); j++)
-        {
-            mappedDrawCommandBuffer[shadowPasses[i].drawOffset + j] =  {
-                (uint32_t)j, {},(uint32_t)scene->backing_meshes[scene->objects.meshIndices[j]].vertcount, 1, 0, (uint32_t)j};
-        }
+        // if (i == 0)
+        // {
+            for (int j = 0; j < scene->objectsCount(); j++)
+            {
+         
+                mappedDrawCommandBuffer[shadowPasses[i].drawOffset + j] =  {
+                    (uint32_t)j, (uint32_t)scene->backing_meshes[meshIndices[j]].vertcount, 1, 0, (uint32_t)j};
+            }
+      
     }
 
     
@@ -1856,12 +1870,15 @@ drawInfo updateIndirectCommandBufferAndreturnDraws(Scene* scene, HelloTriangleAp
         for (int k = 0; k < indices.size(); k++)
         {
          
-            mappedDrawCommandBuffer[FILL_OFFSET + drawCt2 + k] = {indices[k],  {}, static_cast<uint32_t>(scene->backing_meshes[scene->objects.meshIndices[indices[k]]].vertcount), 1, 0, (uint32_t)indices[k]};
+            mappedDrawCommandBuffer[FILL_OFFSET + drawCt2 + k] = {indices[k], static_cast<uint32_t>(scene->backing_meshes[meshIndices[indices[k]]].vertcount), 1, 0, (uint32_t)indices[k]};
         }
         drawCt2 += indices.size();
     }
+    LARGE_INTEGER count4;
+    QueryPerformanceCounter(&count4);
     
 
+    printf("%lld fillshadow, %lld buckets, %lld commands \n", (__int64&) count2 - (__int64&) count1, (__int64&) count3 - (__int64&) count2, (__int64&) count4 - (__int64&) count3);
     //add opaque pass 
     shadowAndComputePasses.push_back({drawOffset, FILL_OFFSET,viewProjFromCamera(camera).view});
 

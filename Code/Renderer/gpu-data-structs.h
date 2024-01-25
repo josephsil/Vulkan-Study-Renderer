@@ -50,7 +50,7 @@ struct drawCommandData
 {
     uint32_t objectIndex;
     // VkDrawIndirectCommand
-    alignas(16) glm::vec4 debugdata;
+    // alignas(16) glm::vec4 debugdata;
     __VkDrawIndirectCommand command;
 };
 
