@@ -318,7 +318,7 @@ int Scene::getShadowDataIndex(int idx)
 
 int Scene::shadowCasterCount()
 {
-    return min(MAX_SHADOWCASTERS, this->lightCount);
+    return glm::min(MAX_SHADOWCASTERS, this->lightCount);
 }
 
 void Scene::Cleanup()

@@ -16,8 +16,6 @@
 #include "../General/Memory.h"
 #include "PipelineDataObject.h"
 // My stuff 
-
-struct drawBatch;
 struct gpulight;
 struct gpuvertex;
 class Scene;
@@ -31,6 +29,26 @@ using VmaAllocator = struct VmaAllocator_T*;
 
 const uint32_t SHADOW_MAP_SIZE = 1024;
 
+struct shadow_or_compute_PassInfo
+{
+    int offset = 0;
+    int drawOffset = 0;
+    glm::mat4 viewMatrix;
+};
+
+struct opaquePassInfo
+{
+    uint32_t start;
+    uint32_t ct;
+    VkPipeline pipeline;
+    
+};
+struct drawInfo
+{
+    std::span<shadow_or_compute_PassInfo> shadowDraws;
+    std::span<shadow_or_compute_PassInfo> computeDraws;
+    std::span<opaquePassInfo> opaqueDraw;
+};
 
 struct  semaphoreData
 {
@@ -82,7 +100,7 @@ private:
 
   
 
-    cameraData camera;
+    cameraData sceneCamera;
 
     bool freeze = false;
     glm::mat4 freezeView = {};
@@ -234,7 +252,7 @@ private:
     void updateCamera(inputData input);
     //Globals per pass, ubos, and lights are updated every frame
     void updatePerFrameBuffers(unsigned currentFrame, Array<glm::mat4> models);
-    void recordCommandBufferShadowPass(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+    void recordCommandBufferShadowPass(VkCommandBuffer commandBuffer, uint32_t imageIndex, std::span<shadow_or_compute_PassInfo> passes);
 
 
     void createDescriptorSetLayout(VkDescriptorSetLayoutCreateInfo layoutinfo, VkDescriptorSetLayout* layout);
@@ -244,10 +262,10 @@ private:
     void createSyncObjects();
 
     void createCommandBuffers();
-    void recordCommandBufferCompute(VkCommandBuffer commandBuffer, uint32_t currentFrame);
+    void recordCommandBufferCompute(VkCommandBuffer commandBuffer, uint32_t currentFrame, std::span<shadow_or_compute_PassInfo> passes);
     void submitComputePass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores,
-                           std::vector<VkSemaphore> signalsemaphores);
-    void recordCommandBufferOpaquePass(VkCommandBuffer commandBuffer, uint32_t imageIndex, Array<drawBatch> batchedDraws);
+                           std::vector<VkSemaphore> signalsemaphores, std::span<shadow_or_compute_PassInfo> passes);
+    void recordCommandBufferOpaquePass(VkCommandBuffer commandBuffer, uint32_t imageIndex, std::span<opaquePassInfo> batchedDraws);
 
     void createGraphicsCommandPool();
     void createTransferCommandPool();
@@ -273,10 +291,10 @@ private:
     void drawFrame();
 
 
-    void renderShadowPass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphoreData,
-                          std::vector<VkSemaphore> signalsemaphores);
-    void renderOpaquePass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphoreData, std::vector<VkSemaphore>
-                          signalsemaphores, Array<drawBatch> batchedDraws);
+    void renderShadowPass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores,
+                          std::vector<VkSemaphore> signalsemaphores, std::span<shadow_or_compute_PassInfo> passes);
+    void renderOpaquePass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores, std::vector<VkSemaphore>
+                          signalsemaphores, std::span<opaquePassInfo> batchedDraws);
 
     void cleanup();
 

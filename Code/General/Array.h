@@ -1,6 +1,10 @@
 #pragma once
 #include <cassert>
 #include <span>
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <glm/common.hpp>
 
 template < typename T >
 struct Array
@@ -13,6 +17,7 @@ struct Array
     Array(){};
     Array(T* d, size_t _size)
     {
+        assert(!std::is_void_v<T>);
         data = d;
         capacity = _size;
         ct = 0;
@@ -20,6 +25,7 @@ struct Array
 
     Array(T* d, size_t _ct, size_t _size)
     {
+     assert(!std::is_void_v<T>);
         data = d;
         capacity = _size;
         ct = _ct;
@@ -27,6 +33,7 @@ struct Array
 
     Array(std::span<T> span)
     {
+     assert(!std::is_void_v<T>);
         data = span.data();
         capacity = span.size();
         ct = 0;
@@ -44,9 +51,9 @@ struct Array
         data[ct++] = entry;
     }
 
-    std::span<T> getSpan()
+    std::span<T> getSpan(size_t size = INT_MAX)
     {
-        return std::span<T>(data,ct);
+        return std::span<T>(data, glm::min(ct, size));
     }
 
     inline size_t size() const { return ct; }
