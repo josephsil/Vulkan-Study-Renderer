@@ -1628,6 +1628,7 @@ void HelloTriangleApplication::createGraphicsPipeline(const char* shaderName, Pi
 
 void HelloTriangleApplication::mainLoop()
 {
+   
     SDL_Event e;
     bool bQuit = false;
 
@@ -1635,6 +1636,26 @@ void HelloTriangleApplication::mainLoop()
     float mouseSpeed = 1.0;
     while (!bQuit)
     {
+
+        if (!firstTime[currentFrame])
+        {
+            vkWaitForFences(device, 1, &FramesInFlightData[currentFrame].inFlightFences, VK_TRUE, UINT64_MAX);
+            MemoryArena::free(&perFrameArenas[currentFrame]);
+            vkResetCommandBuffer(FramesInFlightData[currentFrame].opaqueCommandBuffers, 0);
+            vkResetCommandBuffer(FramesInFlightData[currentFrame].computeCommandBuffers, 0);
+            vkResetCommandBuffer(FramesInFlightData[currentFrame].shadowCommandBuffers, 0);
+            vkResetCommandBuffer(FramesInFlightData[currentFrame].swapchainTransitionOutCommandBuffer, 0);
+            vkResetCommandBuffer(FramesInFlightData[currentFrame].swapchainTransitionInCommandBuffer, 0);
+            vkResetCommandBuffer(FramesInFlightData[currentFrame].shadowTransitionOutCommandBuffer, 0);
+            vkResetCommandBuffer(FramesInFlightData[currentFrame].shadowTransitionInCommandBuffer, 0);
+   
+            vkResetFences(device, 1, &FramesInFlightData[currentFrame].inFlightFences);
+      
+        }
+        if (firstTime[currentFrame])
+        {
+            firstTime[currentFrame] = false;
+        }
         this->T2 = SDL_GetTicks();
         uint32_t deltaTicks = this->T2 - this->T;
         this->deltaTime = deltaTicks * 0.001;
@@ -1881,8 +1902,8 @@ drawInfo updateIndirectCommandBufferAndreturnDraws(Scene* scene, HelloTriangleAp
 
     drawInfo dI = { shadowPasses, shadowAndComputePasses.getSpan(), batchedDraws.getSpan()};
     return dI;
-}
 
+}
 void HelloTriangleApplication::drawFrame()
 {
   //Update per frame data
@@ -1898,22 +1919,14 @@ void HelloTriangleApplication::drawFrame()
     ///
     ///
     ///    //Wait for IMAGE INDEX to be ready to present
-    vkWaitForFences(device, 1, &FramesInFlightData[imageIndex].inFlightFences, VK_TRUE, UINT64_MAX);
-    MemoryArena::free(&perFrameArenas[imageIndex]);
+ 
 
     updatePerFrameBuffers(currentFrame, scene->objects.matrices); // TODO JS: timing bugs if it doesn't happen after the fence
 
     updateOpaqueDescriptorSets(&descriptorsetLayoutsData);
     updateShadowDescriptorSets(&descriptorsetLayoutsDataShadow, 0);
     
-    vkResetCommandBuffer(FramesInFlightData[currentFrame].opaqueCommandBuffers, 0);
-    vkResetCommandBuffer(FramesInFlightData[currentFrame].computeCommandBuffers, 0);
-    vkResetCommandBuffer(FramesInFlightData[currentFrame].shadowCommandBuffers, 0);
-    vkResetCommandBuffer(FramesInFlightData[currentFrame].swapchainTransitionOutCommandBuffer, 0);
-    vkResetCommandBuffer(FramesInFlightData[currentFrame].swapchainTransitionInCommandBuffer, 0);
-    vkResetCommandBuffer(FramesInFlightData[currentFrame].shadowTransitionOutCommandBuffer, 0);
-    vkResetCommandBuffer(FramesInFlightData[currentFrame].shadowTransitionInCommandBuffer, 0);
-    vkResetFences(device, 1, &FramesInFlightData[currentFrame].inFlightFences);
+
 
 
     ///////////////////////// </Transition swapChain 

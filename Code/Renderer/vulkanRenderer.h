@@ -221,6 +221,7 @@ private:
 #pragma endregion
     };
     std::vector<per_frame_data> FramesInFlightData;
+    bool firstTime[MAX_FRAMES_IN_FLIGHT];
 
     
     
@@ -280,6 +281,7 @@ private:
                                 PipelineDataObject* descriptorsetdata, PipelineDataObject::graphicsPipelineSettings settings, bool compute, size_t pconstantsize);
     
 
+    int firstframe = true;
     void createInstance();
 
     int _selectedShader{0};
