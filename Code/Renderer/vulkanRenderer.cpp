@@ -1410,17 +1410,14 @@ void HelloTriangleApplication::recordCommandBufferCompute(VkCommandBuffer comman
     }
     
     VkBufferMemoryBarrier2 barrier = bufferBarrier(FramesInFlightData[currentFrame].drawBuffers._buffer.data,
-                                                   VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-                                                   VK_ACCESS_2_MEMORY_READ_BIT_KHR |
-                                                   VK_ACCESS_2_MEMORY_WRITE_BIT_KHR,
-                                                   VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT |
-                                                   VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT_KHR,
-                                                   VK_ACCESS_2_MEMORY_READ_BIT_KHR |
-                                                   VK_ACCESS_2_MEMORY_WRITE_BIT_KHR);
+    VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+      VK_ACCESS_2_SHADER_WRITE_BIT,
+      VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT,
+     VK_ACCESS_2_MEMORY_READ_BIT_KHR );
     
-    pipelineBarrier(commandBuffer, 0, 1, &barrier, 0, 0);
+    pipelineBarrier(commandBuffer,0, 1, &barrier, 0, 0);
     vkEndCommandBuffer(commandBuffer);
-}
+}//
 
 
 void HelloTriangleApplication::submitComputePass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores, std::vector<VkSemaphore> signalsemaphores, std::span<shadow_or_compute_PassInfo> passes)
@@ -1535,24 +1532,24 @@ void HelloTriangleApplication::recordCommandBufferOpaquePass(VkCommandBuffer com
     FramesInFlightData[currentFrame].currentDrawOffset +=( meshct );
 
     
-    //                                                                         //TODO JS: something other than hardcoded 2
-    // vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, descriptorsetLayoutsData.getPipeline(2));
-    // debugLines.push_back({{0,0,0},{20,40,20}, {0,0,1}});
-    // for (int i = 0; i <debugLines.size(); i++)
-    // {
-    //
-    //     debugLinePConstants constants;
-    //     //Light count, vert offset, texture index, and object data index
-    //     constants.pos1 = glm::vec4(debugLines[i].start,1.0);
-    //     constants.pos2 = glm::vec4(debugLines[i].end,1.0);
-    //     constants.color = glm::vec4(debugLines[i].color,1.0);
-    //     constants.m = glm::mat4(1.0);
-    //
-    //     vkCmdPushConstants(commandBuffer, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-    //                       sizeof(debugLinePConstants), &constants);
-    //
-    //     vkCmdDraw(commandBuffer, 2, 1, 0, 0);
-    // }
+                                                                            //TODO JS: something other than hardcoded 2
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, descriptorsetLayoutsData.getPipeline(2));
+    debugLines.push_back({{0,0,0},{20,40,20}, {0,0,1}});
+    for (int i = 0; i <debugLines.size(); i++)
+    {
+    
+        debugLinePConstants constants;
+        //Light count, vert offset, texture index, and object data index
+        constants.pos1 = glm::vec4(debugLines[i].start,1.0);
+        constants.pos2 = glm::vec4(debugLines[i].end,1.0);
+        constants.color = glm::vec4(debugLines[i].color,1.0);
+        constants.m = glm::mat4(1.0);
+    
+        vkCmdPushConstants(commandBuffer, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                          sizeof(debugLinePConstants), &constants);
+    
+        vkCmdDraw(commandBuffer, 2, 1, 0, 0);
+    }
 
     vkCmdEndRendering(commandBuffer);
 
@@ -1779,8 +1776,8 @@ VkPipelineStageFlags shadowWaitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OU
 
 drawInfo updateIndirectCommandBufferAndreturnDraws(Scene* scene, HelloTriangleApplication::cameraData camera, MemoryArena::memoryArena* allocator, std::span<drawCommandData> mappedDrawCommandBuffer,      std::span<std::span<PerShadowData>> inputShadowdata, PipelineDataObject opaquePipelineData)
 {
-    LARGE_INTEGER count1;
-    QueryPerformanceCounter(&count1);
+    // LARGE_INTEGER count1;
+    // QueryPerformanceCounter(&count1);
     int PIPELINE_COUNT = opaquePipelineData.getPipelineCt();
     int FILL_OFFSET = 0;
     int drawOffset = 0;
@@ -1798,8 +1795,8 @@ drawInfo updateIndirectCommandBufferAndreturnDraws(Scene* scene, HelloTriangleAp
             drawOffset++;
         }
     }
-    LARGE_INTEGER count2;
-    QueryPerformanceCounter(&count2);
+    // LARGE_INTEGER count2;
+    // QueryPerformanceCounter(&count2);
     std::span<shadow_or_compute_PassInfo> shadowPasses = shadowAndComputePasses.getSpan();
 
 
@@ -1835,8 +1832,8 @@ drawInfo updateIndirectCommandBufferAndreturnDraws(Scene* scene, HelloTriangleAp
 
         drawCt += indices.size();
     }
-    LARGE_INTEGER count3;
-    QueryPerformanceCounter(&count3);
+    // LARGE_INTEGER count3;
+    // QueryPerformanceCounter(&count3);
 
     //FILL DRAW COMMANDS
 
@@ -1874,11 +1871,11 @@ drawInfo updateIndirectCommandBufferAndreturnDraws(Scene* scene, HelloTriangleAp
         }
         drawCt2 += indices.size();
     }
-    LARGE_INTEGER count4;
-    QueryPerformanceCounter(&count4);
+    // LARGE_INTEGER count4;
+    // QueryPerformanceCounter(&count4);
     
 
-    printf("%lld fillshadow, %lld buckets, %lld commands \n", (__int64&) count2 - (__int64&) count1, (__int64&) count3 - (__int64&) count2, (__int64&) count4 - (__int64&) count3);
+    // printf("%lld fillshadow, %lld buckets, %lld commands \n", (__int64&) count2 - (__int64&) count1, (__int64&) count3 - (__int64&) count2, (__int64&) count4 - (__int64&) count3);
     //add opaque pass 
     shadowAndComputePasses.push_back({drawOffset, FILL_OFFSET,viewProjFromCamera(camera).view});
 

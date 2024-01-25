@@ -165,10 +165,9 @@ void PipelineDataObject::createPipelineLayoutForPipeline(perPipelineData* perPip
     pipelineLayoutInfo.setLayoutCount = layouts.size(); // Optional
     pipelineLayoutInfo.pSetLayouts = layouts.data();
 
-    if (pconstantSize != 0)
-    {
+   
     //setup push constants
-    VkPushConstantRange push_constant;
+    VkPushConstantRange push_constant = {};
     //this push constant range starts at the beginning
     push_constant.offset = 0;
     //this push constant range takes up the size of a MeshPushConstants struct
@@ -179,7 +178,7 @@ void PipelineDataObject::createPipelineLayoutForPipeline(perPipelineData* perPip
   
         pipelineLayoutInfo.pPushConstantRanges = &push_constant;
         pipelineLayoutInfo.pushConstantRangeCount = 1;
-    }
+   
 
     if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &perPipelineData->bindlessPipelineLayout) != VK_SUCCESS)
     {
@@ -187,6 +186,7 @@ void PipelineDataObject::createPipelineLayoutForPipeline(perPipelineData* perPip
     exit(-1);
     }
     perPipelineData->pipelineLayoutInitialized = true;
+  
 }
 
 
