@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <cstdlib>
 
+#include "BufferAndPool.h"
 #include "RendererHandles.h"
 #include "bufferCreation.h"
 #include "CommandPoolManager.h"

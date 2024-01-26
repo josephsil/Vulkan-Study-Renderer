@@ -12,6 +12,7 @@
 #include <iostream>
 #include <ktxvulkan.h>
 
+#include "BufferAndPool.h"
 #include "bufferCreation.h"
 #include "CommandPoolManager.h"
 #include "../General/MemoryArena.h"

@@ -1,6 +1,5 @@
 #pragma once
 #include <glm/glm.hpp>
-#include <vector>
 #include <span>
 #include "VulkanIncludes/forward-declarations-renderer.h"
 struct RendererHandles;
@@ -24,15 +23,6 @@ struct RenderTextureFormat
 {
     VkFormat ColorFormat;
     VkFormat DepthFormat;
-};
-
-struct bufferAndPool
-{
-    VkCommandBuffer buffer;
-    VkCommandPool pool;
-    VkQueue queue;
-    std::vector<VkSemaphore> waitSemaphores = {};
-    std::vector<VkSemaphore> signalSemaphores = {};
 };
 
 

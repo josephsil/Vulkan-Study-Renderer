@@ -203,6 +203,7 @@
     <ClInclude Include="Code\General\Array.h" />
     <ClInclude Include="Code\General\FileCaching.h" />
     <ClInclude Include="Code\General\MemoryArena.h" />
+    <ClInclude Include="Code\Renderer\BufferAndPool.h" />
     <ClInclude Include="Code\Renderer\bufferCreation.h" />
     <ClInclude Include="Code\Renderer\CommandPoolManager.h" />
     <ClInclude Include="Code\Renderer\gpu-data-structs.h" />

@@ -1,5 +1,6 @@
 #include "CommandPoolManager.h"
 
+#include "BufferAndPool.h"
 #include "./VulkanIncludes/Vulkan_Includes.h";
 #include "VkBootstrap.h"; //TODO JS: dont love vkb being in multiple places
 
