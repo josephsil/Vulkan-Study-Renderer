@@ -5,16 +5,13 @@
 #define SDL_MAIN_HANDLED 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_vulkan.h>
-
+////
 #include <cstdlib>
-#include <fstream>
-#include <iostream>
 #include <span>
-// #define SORT_BEFORE_DRAW
 #include "Vertex.h"
 #include "../../ImageLibraryImplementations.h"
 #include "../General/Array.h"
-#include "../General/Memory.h"
+#include "../General/MemoryArena.h"
 
 #include "bufferCreation.h"
 #include "CommandPoolManager.h"
@@ -43,8 +40,8 @@ vkb::Instance GET_INSTANCE()
                                  .build();
     if (!instanceBuilderResult)
     {
-        std::cerr << "Failed to create Vulkan instance. Error: " << instanceBuilderResult.error().message() << "\n";
-        while(true);
+        printf("Failed to create Vulkan instance. Error: %s, \n", instanceBuilderResult.error().message());
+        assert(false);
     }
 
     return instanceBuilderResult.value();
@@ -92,7 +89,7 @@ vkb::PhysicalDevice GET_GPU(vkb::Instance instance)
 
     if (!physicalDeviceBuilderResult)
     {
-        std::cerr << ("Failed to create Physical Device ")  << physicalDeviceBuilderResult.error().message();
+        printf("Failed to create Physical Device %s \n",  physicalDeviceBuilderResult.error().message());
         exit(1);
     }
     
@@ -101,7 +98,7 @@ vkb::PhysicalDevice GET_GPU(vkb::Instance instance)
     auto a =physicalDeviceBuilderResult.value().get_extensions();
     for(auto& v : a)
     {
-        std::cerr << v << "\n";
+        printf("%s \n", v.c_str());
     }
     return physicalDeviceBuilderResult.value();
 }
@@ -114,7 +111,7 @@ vkb::Device GET_DEVICE(vkb::PhysicalDevice gpu)
 
     if (!devicebuilderResult)
     {
-        std::cerr << ("Failed to create Virtual Device");
+        printf("Failed to create Virtual Device \n");
         exit(1);
     }
 
@@ -250,7 +247,7 @@ void HelloTriangleApplication::initVulkan()
     SDL_bool err = SDL_Vulkan_CreateSurface(_window, instance, &surface);
     if (!err)
     {
-        std::cerr << "Failed to create SDL surface";
+        printf("Failed to create SDL surface \n");
         exit(1);
     }
 

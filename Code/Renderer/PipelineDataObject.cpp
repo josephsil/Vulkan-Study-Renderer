@@ -10,7 +10,7 @@
 #include <span>
 
 #include "gpu-data-structs.h"
-#include "../General/Memory.h"
+#include "../General/MemoryArena.h"
 
 
 VkDescriptorSetLayoutCreateInfo createInfoFromSpan( std::span<VkDescriptorSetLayoutBinding> bindings)

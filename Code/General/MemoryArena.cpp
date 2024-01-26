@@ -1,5 +1,10 @@
 
-#include "Memory.h"
+#include "MemoryArena.h"
+#include <windows.h>
+MemoryArena::memoryArena::~memoryArena()
+{
+    VirtualFree(base, 0,MEM_RELEASE);
+}
 
 void MemoryArena::initialize(memoryArena* arena, uint32_t size)
 {

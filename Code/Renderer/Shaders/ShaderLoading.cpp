@@ -13,7 +13,7 @@
 
 #include "../../General/Array.h"
 #include "../../General/FileCaching.h"
-#include "../../General/Memory.h"
+#include "../../General/MemoryArena.h"
 #ifndef WIN32
 #include <unistd.h>
 #endif

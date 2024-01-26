@@ -5,7 +5,7 @@
 #include "../General/Array.h"
 #include "bufferCreation.h"
 #include "gpu-data-structs.h"
-#include "../General/Memory.h"
+#include "../General/MemoryArena.h"
 #include "../../tinygltf/tiny_gltf.h"
 #include "../../MeshLibraryImplementations.h"
 #include "VulkanIncludes/VulkanMemory.h"

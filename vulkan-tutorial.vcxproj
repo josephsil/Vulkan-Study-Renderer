@@ -157,7 +157,7 @@
     <ClCompile Include="Code\General\FileCaching.cpp">
      
     </ClCompile>
-    <ClCompile Include="Code\General\Memory.cpp">
+    <ClCompile Include="Code\General\MemoryArena.cpp">
      
     </ClCompile>
     <ClCompile Include="Code\Renderer\bufferCreation.cpp">
@@ -202,7 +202,7 @@
     <ClCompile Include="vulkan-tutorial.cpp" />
     <ClInclude Include="Code\General\Array.h" />
     <ClInclude Include="Code\General\FileCaching.h" />
-    <ClInclude Include="Code\General\Memory.h" />
+    <ClInclude Include="Code\General\MemoryArena.h" />
     <ClInclude Include="Code\Renderer\bufferCreation.h" />
     <ClInclude Include="Code\Renderer\CommandPoolManager.h" />
     <ClInclude Include="Code\Renderer\gpu-data-structs.h" />

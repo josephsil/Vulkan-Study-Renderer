@@ -14,7 +14,7 @@
 
 #include "bufferCreation.h"
 #include "CommandPoolManager.h"
-#include "../General/Memory.h"
+#include "../General/MemoryArena.h"
 #include "textureCreation.h"
 #include "../General/FileCaching.h"
 
@@ -380,7 +380,7 @@ void TextureData::createTextureSampler(VkSampler* textureSampler, RendererHandle
     exit(-1);
     }
 }
-
+//
 static temporaryTextureInfo createTextureImage(RendererHandles rendererHandles, const char* path, VkFormat format, bool mips);
 
 void TextureData::cacheKTXFromSTB(const char* path, const char* outpath, VkFormat format, TextureType textureType, bool use_mipmaps)
@@ -490,7 +490,7 @@ static temporaryTextureInfo createTextureImage(RendererHandles rendererHandles, 
 
     stbi_image_free(pixels);
 
-	uint32_t fullMipPyramid =  mips ? static_cast<uint32_t>(std::floor(std::log2(max(texWidth, texHeight)))) + 1: 1;
+	uint32_t fullMipPyramid =  mips ? static_cast<uint32_t>(std::floor(std::log2(glm::max(texWidth, texHeight)))) + 1: 1;
     TextureUtilities::createImage(rendererHandles, texWidth, texHeight, format,
                                   VK_IMAGE_TILING_OPTIMAL,
                                   VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT |
@@ -568,7 +568,7 @@ VkFormat TextureData::createImageKTX(const char* path, TextureType type, bool mi
 		kTexture->generateMipmaps = false;
 	}
 	
-	uint32_t fullMipPyramid = static_cast<uint32_t>(std::floor(std::log2(max(kTexture->baseWidth, kTexture->baseHeight)))) + 1;
+	uint32_t fullMipPyramid = static_cast<uint32_t>(std::floor(std::log2(glm::max(kTexture->baseWidth, kTexture->baseHeight)))) + 1;
 	uint32_t mipCount = kTexture->generateMipmaps ? fullMipPyramid : kTexture->numLevels;
 	VkImage image;
 	VkImageCreateInfo vkimageinfo = {};

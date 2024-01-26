@@ -7,7 +7,7 @@
 #include "../General/Array.h"
 #include "RendererHandles.h"
 #include "TextureData.h"
-#include "../General/Memory.h"
+#include "../General/MemoryArena.h"
 #include "VulkanIncludes/Vulkan_Includes.h"
 
 

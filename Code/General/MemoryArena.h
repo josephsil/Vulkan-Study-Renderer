@@ -2,11 +2,6 @@
 #include <cassert>
 #include <memory>
 #include <span>
-
-
-#include "../../MeshLibraryImplementations.h"
-#include <windows.h>
-
 typedef  ptrdiff_t aOFFSET;
 namespace MemoryArena
 {
@@ -17,10 +12,7 @@ namespace MemoryArena
         ptrdiff_t cursor = -1;
         ptrdiff_t size = 0;
         void* base;
-        ~memoryArena()
-        {
-            VirtualFree(base, 0,MEM_RELEASE);
-        }
+        ~memoryArena();
     };
 
     void initialize(memoryArena* m, uint32_t size = 100000);

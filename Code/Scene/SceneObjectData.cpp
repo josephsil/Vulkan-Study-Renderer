@@ -12,7 +12,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/quaternion.hpp>
 
-#include "../General/Memory.h"
+#include "../General/MemoryArena.h"
 
 const int OBJECT_MAX = 3000; 
 const int LIGHT_MAX = 3000; 

@@ -6,7 +6,7 @@
 
 #include "../General/Array.h"
 #include "../Renderer/rendererGlobals.h"
-
+//
 struct positionRadius;
 
 namespace MemoryArena

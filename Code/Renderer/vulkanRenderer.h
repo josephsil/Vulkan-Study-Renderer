@@ -2,7 +2,6 @@
 #define GLM_FORCE_RADIANS	
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#include <memory>
 #include <span>
 #include <vector>
 #include <glm/glm.hpp>
@@ -13,7 +12,7 @@
 #include "rendererGlobals.h"
 #include "CommandPoolManager.h"
 #include "gpu-data-structs.h"
-#include "../General/Memory.h"
+#include "../General/MemoryArena.h"
 #include "PipelineDataObject.h"
 // My stuff 
 struct gpulight;
@@ -25,7 +24,7 @@ struct Vertex; //Forward Declaration
 struct ShaderLoader;
 struct TextureData;
 using VmaAllocator = struct VmaAllocator_T*;
-//Include last
+//Include last //
 
 const uint32_t SHADOW_MAP_SIZE = 1024;
 
