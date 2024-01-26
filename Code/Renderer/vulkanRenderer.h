@@ -34,6 +34,7 @@ struct simplePassInfo
     uint32_t firstDraw = 0;
     uint32_t ct;
     glm::mat4 viewMatrix;
+    glm::mat4 projMatrix;
 };
 
 struct opaquePassInfo
@@ -60,6 +61,10 @@ struct  semaphoreData
 
 class HelloTriangleApplication
 {
+
+    uint32_t k_timeout = 0;
+    uint32_t l_timeout = 0;
+  uint32_t arrow_timeout = 0;
 public:
 
     struct cameraData
@@ -71,6 +76,14 @@ public:
 
         VkExtent2D extent;
         float fov = 70;
+
+
+        //FRUSTUM CULLING DEBUGGING
+        bool debug_cull_override = false;
+        bool debug_cull_freeze = false;
+        int debug_cull_override_index = 3;
+        glm::mat4 debug_frozen_culling_v;
+        glm::mat4 debug_frozen_culling_p;
     };
     
     Scene* scene;
@@ -104,7 +117,7 @@ private:
 
     cameraData sceneCamera;
 
-    bool freeze = false;
+
     glm::mat4 freezeView = {};
     
     VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;

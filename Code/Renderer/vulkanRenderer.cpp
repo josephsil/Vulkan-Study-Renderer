@@ -1713,7 +1713,36 @@ void HelloTriangleApplication::mainLoop()
         
         if (KeyboardState[SDL_SCANCODE_K])
         {
-            freeze = !freeze;
+            if (this->T > k_timeout)
+            {
+                 this->sceneCamera.debug_cull_freeze = !this->sceneCamera.debug_cull_freeze;
+                 if (this->sceneCamera.debug_cull_freeze) printf("froze debug culling \n");
+                else printf("unfroze debug culling \n");
+                k_timeout = this->T + 200;
+            }
+        }
+
+        if (KeyboardState[SDL_SCANCODE_L])
+        {
+            if (this->T > l_timeout)
+            {
+                this->sceneCamera.debug_cull_override = !this->sceneCamera.debug_cull_override;
+                if (   this->sceneCamera.debug_cull_override)printf("enabled debug culling index: %d! \n",  this->sceneCamera.debug_cull_override_index);
+                else printf("debug culling disabled \n");
+                l_timeout = this->T + 200;
+            }
+        }
+        if (KeyboardState[SDL_SCANCODE_DOWN] || KeyboardState[SDL_SCANCODE_UP])
+        {
+            if (this->sceneCamera.debug_cull_override)
+            {
+                if (this->T > arrow_timeout)
+                {
+                    this->sceneCamera.debug_cull_override_index = (this->sceneCamera.debug_cull_override_index - (int)KeyboardState[SDL_SCANCODE_DOWN] + (int)KeyboardState[SDL_SCANCODE_UP]) % scene->shadowmapCount;
+                    arrow_timeout = this->T + 100;
+                    printf("new cull index: %d! \n",  this->sceneCamera.debug_cull_override_index);
+                }
+            }
         }
 
         
@@ -1793,28 +1822,45 @@ VkPipelineStageFlags swapchainWaitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT
 VkPipelineStageFlags shadowWaitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
 
 
-
-framePasses preparePasses(Scene* scene, HelloTriangleApplication::cameraData camera, MemoryArena::memoryArena* allocator, std::span<std::span<PerShadowData>> inputShadowdata, PipelineDataObject opaquePipelineData)
+framePasses preparePasses(Scene* scene, HelloTriangleApplication::cameraData* camera, MemoryArena::memoryArena* allocator, std::span<std::span<PerShadowData>> inputShadowdata, PipelineDataObject opaquePipelineData)
 {
 
     uint32_t PIPELINE_COUNT = opaquePipelineData.getPipelineCt();
     uint32_t objectsPerDraw = scene->objectsCount();
     uint32_t shadowDrawIndex = 0;
-    Array simplePasses =  MemoryArena::AllocSpan<simplePassInfo>(allocator, MAX_SHADOWMAPS); //These are used for both shadows and compute
     
+    Array simplePasses =  MemoryArena::AllocSpan<simplePassInfo>(allocator, MAX_SHADOWMAPS); //These are used for both shadows and compute
     for(int i = 0; i < scene->shadowCasterCount(); i ++)
     {
         float type = scene->lightTypes[i];
         int lightSubpasses = type == LIGHT_POINT ? 6 : type == LIGHT_DIR ? CASCADE_CT : 1; //TODO JS: look up how many a light should have per light
         for (int j = 0; j < lightSubpasses; j++)
         {
-            simplePasses.push_back({ shadowDrawIndex * objectsPerDraw, objectsPerDraw, inputShadowdata[i][j].view});
+            simplePasses.push_back({ shadowDrawIndex * objectsPerDraw, objectsPerDraw, inputShadowdata[i][j].view, inputShadowdata[i][j].proj});
             shadowDrawIndex++;
         }
     }
     
     //add one more pass for opaque compute
-    simplePasses.push_back({shadowDrawIndex * objectsPerDraw, objectsPerDraw, viewProjFromCamera(camera).view});
+    if (!camera->debug_cull_override)
+    {
+        simplePasses.push_back({shadowDrawIndex * objectsPerDraw, objectsPerDraw, viewProjFromCamera(*camera).view});
+    }
+    else
+    {
+
+            if (!camera->debug_cull_freeze)
+            {
+                camera->debug_frozen_culling_v = simplePasses[camera->debug_cull_override_index].viewMatrix;
+                camera->debug_frozen_culling_p = simplePasses[camera->debug_cull_override_index].projMatrix;
+            }
+        
+        simplePasses.push_back({shadowDrawIndex * objectsPerDraw, objectsPerDraw,  camera->debug_frozen_culling_v});
+     
+        glm::vec4 frustumCornersWorldSpace[8] = {};
+        populateFrustumCornersForSpace(frustumCornersWorldSpace,   glm::inverse(camera->debug_frozen_culling_p* camera->debug_frozen_culling_v));
+        debugDrawFrustum(frustumCornersWorldSpace);
+    }
     
     std::span<simplePassInfo> shadowPasses = simplePasses.getSpan().subspan(0, shadowDrawIndex);
     std::span<simplePassInfo> computePasses = simplePasses.getSpan();
@@ -1845,7 +1891,7 @@ framePasses preparePasses(Scene* scene, HelloTriangleApplication::cameraData cam
         Array<uint32_t> indices = bucketedPipelines[j].indices;
         if (indices.size() > 0)
         {
-            batchedDraws.push_back({opaqueDrawOffset, (uint32_t)indices.size(), viewProjFromCamera(camera).view, opaquePipelineData.getPipeline(bucketedPipelines[j].pipelineIDX), indices.getSpan()});
+            batchedDraws.push_back({opaqueDrawOffset, (uint32_t)indices.size(), viewProjFromCamera(*camera).view, opaquePipelineData.getPipeline(bucketedPipelines[j].pipelineIDX), indices.getSpan()});
         }
 
         opaqueDrawOffset += indices.size();
@@ -1947,7 +1993,7 @@ void HelloTriangleApplication::drawFrame()
     //Pre-rendering setup
     std::span<drawCommandData> mappedDrawCommandBuffer =  FramesInFlightData[currentFrame].drawBuffers.getMappedSpan();
 
-    framePasses renderPassInformation =  preparePasses(scene, sceneCamera, &perFrameArenas[currentFrame],
+    framePasses renderPassInformation =  preparePasses(scene, &sceneCamera, &perFrameArenas[currentFrame],
                                                    perLightShadowData, descriptorsetLayoutsData);
     updateIndirectCommandBufferForPasses(scene, &perFrameArenas[currentFrame], mappedDrawCommandBuffer, renderPassInformation);
      

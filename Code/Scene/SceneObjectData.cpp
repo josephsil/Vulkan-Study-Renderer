@@ -281,12 +281,14 @@ void Scene::lightSort()
 
 int Scene::AddLight(glm::vec3 position, glm::vec3 dir, glm::vec3 color, float radius, float intensity, lightType type)
 {
-    lightshadowMapCount.push_back( type == LIGHT_POINT ? 6 : type == LIGHT_DIR ? CASCADE_CT : 1); //TODO JS
+    int shadowMapCt = type == LIGHT_POINT ? 6 : type == LIGHT_DIR ? CASCADE_CT : 1;
+    lightshadowMapCount.push_back( shadowMapCt); //TODO JS
     lightposandradius.push_back(glm::vec4(position.x, position.y, position.z, radius));
     lightcolorAndIntensity.push_back(glm::vec4(color.x, color.y, color.z, intensity));
     lightDir.push_back(glm::vec4(dir, -1.0));
     lightTypes.push_back(type);
     lightCount ++;
+    shadowmapCount += shadowMapCt;
 
     lightSort();
     return -1; //NOT IMPLEMENTED
