@@ -1243,7 +1243,7 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
 
 #pragma endregion
 #pragma region draw 
-void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer commandBuffer, uint32_t imageIndex, std::span<shadow_or_compute_PassInfo> passes)
+void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer commandBuffer, uint32_t imageIndex, std::span<simplePassInfo> passes)
 {
      uint32_t shadowSize = SHADOW_MAP_SIZE; //TODO JS: make const
      VkCommandBufferBeginInfo beginInfo{};
@@ -1263,7 +1263,7 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
     for(int i = 0; i < passes.size(); i ++)
     {
         
-            int shadowMapIndex = passes[i].offset;
+            int shadowMapIndex = i;
             const VkRenderingAttachmentInfoKHR dynamicRenderingDepthAttatchment {
                 .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
                 .imageView = shadowMapRenderingImageViews[imageIndex][shadowMapIndex],
@@ -1326,7 +1326,7 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
             //TODO JS: Something other than hardcoded index 0 for shadow pipeline
             vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, descriptorsetLayoutsDataShadow.getPipeline(0));
             int meshct =  scene->objectsCount();
-            uint32_t offset_base = passes[i].drawOffset  *  sizeof(drawCommandData);
+            uint32_t offset_base = passes[i].firstDraw  *  sizeof(drawCommandData);
             uint32_t offset_into_struct = offsetof(drawCommandData, command);
             vkCmdDrawIndirect(commandBuffer,  FramesInFlightData[currentFrame].drawBuffers._buffer.data, offset_base + offset_into_struct, meshct, sizeof(drawCommandData));
             FramesInFlightData[currentFrame].currentDrawOffset += meshct;
@@ -1354,7 +1354,7 @@ struct pipelineBucket
     Array<uint32_t> indices; 
 };
 
-void HelloTriangleApplication::recordCommandBufferCompute(VkCommandBuffer commandBuffer, uint32_t currentFrame, std::span<shadow_or_compute_PassInfo> passes)
+void HelloTriangleApplication::recordCommandBufferCompute(VkCommandBuffer commandBuffer, uint32_t currentFrame, std::span<simplePassInfo> passes)
 {
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -1420,7 +1420,7 @@ void HelloTriangleApplication::recordCommandBufferCompute(VkCommandBuffer comman
 }//
 
 
-void HelloTriangleApplication::submitComputePass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores, std::vector<VkSemaphore> signalsemaphores, std::span<shadow_or_compute_PassInfo> passes)
+void HelloTriangleApplication::submitComputePass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores, std::vector<VkSemaphore> signalsemaphores, std::span<simplePassInfo> passes)
 {
     recordCommandBufferCompute(FramesInFlightData[imageIndex].computeCommandBuffers, imageIndex, passes);
 
@@ -1794,123 +1794,112 @@ VkPipelineStageFlags shadowWaitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OU
 
 
 
-
-drawInfo updateIndirectCommandBufferAndreturnDraws(Scene* scene, HelloTriangleApplication::cameraData camera, MemoryArena::memoryArena* allocator, std::span<drawCommandData> mappedDrawCommandBuffer,      std::span<std::span<PerShadowData>> inputShadowdata, PipelineDataObject opaquePipelineData)
+framePasses preparePasses(Scene* scene, HelloTriangleApplication::cameraData camera, MemoryArena::memoryArena* allocator, std::span<std::span<PerShadowData>> inputShadowdata, PipelineDataObject opaquePipelineData)
 {
-    // LARGE_INTEGER count1;
-    // QueryPerformanceCounter(&count1);
-    int PIPELINE_COUNT = opaquePipelineData.getPipelineCt();
-    int FILL_OFFSET = 0;
-    int drawOffset = 0;
-    Array<shadow_or_compute_PassInfo> shadowAndComputePasses =  MemoryArena::AllocSpan<shadow_or_compute_PassInfo>(allocator, MAX_SHADOWMAPS);
 
+    uint32_t PIPELINE_COUNT = opaquePipelineData.getPipelineCt();
+    uint32_t objectsPerDraw = scene->objectsCount();
+    uint32_t shadowDrawIndex = 0;
+    Array simplePasses =  MemoryArena::AllocSpan<simplePassInfo>(allocator, MAX_SHADOWMAPS); //These are used for both shadows and compute
     
     for(int i = 0; i < scene->shadowCasterCount(); i ++)
     {
         float type = scene->lightTypes[i];
-        int subpasses = type == lightType::LIGHT_POINT ? 6 : type == LIGHT_DIR ? CASCADE_CT : 1; //TODO JS: look up how many a light should have per light
-        for (int j = 0; j < subpasses; j++)
+        int lightSubpasses = type == LIGHT_POINT ? 6 : type == LIGHT_DIR ? CASCADE_CT : 1; //TODO JS: look up how many a light should have per light
+        for (int j = 0; j < lightSubpasses; j++)
         {
-            shadowAndComputePasses.push_back({drawOffset, FILL_OFFSET, inputShadowdata[i][j].view});
-            FILL_OFFSET += scene->objectsCount();
-            drawOffset++;
+            simplePasses.push_back({ shadowDrawIndex * objectsPerDraw, objectsPerDraw, inputShadowdata[i][j].view});
+            shadowDrawIndex++;
         }
     }
-    // LARGE_INTEGER count2;
-    // QueryPerformanceCounter(&count2);
-    std::span<shadow_or_compute_PassInfo> shadowPasses = shadowAndComputePasses.getSpan();
+    
+    //add one more pass for opaque compute
+    simplePasses.push_back({shadowDrawIndex * objectsPerDraw, objectsPerDraw, viewProjFromCamera(camera).view});
+    
+    std::span<simplePassInfo> shadowPasses = simplePasses.getSpan().subspan(0, shadowDrawIndex);
+    std::span<simplePassInfo> computePasses = simplePasses.getSpan();
 
-
-    //Opaque draw bucketing by pipeline 
-        //initialize pipeline buckets
+    //Opaque passes are bucketed by pipeline 
     Array bucketedPipelines = MemoryArena::AllocSpan<pipelineBucket>(allocator, PIPELINE_COUNT);
-    for(int j = 0; j < PIPELINE_COUNT; j++)
+    
+    //initialize pipeline buckets
+    for (uint32_t j = 0; j < PIPELINE_COUNT; j++)
     {
-        bucketedPipelines.push_back({});
-        bucketedPipelines[j].indices = Array<uint32_t>(MemoryArena::AllocSpan<uint32_t>(allocator, MAX_DRAWS_PER_PIPELINE));
-        bucketedPipelines[j].pipelineIDX = j;
+        bucketedPipelines.push_back({
+            j, Array(MemoryArena::AllocSpan<uint32_t>(allocator, MAX_DRAWS_PER_PIPELINE))});
     }
-            
-        //fill buckets
-    for (int j = 0; j <scene->objectsCount(); j++)
+    
+    //fill buckets
+    for (uint32_t j = 0; j < objectsPerDraw; j++)
     {
         bucketedPipelines[scene->objects.materials[j].pipelineidx].indices.push_back(j);
     }
- 
-
-        //Fill opaque pass infos
+    
+    //Fill opaque pass infos
     Array batchedDraws = MemoryArena::AllocSpan<opaquePassInfo>(allocator, MAX_PIPELINES);
 
-    uint32_t drawCt = 0;
-    for (int j = 0; j < bucketedPipelines.size(); j++)
+    uint32_t opaqueDrawOffset = 0;
+    for (size_t j = 0; j < bucketedPipelines.size(); j++)
     {
        
         Array<uint32_t> indices = bucketedPipelines[j].indices;
         if (indices.size() > 0)
         {
-            batchedDraws.push_back({drawCt, (uint32_t)indices.size(), opaquePipelineData.getPipeline(bucketedPipelines[j].pipelineIDX)});
+            batchedDraws.push_back({opaqueDrawOffset, (uint32_t)indices.size(), viewProjFromCamera(camera).view, opaquePipelineData.getPipeline(bucketedPipelines[j].pipelineIDX), indices.getSpan()});
         }
 
-        drawCt += indices.size();
+        opaqueDrawOffset += indices.size();
     }
-    // LARGE_INTEGER count3;
-    // QueryPerformanceCounter(&count3);
 
-    //FILL DRAW COMMANDS
 
-    std::span<uint32_t> meshIndices = MemoryArena::AllocSpan<uint32_t>(allocator, scene->objectsCount());
-    for(int i = 0; i < scene->objectsCount(); i++)
+    return  {shadowPasses, computePasses, batchedDraws.getSpan()};
+
+}
+
+void updateIndirectCommandBufferForPasses(Scene* scene, MemoryArena::memoryArena* allocator, std::span<drawCommandData> mappedDrawCommandBuffer, framePasses passes)
+{
+   
+    uint32_t objectsPerDraw = scene->objectsCount();
+    uint32_t drawOffset = 0;
+    std::span<uint32_t> meshIndices = MemoryArena::AllocSpan<uint32_t>(allocator, objectsPerDraw);
+    for(size_t i = 0; i < objectsPerDraw; i++)
     {
         meshIndices[i] = scene->objects.meshIndices[i];
     }
 
-        //draw commands for shadows
-    for(int i =0; i < shadowPasses.size(); i++)
+    //draw commands for shadows
+    for(size_t i =0; i < passes.shadowDraws.size(); i++)
     {
-        // if (i == 0)
-        // {
-            for (int j = 0; j < scene->objectsCount(); j++)
+        uint32_t drawCount = passes.shadowDraws[i].ct;
+            for (size_t j = 0; j < drawCount; j++)
             {
          
-                mappedDrawCommandBuffer[shadowPasses[i].drawOffset + j] =  {
+                mappedDrawCommandBuffer[passes.shadowDraws[i].firstDraw + j] =  {
                     (uint32_t)j, (uint32_t)scene->backing_meshes[meshIndices[j]].vertcount, 1, 0, (uint32_t)j};
             }
-      
+        drawOffset += drawCount;
     }
 
     
-        //draw commands for opaque passes
+    //draw commands for opaque passes
     uint32_t drawCt2 = 0;
-    for (int j = 0; j < bucketedPipelines.size(); j++)
+    for (size_t i = 0; i < passes.opaqueDraw.size(); i++)
     {
-       
-        Array<uint32_t> indices = bucketedPipelines[j].indices;
-        for (int k = 0; k < indices.size(); k++)
+        //TODO JS: option to not use custom indices?
+        std::span<uint32_t> indices = passes.opaqueDraw[i].overrideIndices;
+        for (size_t k = 0; k < indices.size(); k++)
         {
          
-            mappedDrawCommandBuffer[FILL_OFFSET + drawCt2 + k] = {indices[k], static_cast<uint32_t>(scene->backing_meshes[meshIndices[indices[k]]].vertcount), 1, 0, (uint32_t)indices[k]};
+            mappedDrawCommandBuffer[drawOffset + drawCt2 + k] = {indices[k], static_cast<uint32_t>(scene->backing_meshes[meshIndices[indices[k]]].vertcount), 1, 0, (uint32_t)indices[k]};
         }
         drawCt2 += indices.size();
     }
-    // LARGE_INTEGER count4;
-    // QueryPerformanceCounter(&count4);
-    
-
-    // printf("%lld fillshadow, %lld buckets, %lld commands \n", (__int64&) count2 - (__int64&) count1, (__int64&) count3 - (__int64&) count2, (__int64&) count4 - (__int64&) count3);
-    //add opaque pass 
-    shadowAndComputePasses.push_back({drawOffset, FILL_OFFSET,viewProjFromCamera(camera).view});
-
-    drawInfo dI = { shadowPasses, shadowAndComputePasses.getSpan(), batchedDraws.getSpan()};
-    return dI;
-
 }
+
 void HelloTriangleApplication::drawFrame()
 {
   //Update per frame data
 
-  
-    
-    
     //Prepare for pass
     uint32_t imageIndex; 
     vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, FramesInFlightData[currentFrame].imageAvailableSemaphores, VK_NULL_HANDLE,
@@ -1955,14 +1944,17 @@ void HelloTriangleApplication::drawFrame()
     VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, shadowWaitStages, true);
     ///////////////////////// Transition swapChain  />
 
-    //Pre-draw setup
+    //Pre-rendering setup
     std::span<drawCommandData> mappedDrawCommandBuffer =  FramesInFlightData[currentFrame].drawBuffers.getMappedSpan();
-    drawInfo renderPassInformation =  updateIndirectCommandBufferAndreturnDraws(scene, sceneCamera, &perFrameArenas[currentFrame],
-                                                  mappedDrawCommandBuffer, perLightShadowData, descriptorsetLayoutsData);
+
+    framePasses renderPassInformation =  preparePasses(scene, sceneCamera, &perFrameArenas[currentFrame],
+                                                   perLightShadowData, descriptorsetLayoutsData);
+    updateIndirectCommandBufferForPasses(scene, &perFrameArenas[currentFrame], mappedDrawCommandBuffer, renderPassInformation);
      
-  
+
+    //Compute
     submitComputePass(currentFrame, currentFrame, {}, {FramesInFlightData[currentFrame].computeFinishedSemaphores}, renderPassInformation.computeDraws);
-    // Sleep(6);
+   
 
 
     //Shadows
@@ -2026,7 +2018,7 @@ void HelloTriangleApplication::drawFrame()
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
-void HelloTriangleApplication::renderShadowPass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores, std::vector<VkSemaphore> signalsemaphores, std::span<shadow_or_compute_PassInfo> passes)
+void HelloTriangleApplication::renderShadowPass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores, std::vector<VkSemaphore> signalsemaphores, std::span<simplePassInfo> passes)
 {
     recordCommandBufferShadowPass(FramesInFlightData[imageIndex].shadowCommandBuffers, imageIndex, passes);
 
