@@ -23,14 +23,14 @@ struct VSOutput
     [[vk::location(5)]] float3 Tangent : TEXCOORD2;
     [[vk::location(6)]] float3 BiTangent : TEXCOORD3;
     [[vk::location(7)]] float3x3 TBN : TEXCOORD4;
+    [[vk::location(10)]] uint InstanceID : SV_InstanceID;
 };
 
 
 
 // -spirv -T vs_6_5 -E Vert .\Shader1.hlsl -Fo .\triangle.vert.spv
-VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
+VSOutput Vert(VSInput input,  [[vk::builtin("BaseInstance")]]  uint InstanceIndex : BaseInstance, uint VertexIndex : SV_VertexID)
 {
-    bool mode = globals.lightcount_mode_shadowct_padding.g;
 #ifdef USE_RW
     MyVertexStructure myVertex = BufferTable[VertexIndex + VERTEXOFFSET];
 #else
@@ -39,7 +39,7 @@ VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
 	// https://github.com/microsoft/DirectXShaderCompiler/issues/2193 	
  	MyVertexStructure myVertex = BufferTable.Load<MyVertexStructure>((VERTEXOFFSET + VertexIndex) * sizeof(MyVertexStructure));
 #endif
-    UBO ubo = uboarr[OBJECTINDEX];
+    objectData ubo = uboarr[InstanceIndex];
     VSOutput output = (VSOutput)0;
     float4x4 modelView = mul(globals.view, ubo.Model);
     float4x4 mvp = mul(globals.projection, modelView);
@@ -110,9 +110,11 @@ float3x3 calculateNormal(FSInput input)
 
 FSOutput Frag(VSOutput input)
 {
+    uint InstanceIndex = 0;
+    InstanceIndex = input.InstanceID;
     FSOutput output;
 
-    UBO ubo = uboarr[OBJECTINDEX];
+    objectData ubo = uboarr[OBJECTINDEX];
 
     
     float3 diff = saturate(
@@ -123,7 +125,7 @@ FSOutput Frag(VSOutput input)
         Sample(bindless_samplers[NORMALSAMPLERINDEX], input.Texture_ST));
     float4 specMap = bindless_textures[SPECULAR_INDEX].Sample(bindless_samplers[TEXTURESAMPLERINDEX], input.Texture_ST);
     float metallic = specMap.a;
-    metallic = pc.metallic;
+    metallic = ubo.metallic;
 
     // albedo = 0.33;
 
@@ -134,7 +136,7 @@ FSOutput Frag(VSOutput input)
 
     float3 F0 = 0.04;
     F0 = lerp(F0, albedo, metallic);
-    float roughness = pc.roughness;
+    float roughness = ubo.roughness;
     float3 F = FresnelSchlickRoughness(max(dot(normalMap, V), 0.0), F0, roughness);
 
     float3 kS = F;

@@ -1,121 +1,75 @@
 #define USE_RW
-
+#include "structs.hlsl"
 #define LIGHT_DIR 0
 #define LIGHT_POINT 1
 #define LIGHT_SPOT 2
 #define LIGHTCOUNT   globals.lightcount_mode_shadowct_padding.r
-#define VERTEXOFFSET pc.indexInfo.g
-#define TEXTURESAMPLERINDEX pc.indexInfo.b
+#define VERTEXOFFSET uboarr[InstanceIndex].indexInfo.g
+#define TEXTURESAMPLERINDEX uboarr[InstanceIndex].indexInfo.b
 #define NORMALSAMPLERINDEX TEXTURESAMPLERINDEX +2 //TODO JS: temporary!
-#define OBJECTINDEX  pc.indexInfo.a
-#define LIGHTINDEX   pc.indexInfo_2.a
+#define OBJECTINDEX  uboarr[InstanceIndex].indexInfo.a
 #define SKYBOXLUTINDEX globals.lutIDX_lutSamplerIDX_padding_padding.x
 #define SKYBOXLUTSAMPLERINDEX globals.lutIDX_lutSamplerIDX_padding_padding.y
 #define SHADOWCOUNT globals.lightcount_mode_shadowct_padding.z
+//
 
-#ifdef SHADOWPASS
-#define MATRIXOFFSET pc.indexInfo_2.b
-#endif
+//
+//
 
 
-struct UBO
-{
-    float4x4 Model;
-    float4x4 NormalMat;
-    float4x4 p1;
-    float4x4 p2;
-};
 
-struct ShaderGlobals
-{
-    float4x4 view;
-    float4x4 projection;
-    float4 viewPos;
-    float4 lightcount_mode_shadowct_padding;
-    float4 lutIDX_lutSamplerIDX_padding_padding;
-};
-
-struct pconstant
-{
-    float4 indexInfo;
-    float roughness;
-    float metallic;
-    float _f1;
-    float _f2;
-    float4 indexInfo_2;
-    float4 _2;
-};
-
-struct perShadowData
-{
-    float4x4 mat;
-    float depth;
-};
-
-struct MyVertexStructure
-{
-    float4 position;
-    float4 uv0;
-    float4 normal;
-    float4 Tangent;
-    // uint color;
-};
-
-struct MyLightStructure
-{
-    float4 position_range;
-    float4 color_intensity;
-    float4 lighttype_lightDir;
-    float4 matrixIDX_matrixCt_padding; // currently only used by point
-    // float4x4 _DELETED; //TODO JS: delete for real
-    // uint color;
-};
-
-cbuffer globals : register(b0) { ShaderGlobals globals; }
 // ShaderGlobals globals;
 // uniformDescriptorSets
 // storageDescriptorSets
 // imageDescriptorSets
 // samplerDescriptorSets
+// [[vk::binding(0,0)]]
+// [[vk::binding(0, 0)]]
+cbuffer globals : register(b0) { ShaderGlobals globals; }
 
-[[vk::binding(0, 2)]]
+[[vk::binding(1, 0)]]
 Texture2D<float4> bindless_textures[];
+[[vk::binding(2,0)]]
+TextureCube cubes[];
 
-[[vk::binding(0, 3)]]
-SamplerState bindless_samplers[];
-
-[[vk::binding(2, 2)]]
+[[vk::binding(3, 0)]]
 Texture2DArray<float4> shadowmap[];
-[[vk::binding(2, 2)]]
+[[vk::binding(3, 0)]]
 TextureCube shadowmapCube[];
 
-[[vk::binding(2, 3)]]
+[[vk::binding(4, 0)]]
+SamplerState bindless_samplers[];
+[[vk::binding(5,0)]]
+SamplerState cubeSamplers[];
+[[vk::binding(6, 0)]]
 SamplerComparisonState shadowmapSampler[];
 
-[[vk::binding(0,1)]]
+
+
+
+
+[[vk::binding(7,0)]]
 #ifdef USE_RW
 RWStructuredBuffer<MyVertexStructure> BufferTable;
 #else
 ByteAddressBuffer BufferTable;
 #endif
-[[vk::binding(1,1)]]
+
+[[vk::binding(8,0)]]
 RWStructuredBuffer<MyLightStructure> lights;
-[[vk::binding(2, 1)]]
-RWStructuredBuffer<UBO> uboarr;
+[[vk::binding(9, 0)]]
+RWStructuredBuffer<objectData> uboarr;
+
 // #ifdef SHADOWPASS
-[[vk::binding(3, 1)]]
+[[vk::binding(10, 0)]]
 RWStructuredBuffer<perShadowData> shadowMatrices;
 // #endif 
 
 
-[[vk::binding(1,2)]]
-TextureCube cubes[];
 
-[[vk::binding(1,3)]]
-SamplerState cubeSamplers[];
 
-[[vk::push_constant]]
-pconstant pc;
+
+
 
 #define  DIFFUSE_INDEX  (TEXTURESAMPLERINDEX * 3) + 0
 #define  SPECULAR_INDEX  (TEXTURESAMPLERINDEX * 3) + 1
@@ -262,7 +216,7 @@ float3 getShadow(int index, float3 fragPos)
     if (getLightType(light) == LIGHT_SPOT)
     {
         int ARRAY_INDEX = 0;
-        float4x4 lightMat = shadowMatrices[getShadowMatrixIndex(light) +ARRAY_INDEX].mat;
+        float4x4 lightMat = mul(shadowMatrices[getShadowMatrixIndex(light) +ARRAY_INDEX].proj,  shadowMatrices[getShadowMatrixIndex(light) +ARRAY_INDEX].view);
         float4 fragPosLightSpace = mul( lightMat, float4(fragPos, 1.0));
         float3 shadowProjection = (fragPosLightSpace.xyz / fragPosLightSpace.w);
         float3 shadowUV = shadowProjection   * 0.5 + 0.5;
@@ -274,7 +228,7 @@ float3 getShadow(int index, float3 fragPos)
     {
         int lightIndex = getShadowMatrixIndex(light);
         int cascadeLevel =  findCascadeLevel(lightIndex, fragPos);
-            float4 fragPosShadowSpace = mul(shadowMatrices[lightIndex + cascadeLevel].mat,  float4(fragPos, 1.0));
+            float4 fragPosShadowSpace = mul(mul(shadowMatrices[lightIndex + cascadeLevel].proj, shadowMatrices[lightIndex + cascadeLevel].view),  float4(fragPos, 1.0));
             float3 shadowProjection = (fragPosShadowSpace.xyz / fragPosShadowSpace.w);
             float3 shadowUV = shadowProjection   * 0.5 + 0.5;
             shadowUV.z = cascadeLevel;

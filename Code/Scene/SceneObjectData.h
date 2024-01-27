@@ -6,6 +6,8 @@
 
 #include "../General/Array.h"
 #include "../Renderer/rendererGlobals.h"
+//
+struct positionRadius;
 
 namespace MemoryArena
 {
@@ -30,6 +32,7 @@ public:
     int materialCount();
     int materialTextureCount();
 
+    void OrderedObjectIndices(::MemoryArena::memoryArena* allocator, glm::vec3 eyePos, std::span<int> indices, bool invert);
     struct Objects
     {
         int objectsCount = 0;
@@ -37,10 +40,8 @@ public:
         Array<glm::vec3> translations;
         Array<glm::quat> rotations;
         Array<glm::vec3> scales;
-        Array<MeshData*> meshes; //todo js: are these redundant?
-        Array<uint32_t> meshOffsets; //todo js: are these redundant?
+        Array<uint32_t> meshIndices;
         Array<Material> materials;
-        Array<uint32_t> meshVertCounts;
         Array<glm::mat4> matrices;
     };
 
@@ -55,6 +56,7 @@ public:
     Array<glm::vec4> lightcolorAndIntensity;
     Array<glm::vec4> lightDir;
     Array<glm::float32> lightTypes;
+    
 
     //Non parallel arrays //TODO JS: Pack together?
     int textureSetCount = 0;
@@ -67,6 +69,7 @@ public:
 
     int meshCount = 0;
     Array<MeshData> backing_meshes;
+    Array<positionRadius> meshBoundingSphereRad;
 
 
     Scene(MemoryArena::memoryArena* memoryArena);
@@ -82,12 +85,14 @@ public:
     int AddUtilityTexture(TextureData T);
     int AddMaterial(TextureData D, TextureData S, TextureData N);
     int AddBackingMesh(MeshData M);
+    positionRadius GetBoundingSphere(int idx);
 
     int AddDirLight(glm::vec3 position, glm::vec3 color,float intensity);
     int AddSpotLight(glm::vec3 position, glm::vec3 dir, glm::vec3 color, float radius, float intensity);
     int AddPointLight(glm::vec3 position, glm::vec3 color,  float intensity);
     int getShadowDataIndex(int i);
     int shadowCasterCount();
+    uint32_t shadowmapCount;
 
     void Cleanup();
 

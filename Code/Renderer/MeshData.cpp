@@ -4,11 +4,11 @@
 #include "RendererHandles.h"
 #include "../General/Array.h"
 #include "bufferCreation.h"
-#include "../General/Memory.h"
+#include "gpu-data-structs.h"
+#include "../General/MemoryArena.h"
 #include "../../tinygltf/tiny_gltf.h"
 #include "../../MeshLibraryImplementations.h"
 #include "VulkanIncludes/VulkanMemory.h"
-
 
 //TODO JS 0: Separate mesh import and mesh data
 struct MeshForMikkt
@@ -472,6 +472,22 @@ MeshData::MeshData(RendererHandles app, const char* path)
     this->indices = MemoryArena::copySpan(globalArena, _indices.getSpan());
 
     MemoryArena::freeToCursor(tempArena);
+
+
+    this->boundsCorners = MemoryArena::AllocSpan<glm::vec3>(globalArena, 2);
+    boundsCorners[0] = this->vertices[0].pos;
+    boundsCorners[1] = this->vertices[0].pos;
+    
+    for(int i =1; i < this->vertices.size(); i++)
+    {
+        glm::vec3 compPos = glm::vec3(this->vertices[i].pos);
+        boundsCorners[0].x = glm::min<float>(boundsCorners[0].x, compPos.x);
+        boundsCorners[0].y = glm::min<float>(boundsCorners[0].y, compPos.y);
+        boundsCorners[0].z = glm::min<float>(boundsCorners[0].z, compPos.z);
+        boundsCorners[1].x =  glm::max<float>(boundsCorners[1].x, compPos.x);
+        boundsCorners[1].y = glm::max<float>(boundsCorners[1].y, compPos.y);
+        boundsCorners[1].z = glm::max<float>(boundsCorners[1].z, compPos.z);
+    }
  
     //TODO: Dedupe verts
     this->vertBuffer = this->meshDataCreateVertexBuffer();
@@ -480,6 +496,10 @@ MeshData::MeshData(RendererHandles app, const char* path)
     this->id = MESHID++;
 }
 
+positionRadius MeshData::getBoundingSphere()
+{
+    return { {(boundsCorners[0] +  boundsCorners[1]) / 2.0f, 0.0}, glm::distance(boundsCorners[0], boundsCorners[1]) / 2.0f};
+}
 //TODO JS 0: Separate memory ownership? give it to the renderer?
 void MeshData::cleanup()
 {

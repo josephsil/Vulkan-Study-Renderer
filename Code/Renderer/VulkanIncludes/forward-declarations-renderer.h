@@ -40,10 +40,10 @@ enum VkSamplerAddressMode;
 enum VkImageViewType; 
 
 using VkQueue = struct VkQueue_T*;
-typedef enum VkFormat;
-typedef enum VkImageLayout;
-typedef enum VkDescriptorType;
-typedef enum VkImageTiling;
+ enum VkFormat;
+ enum VkImageLayout;
+ enum VkDescriptorType;
+ enum VkImageTiling;
 typedef uint32_t VkFlags;
 typedef VkFlags VkFormatFeatureFlags;
 typedef VkFlags VkMemoryPropertyFlags;
@@ -53,9 +53,9 @@ typedef VkFlags VkBufferViewCreateFlags;
 typedef VkFlags VkShaderStageFlags;
 typedef uint64_t VkDeviceSize;
 
-typedef struct VkDescriptorBufferInfo ;
+ struct VkDescriptorBufferInfo ;
 
 
-typedef struct VkDescriptorImageInfo;
+ struct VkDescriptorImageInfo;
 
-typedef struct VkWriteDescriptorSet;
+ struct VkWriteDescriptorSet;

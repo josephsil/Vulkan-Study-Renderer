@@ -1,10 +1,17 @@
 #pragma once
+#include <span>
 #include <unordered_map>
 #include <vector>
+#include <vulkan/vulkan_core.h>
 
 #include "VulkanIncludes/forward-declarations-renderer.h"
 #include "rendererGlobals.h"
 
+
+namespace MemoryArena
+{
+    struct memoryArena;
+}
 
 struct Vertex;
 class Scene;
@@ -17,7 +24,7 @@ struct TextureData;
 
 namespace DescriptorSets
 {
-    std::pair<std::vector<VkDescriptorImageInfo>, std::vector<VkDescriptorImageInfo>> ImageInfoFromImageDataVec(std::vector<TextureData> textures);
+    std::span<VkDescriptorImageInfo> ImageInfoFromImageDataVec(MemoryArena::memoryArena* arena, std::vector<TextureData> textures);
     
     //Passing around a vector of these to enforce binding for a pipeline
     

@@ -5,12 +5,15 @@
 
 #include "SceneObjectData.h"
 
+#include <algorithm>
+
 #include "../Renderer/MeshData.h" // TODO JS: I want to separate the backing data from the scene 
 #include "../Renderer/TextureData.h" // TODO JS: I want to separate the backing data from the scene 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/quaternion.hpp>
 
-#include "../General/Memory.h"
+#include "../General/MemoryArena.h"
+
 const int OBJECT_MAX = 3000; 
 const int LIGHT_MAX = 3000; 
 const int ASSET_MAX = 300; 
@@ -25,10 +28,10 @@ void InitializeScene(MemoryArena::memoryArena* arena, Scene* scene)
     scene->objects.rotations = Array(MemoryArena::AllocSpan<glm::quat>(arena, OBJECT_MAX));
     scene->objects.scales = Array(MemoryArena::AllocSpan<glm::vec3>(arena, OBJECT_MAX));
     scene->objects.materials = Array(MemoryArena::AllocSpan<Material>(arena, OBJECT_MAX));
-    scene->objects.meshOffsets = Array(MemoryArena::AllocSpan<uint32_t>(arena, OBJECT_MAX));
+    scene->objects.meshIndices = Array(MemoryArena::AllocSpan<uint32_t>(arena, OBJECT_MAX));
     scene->objects.matrices = Array(MemoryArena::AllocSpan<glm::mat4>(arena, OBJECT_MAX));
-    scene->objects.meshes = Array(MemoryArena::AllocSpan<MeshData*>(arena, OBJECT_MAX));
-    scene->objects.meshVertCounts = Array(MemoryArena::AllocSpan<uint32_t>(arena, OBJECT_MAX));
+    // scene->objects.meshes = Array(MemoryArena::AllocSpan<MeshData*>(arena, ASSET_MAX));
+    // scene->objects.meshVertCounts = Array(MemoryArena::AllocSpan<uint32_t>(arena, ASSET_MAX));
 
     // arallel arrays per Light
     scene->lightshadowMapCount =  Array(MemoryArena::AllocSpan<uint32_t>(arena, LIGHT_MAX));
@@ -38,12 +41,13 @@ void InitializeScene(MemoryArena::memoryArena* arena, Scene* scene)
     scene->lightTypes = Array(MemoryArena::AllocSpan<glm::float32>(arena, LIGHT_MAX));
 
     //Non parallel arrays //TODO JS: Pack together?
-    scene->backing_diffuse_textures = Array(MemoryArena::AllocSpan<TextureData>(arena, 300));
-    scene->backing_specular_textures = Array(MemoryArena::AllocSpan<TextureData>(arena, 300));
-    scene->backing_normal_textures = Array(MemoryArena::AllocSpan<TextureData>(arena, 300));
-    scene->backing_utility_textures = Array(MemoryArena::AllocSpan<TextureData>(arena, 300));
+    scene->backing_diffuse_textures = Array(MemoryArena::AllocSpan<TextureData>(arena, ASSET_MAX));
+    scene->backing_specular_textures = Array(MemoryArena::AllocSpan<TextureData>(arena, ASSET_MAX));
+    scene->backing_normal_textures = Array(MemoryArena::AllocSpan<TextureData>(arena, ASSET_MAX));
+    scene->backing_utility_textures = Array(MemoryArena::AllocSpan<TextureData>(arena, ASSET_MAX));
 
-    scene->backing_meshes =  Array(MemoryArena::AllocSpan<MeshData>(arena, 300));
+    scene->backing_meshes =  Array(MemoryArena::AllocSpan<MeshData>(arena, ASSET_MAX));
+    scene->meshBoundingSphereRad = Array(MemoryArena::AllocSpan<positionRadius>(arena, ASSET_MAX));
     
 }
 
@@ -68,8 +72,8 @@ void Scene::Update()
 int Scene::AddObject(MeshData* mesh, int textureidx, float material_roughness, bool material_metallic,
                      glm::vec3 position, glm::quat rotation, glm::vec3 scale)
 {
-    //TODD JS: version that can add 
-    objects.meshes.push_back(mesh);
+    //TODD JS: version that can add
+    // objects.meshes.push_back(mesh);
     objects.materials.push_back(Material{
         .pipelineidx = (uint32_t)(objects.objectsCount % 20 > 10 ? 0 : 1), .backingTextureidx = textureidx, .metallic = material_metallic, .roughness = material_roughness
     });
@@ -77,8 +81,8 @@ int Scene::AddObject(MeshData* mesh, int textureidx, float material_roughness, b
     objects.rotations.push_back(rotation);
     objects.scales.push_back(scale);
     objects.matrices.push_back(glm::mat4(1.0));
-    objects.meshOffsets.push_back(getOffsetFromMeshID(mesh->id));
-    objects.meshVertCounts.push_back(mesh->vertcount);
+    objects.meshIndices.push_back(mesh->id);
+    // objects.meshVertCounts.push_back(mesh->vertcount);
     return objects.objectsCount++;
 }
 
@@ -143,7 +147,44 @@ int Scene::AddMaterial(TextureData D, TextureData S, TextureData N)
 int Scene::AddBackingMesh(MeshData M)
 {
     backing_meshes.push_back(M);
+    meshBoundingSphereRad.push_back(M.getBoundingSphere());
     return meshCount ++;
+}
+
+positionRadius Scene::GetBoundingSphere(int idx)
+{
+    int i = objects.meshIndices[idx];
+    return meshBoundingSphereRad[i];
+}
+
+struct sortData
+{
+    glm::float32_t* data;
+    uint32_t ct;
+};
+
+int orderComparator(void * context, void const* elem1, void const* elem2 )
+{
+    sortData dists = *(sortData*)context;
+    glm::float32_t _1 = (dists.data[*(int*)elem1]);
+    glm::float32_t _2 = (dists.data[*(int*)elem2]);
+    return ( _1 - _2 );
+}
+
+
+void Scene::OrderedObjectIndices(MemoryArena::memoryArena* allocator, glm::vec3 eyePos, std::span<int> indices, bool invert)
+{
+    auto dists = MemoryArena::AllocSpan<glm::float32_t>(allocator, indices.size());
+    for(int i = 0; i < dists.size(); i++)
+    {
+        dists[i] = glm::distance2(objects.translations[i], eyePos);
+    }
+    assert(indices.size() == objects.translations.ct);
+    sortData s = {dists.data(), (uint32_t)dists.size()};
+
+    qsort_s(indices.data(), indices.size(), sizeof(int), orderComparator, &s);
+
+    return;
 }
 
 //very dumb/brute force for now
@@ -182,11 +223,11 @@ void Scene::lightSort()
     //if there's room, use the back half of the existing arrays
     if (lightCount < LIGHT_MAX / 2)
     {
-    tempShadowCt = std::span<uint32_t>(&lightshadowMapCount[0], LIGHT_MAX).subspan(LIGHT_MAX / 2, LIGHT_MAX / 2);
-    tempPos = std::span<glm::vec4>(&lightposandradius[0], LIGHT_MAX).subspan(LIGHT_MAX / 2, LIGHT_MAX / 2);
-    tempCol =  std::span<glm::vec4>(&lightcolorAndIntensity[0], LIGHT_MAX).subspan(LIGHT_MAX / 2, LIGHT_MAX / 2);   
-    tempDir =  std::span<glm::vec4>(&lightDir[0], LIGHT_MAX).subspan(LIGHT_MAX / 2, LIGHT_MAX / 2);   
-    tempType = std::span<glm::float32>(&lightTypes[0], LIGHT_MAX).subspan(LIGHT_MAX / 2, LIGHT_MAX / 2);    
+    tempShadowCt = std::span<uint32_t>(lightshadowMapCount.data, LIGHT_MAX).subspan(LIGHT_MAX / 2, LIGHT_MAX / 2);
+    tempPos = std::span<glm::vec4>(lightposandradius.data, LIGHT_MAX).subspan(LIGHT_MAX / 2, LIGHT_MAX / 2);
+    tempCol =  std::span<glm::vec4>(lightcolorAndIntensity.data, LIGHT_MAX).subspan(LIGHT_MAX / 2, LIGHT_MAX / 2);   
+    tempDir =  std::span<glm::vec4>(lightDir.data, LIGHT_MAX).subspan(LIGHT_MAX / 2, LIGHT_MAX / 2);   
+    tempType = std::span<glm::float32>(lightTypes.data, LIGHT_MAX).subspan(LIGHT_MAX / 2, LIGHT_MAX / 2);    
     }
     else
     {
@@ -240,12 +281,14 @@ void Scene::lightSort()
 
 int Scene::AddLight(glm::vec3 position, glm::vec3 dir, glm::vec3 color, float radius, float intensity, lightType type)
 {
-    lightshadowMapCount.push_back( type == LIGHT_POINT ? 6 : type == LIGHT_DIR ? CASCADE_CT : 1); //TODO JS
+    int shadowMapCt = type == LIGHT_POINT ? 6 : type == LIGHT_DIR ? CASCADE_CT : 1;
+    lightshadowMapCount.push_back( shadowMapCt); //TODO JS
     lightposandradius.push_back(glm::vec4(position.x, position.y, position.z, radius));
     lightcolorAndIntensity.push_back(glm::vec4(color.x, color.y, color.z, intensity));
     lightDir.push_back(glm::vec4(dir, -1.0));
     lightTypes.push_back(type);
     lightCount ++;
+    shadowmapCount += shadowMapCt;
 
     lightSort();
     return -1; //NOT IMPLEMENTED
@@ -277,7 +320,7 @@ int Scene::getShadowDataIndex(int idx)
 
 int Scene::shadowCasterCount()
 {
-    return min(MAX_SHADOWCASTERS, this->lightCount);
+    return glm::min(MAX_SHADOWCASTERS, this->lightCount);
 }
 
 void Scene::Cleanup()

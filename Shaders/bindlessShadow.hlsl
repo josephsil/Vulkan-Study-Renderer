@@ -15,6 +15,15 @@ struct FSOutput
 };
 
 
+
+struct pconstant
+{
+    float indexInfo_2;
+};
+
+[[vk::push_constant]]
+pconstant pc;
+
 struct VSOutput
 {
     [[vk::location(0)]] float4 Pos : SV_POSITION;
@@ -27,28 +36,23 @@ struct VSOutput
     // [[vk::location(7)]] float3x3 TBN : TEXCOORD4;
 };
 
-VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
+#ifdef SHADOWPASS
+#define MATRIXOFFSET pc.indexInfo_2
+#endif
+
+VSOutput Vert(VSInput input,  [[vk::builtin("BaseInstance")]]  uint InstanceIndex : BaseInstance, uint VertexIndex : SV_VertexID)
 {
-    bool mode = globals.lightcount_mode_shadowct_padding.g;
 #ifdef USE_RW
     MyVertexStructure myVertex = BufferTable[VertexIndex + VERTEXOFFSET];
 #else
  	MyVertexStructure myVertex = BufferTable.Load<MyVertexStructure>((VERTEXOFFSET + VertexIndex) * sizeof(MyVertexStructure));
 #endif
-    UBO ubo = uboarr[OBJECTINDEX];
+    objectData ubo = uboarr[InstanceIndex];
     VSOutput output = (VSOutput)0;
-    MyLightStructure light = lights[LIGHTINDEX];
     float4x4 viewProjection;
-
-    //TODO JS !!!! FIX
-    // if (getLightType(light) == LIGHT_POINT)
-    // {
-        // viewProjection = shadowMatrices[MATRIXOFFSET].mat;
-    // }
-    // else
-    // {
-        viewProjection = shadowMatrices[MATRIXOFFSET].mat;
-    // }
+///
+        viewProjection = mul(shadowMatrices[MATRIXOFFSET].proj, shadowMatrices[MATRIXOFFSET].view);
+    
     float4x4 mvp2 = mul(viewProjection, ubo.Model);
     
     output.Pos = mul(mvp2, half4(myVertex.position.xyz, 1.0));

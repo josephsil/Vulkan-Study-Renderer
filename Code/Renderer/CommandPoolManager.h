@@ -2,7 +2,7 @@
 #include <cstdint>
 
 #include "VulkanIncludes/forward-declarations-renderer.h"
-#include "rendererGlobals.h"
+// #include "rendererGlobals.h"
 
 namespace vkb
 {

@@ -5,30 +5,27 @@
 #define SDL_MAIN_HANDLED 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_vulkan.h>
-
+////
 #include <cstdlib>
-#include <fstream>
-#include <iostream>
 #include <span>
-
+#include "Vertex.h"
+#include "../../ImageLibraryImplementations.h"
+#include "../General/Array.h"
+#include "../General/MemoryArena.h"
 
 #include "bufferCreation.h"
 #include "CommandPoolManager.h"
 #include "gpu-data-structs.h"
 #include "meshData.h"
 #include "../Scene/SceneObjectData.h"
-#include "Vertex.h"
-#include "../../ImageLibraryImplementations.h"
-#include "../General/Array.h"
-#include "../General/Memory.h"
 #include "Shaders/ShaderLoading.h"
 #include "textureCreation.h"
 #include "TextureData.h"
 #include "VkBootstrap.h"
 #include "vulkan-utilities.h"
-#include "../Scene/SceneObjectData.h"
 #include "VulkanIncludes/VulkanMemory.h"
 
+struct gpuPerShadowData;
 int SHADER_MODE;
 VkSurfaceKHR surface;
 
@@ -37,14 +34,14 @@ vkb::Instance GET_INSTANCE()
 {
     vkb::InstanceBuilder instance_builder;
     auto instanceBuilderResult = instance_builder
-                                  .request_validation_layers()
+                                  // .request_validation_layers()
                                  .use_default_debug_messenger()
-                                 .require_api_version(1, 3, 240)
+                                 .require_api_version(1, 3, 255)
                                  .build();
     if (!instanceBuilderResult)
     {
-        std::cerr << "Failed to create Vulkan instance. Error: " << instanceBuilderResult.error().message() << "\n";
-        while(true);
+        printf("Failed to create Vulkan instance. Error: %s, \n", instanceBuilderResult.error().message());
+        assert(false);
     }
 
     return instanceBuilderResult.value();
@@ -64,11 +61,14 @@ vkb::PhysicalDevice GET_GPU(vkb::Instance instance)
     VkPhysicalDeviceVulkan11Features features11{};
     VkPhysicalDeviceVulkan12Features features12{};
     VkPhysicalDeviceVulkan13Features features13{};
+    features.multiDrawIndirect = VK_TRUE;
+    features.wideLines = VK_TRUE;
+    features11.shaderDrawParameters = VK_TRUE;
     features12.descriptorIndexing = VK_TRUE;
     features12.runtimeDescriptorArray = VK_TRUE;
     features12.descriptorBindingPartiallyBound = VK_TRUE;
     features13.dynamicRendering = VK_TRUE;
-    features.wideLines = VK_TRUE;
+    features13.synchronization2 = VK_TRUE;
 
    
     vkb::PhysicalDeviceSelector phys_device_selector(instance);
@@ -76,6 +76,8 @@ vkb::PhysicalDevice GET_GPU(vkb::Instance instance)
                                        .set_minimum_version(1, 3)
                                        .set_surface(surface)
                                        .require_separate_transfer_queue()
+    .set_required_features(features)
+    .set_required_features_11(features11)
                                        .set_required_features_12(features12)
     // .set_required_features({.})
     .set_required_features_13(features13)
@@ -87,7 +89,7 @@ vkb::PhysicalDevice GET_GPU(vkb::Instance instance)
 
     if (!physicalDeviceBuilderResult)
     {
-        std::cerr << ("Failed to create Physical Device ")  << physicalDeviceBuilderResult.error().message();
+        printf("Failed to create Physical Device %s \n",  physicalDeviceBuilderResult.error().message());
         exit(1);
     }
     
@@ -96,7 +98,7 @@ vkb::PhysicalDevice GET_GPU(vkb::Instance instance)
     auto a =physicalDeviceBuilderResult.value().get_extensions();
     for(auto& v : a)
     {
-        std::cerr << v << "\n";
+        printf("%s \n", v.c_str());
     }
     return physicalDeviceBuilderResult.value();
 }
@@ -109,7 +111,7 @@ vkb::Device GET_DEVICE(vkb::PhysicalDevice gpu)
 
     if (!devicebuilderResult)
     {
-        std::cerr << ("Failed to create Virtual Device");
+        printf("Failed to create Virtual Device \n");
         exit(1);
     }
 
@@ -127,24 +129,7 @@ unsigned int frames;
 
 unsigned int MAX_TEXTURES = 30;
 
-//TODO JS: move
-struct gpuvertex
-{
-    alignas(16) glm::vec4 pos;
-    alignas(16) glm::vec4 texCoord;
-    alignas(16) glm::vec4 normal;
-    alignas(16) glm::vec4 tangent;
-};
 
-//TODO JS: move
-struct gpulight
-{
-    alignas(16) glm::vec4 pos_xyz_range_a;
-    alignas(16) glm::vec4 color_xyz_intensity_a;
-    alignas(16) glm::vec4 pointOrSpot_x_dir_yza;
-    // alignas(16) glm::mat4 matrixViewProjection;
-    alignas(16) glm::vec4 matrixIndex_matrixCount_padding_padding; // currently only used by point
-};
 
 
 
@@ -238,11 +223,13 @@ void HelloTriangleApplication::updateShadowImageViews(int frame )
     }
 }
 
+//Need a better name for this, or to breka this concept up
+
+
 
 
 void HelloTriangleApplication::initVulkan()
 {
-
     this->rendererArena = {};
     MemoryArena::initialize(&rendererArena, 1000000 * 10); // 10mb
 
@@ -260,7 +247,7 @@ void HelloTriangleApplication::initVulkan()
     SDL_bool err = SDL_Vulkan_CreateSurface(_window, instance, &surface);
     if (!err)
     {
-        std::cerr << "Failed to create SDL surface";
+        printf("Failed to create SDL surface \n");
         exit(1);
     }
 
@@ -318,14 +305,20 @@ void HelloTriangleApplication::initVulkan()
     shaderLoader->AddShader("triangle_alt", L"./Shaders/shader2.hlsl");
     shaderLoader->AddShader("shadow", L"./Shaders/bindlessShadow.hlsl");
     shaderLoader->AddShader("lines", L"./Shaders/lines.hlsl");
+    shaderLoader->AddShader("cull", L"./Shaders/cull_compute.hlsl", true);
 
     //Command buffer stuff
     createCommandBuffers();
 
     //Initialize scene
+    sceneCamera.extent = {swapChainExtent.width, swapChainExtent.height};
     scene = MemoryArena::Alloc<Scene>(&rendererArena);
     InitializeScene(&rendererArena, scene);
     SET_UP_SCENE(this);
+
+    
+
+    perLightShadowData = MemoryArena::AllocSpan<std::span<PerShadowData>>(&rendererArena, scene->lightCount);
 
    
     //shadows
@@ -338,9 +331,6 @@ void HelloTriangleApplication::initVulkan()
         
         updateShadowImageViews(i);
     }
-       
-
-    
 
     //Initialize scene-ish objects we don't have a place for yet 
     cubemaplut_utilitytexture_index = scene->AddUtilityTexture(
@@ -348,28 +338,79 @@ void HelloTriangleApplication::initVulkan()
     cube_irradiance = TextureData(getHandles(), "textures/output_cubemap2_diff8.ktx2", TextureData::TextureType::CUBE);
     cube_specular = TextureData(getHandles(), "textures/output_cubemap2_spec8.ktx2", TextureData::TextureType::CUBE);
 
-    
-    descriptorsetLayoutsData = PipelineDataObject(getHandles(), scene);
-
-
-    //TODO JS: Make pipelines belong to the perPipelineLayout members
-    createGraphicsPipeline("triangle_alt",  &descriptorsetLayoutsData);
-    createGraphicsPipeline("triangle",  &descriptorsetLayoutsData);
-    //TODO JS: separate shadow layout?
-    createGraphicsPipeline("shadow",  &descriptorsetLayoutsData, true);
-
-    createGraphicsPipeline("lines",  &descriptorsetLayoutsData, false, true);
-    
-    createDescriptorSetPool(getHandles(), &descriptorPool);
-
-    descriptorsetLayoutsData.createDescriptorSetsOpaque(descriptorPool, MAX_FRAMES_IN_FLIGHT);
-    descriptorsetLayoutsData.createDescriptorSetsShadow(descriptorPool, MAX_FRAMES_IN_FLIGHT);
-
     createUniformBuffers();
     createSyncObjects();
 
     //TODO JS: Move... Run when meshes change?
     populateMeshBuffers();
+
+    createDescriptorSetPool(getHandles(), &descriptorPool);
+
+    Array opaqueLayout = MemoryArena::AllocSpan<VkDescriptorSetLayoutBinding>(&rendererArena, 11);
+    uint32_t i =0;
+    opaqueLayout.push_back({i++, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL, VK_NULL_HANDLE}); //Globals
+    opaqueLayout.push_back({i++, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, MAX_TEXTURES, VK_SHADER_STAGE_FRAGMENT_BIT,  VK_NULL_HANDLE});
+    opaqueLayout.push_back({i++, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,2, VK_SHADER_STAGE_FRAGMENT_BIT,  VK_NULL_HANDLE});
+    opaqueLayout.push_back({i++, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, MAX_SHADOWMAPS, VK_SHADER_STAGE_FRAGMENT_BIT  }); //SHADOW
+    opaqueLayout.push_back({i++, VK_DESCRIPTOR_TYPE_SAMPLER, MAX_TEXTURES, VK_SHADER_STAGE_FRAGMENT_BIT , VK_NULL_HANDLE} );
+    opaqueLayout.push_back({i++, VK_DESCRIPTOR_TYPE_SAMPLER, 2, VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE}  );
+    opaqueLayout.push_back({i++, VK_DESCRIPTOR_TYPE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE}  ); //SHADOW
+    opaqueLayout.push_back({i++, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE} ); //Geometry
+    opaqueLayout.push_back({i++, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1,  VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE} ); //light
+    opaqueLayout.push_back({i++, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1,  VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE} ); //ubo
+    opaqueLayout.push_back({i++, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE} ); //shadow matrices
+
+
+    Array shadowLayout = MemoryArena::AllocSpan<VkDescriptorSetLayoutBinding>(&rendererArena, 5);
+    shadowLayout.push_back({6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE}); //Vertices
+    shadowLayout.push_back({7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE});
+    shadowLayout.push_back({8, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE}); //light
+    shadowLayout.push_back({9, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE}); //ubo
+    shadowLayout.push_back({10, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE}); //shadow matrices
+
+    Array computeLayout = MemoryArena::AllocSpan<VkDescriptorSetLayoutBinding>(&rendererArena, 3);
+    computeLayout.push_back({0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}); //frustum data //todo do these need to bestorage?
+    computeLayout.push_back({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}); //draws 
+    computeLayout.push_back({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}); //objectData  //todo do these need to bestorage?
+
+    for(int i = 0; i < MAX_FRAMES_IN_FLIGHT ; i++)
+    {
+        opaqueUpdates[i] = createOpaqueDescriptorUpdates(i, &rendererArena, opaqueLayout.getSpan());
+        shadowUpdates[i] = MemoryArena::AllocSpan<std::span<descriptorUpdateData>>(&rendererArena, MAX_SHADOWCASTERS);
+        for(int j = 0; j < MAX_SHADOWCASTERS; j++)
+        {
+            shadowUpdates[i][j] = createShadowDescriptorUpdates(&rendererArena, i, j, shadowLayout.getSpan());
+            
+        }
+    }
+
+
+    descriptorsetLayoutsDataCompute = PipelineDataObject(getHandles(), descriptorPool, computeLayout.getSpan());
+
+    //compute
+    createGraphicsPipeline("cull",  &descriptorsetLayoutsDataCompute, {},true, sizeof(cullPConstants));
+
+    
+    descriptorsetLayoutsData = PipelineDataObject(getHandles(), descriptorPool, opaqueLayout.getSpan());
+    descriptorsetLayoutsDataShadow = PipelineDataObject(getHandles(), descriptorPool, shadowLayout.getSpan());
+   
+
+
+    //opaque
+    const PipelineDataObject::graphicsPipelineSettings opaquePipelineSettings =  {std::span(&swapChainColorFormat, 1), depthFormat};
+    createGraphicsPipeline("triangle_alt",  &descriptorsetLayoutsData, opaquePipelineSettings,false, sizeof(debugLinePConstants));
+    createGraphicsPipeline("triangle",  &descriptorsetLayoutsData, opaquePipelineSettings,false, sizeof(debugLinePConstants));
+    const PipelineDataObject::graphicsPipelineSettings linePipelineSettings =  {std::span(&swapChainColorFormat, 1), depthFormat, VK_CULL_MODE_NONE, VK_PRIMITIVE_TOPOLOGY_LINE_LIST };
+    createGraphicsPipeline("lines",  &descriptorsetLayoutsData, linePipelineSettings,false, sizeof(debugLinePConstants));
+
+    //shadow 
+    const PipelineDataObject::graphicsPipelineSettings shadowPipelineSettings =  {std::span(&swapChainColorFormat, 0), shadowFormat, VK_CULL_MODE_FRONT_BIT, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_TRUE, true };
+    createGraphicsPipeline("shadow",  &descriptorsetLayoutsDataShadow, shadowPipelineSettings,false, sizeof(debugLinePConstants));
+
+
+    
+    
+ 
 }
 
 void HelloTriangleApplication::populateMeshBuffers()
@@ -402,7 +443,7 @@ void HelloTriangleApplication::populateMeshBuffers()
     }
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        FramesInFlightData[i].meshBuffers.updateMappedMemory(gpuVerts.data(), sizeof(gpuvertex) * scene->getVertexCount());
+        FramesInFlightData[i].meshBuffers.updateMappedMemory({gpuVerts.data(), scene->getVertexCount()});
     }
 }
 
@@ -418,50 +459,29 @@ void HelloTriangleApplication::createUniformBuffers()
     VkDeviceSize lightdataSize = sizeof(gpulight) * scene->lightCount;
     VkDeviceSize shadowDataSize = sizeof(PerShadowData) * scene->lightCount * 10; //times six is plenty right?
 
+    RendererHandles handles = getHandles();
+
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
         FramesInFlightData[i].perLightShadowShaderGlobalsBuffer.resize(MAX_SHADOWCASTERS);
-        FramesInFlightData[i].perLightShadowShaderGlobalsMapped.resize(MAX_SHADOWCASTERS);
-        FramesInFlightData[i].perLightShadowShaderGlobalsMemory.resize(MAX_SHADOWCASTERS);
 
         for (size_t j = 0; j < MAX_SHADOWCASTERS ; j++)
         {
-            FramesInFlightData[i].perLightShadowShaderGlobalsBuffer[j].size = globalsSize;
-            FramesInFlightData[i].perLightShadowShaderGlobalsMapped[j] = BufferUtilities::createDynamicBuffer(
-                getHandles(), globalsSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                &FramesInFlightData[i].perLightShadowShaderGlobalsMemory[j],
-                FramesInFlightData[i].perLightShadowShaderGlobalsBuffer[j].data);
+            FramesInFlightData[i].perLightShadowShaderGlobalsBuffer[j] = createDataBuffer<ShaderGlobals>(&handles, 1, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
         }
-        
-        FramesInFlightData[i].opaqueShaderGlobalsBuffer.size = globalsSize;
-        FramesInFlightData[i].opaqueShaderGlobalsBuffer.mapped = BufferUtilities::createDynamicBuffer(
-            getHandles(), globalsSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-            &FramesInFlightData[i].opaqueShaderGlobalsMemory,
-            FramesInFlightData[i].opaqueShaderGlobalsBuffer.data);
-        
-        FramesInFlightData[i].uniformBuffers.size = ubosSize;
-        FramesInFlightData[i].uniformBuffers.mapped = BufferUtilities::createDynamicBuffer(
-            getHandles(), ubosSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-            &FramesInFlightData[i].uniformBuffersMemory,
-            FramesInFlightData[i].uniformBuffers.data);
-        
-        FramesInFlightData[i].meshBuffers.size = vertsSize;
-        FramesInFlightData[i].meshBuffers.mapped = BufferUtilities::createDynamicBuffer(
-            getHandles(), vertsSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-            &FramesInFlightData[i].meshBuffersMemory,
-            FramesInFlightData[i].meshBuffers.data);
 
-        FramesInFlightData[i].lightBuffers.size = lightdataSize;
-        FramesInFlightData[i].lightBuffers.mapped = BufferUtilities::createDynamicBuffer(
-            getHandles(), lightdataSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-            &FramesInFlightData[i].lightBuffersMemory,
-            FramesInFlightData[i].lightBuffers.data);
+       
 
-        FramesInFlightData[i].shadowDataBuffers.size = shadowDataSize;
-        FramesInFlightData[i].shadowDataBuffers.mapped = BufferUtilities::createDynamicBuffer(
-            getHandles(), shadowDataSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-            &FramesInFlightData[i].shadowDataBuffersMemory,
-            FramesInFlightData[i].shadowDataBuffers.data);
+        FramesInFlightData[i].opaqueShaderGlobalsBuffer = createDataBuffer<ShaderGlobals>(&handles, 1, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
+        FramesInFlightData[i].uniformBuffers = createDataBuffer<UniformBufferObject>(&handles, scene->objectsCount(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT); //
+        FramesInFlightData[i].meshBuffers = createDataBuffer<gpuvertex>(&handles,scene->getVertexCount(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+        FramesInFlightData[i].lightBuffers = createDataBuffer<gpulight>(&handles, scene->lightCount, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+        FramesInFlightData[i].shadowDataBuffers = createDataBuffer<gpuPerShadowData>(&handles, scene->lightCount * 10, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+
+      
+        FramesInFlightData[i].drawBuffers = createDataBuffer<drawCommandData>(&handles, MAX_DRAWINDIRECT_COMMANDS, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
+        FramesInFlightData[i].frustumsForCullBuffers = createDataBuffer<glm::vec4>(&handles, (MAX_SHADOWMAPS + MAX_CAMERAS) * 6, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+     
 
     }
 }
@@ -520,17 +540,14 @@ std::span<VkDescriptorImageInfo> getBindlessTextureInfos(MemoryArena::memoryAren
         auto imageInfo = imageInfoFromImageData(
             diffuse[texture_i]);
         imageInfos.push_back(imageInfo);
-        // samplerInfos.push_back(imageInfo);
 
         auto imageInfo2 = imageInfoFromImageData(
             spec[texture_i]);
         imageInfos.push_back(imageInfo2);
-        // samplerInfos.push_back(imageInfo2);
 
         auto imageInfo3 = imageInfoFromImageData(
             norm[texture_i]);
         imageInfos.push_back(imageInfo3);
-        // samplerInfos.push_back(imageInfo3);
     }
 
     for (int texture_i = 0; texture_i < utility.size(); texture_i++)
@@ -538,119 +555,149 @@ std::span<VkDescriptorImageInfo> getBindlessTextureInfos(MemoryArena::memoryAren
         auto imageInfo = imageInfoFromImageData(
             utility[texture_i]);
         imageInfos.push_back(imageInfo);
-        // samplerInfos.push_back(imageInfo);
     }
 
-    return std::span(imageInfos.data, imageInfos.ct);
+    return imageInfos.getSpan();
 }
 
 
-void HelloTriangleApplication::updateOpaqueDescriptorSets(RendererHandles handles, VkDescriptorPool pool, PipelineDataObject* layoutData)
+void HelloTriangleApplication::updateOpaqueDescriptorSets(PipelineDataObject* layoutData)
+{
+    layoutData->updateDescriptorSets(opaqueUpdates[currentFrame], currentFrame);
+}
+
+
+
+std::span<descriptorUpdateData> HelloTriangleApplication::createOpaqueDescriptorUpdates(uint32_t frame, MemoryArena::memoryArena* arena, std::span<VkDescriptorSetLayoutBinding> layoutBindings)
 {
 
     //Get data
-    auto imageInfos = getBindlessTextureInfos(
-        handles.perframeArena,
+    std::span imageInfos = getBindlessTextureInfos(
+        arena,
         std::span(scene->backing_diffuse_textures.data, scene->backing_diffuse_textures.ct ),
         std::span(scene->backing_specular_textures.data, scene->backing_specular_textures.ct ),
         std::span(scene->backing_normal_textures.data, scene->backing_normal_textures.ct ),
         std::span(scene->backing_utility_textures.data, scene->backing_utility_textures.ct ));
-    auto [cubeImageInfos, cubeSamplerInfos] = DescriptorSets::ImageInfoFromImageDataVec({
+
+    std::span cubeImageInfos= DescriptorSets::ImageInfoFromImageDataVec(arena,{
         cube_irradiance, cube_specular});
 
 
     int pointCount = 0;
 
-    //TODO JS: !!!! Fix this 
-    VkDescriptorImageInfo shadows[MAX_SHADOWMAPS] = {};
+    std::span<VkDescriptorImageInfo> shadows = MemoryArena::AllocSpan<VkDescriptorImageInfo>(arena, MAX_SHADOWMAPS);
     for(int i = 0; i < MAX_SHADOWMAPS; i++)
     {
         VkImageView view {};
         if (i < scene->shadowCasterCount())
         {
-            bool point = scene->lightTypes[i] == LIGHT_POINT;
-            int idx = scene->getShadowDataIndex(i);
-            view =  shadowMapSamplingImageViews[currentFrame][ i] ;
+            view =  shadowMapSamplingImageViews[frame][i] ;
         }
 
         //Fill out the remaining leftover shadow bindings with something -- using the other shadow view is arbitrary
         //TODO JS: Should have a "default" view maybe? 
         else
         {
-            view = shadowMapRenderingImageViews[currentFrame][0];
+            view = shadowMapRenderingImageViews[frame][0];
         }
         
         assert( &view != VK_NULL_HANDLE);
         VkDescriptorImageInfo shadowInfo = {
-            //TODO JS: make sure the right stuff is in currentFrame[0]
             .imageView = view, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
         };
         shadows[i] = shadowInfo;
     }
 
-    VkDescriptorImageInfo shadowSamplerInfo = {
-        .sampler  = shadowSamplers[currentFrame], .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+    VkDescriptorImageInfo* shadowSamplerInfo =  MemoryArena::Alloc<VkDescriptorImageInfo>(arena);
+    *shadowSamplerInfo = {
+        .sampler  = shadowSamplers[frame], .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
     };
-
-   
     
-    VkDescriptorBufferInfo meshBufferinfo = FramesInFlightData[currentFrame].meshBuffers.getBufferInfo();
-    VkDescriptorBufferInfo lightbufferinfo = FramesInFlightData[currentFrame].lightBuffers.getBufferInfo();
-    VkDescriptorBufferInfo uniformbufferinfo = FramesInFlightData[currentFrame].uniformBuffers.getBufferInfo();
-    VkDescriptorBufferInfo shaderglobalsinfo = FramesInFlightData[currentFrame].opaqueShaderGlobalsBuffer.getBufferInfo();
+    VkDescriptorBufferInfo* meshBufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
+    *meshBufferinfo = FramesInFlightData[frame].meshBuffers._buffer.getBufferInfo();
+    VkDescriptorBufferInfo* lightbufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
+    *lightbufferinfo = FramesInFlightData[frame].lightBuffers._buffer.getBufferInfo();
+    VkDescriptorBufferInfo* uniformbufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
+    *uniformbufferinfo = FramesInFlightData[frame].uniformBuffers._buffer.getBufferInfo();
+    VkDescriptorBufferInfo* shaderglobalsinfo =  MemoryArena::Alloc<VkDescriptorBufferInfo>(arena);
+    *shaderglobalsinfo = FramesInFlightData[frame].opaqueShaderGlobalsBuffer._buffer.getBufferInfo();
     
-      VkDescriptorBufferInfo shadowBuffersInfo = FramesInFlightData[currentFrame].shadowDataBuffers.getBufferInfo();
+    VkDescriptorBufferInfo* shadowBuffersInfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
+    *shadowBuffersInfo = FramesInFlightData[frame].shadowDataBuffers._buffer.getBufferInfo();
 
-    
 
-    std::vector<descriptorUpdateData> descriptorUpdates;
+    Array<descriptorUpdateData> descriptorUpdates = MemoryArena::AllocSpan<descriptorUpdateData>(arena, 11);
     //Update descriptor sets with data
- 
-    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &shaderglobalsinfo});
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, shaderglobalsinfo});
 
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, imageInfos.data(),  (uint32_t)imageInfos.size()});
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, cubeImageInfos.data(), (uint32_t)cubeImageInfos.size()});
-    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, &shadows,  (uint32_t)MAX_SHADOWMAPS}); //shadows
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, shadows.data(),  MAX_SHADOWMAPS}); //shadows
 
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, imageInfos.data(), (uint32_t)imageInfos.size()});
-    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, cubeSamplerInfos.data(), (uint32_t)cubeSamplerInfos.size()});
-    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, &shadowSamplerInfo, (uint32_t)1}); //shadows
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, cubeImageInfos.data(), (uint32_t)cubeImageInfos.size()});
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, shadowSamplerInfo, (uint32_t)1}); //shadows
 
-    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &meshBufferinfo});
-    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &lightbufferinfo});
-    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &uniformbufferinfo});
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, meshBufferinfo});
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, lightbufferinfo});
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, uniformbufferinfo});
     
-    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &shadowBuffersInfo});
-    
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, shadowBuffersInfo});
 
-    layoutData->updateOpaqueDescriptorSets(descriptorUpdates, currentFrame);
+    assert(descriptorUpdates.ct == layoutBindings.size());
+    for(int i = 0; i < descriptorUpdates.ct; i++)
+    {
+        auto update = descriptorUpdates[i];
+        auto layout = layoutBindings[i];
+        assert(update.type == layout.descriptorType);
+        assert(update.count <= layout.descriptorCount);
+    }
+ 
+   return descriptorUpdates.getSpan();
 }
 
-
-//TODO JS: Need to use separate descriptors  
-//TODO JS: Probably want to duplicate less code
-void HelloTriangleApplication::updateShadowDescriptorSets(RendererHandles handles,  VkDescriptorPool pool, PipelineDataObject* layoutData, uint32_t shadowIndex)
+std::span<descriptorUpdateData> HelloTriangleApplication::createShadowDescriptorUpdates(MemoryArena::memoryArena* arena, uint32_t frame, uint32_t shadowIndex,  std::span<VkDescriptorSetLayoutBinding> layoutBindings)
 {
-
     //Get data
-    VkDescriptorBufferInfo meshBufferinfo = FramesInFlightData[currentFrame].meshBuffers.getBufferInfo();
-    VkDescriptorBufferInfo uniformbufferinfo = FramesInFlightData[currentFrame].uniformBuffers.getBufferInfo();
-    VkDescriptorBufferInfo shaderglobalsinfo = FramesInFlightData[currentFrame].perLightShadowShaderGlobalsBuffer[shadowIndex].getBufferInfo();
+    VkDescriptorBufferInfo* meshBufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
+    *meshBufferinfo = getDescriptorBufferInfo(FramesInFlightData[frame].meshBuffers);
+    VkDescriptorBufferInfo* uniformbufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
+    *uniformbufferinfo = getDescriptorBufferInfo(FramesInFlightData[frame].uniformBuffers);
+    VkDescriptorBufferInfo* shaderglobalsinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
+    *shaderglobalsinfo = getDescriptorBufferInfo(FramesInFlightData[frame].perLightShadowShaderGlobalsBuffer[shadowIndex]);
 
-    VkDescriptorBufferInfo lightbufferinfo = FramesInFlightData[currentFrame].lightBuffers.getBufferInfo();
-    VkDescriptorBufferInfo shadowBuffersInfo = FramesInFlightData[currentFrame].shadowDataBuffers.getBufferInfo();
+    VkDescriptorBufferInfo* lightbufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
+    *lightbufferinfo = getDescriptorBufferInfo(FramesInFlightData[frame].lightBuffers);
+    VkDescriptorBufferInfo* shadowBuffersInfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
+    *shadowBuffersInfo = getDescriptorBufferInfo(FramesInFlightData[frame].shadowDataBuffers);
 
-    std::vector<descriptorUpdateData> descriptorUpdates;
+    Array<descriptorUpdateData> descriptorUpdates = MemoryArena::AllocSpan<descriptorUpdateData>(arena, 5);
     //Update descriptor sets with data
  
-    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &shaderglobalsinfo});
-    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &meshBufferinfo});
-    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &lightbufferinfo});
-    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &uniformbufferinfo});
-    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &shadowBuffersInfo});
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, shaderglobalsinfo});
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, meshBufferinfo});
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, lightbufferinfo});
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, uniformbufferinfo});
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, shadowBuffersInfo});
 
+    assert(descriptorUpdates.ct == layoutBindings.size());
+    for(int i = 0; i < descriptorUpdates.ct; i++)
+    {
+        auto update = descriptorUpdates[i];
+        auto layout = layoutBindings[i];
+        assert(update.type == layout.descriptorType);
+        assert(update.count <= layout.descriptorCount);
+    }
+ 
+
+    return descriptorUpdates.getSpan();
+}
+//TODO JS: Need to use separate descriptors  
+//TODO JS: Probably want to duplicate less code
+void HelloTriangleApplication::updateShadowDescriptorSets(PipelineDataObject* layoutData, uint32_t shadowIndex)
+{
     layoutData->
-    updateShadowDescriptorSets(descriptorUpdates, currentFrame);
+    updateDescriptorSets(shadowUpdates[currentFrame][shadowIndex], currentFrame);
 
     
 }
@@ -667,42 +714,23 @@ void HelloTriangleApplication::createSyncObjects()
     fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
     for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-            if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &FramesInFlightData[i].imageAvailableSemaphores) != VK_SUCCESS ||
-                vkCreateSemaphore(device, &semaphoreInfo, nullptr, &FramesInFlightData[i].renderFinishedSemaphores) != VK_SUCCESS ||
-                vkCreateFence(device, &fenceInfo, nullptr, &FramesInFlightData[i].inFlightFences) != VK_SUCCESS)
-            {
-                printf("failed to create synchronization objects for a frame!");
-                assert(false);
-            }
-    }
-    for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-    {
-        if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &FramesInFlightData[i].shadowAvailableSemaphores) != VK_SUCCESS ||
-            vkCreateSemaphore(device, &semaphoreInfo, nullptr, &FramesInFlightData[i].shadowFinishedSemaphores) != VK_SUCCESS)
-        {
-            printf("failed to create synchronization objects for a shadow pass!");
-            assert(false);
-        }
-    }
-    for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-    {
-        if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &FramesInFlightData[i].swapchaintransitionedOutSemaphores) != VK_SUCCESS ||
-            vkCreateSemaphore(device, &semaphoreInfo, nullptr, &FramesInFlightData[i].swapchaintransitionedInSemaphores) != VK_SUCCESS)
-        {
-            printf("failed to create synchronization objects for swapchain!");
-            assert(false);
-        }
-    }
+        per_frame_data* frame = &FramesInFlightData[i];
+        VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &frame->imageAvailableSemaphores));
+        VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &frame->renderFinishedSemaphores));
 
-    for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-    {
-        //TODO JS: for each
-        if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &FramesInFlightData[i].shadowtransitionedOutSemaphores) != VK_SUCCESS ||
-            vkCreateSemaphore(device, &semaphoreInfo, nullptr, &FramesInFlightData[i].shadowtransitionedInSemaphores) != VK_SUCCESS)
-        {
-            printf("failed to create synchronization objects for swapchain!");
-            assert(false);
-        }
+        VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &frame->computeFinishedSemaphores));
+        
+        VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &frame->shadowAvailableSemaphores));
+        VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &frame->shadowFinishedSemaphores));
+
+        VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &frame->swapchaintransitionedOutSemaphores));
+        VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &frame->swapchaintransitionedInSemaphores));
+     
+
+        VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &frame->shadowtransitionedOutSemaphores));
+        VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &frame->shadowtransitionedInSemaphores));
+
+        VK_CHECK(vkCreateFence(device, &fenceInfo, nullptr, &FramesInFlightData[i].inFlightFences));
     }
    
 
@@ -719,12 +747,12 @@ glm::quat OrientationFromYawPitch(glm::vec2 yawPitch )
     return yawQuat * pitchQUat;
 }
 
-Transform HelloTriangleApplication::getCameraTransform()
+Transform getCameraTransform(HelloTriangleApplication::cameraData camera)
 {
     
     Transform output{};
-    output.translation = glm::translate(glm::mat4(1.0), -eyePos);
-    output.rot = glm::mat4_cast(glm::conjugate(OrientationFromYawPitch(eyeRotation)));
+    output.translation = glm::translate(glm::mat4(1.0), -camera.eyePos);
+    output.rot = glm::mat4_cast(glm::conjugate(OrientationFromYawPitch(camera.eyeRotation)));
 
     return output;
 }
@@ -734,17 +762,69 @@ struct linePair
     glm::vec3 end;
     glm::vec3 color;
 };
+
+//zoux code
+VkBufferMemoryBarrier2 bufferBarrier(VkBuffer buffer, VkPipelineStageFlags2 srcStageMask, VkAccessFlags2 srcAccessMask, VkPipelineStageFlags2 dstStageMask, VkAccessFlags2 dstAccessMask)
+{
+    VkBufferMemoryBarrier2 result = { VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2 };
+
+    result.srcStageMask = srcStageMask;
+    result.srcAccessMask = srcAccessMask;
+    result.dstStageMask = dstStageMask;
+    result.dstAccessMask = dstAccessMask;
+    result.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    result.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    result.buffer = buffer;
+    result.offset = 0;
+    result.size = VK_WHOLE_SIZE;
+
+    return result;
+}
+//zoux code
+void pipelineBarrier(VkCommandBuffer commandBuffer, VkDependencyFlags dependencyFlags, size_t bufferBarrierCount, const VkBufferMemoryBarrier2* bufferBarriers, size_t imageBarrierCount, const VkImageMemoryBarrier2* imageBarriers)
+{
+    VkDependencyInfo dependencyInfo = { VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+    dependencyInfo.dependencyFlags = dependencyFlags;
+    dependencyInfo.bufferMemoryBarrierCount = unsigned(bufferBarrierCount);
+    dependencyInfo.pBufferMemoryBarriers = bufferBarriers;
+    dependencyInfo.imageMemoryBarrierCount = unsigned(imageBarrierCount);
+    dependencyInfo.pImageMemoryBarriers = imageBarriers;
+
+    vkCmdPipelineBarrier2(commandBuffer, &dependencyInfo);
+}
+//zoux code
+VkImageMemoryBarrier2 imageBarrier(VkImage image, VkPipelineStageFlags2 srcStageMask, VkAccessFlags2 srcAccessMask, VkImageLayout oldLayout, VkPipelineStageFlags2 dstStageMask, VkAccessFlags2 dstAccessMask, VkImageLayout newLayout, VkImageAspectFlags aspectMask, uint32_t baseMipLevel, uint32_t levelCount)
+{
+    VkImageMemoryBarrier2 result = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2 };
+
+    result.srcStageMask = srcStageMask;
+    result.srcAccessMask = srcAccessMask;
+    result.dstStageMask = dstStageMask;
+    result.dstAccessMask = dstAccessMask;
+    result.oldLayout = oldLayout;
+    result.newLayout = newLayout;
+    result.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    result.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    result.image = image;
+    result.subresourceRange.aspectMask = aspectMask;
+    result.subresourceRange.baseMipLevel = baseMipLevel;
+    result.subresourceRange.levelCount = levelCount;
+    result.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
+
+    return result;
+}
+
 std::vector<linePair> debugLines;
 //TODO JS: this sucks!
 void HelloTriangleApplication::updateCamera(inputData input)
 {
-    eyeRotation += (input.mouseRot *  30000.0f *  deltaTime);  // 30000 degrees per full screen rotation per second
-    if(eyeRotation.y > 89.0f)
-        eyeRotation.y = 89.0f;
-    if(eyeRotation.y < -89.0f)
-        eyeRotation.y = -89.0f;
+    sceneCamera.eyeRotation += (input.mouseRot *  30000.0f *  deltaTime);  // 30000 degrees per full screen rotation per second
+    if(sceneCamera.eyeRotation.y > 89.0f)
+        sceneCamera.eyeRotation.y = 89.0f;
+    if(sceneCamera.eyeRotation.y < -89.0f)
+        sceneCamera.eyeRotation.y = -89.0f;
 
-    glm::quat Orientation = OrientationFromYawPitch(eyeRotation);
+    glm::quat Orientation = OrientationFromYawPitch(sceneCamera.eyeRotation);
  
     glm::quat forwardQuat = Orientation * glm::quat(0, 0, 0, -1) * glm::conjugate(Orientation);
     glm::vec3 UP = glm::vec3(0,1,0);
@@ -754,7 +834,7 @@ void HelloTriangleApplication::updateCamera(inputData input)
     glm::vec3 translateFWD = Front * input.keyboardMove.y;
     glm::vec3 translateSIDE = RIGHT * input.keyboardMove.x;
 
-    eyePos +=  (translateFWD + translateSIDE) * deltaTime;
+    sceneCamera.eyePos +=  (translateFWD + translateSIDE) * deltaTime;
 }
 
 void debugDrawFrustum(std::span<glm::vec4> frustum)
@@ -830,6 +910,7 @@ glm::vec4 minComponentsFromSpan(std::span<glm::vec4> input)
     
 }
 
+
 std::span<glm::vec4> populateFrustumCornersForSpace(std::span<glm::vec4> output_span, glm::mat4 matrix)
 {
    const glm::vec3 frustumCorners[8] = {
@@ -854,11 +935,29 @@ std::span<glm::vec4> populateFrustumCornersForSpace(std::span<glm::vec4> output_
 
 }
 
-std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocator, HelloTriangleApplication::CameraInfo cam, glm::mat4 view, glm::vec3 lightPos, glm::vec3 spotDir, float spotRadius, lightType type)
+struct viewProj
 {
+    glm::mat4 view;
+    glm::mat4 proj;
+};
 
- 
-  
+viewProj viewProjFromCamera( HelloTriangleApplication::cameraData camera)
+{
+    Transform cameraTform = getCameraTransform(camera);
+    glm::mat4 view = cameraTform.rot * cameraTform.translation;
+
+    glm::mat4 proj = glm::perspective(glm::radians(camera.fov),
+                                      camera.extent.width / static_cast<float>(camera.extent.height),
+                                      camera.nearPlane,
+                                      camera.farPlane);
+    proj[1][1] *= -1;
+
+    return {view, proj};
+}
+
+std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocator, HelloTriangleApplication::cameraData cam, glm::vec3 lightPos, glm::vec3 spotDir, float spotRadius, lightType type)
+{
+    viewProj vp = viewProjFromCamera(cam);
     
     glm::vec3 dir = type ==  LIGHT_SPOT ? spotDir : glm::normalize(lightPos);
     glm::vec3 up = glm::vec3( 0.0f, 1.0f,  0.0f);
@@ -870,7 +969,7 @@ std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocato
     }
     glm::mat4 lightViewMatrix = {};
     glm::mat4 lightProjection = {};
-    
+    debugDrawCross(lightPos, 2, {1,1,0});
     std::span<PerShadowData> outputSpan;
     switch (type)
     {
@@ -878,10 +977,8 @@ std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocato
     case LIGHT_DIR:
         {
             outputSpan = MemoryArena::AllocSpan<PerShadowData>(allocator, 4 ); //TODO JS: cascades
-            glm::mat4 projForLight =  glm::perspective(glm::radians(70.0f),
-                               cam.extent.width / static_cast<float>(cam.extent.height), cam.nearPlane,
-                               cam.farPlane); 
-            glm::mat4 invCam = glm::inverse(projForLight * view);
+
+            glm::mat4 invCam = glm::inverse(vp.proj * vp.view);
 
             glm::vec4 frustumCornersWorldSpace[8] = {};
             populateFrustumCornersForSpace(frustumCornersWorldSpace, invCam);
@@ -891,7 +988,7 @@ std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocato
             debugDrawFrustum(frustumCornersWorldSpace);
 
             //TODO JS: direciton lights only currently
-            debugDrawCross(lightPos, 2, {1,1,0});
+          
 
          
 
@@ -956,7 +1053,7 @@ std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocato
                 glm::mat4 lightOrthoMatrix = glm::ortho(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, 0.0f, maxExtents.z - minExtents.z);
 
                 lightProjection =  lightOrthoMatrix;
-                outputSpan[i] = {lightProjection * lightViewMatrix, (cam.nearPlane + splitDist * clipRange) * -1.0f};
+                outputSpan[i] = {lightViewMatrix, lightProjection,  (cam.nearPlane + splitDist * clipRange) * -1.0f};
                 // OUTPUTPOSITION =  (cam.nearPlane + splitDist * clipRange) * -1.0f; //todo js
             }
             return  outputSpan.subspan(0,4);
@@ -969,7 +1066,7 @@ std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocato
             lightProjection = glm::perspective(glm::radians(spotRadius),
                                       1.0f, 0.1f,
                                       50.0f); //TODO BETTER FAR 
-            outputSpan[0] = {lightProjection * lightViewMatrix, 0};
+            outputSpan[0] = {lightViewMatrix, lightProjection,  0};
                                   
             return  outputSpan;
         }
@@ -988,89 +1085,127 @@ std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocato
         glm::mat4 translation = glm::translate(glm::mat4(1.0f), -lightPos);
         glm::mat4 rotMatrix = glm::mat4(1.0);
     
-    outputSpan[0].shadowMatrix =  glm::rotate(rotMatrix, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-    outputSpan[0].shadowMatrix = lightProjection *   (glm::rotate(  outputSpan[0].shadowMatrix, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * translation);
+    outputSpan[0].view =  glm::rotate(rotMatrix, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    outputSpan[0].view =  (glm::rotate(  outputSpan[0].view, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * translation);
       rotMatrix = glm::mat4(1.0);
-    outputSpan[1].shadowMatrix = glm::rotate(rotMatrix, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-    outputSpan[1].shadowMatrix = lightProjection *   (glm::rotate(outputSpan[1].shadowMatrix, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * translation);
+    outputSpan[1].view = glm::rotate(rotMatrix, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    outputSpan[1].view =  (glm::rotate(outputSpan[1].view, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * translation);
       rotMatrix = glm::mat4(1.0);
-    outputSpan[2].shadowMatrix = lightProjection *  (glm::rotate(rotMatrix, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * translation);
+    outputSpan[2].view = (glm::rotate(rotMatrix, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * translation);
       rotMatrix = glm::mat4(1.0);
-    outputSpan[3].shadowMatrix = lightProjection *  (glm::rotate(rotMatrix, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * translation);
+    outputSpan[3].view = (glm::rotate(rotMatrix, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * translation);
       rotMatrix = glm::mat4(1.0);
-    outputSpan[4].shadowMatrix = lightProjection *  (glm::rotate(rotMatrix, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * translation);
+    outputSpan[4].view = (glm::rotate(rotMatrix, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * translation);
       rotMatrix = glm::mat4(1.0);
-    outputSpan[5].shadowMatrix = lightProjection *  (glm::rotate(rotMatrix, glm::radians(180.0f), glm::vec3(0.0f, 0.0f, 1.0f)) * translation);
-       rotMatrix = glm::mat4(1.0);   
+    outputSpan[5].view = (glm::rotate(rotMatrix, glm::radians(180.0f), glm::vec3(0.0f, 0.0f, 1.0f)) * translation);
+       rotMatrix = glm::mat4(1.0);
+
+        for(int i =0; i < 6; i++)
+        {
+            outputSpan[i].proj = lightProjection;
+        }
         return  outputSpan;
         }
 
-
-   
-
-    
 }
-void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Array<glm::mat4> models,
-                                                    inputData input)
+
+
+void updateGlobals(HelloTriangleApplication::cameraData camera, Scene* scene, int cubeMapLutIndex, dataBufferObject<ShaderGlobals> globalsBuffer)
+{
+    ShaderGlobals globals{};
+    viewProj vp = viewProjFromCamera(camera);
+    globals.view = vp.view;
+    globals.proj = vp.proj;
+    globals.viewPos = glm::vec4(camera.eyePos.x, camera.eyePos.y, camera.eyePos.z, 1);
+    globals.lightcountx_modey_shadowcountz_padding_w = glm::vec4(scene->lightCount, SHADER_MODE, MAX_SHADOWCASTERS, 0);
+    globals.cubemaplutidx_cubemaplutsampleridx_paddingzw = glm::vec4(
+        scene->materialTextureCount() + cubeMapLutIndex,
+        scene->materialTextureCount() + cubeMapLutIndex, 0, 0);
+    
+    globalsBuffer.updateMappedMemory({&globals, 1});
+
+    //TODO JS: move when we add the other cameras 
+
+}
+
+void updateShadowData(MemoryArena::memoryArena* allocator, std::span<std::span<PerShadowData>> perLightShadowData, Scene* scene, HelloTriangleApplication::cameraData camera)
+{
+    for(int i =0; i <scene->lightCount; i++)
+    {
+        perLightShadowData[i] =  calculateLightMatrix(allocator, camera,
+             (scene->lightposandradius[i]), scene->lightDir[i], scene->lightposandradius[i].w, static_cast<lightType>(scene->lightTypes[i]));
+    }
+}
+
+//from niagara
+glm::vec4 normalizePlane(glm::vec4 p)
+{
+    return p / length(glm::vec3(p));
+}
+
+void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Array<glm::mat4> models)
 {
     //TODO JS: to ring buffer?
     auto tempArena = getHandles().perframeArena;
-    //Opaque globals
-    ShaderGlobals globals;
 
-
-    updateCamera(input);
-  
-  
-    Transform cameraTform = getCameraTransform();
-    glm::mat4 view = cameraTform.rot * cameraTform.translation;
-
-    glm::mat4 proj = glm::perspective(glm::radians(70.0f),
-                                      swapChainExtent.width / static_cast<float>(swapChainExtent.height), nearPlane,
-                                      farPlane);
-    proj[1][1] *= -1;
-    globals.view = view;
-    globals.proj = proj;
-    globals.viewPos = glm::vec4(eyePos.x, eyePos.y, eyePos.z, 1);
-    globals.lightcountx_modey_shadowcountz_padding_w = glm::vec4(scene->lightCount, SHADER_MODE, MAX_SHADOWCASTERS, 0);
-    globals.cubemaplutidx_cubemaplutsampleridx_paddingzw = glm::vec4(
-        scene->materialTextureCount() + cubemaplut_utilitytexture_index,
-        scene->materialTextureCount() + cubemaplut_utilitytexture_index, 0, 0);
-    
-    FramesInFlightData[currentFrame].opaqueShaderGlobalsBuffer.updateMappedMemory(&globals, sizeof(ShaderGlobals));
-
-  
+    updateGlobals(sceneCamera, scene, cubemaplut_utilitytexture_index, FramesInFlightData[currentFrame].opaqueShaderGlobalsBuffer);
 
     //Lights
-
-    //TODO JS: migrate this info all into this struct 
-    CameraInfo cameraInfo =  { swapChainExtent, eyePos, eyeRotation, nearPlane, farPlane};
     auto lights = MemoryArena::AllocSpan<gpulight>(tempArena, scene->lightCount);
-
-
-    Array<PerShadowData> perShadowData = Array(MemoryArena::AllocSpan<PerShadowData>(&perFrameArenas[currentFrame],FramesInFlightData[currentFrame].shadowDataBuffers.size / sizeof(PerShadowData)));
-    int matrixCt = 0;
-    for(int i =0; i <scene->lightCount; i++)
+    Array<gpuPerShadowData> flattenedPerShadowData = Array(MemoryArena::AllocSpan<gpuPerShadowData>(&perFrameArenas[currentFrame],FramesInFlightData[currentFrame].shadowDataBuffers.count()));
+    for (int i = 0; i < perLightShadowData.size(); i++)
     {
-        
-       std::span<PerShadowData> lightsShadowData =  calculateLightMatrix(&perFrameArenas[currentFrame], cameraInfo, view, static_cast<glm::vec3>(scene->lightposandradius[i]), (glm::vec3)scene->lightDir[i], scene->lightposandradius[i].w, (lightType)scene->lightTypes[i]);
-
-            lights[i] = {
-                scene->lightposandradius[i],
-                scene->lightcolorAndIntensity[i],
-                glm::vec4(scene->lightTypes[i], scene->lightDir[i].x, scene->lightDir[i].y, scene->lightDir[i].z),
-                // lightViewProjection[0],
-                glm::vec4(perShadowData.ct,lightsShadowData.size(),-1,-1)};
-
-        for(int j = 0; j < lightsShadowData.size(); j++  )
+        std::span<gpuPerShadowData> lightsShadowData  =  MemoryArena::AllocSpan<gpuPerShadowData>(tempArena, perLightShadowData[i].size());
+        for (int j = 0; j < perLightShadowData[i].size(); j++)
         {
-            perShadowData.push_back(lightsShadowData[j]);
+            lightsShadowData[j] = { perLightShadowData[i][j].view,perLightShadowData[i][j].proj, perLightShadowData[i][j].cascadeDepth};
         }
+        lights[i] = {
+            scene->lightposandradius[i],
+            scene->lightcolorAndIntensity[i],
+            glm::vec4(scene->lightTypes[i], scene->lightDir[i].x, scene->lightDir[i].y, scene->lightDir[i].z),
+            glm::vec4(flattenedPerShadowData.ct, lightsShadowData.size(), -1, -1)
+        };
 
-          
-       
+        for (int j = 0; j < lightsShadowData.size(); j++)
+        {
+            flattenedPerShadowData.push_back(lightsShadowData[j]);
+        }
+    }
+    
+    FramesInFlightData[currentFrame].lightBuffers.updateMappedMemory(std::span(lights.data(), lights.size()));//TODO JS: could probably bump the index in the shader too on the point path rather than rebinding. 
+    FramesInFlightData[currentFrame].shadowDataBuffers.updateMappedMemory(std::span(flattenedPerShadowData.data, flattenedPerShadowData.capacity));
+
+    // frustums
+    auto frustums = FramesInFlightData[currentFrame].frustumsForCullBuffers
+        .getMappedSpan();
+
+    int offset = 0;
+    for (int i = 0; i < perLightShadowData.size(); i++)
+    {
+        for (int j = 0; j < perLightShadowData[i].size(); j++)
+        {
+            viewProj vp = viewProjFromCamera(sceneCamera);
+            glm::mat4  projT =   transpose(perLightShadowData[i][j].proj)  ;
+            frustums[offset + 0] = projT[3] + projT[0];
+            frustums[offset + 1] = projT[3] - projT[0];
+            frustums[offset + 2] = projT[3] + projT[1];
+            frustums[offset + 3] = projT[3] - projT[1];
+            frustums[offset + 4] = glm::vec4();
+            frustums[offset + 5] = glm::vec4();
+            offset +=6;
+        }
     }
 
+    viewProj vp = viewProjFromCamera(sceneCamera);
+    glm::mat4  projT =   transpose(vp.proj);
+    frustums[offset + 0] = projT[3] + projT[0];
+    frustums[offset + 1] = projT[3] - projT[0];
+    frustums[offset + 2] = projT[3] + projT[1];
+    frustums[offset + 3] = projT[3] - projT[1];
+    frustums[offset + 4] = glm::vec4();
+    frustums[offset + 5] = glm::vec4();
+    
 
     //Ubos
     auto ubos = MemoryArena::AllocSpan<UniformBufferObject>(tempArena,scene->objectsCount());
@@ -1080,21 +1215,32 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
         glm::mat4* model = &models[i];
         ubos[i].model = models[i];
         ubos[i].Normal = transpose(inverse(glm::mat3(*model)));
+
+
+        
+        // int i = drawIndices[j];
+        Material material = scene->objects.materials[i];
+        
+        //Light count, vert offset, texture index, and object data index
+        ubos[i].props.indexInfo = glm::vec4(material.backingTextureidx, (scene->getOffsetFromMeshID(scene->objects.meshIndices[i])),
+                                       material.backingTextureidx, 44);
+
+        ubos[i].props.materialprops = glm::vec4(material.roughness, scene->objects.materials[i].metallic, 0, 0);
+
+        ubos[i].cullingInfo = {scene->meshBoundingSphereRad[scene->objects.meshIndices[i]]};
     }
     
-    FramesInFlightData[currentFrame].uniformBuffers.updateMappedMemory(ubos.data(), sizeof(UniformBufferObject) *scene->objectsCount());
+    FramesInFlightData[currentFrame].uniformBuffers.updateMappedMemory({ubos.data(), (size_t)scene->objectsCount()});
 
-    //TODO JS: Replace gpulight matrix with an index. bind a new list of light matrices to shdaows. look up shadows with index in shader.
-    
-    FramesInFlightData[currentFrame].lightBuffers.updateMappedMemory(lights.data(), sizeof(gpulight) * lights.size());//TODO JS: could probably bump the index in the shader too on the point path rather than rebinding. 
-    FramesInFlightData[currentFrame].shadowDataBuffers.updateMappedMemory(perShadowData.data, perShadowData.capacity_bytes()); 
+
+    FramesInFlightData[currentFrame].currentDrawOffset = 0; //VERY IMPORTANT!
 
 }
 
 
 #pragma endregion
 #pragma region draw 
-void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer commandBuffer, uint32_t imageIndex)
+void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer commandBuffer, uint32_t imageIndex, std::span<simplePassInfo> passes)
 {
      uint32_t shadowSize = SHADOW_MAP_SIZE; //TODO JS: make const
      VkCommandBufferBeginInfo beginInfo{};
@@ -1107,24 +1253,14 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
 
 
     uint32_t SHADOW_INDEX = 0; //TODO JS: loop over shadowcasters
-    updateShadowDescriptorSets(getHandles(), descriptorPool, &descriptorsetLayoutsData,SHADOW_INDEX);
-    descriptorsetLayoutsData.bindToCommandBufferShadow(commandBuffer, currentFrame);
-    VkPipelineLayout layout = descriptorsetLayoutsData.getLayoutShadow();
+ 
+    descriptorsetLayoutsDataShadow.bindToCommandBuffer(commandBuffer, currentFrame);
+    VkPipelineLayout layout = descriptorsetLayoutsDataShadow.pipelineData.bindlessPipelineLayout;
 
-    
-    int shadowCasterCount = min(scene->lightCount, MAX_SHADOWCASTERS);
-    //Should I do separate command buffers per shadow index?
-    for(int i = 0; i < shadowCasterCount; i ++)
+    for(int i = 0; i < passes.size(); i ++)
     {
-        //TODO JS: next step -- need to get the 6 different point light matrices in. Or transform the one 6 times?
-
-        int shadowIndex = i;
-        int shadowCasterOffset = scene->getShadowDataIndex(i);
-        lightType type = (lightType)scene->lightTypes[i];
-        int subpasses = type == lightType::LIGHT_POINT ? 6 : type == LIGHT_DIR ? CASCADE_CT : 1; //TODO JS: look up how many a light should have per light
-        for (int j = 0; j < subpasses; j++)
-        {
-            int shadowMapIndex = shadowCasterOffset + j;
+        
+            int shadowMapIndex = i;
             const VkRenderingAttachmentInfoKHR dynamicRenderingDepthAttatchment {
                 .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
                 .imageView = shadowMapRenderingImageViews[imageIndex][shadowMapIndex],
@@ -1134,6 +1270,7 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
                 .clearValue =  {1.0f, 0}
             };
 
+            
             VkRenderingInfo renderPassInfo{};
             renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
 
@@ -1177,36 +1314,133 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
                         baseSLopeBias);
 
 
-            //TODO JS: Something other than hardcoded index 2 for shadow pipeline
-            vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, descriptorsetLayoutsData.getPipeline(2));
+            shadowPushConstants constants;
+            //Light count, vert offset, texture index, and object data index
+            constants.shadowIndex = shadowMapIndex;
+            vkCmdPushConstants(commandBuffer, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                               sizeof(shadowPushConstants), &constants);
+
+            //TODO JS: Something other than hardcoded index 0 for shadow pipeline
+            vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, descriptorsetLayoutsDataShadow.getPipeline(0));
             int meshct =  scene->objectsCount();
-            for (int i = 0; i <meshct; i++)
-            {
-                per_object_data constants;
-                //Light count, vert offset, texture index, and object data index
-                constants.indexInfo = glm::vec4(-1, (scene->objects.meshOffsets[i]),
-                                                -1, i);
-                constants.Indexinfo2 = glm::vec4(-1,-1,shadowMapIndex,shadowIndex);
-
-                constants.materialprops = glm::vec4(-1, -1, 0, 0);
-
-                vkCmdPushConstants(commandBuffer, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-                                   sizeof(per_object_data), &constants);
-
-                vkCmdDraw(commandBuffer, static_cast<uint32_t>(scene->objects.meshes[i]->vertcount), 1, 0, 0);
-            }
+            uint32_t offset_base = passes[i].firstDraw  *  sizeof(drawCommandData);
+            uint32_t offset_into_struct = offsetof(drawCommandData, command);
+            vkCmdDrawIndirect(commandBuffer,  FramesInFlightData[currentFrame].drawBuffers._buffer.data, offset_base + offset_into_struct, meshct, sizeof(drawCommandData));
+            FramesInFlightData[currentFrame].currentDrawOffset += meshct;
             vkCmdEndRendering(commandBuffer);
-        }
+        // }
+    }
+    std::vector<VkImageMemoryBarrier2> barriers = {};
+    for(int i = 0; i < shadowImages.size(); i++)
+    {
+        // barriers.push_back(imageBarrier(shadowImages[i],VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT_KHR | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT_KHR, VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT_KHR, VK_IMAGE_LAYOUT_UNDEFINED, VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT_KHR,   VK_ACCESS_2_SHADER_READ_BIT_KHR, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1));
+    }
+
+    pipelineBarrier(commandBuffer, 0, 0, nullptr, barriers.size(), barriers.data());
 
 
-        
-    }   
 
      VK_CHECK(vkEndCommandBuffer(commandBuffer));
 }
 
+
+
+struct pipelineBucket
+{
+    uint32_t pipelineIDX;
+    Array<uint32_t> indices; 
+};
+
+void HelloTriangleApplication::recordCommandBufferCompute(VkCommandBuffer commandBuffer, uint32_t currentFrame, std::span<simplePassInfo> passes)
+{
+    VkCommandBufferBeginInfo beginInfo{};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = 0; // Optional
+    beginInfo.pInheritanceInfo = nullptr; // Optional
+    //Transition swapchain for rendering
+    
+    VK_CHECK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
+    
+    MemoryArena::memoryArena* arena = &perFrameArenas[currentFrame];
+
+    VkDescriptorBufferInfo* frustumData =  MemoryArena::Alloc<VkDescriptorBufferInfo>(&perFrameArenas[currentFrame], 1);
+    *frustumData = getDescriptorBufferInfo(FramesInFlightData[currentFrame].frustumsForCullBuffers); //TODO JS: pass frustums
+    
+    VkDescriptorBufferInfo* computeDrawBuffer = MemoryArena::Alloc<VkDescriptorBufferInfo>(&perFrameArenas[currentFrame], 1); 
+    *computeDrawBuffer = getDescriptorBufferInfo(FramesInFlightData[currentFrame].drawBuffers);
+
+    VkDescriptorBufferInfo* objectBufferInfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(&perFrameArenas[currentFrame], 1); 
+    *objectBufferInfo = getDescriptorBufferInfo(FramesInFlightData[currentFrame].uniformBuffers);
+    
+    std::span<descriptorUpdateData> descriptorUpdates = MemoryArena::AllocSpan<descriptorUpdateData>(arena, 3);
+
+    descriptorUpdates[0] = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, frustumData};  //frustum data
+    descriptorUpdates[1] = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, computeDrawBuffer}; //draws 
+    descriptorUpdates[2] = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, objectBufferInfo}; //objectData  //
+    
+    descriptorsetLayoutsDataCompute.updateDescriptorSets(descriptorUpdates, currentFrame);
+    descriptorsetLayoutsDataCompute.bindToCommandBuffer(commandBuffer, currentFrame, VK_PIPELINE_BIND_POINT_COMPUTE);
+
+    
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, descriptorsetLayoutsDataCompute.getPipeline(0));
+
+    //TODO JS: get a flattened list of light matrices -- loop over them -- bump offset by meshct each time -- move this before shadow pass -- set up semaphores -- then you're done?
+    int offset = 0;
+
+    ShaderGlobals* globals = (ShaderGlobals*)FramesInFlightData[currentFrame].opaqueShaderGlobalsBuffer._buffer.mapped;
+    for(int i = 0; i < passes.size(); i ++)
+    {
+        cullPConstants constants = *MemoryArena::Alloc<cullPConstants>(&perFrameArenas[currentFrame]);
+        constants.view = passes[i].viewMatrix;
+        constants.firstDraw = offset * scene->objectsCount(); //TODO JS: IMPROVE
+        constants.frustumIndex = (offset) * 6;
+        constants.objectCount = scene->objectsCount();
+
+        vkCmdPushConstants(commandBuffer, descriptorsetLayoutsDataCompute.pipelineData.bindlessPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0,
+                           sizeof(cullPConstants), &constants);
+
+        const uint32_t dispatch_x = scene->objectsCount() != 0
+                                        ? 1 + static_cast<uint32_t>((scene->objectsCount() - 1) / 16)
+                                        : 1;
+        vkCmdDispatch(commandBuffer, dispatch_x, 1, 1);
+        offset ++;
+    }
+    
+    VkBufferMemoryBarrier2 barrier = bufferBarrier(FramesInFlightData[currentFrame].drawBuffers._buffer.data,
+    VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+      VK_ACCESS_2_SHADER_WRITE_BIT,
+      VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT,
+     VK_ACCESS_2_MEMORY_READ_BIT_KHR );
+    
+    pipelineBarrier(commandBuffer,0, 1, &barrier, 0, 0);
+    vkEndCommandBuffer(commandBuffer);
+}//
+
+
+void HelloTriangleApplication::submitComputePass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores, std::vector<VkSemaphore> signalsemaphores, std::span<simplePassInfo> passes)
+{
+    recordCommandBufferCompute(FramesInFlightData[imageIndex].computeCommandBuffers, imageIndex, passes);
+
+    VkSubmitInfo submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    VkPipelineStageFlags _waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+    submitInfo.waitSemaphoreCount = waitSemaphores.semaphores.size();
+    submitInfo.pWaitSemaphores = waitSemaphores.semaphores.data();
+    submitInfo.pWaitDstStageMask = waitSemaphores.waitStages.data();
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &FramesInFlightData[imageIndex].computeCommandBuffers;
+
+    submitInfo.signalSemaphoreCount = signalsemaphores.size();
+    submitInfo.pSignalSemaphores = signalsemaphores.data();
+    
+    //Submit pass 
+    VK_CHECK(vkQueueSubmit(commandPoolmanager.Queues.graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE));
+    
+    
+    
+}
 //command buffer to draw the frame 
-void HelloTriangleApplication::recordCommandBufferOpaquePass(VkCommandBuffer commandBuffer, uint32_t imageIndex)
+void HelloTriangleApplication::recordCommandBufferOpaquePass(VkCommandBuffer commandBuffer, uint32_t imageIndex, std::span<opaquePassInfo> batchedDraws)
 {
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -1268,57 +1502,49 @@ void HelloTriangleApplication::recordCommandBufferOpaquePass(VkCommandBuffer com
     //************
     //** Descriptor Sets update and binding
     // This could change sometimes
-    updateOpaqueDescriptorSets(getHandles(), descriptorPool, &descriptorsetLayoutsData);
-    descriptorsetLayoutsData.bindToCommandBufferOpaque(commandBuffer, currentFrame);
-    VkPipelineLayout layout = descriptorsetLayoutsData.getLayoutOpaque();
+   
+    descriptorsetLayoutsData.bindToCommandBuffer(commandBuffer, currentFrame);
+    VkPipelineLayout layout = descriptorsetLayoutsData.pipelineData.bindlessPipelineLayout;
     
     int meshct = scene->objectsCount();
-    int lastPipelineIndex = -1;
-    for (int i = 0; i <meshct; i++)
+    
+    for(int i =0; i < meshct; i++)
     {
-        Material material = scene->objects.materials[i];
-        int pipelineIndex =1 ;
-#ifdef DEBUG_SHADERS
-        pipelineIndex = debugpipelineindexoverride;
-#endif
-        if (pipelineIndex != lastPipelineIndex)
-        {
-            vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, descriptorsetLayoutsData.getPipeline(pipelineIndex));
-        }
-        
-        lastPipelineIndex = pipelineIndex;
-        
-        per_object_data constants;
-        //Light count, vert offset, texture index, and object data index
-        constants.indexInfo = glm::vec4(material.backingTextureidx, (scene->objects.meshOffsets[i]),
-                                        material.backingTextureidx, i);
-
-        constants.materialprops = glm::vec4(material.roughness, scene->objects.materials[i].metallic, 0, 0);
-
-        vkCmdPushConstants(commandBuffer, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-                           sizeof(per_object_data), &constants);
-
-        vkCmdDraw(commandBuffer, static_cast<uint32_t>(scene->objects.meshes[i]->vertcount), 1, 0, 0);
+        positionRadius bounds = scene->meshBoundingSphereRad[scene->objects.meshIndices[i]];
+        debugDrawCross(scene->objects.translations[i] + glm::vec3(scene->objects.matrices[i] * (bounds.objectSpacePos)), bounds.objectSpaceRadius * glm::max(glm::max(scene->objects.scales[i].x,scene->objects.scales[i].y), scene->objects.scales[i].z), {1,0,0});
     }
+    
 
-    //debug lines -- todo feed from somehwere
-                                                                            //TODO JS: something other than hardcoded 3
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, descriptorsetLayoutsData.getPipeline(3));
+//draw
+    for(int k = 0; k < batchedDraws.size(); k ++)
+    {
+        auto draw = batchedDraws[k];
+       
+            vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.pipeline);
+            uint32_t offset_base = (FramesInFlightData[currentFrame].currentDrawOffset * sizeof(drawCommandData)) + (sizeof(drawCommandData) * draw.start);
+            uint32_t offset_into_struct = offsetof(drawCommandData, command);
+            vkCmdDrawIndirect(commandBuffer,    FramesInFlightData[currentFrame].drawBuffers._buffer.data, offset_base + offset_into_struct, draw.ct, sizeof(drawCommandData));
+       
+    }
+    FramesInFlightData[currentFrame].currentDrawOffset +=( meshct );
+
+    
+                                                                            //TODO JS: something other than hardcoded 2
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, descriptorsetLayoutsData.getPipeline(2));
     debugLines.push_back({{0,0,0},{20,40,20}, {0,0,1}});
     for (int i = 0; i <debugLines.size(); i++)
     {
-
+    
         debugLinePConstants constants;
         //Light count, vert offset, texture index, and object data index
-        auto cameraTform = getCameraTransform();
         constants.pos1 = glm::vec4(debugLines[i].start,1.0);
         constants.pos2 = glm::vec4(debugLines[i].end,1.0);
         constants.color = glm::vec4(debugLines[i].color,1.0);
         constants.m = glm::mat4(1.0);
-
+    
         vkCmdPushConstants(commandBuffer, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-                          sizeof(per_object_data), &constants);
-
+                          sizeof(debugLinePConstants), &constants);
+    
         vkCmdDraw(commandBuffer, 2, 1, 0, 0);
     }
 
@@ -1342,6 +1568,7 @@ void HelloTriangleApplication::createCommandBuffers()
         allocInfo.commandBufferCount = 1;
 
         VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, &FramesInFlightData[i].opaqueCommandBuffers));
+        VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, &FramesInFlightData[i].computeCommandBuffers));
         VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, &FramesInFlightData[i].shadowCommandBuffers));
         VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, &FramesInFlightData[i].swapchainTransitionInCommandBuffer));
         VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, &FramesInFlightData[i].swapchainTransitionOutCommandBuffer));
@@ -1373,18 +1600,15 @@ void HelloTriangleApplication::createDepthResources()
 #pragma endregion
 
 
-void HelloTriangleApplication::createGraphicsPipeline(const char* shaderName, PipelineDataObject* descriptorsetdata, bool shadow, bool lines)
+
+void HelloTriangleApplication::createGraphicsPipeline(const char* shaderName, PipelineDataObject* descriptorsetdata,  PipelineDataObject::graphicsPipelineSettings settings, bool compute, size_t pconstantSize)
 {
     VkPipeline newGraphicsPipeline; 
     auto shaders = shaderLoader->compiledShaders[shaderName];
-
-    if (!shadow)
-    descriptorsetdata->createGraphicsPipeline(shaders,&swapChainColorFormat, &depthFormat, false, true, true, lines);
+    if (!compute)
+    descriptorsetdata->createGraphicsPipeline(shaders, settings, pconstantSize);
     else
-    {
-        descriptorsetdata->createGraphicsPipeline(shaders,&swapChainColorFormat, &depthFormat,  true, false, true);
-    } 
-
+        descriptorsetdata->createComputePipeline(shaders[0], pconstantSize);
     auto val = shaderLoader->compiledShaders[shaderName];
 
     for (auto v : val)
@@ -1395,11 +1619,13 @@ void HelloTriangleApplication::createGraphicsPipeline(const char* shaderName, Pi
 }
 
 
+
 #pragma region perFrameUpdate
 
 
 void HelloTriangleApplication::mainLoop()
 {
+   
     SDL_Event e;
     bool bQuit = false;
 
@@ -1407,6 +1633,26 @@ void HelloTriangleApplication::mainLoop()
     float mouseSpeed = 1.0;
     while (!bQuit)
     {
+
+        if (!firstTime[currentFrame])
+        {
+            vkWaitForFences(device, 1, &FramesInFlightData[currentFrame].inFlightFences, VK_TRUE, UINT64_MAX);
+            MemoryArena::free(&perFrameArenas[currentFrame]);
+            vkResetCommandBuffer(FramesInFlightData[currentFrame].opaqueCommandBuffers, 0);
+            vkResetCommandBuffer(FramesInFlightData[currentFrame].computeCommandBuffers, 0);
+            vkResetCommandBuffer(FramesInFlightData[currentFrame].shadowCommandBuffers, 0);
+            vkResetCommandBuffer(FramesInFlightData[currentFrame].swapchainTransitionOutCommandBuffer, 0);
+            vkResetCommandBuffer(FramesInFlightData[currentFrame].swapchainTransitionInCommandBuffer, 0);
+            vkResetCommandBuffer(FramesInFlightData[currentFrame].shadowTransitionOutCommandBuffer, 0);
+            vkResetCommandBuffer(FramesInFlightData[currentFrame].shadowTransitionInCommandBuffer, 0);
+   
+            vkResetFences(device, 1, &FramesInFlightData[currentFrame].inFlightFences);
+      
+        }
+        if (firstTime[currentFrame])
+        {
+            firstTime[currentFrame] = false;
+        }
         this->T2 = SDL_GetTicks();
         uint32_t deltaTicks = this->T2 - this->T;
         this->deltaTime = deltaTicks * 0.001;
@@ -1460,11 +1706,50 @@ void HelloTriangleApplication::mainLoop()
             mouseRot.x = fx;
             mouseRot.y = fy;
         }
+
+        
+        if (KeyboardState[SDL_SCANCODE_K])
+        {
+            if (this->T > k_timeout)
+            {
+                 this->sceneCamera.debug_cull_freeze = !this->sceneCamera.debug_cull_freeze;
+                 if (this->sceneCamera.debug_cull_freeze) printf("froze debug culling \n");
+                else printf("unfroze debug culling \n");
+                k_timeout = this->T + 200;
+            }
+        }
+
+        if (KeyboardState[SDL_SCANCODE_L])
+        {
+            if (this->T > l_timeout)
+            {
+                this->sceneCamera.debug_cull_override = !this->sceneCamera.debug_cull_override;
+                if (   this->sceneCamera.debug_cull_override)printf("enabled debug culling index: %d! \n",  this->sceneCamera.debug_cull_override_index);
+                else printf("debug culling disabled \n");
+                l_timeout = this->T + 200;
+            }
+        }
+        if (KeyboardState[SDL_SCANCODE_DOWN] || KeyboardState[SDL_SCANCODE_UP])
+        {
+            if (this->sceneCamera.debug_cull_override)
+            {
+                if (this->T > arrow_timeout)
+                {
+                    this->sceneCamera.debug_cull_override_index = (this->sceneCamera.debug_cull_override_index - (int)KeyboardState[SDL_SCANCODE_DOWN] + (int)KeyboardState[SDL_SCANCODE_UP]) % scene->shadowmapCount;
+                    arrow_timeout = this->T + 100;
+                    printf("new cull index: %d! \n",  this->sceneCamera.debug_cull_override_index);
+                }
+            }
+        }
+
+        
         inputData input = {translate, mouseRot}; 
         //Temp placeholder for like, object loop
+        updateCamera(input);
         UpdateRotations();
         scene->Update();
-        drawFrame(input);
+        updateShadowData(&perFrameArenas[currentFrame], perLightShadowData, scene, sceneCamera);
+        drawFrame();
         debugLines.clear();
         auto t2 = SDL_GetTicks();
     }
@@ -1532,11 +1817,132 @@ void transitionImageForRendering(RendererHandles handles, VkCommandBuffer comman
 }
 VkPipelineStageFlags swapchainWaitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
 VkPipelineStageFlags shadowWaitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-void HelloTriangleApplication::drawFrame(inputData input)
+
+
+framePasses preparePasses(Scene* scene, HelloTriangleApplication::cameraData* camera, MemoryArena::memoryArena* allocator, std::span<std::span<PerShadowData>> inputShadowdata, PipelineDataObject opaquePipelineData)
 {
-    //Update per frame data
+
+    uint32_t PIPELINE_COUNT = opaquePipelineData.getPipelineCt();
+    uint32_t objectsPerDraw = scene->objectsCount();
+    uint32_t shadowDrawIndex = 0;
+    
+    Array simplePasses =  MemoryArena::AllocSpan<simplePassInfo>(allocator, MAX_SHADOWMAPS); //These are used for both shadows and compute
+    for(int i = 0; i < scene->shadowCasterCount(); i ++)
+    {
+        float type = scene->lightTypes[i];
+        int lightSubpasses = type == LIGHT_POINT ? 6 : type == LIGHT_DIR ? CASCADE_CT : 1; //TODO JS: look up how many a light should have per light
+        for (int j = 0; j < lightSubpasses; j++)
+        {
+            simplePasses.push_back({ shadowDrawIndex * objectsPerDraw, objectsPerDraw, inputShadowdata[i][j].view, inputShadowdata[i][j].proj});
+            shadowDrawIndex++;
+        }
+    }
+    
+    //add one more pass for opaque compute
+    if (!camera->debug_cull_override)
+    {
+        simplePasses.push_back({shadowDrawIndex * objectsPerDraw, objectsPerDraw, viewProjFromCamera(*camera).view});
+    }
+    else
+    {
+
+            if (!camera->debug_cull_freeze)
+            {
+                camera->debug_frozen_culling_v = simplePasses[camera->debug_cull_override_index].viewMatrix;
+                camera->debug_frozen_culling_p = simplePasses[camera->debug_cull_override_index].projMatrix;
+            }
+        
+        simplePasses.push_back({shadowDrawIndex * objectsPerDraw, objectsPerDraw,  camera->debug_frozen_culling_v});
+     
+        glm::vec4 frustumCornersWorldSpace[8] = {};
+        populateFrustumCornersForSpace(frustumCornersWorldSpace,   glm::inverse(camera->debug_frozen_culling_p* camera->debug_frozen_culling_v));
+        debugDrawFrustum(frustumCornersWorldSpace);
+    }
+    
+    std::span<simplePassInfo> shadowPasses = simplePasses.getSpan().subspan(0, shadowDrawIndex);
+    std::span<simplePassInfo> computePasses = simplePasses.getSpan();
+
+    //Opaque passes are bucketed by pipeline 
+    Array bucketedPipelines = MemoryArena::AllocSpan<pipelineBucket>(allocator, PIPELINE_COUNT);
+    
+    //initialize pipeline buckets
+    for (uint32_t j = 0; j < PIPELINE_COUNT; j++)
+    {
+        bucketedPipelines.push_back({
+            j, Array(MemoryArena::AllocSpan<uint32_t>(allocator, MAX_DRAWS_PER_PIPELINE))});
+    }
+    
+    //fill buckets
+    for (uint32_t j = 0; j < objectsPerDraw; j++)
+    {
+        bucketedPipelines[scene->objects.materials[j].pipelineidx].indices.push_back(j);
+    }
+    
+    //Fill opaque pass infos
+    Array batchedDraws = MemoryArena::AllocSpan<opaquePassInfo>(allocator, MAX_PIPELINES);
+
+    uint32_t opaqueDrawOffset = 0;
+    for (size_t j = 0; j < bucketedPipelines.size(); j++)
+    {
+       
+        Array<uint32_t> indices = bucketedPipelines[j].indices;
+        if (indices.size() > 0)
+        {
+            batchedDraws.push_back({opaqueDrawOffset, (uint32_t)indices.size(), viewProjFromCamera(*camera).view, opaquePipelineData.getPipeline(bucketedPipelines[j].pipelineIDX), indices.getSpan()});
+        }
+
+        opaqueDrawOffset += indices.size();
+    }
+
+
+    return  {shadowPasses, computePasses, batchedDraws.getSpan()};
+
+}
+
+void updateIndirectCommandBufferForPasses(Scene* scene, MemoryArena::memoryArena* allocator, std::span<drawCommandData> mappedDrawCommandBuffer, framePasses passes)
+{
    
-    updatePerFrameBuffers(currentFrame, scene->objects.matrices, input); // TODO JS: Figure out
+    uint32_t objectsPerDraw = scene->objectsCount();
+    uint32_t drawOffset = 0;
+    std::span<uint32_t> meshIndices = MemoryArena::AllocSpan<uint32_t>(allocator, objectsPerDraw);
+    for(size_t i = 0; i < objectsPerDraw; i++)
+    {
+        meshIndices[i] = scene->objects.meshIndices[i];
+    }
+
+    //draw commands for shadows
+    for(size_t i =0; i < passes.shadowDraws.size(); i++)
+    {
+        uint32_t drawCount = passes.shadowDraws[i].ct;
+            for (size_t j = 0; j < drawCount; j++)
+            {
+         
+                mappedDrawCommandBuffer[passes.shadowDraws[i].firstDraw + j] =  {
+                    (uint32_t)j, (uint32_t)scene->backing_meshes[meshIndices[j]].vertcount, 1, 0, (uint32_t)j};
+            }
+        drawOffset += drawCount;
+    }
+
+    
+    //draw commands for opaque passes
+    uint32_t drawCt2 = 0;
+    for (size_t i = 0; i < passes.opaqueDraw.size(); i++)
+    {
+        //TODO JS: option to not use custom indices?
+        std::span<uint32_t> indices = passes.opaqueDraw[i].overrideIndices;
+        for (size_t k = 0; k < indices.size(); k++)
+        {
+         
+            mappedDrawCommandBuffer[drawOffset + drawCt2 + k] = {indices[k], static_cast<uint32_t>(scene->backing_meshes[meshIndices[indices[k]]].vertcount), 1, 0, (uint32_t)indices[k]};
+        }
+        drawCt2 += indices.size();
+    }
+}
+
+void HelloTriangleApplication::drawFrame()
+{
+  //Update per frame data
+
     //Prepare for pass
     uint32_t imageIndex; 
     vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, FramesInFlightData[currentFrame].imageAvailableSemaphores, VK_NULL_HANDLE,
@@ -1545,16 +1951,14 @@ void HelloTriangleApplication::drawFrame(inputData input)
     ///
     ///
     ///    //Wait for IMAGE INDEX to be ready to present
-    vkWaitForFences(device, 1, &FramesInFlightData[imageIndex].inFlightFences, VK_TRUE, UINT64_MAX);
-    MemoryArena::free(&perFrameArenas[imageIndex]); // TODO JS: move --but needs to happen after fence!
+ 
 
-    vkResetCommandBuffer(FramesInFlightData[currentFrame].opaqueCommandBuffers, 0);
-    vkResetCommandBuffer(FramesInFlightData[currentFrame].shadowCommandBuffers, 0);
-    vkResetCommandBuffer(FramesInFlightData[currentFrame].swapchainTransitionOutCommandBuffer, 0);
-    vkResetCommandBuffer(FramesInFlightData[currentFrame].swapchainTransitionInCommandBuffer, 0);
-    vkResetCommandBuffer(FramesInFlightData[currentFrame].shadowTransitionOutCommandBuffer, 0);
-    vkResetCommandBuffer(FramesInFlightData[currentFrame].shadowTransitionInCommandBuffer, 0);
-    vkResetFences(device, 1, &FramesInFlightData[currentFrame].inFlightFences);
+    updatePerFrameBuffers(currentFrame, scene->objects.matrices); // TODO JS: timing bugs if it doesn't happen after the fence
+
+    updateOpaqueDescriptorSets(&descriptorsetLayoutsData);
+    updateShadowDescriptorSets(&descriptorsetLayoutsDataShadow, 0);
+    
+
 
 
     ///////////////////////// </Transition swapChain 
@@ -1582,18 +1986,27 @@ void HelloTriangleApplication::drawFrame(inputData input)
     VK_IMAGE_LAYOUT_UNDEFINED,
     VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, shadowWaitStages, true);
     ///////////////////////// Transition swapChain  />
-    ///
-        //Shadows
-        std::vector<VkSemaphore> shadowPassWaitSemaphores = {FramesInFlightData[currentFrame].shadowtransitionedInSemaphores};
-        std::vector<VkSemaphore> shadowpasssignalSemaphores = {FramesInFlightData[currentFrame].shadowFinishedSemaphores};
-        
-        renderShadowPass(currentFrame,currentFrame,  getSemaphoreDataFromSemaphores(shadowPassWaitSemaphores, &perFrameArenas[currentFrame]),shadowpasssignalSemaphores);
-        
 
-    // VK_CHECK(vkBeginCommandBuffer(FramesInFlightData[imageIndex].shadowCommandBuffers, &beginInfo));
-    // TextureUtilities::transitionImageLayout(getHandles(),shadowImages[currentFrame],shadowFormat,VK_IMAGE_LAYOUT_UNDEFINED,VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,FramesInFlightData[imageIndex].shadowCommandBuffers,1, false);
-    // vkEndCommandBuffer(FramesInFlightData[imageIndex].shadowCommandBuffers);
+    //Pre-rendering setup
+    std::span<drawCommandData> mappedDrawCommandBuffer =  FramesInFlightData[currentFrame].drawBuffers.getMappedSpan();
+
+    framePasses renderPassInformation =  preparePasses(scene, &sceneCamera, &perFrameArenas[currentFrame],
+                                                   perLightShadowData, descriptorsetLayoutsData);
+    updateIndirectCommandBufferForPasses(scene, &perFrameArenas[currentFrame], mappedDrawCommandBuffer, renderPassInformation);
+     
+
+    //Compute
+    submitComputePass(currentFrame, currentFrame, {}, {FramesInFlightData[currentFrame].computeFinishedSemaphores}, renderPassInformation.computeDraws);
+   
+
+
+    //Shadows
+    std::vector<VkSemaphore> shadowPassWaitSemaphores = {FramesInFlightData[currentFrame].shadowtransitionedInSemaphores, FramesInFlightData[currentFrame].computeFinishedSemaphores};
+    std::vector<VkSemaphore> shadowpasssignalSemaphores = {FramesInFlightData[currentFrame].shadowFinishedSemaphores};
+
+
     
+    renderShadowPass(currentFrame,currentFrame,  getSemaphoreDataFromSemaphores(shadowPassWaitSemaphores, &perFrameArenas[currentFrame]),shadowpasssignalSemaphores, renderPassInformation.shadowDraws);
 
     //Transition shadow maps for reading
     waitSemaphores = getSemaphoreDataFromSemaphores(shadowpasssignalSemaphores, &perFrameArenas[currentFrame]);
@@ -1611,8 +2024,10 @@ void HelloTriangleApplication::drawFrame(inputData input)
     std::vector<VkSemaphore> opaquePassWaitSemaphores = {FramesInFlightData[currentFrame].shadowtransitionedOutSemaphores, FramesInFlightData[currentFrame].swapchaintransitionedInSemaphores};
     std::vector<VkSemaphore> opaquepasssignalSemaphores = {FramesInFlightData[currentFrame].renderFinishedSemaphores};
 
+
+   
     //Opaque
-    renderOpaquePass(currentFrame,currentFrame, getSemaphoreDataFromSemaphores(opaquePassWaitSemaphores, &perFrameArenas[currentFrame]),opaquepasssignalSemaphores);
+    renderOpaquePass(currentFrame,currentFrame, getSemaphoreDataFromSemaphores(opaquePassWaitSemaphores, &perFrameArenas[currentFrame]),opaquepasssignalSemaphores, renderPassInformation.opaqueDraw);
 
 
 
@@ -1646,9 +2061,9 @@ void HelloTriangleApplication::drawFrame(inputData input)
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
-void HelloTriangleApplication::renderShadowPass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores, std::vector<VkSemaphore> signalsemaphores)
+void HelloTriangleApplication::renderShadowPass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores, std::vector<VkSemaphore> signalsemaphores, std::span<simplePassInfo> passes)
 {
-    recordCommandBufferShadowPass(FramesInFlightData[imageIndex].shadowCommandBuffers, imageIndex);
+    recordCommandBufferShadowPass(FramesInFlightData[imageIndex].shadowCommandBuffers, imageIndex, passes);
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -1668,10 +2083,10 @@ void HelloTriangleApplication::renderShadowPass(uint32_t currentFrame, uint32_t 
     
     
 }
-void HelloTriangleApplication::renderOpaquePass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores, std::vector<VkSemaphore> signalsemaphores)
+void HelloTriangleApplication::renderOpaquePass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores, std::vector<VkSemaphore> signalsemaphores, std::span<opaquePassInfo> batchedDraws)
 {   
     //Record command buffer for pass
-    recordCommandBufferOpaquePass(FramesInFlightData[currentFrame].opaqueCommandBuffers, imageIndex);
+    recordCommandBufferOpaquePass(FramesInFlightData[currentFrame].opaqueCommandBuffers, imageIndex, batchedDraws);
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -1700,10 +2115,11 @@ void HelloTriangleApplication::cleanup()
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-       VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].uniformBuffers.data, FramesInFlightData[i].uniformBuffersMemory);
-       VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].meshBuffers.data, FramesInFlightData[i].meshBuffersMemory);
-       VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].lightBuffers.data, FramesInFlightData[i].lightBuffersMemory);
-        VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].lightBuffers.data, FramesInFlightData[i].shadowDataBuffersMemory);
+       VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].uniformBuffers._buffer.data, FramesInFlightData[i].uniformBuffers.allocation);
+       VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].meshBuffers._buffer.data, FramesInFlightData[i].meshBuffers.allocation);
+       VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].lightBuffers._buffer.data, FramesInFlightData[i].lightBuffers.allocation);
+       VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].shadowDataBuffers._buffer.data, FramesInFlightData[i].shadowDataBuffers.allocation);
+       VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].drawBuffers._buffer.data, FramesInFlightData[i].drawBuffers.allocation);
     }
 
     vkDestroyDescriptorPool(device, descriptorPool, nullptr);
@@ -1820,7 +2236,7 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
 
 
     //point lights    
-    // app->scene->AddPointLight(glm::vec3(1, 1, 0), glm::vec3(1, 1, 1), 5 / 2);
+    app->scene->AddPointLight(glm::vec3(1, 1, 0), glm::vec3(1, 1, 1), 55);
     app->scene->AddDirLight(glm::vec3(0,0,1), glm::vec3(0,1,0), 3);
     app->scene->AddDirLight(glm::vec3(0.00, 1, 0),  glm::vec3(0, 0, 1), 33);
     app->scene->AddPointLight(glm::vec3(-2, 2, 0), glm::vec3(1, 0, 0), 4422 / 2);
@@ -1854,6 +2270,7 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
         }
     
     }
+}
 
     // add plane
      // app->scene->AddObject( &app->scene->backing_meshes[cube],
@@ -1885,9 +2302,4 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
     //   false,
     //   glm::vec4(-5, 9.35, -5, 1),
     //   glm::quat(),
-    //   glm::vec3(20,30,0.05)); // basically a plane
-    
-
-   
-}
-
+    //   glm::vec3(20,30,0.05)); // basically a plan

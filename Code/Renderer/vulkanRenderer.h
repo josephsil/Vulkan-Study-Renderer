@@ -2,7 +2,6 @@
 #define GLM_FORCE_RADIANS	
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#include <memory>
 #include <span>
 #include <vector>
 #include <glm/glm.hpp>
@@ -12,19 +11,46 @@
 #include "../General/Array.h"
 #include "rendererGlobals.h"
 #include "CommandPoolManager.h"
-#include "../General/Memory.h"
+#include "gpu-data-structs.h"
+#include "../General/MemoryArena.h"
 #include "PipelineDataObject.h"
 // My stuff 
-
+struct gpulight;
+struct gpuvertex;
+class Scene;
+struct PerShadowData;
 struct MeshData; //Forward Declaration
 struct Vertex; //Forward Declaration
 struct ShaderLoader;
 struct TextureData;
 using VmaAllocator = struct VmaAllocator_T*;
-//Include last
+//Include last //
 
 const uint32_t SHADOW_MAP_SIZE = 1024;
 
+struct simplePassInfo
+{
+    uint32_t firstDraw = 0;
+    uint32_t ct;
+    glm::mat4 viewMatrix;
+    glm::mat4 projMatrix;
+};
+
+struct opaquePassInfo
+{
+    uint32_t start;
+    uint32_t ct;
+    glm::mat4 viewMatrix;
+    VkPipeline pipeline;
+    std::span<uint32_t> overrideIndices;
+    
+};
+struct framePasses
+{
+    std::span<simplePassInfo> shadowDraws;
+    std::span<simplePassInfo> computeDraws;
+    std::span<opaquePassInfo> opaqueDraw;
+};
 
 struct  semaphoreData
 {
@@ -34,25 +60,39 @@ struct  semaphoreData
 
 class HelloTriangleApplication
 {
+
+    uint32_t k_timeout = 0;
+    uint32_t l_timeout = 0;
+  uint32_t arrow_timeout = 0;
 public:
+
+    struct cameraData
+    {
+        glm::vec3 eyePos = glm::vec3(-4.0f, 0.4f, 1.0f);
+        glm::vec2 eyeRotation = glm::vec2(55.0f, -22.0f); //yaw, pitch
+        float nearPlane = 0.01f;
+        float farPlane = 35.0f;
+
+        VkExtent2D extent;
+        float fov = 70;
+
+
+        //FRUSTUM CULLING DEBUGGING
+        bool debug_cull_override = false;
+        bool debug_cull_freeze = false;
+        int debug_cull_override_index = 3;
+        glm::mat4 debug_frozen_culling_v;
+        glm::mat4 debug_frozen_culling_p;
+    };
+    
     Scene* scene;
     RendererHandles getHandles();
     void updateShadowImageViews(int frame);
     HelloTriangleApplication();
-    
 
-    struct CameraInfo
-    {
-        VkExtent2D extent;
-        glm::vec3 pos;
-        glm::vec2 rot; 
-        float nearPlane;
-        float farPlane;
-    };
 
 private:
 
-    const static int MAX_FRAMES_IN_FLIGHT = 3;
     
 
     MemoryArena::memoryArena rendererArena{};
@@ -72,10 +112,12 @@ private:
 
 #pragma endregion
 
-    glm::vec3 eyePos = glm::vec3(-4.0f, 0.4f, 1.0f);
-    glm::vec2 eyeRotation = glm::vec2(55.0f, -22.0f); //yaw, pitch
-    float nearPlane = 0.01f;
-    float farPlane = 35.0f;
+  
+
+    cameraData sceneCamera;
+
+
+    glm::mat4 freezeView = {};
     
     VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
     VkDevice device; //Logical device
@@ -108,6 +150,10 @@ private:
     std::vector<VkSampler> shadowSamplers;
     std::vector<VkImage> shadowImages;
     std::vector<VmaAllocation> shadowMemory;
+
+    std::span<std::span<PerShadowData>> perLightShadowData;
+
+
     VkFormat shadowFormat;
     
     VkImage depthImage;
@@ -120,18 +166,32 @@ private:
     VkDescriptorSetLayout pushDescriptorSetLayout;
     VkDescriptorSetLayout perMaterialSetLayout;
     
-    PipelineDataObject descriptorsetLayoutsData;
+    PipelineDataObject descriptorsetLayoutsData; //uhhh
+    PipelineDataObject descriptorsetLayoutsDataShadow; //uhhh
+    PipelineDataObject descriptorsetLayoutsDataCompute;
 
     
     void createDescriptorSetPool(RendererHandles handles, VkDescriptorPool* pool);
-    void updateOpaqueDescriptorSets(RendererHandles handles, VkDescriptorPool pool, PipelineDataObject* layoutData);
-    void updateShadowDescriptorSets(RendererHandles handles, VkDescriptorPool pool,
-                                    PipelineDataObject* layoutData, uint32_t shadowIndex);
+    void updateOpaqueDescriptorSets(PipelineDataObject* layoutData);
+    std::span<descriptorUpdateData> createOpaqueDescriptorUpdates(uint32_t frame, MemoryArena::memoryArena* arena, std::span<VkDescriptorSetLayoutBinding> layoutBindings);
+    std::span<descriptorUpdateData> createShadowDescriptorUpdates(MemoryArena::memoryArena* arena, uint32_t frame, uint32_t shadowIndex, std::span<VkDescriptorSetLayoutBinding>
+                                                                  layoutBindings);
+
+    void updateShadowDescriptorSets(
+        PipelineDataObject* layoutData, uint32_t shadowIndex);
+
+    std::span<descriptorUpdateData> opaqueUpdates[MAX_FRAMES_IN_FLIGHT] = {};
+
+    std::span<descriptorUpdateData> computeUpdates[MAX_FRAMES_IN_FLIGHT] = {};
+
+    std::span<std::span<descriptorUpdateData>> shadowUpdates[MAX_FRAMES_IN_FLIGHT] = {};
 
 #pragma endregion
 
     struct per_frame_data
     {
+        //Below is all vulkan stuff
+        VkSemaphore computeFinishedSemaphores {};
         VkSemaphore shadowAvailableSemaphores {};
         VkSemaphore shadowFinishedSemaphores {};
         VkSemaphore imageAvailableSemaphores {};
@@ -143,6 +203,7 @@ private:
         VkSemaphore shadowtransitionedInSemaphores {};
         
         VkFence inFlightFences {};
+        VkCommandBuffer computeCommandBuffers {};
         VkCommandBuffer opaqueCommandBuffers {};
         VkCommandBuffer shadowCommandBuffers {};
         VkCommandBuffer swapchainTransitionInCommandBuffer {};
@@ -152,32 +213,30 @@ private:
 
 #pragma region buffers
 
-        //TODO JS: More expressive pass system
-        std::vector<dataBuffer> perLightShadowShaderGlobalsBuffer;
-        std::vector<VmaAllocation> perLightShadowShaderGlobalsMemory;
-        std::vector<void*> perLightShadowShaderGlobalsMapped;
+        std::vector<dataBufferObject<ShaderGlobals>> perLightShadowShaderGlobalsBuffer;
+       
         
-        dataBuffer opaqueShaderGlobalsBuffer;
-        VmaAllocation opaqueShaderGlobalsMemory;
-    
-        //TODO JS: Move the data buffer stuff?
-        dataBuffer uniformBuffers;
-        VmaAllocation uniformBuffersMemory;
+        dataBufferObject<ShaderGlobals> opaqueShaderGlobalsBuffer;
 
-        dataBuffer meshBuffers;
-        VmaAllocation meshBuffersMemory;
+      
+  
 
+ 
+        dataBufferObject<UniformBufferObject> uniformBuffers;
+         dataBufferObject<gpuvertex> meshBuffers;
         //Basic data about the light used in all passes 
-        dataBuffer lightBuffers;
-        VmaAllocation lightBuffersMemory;
-        
-        //Additional light matrices.... Maybe should be additional matrices period? Used in shadow pass
-        dataBuffer shadowDataBuffers;
-        VmaAllocation shadowDataBuffersMemory;
+        dataBufferObject<gpulight> lightBuffers;
+        dataBufferObject<gpuPerShadowData> shadowDataBuffers;
+        //Draw indirect
+        uint32_t currentDrawOffset = 0;
+        dataBufferObject<drawCommandData> drawBuffers;
+        //Compute culling for draw indirect 
+        dataBufferObject<glm::vec4> frustumsForCullBuffers;
 #pragma endregion
     };
-    
     std::vector<per_frame_data> FramesInFlightData;
+    bool firstTime[MAX_FRAMES_IN_FLIGHT];
+
     
     
 
@@ -205,11 +264,10 @@ private:
     void createUniformBuffers();
 
     void updateUniformBuffer(uint32_t currentImage, glm::mat4 model);
-    Transform getCameraTransform();
     void updateCamera(inputData input);
     //Globals per pass, ubos, and lights are updated every frame
-    void updatePerFrameBuffers(unsigned currentFrame, Array<glm::mat4> models, inputData input);
-    void recordCommandBufferShadowPass(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+    void updatePerFrameBuffers(unsigned currentFrame, Array<glm::mat4> models);
+    void recordCommandBufferShadowPass(VkCommandBuffer commandBuffer, uint32_t imageIndex, std::span<simplePassInfo> passes);
 
 
     void createDescriptorSetLayout(VkDescriptorSetLayoutCreateInfo layoutinfo, VkDescriptorSetLayout* layout);
@@ -219,7 +277,10 @@ private:
     void createSyncObjects();
 
     void createCommandBuffers();
-    void recordCommandBufferOpaquePass(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+    void recordCommandBufferCompute(VkCommandBuffer commandBuffer, uint32_t currentFrame, std::span<simplePassInfo> passes);
+    void submitComputePass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores,
+                           std::vector<VkSemaphore> signalsemaphores, std::span<simplePassInfo> passes);
+    void recordCommandBufferOpaquePass(VkCommandBuffer commandBuffer, uint32_t imageIndex, std::span<opaquePassInfo> batchedDraws);
 
     void createGraphicsCommandPool();
     void createTransferCommandPool();
@@ -231,7 +292,10 @@ private:
 
 
     void createGraphicsPipeline(const char* shaderName,
-                                PipelineDataObject* descriptorsetdata, bool shadow = false, bool lines = false);
+                                PipelineDataObject* descriptorsetdata, PipelineDataObject::graphicsPipelineSettings settings, bool compute, size_t pconstantsize);
+    
+
+    int firstframe = true;
     void createInstance();
 
     int _selectedShader{0};
@@ -240,13 +304,13 @@ private:
 
     void UpdateRotations();
 
-    void drawFrame(inputData input);
+    void drawFrame();
 
 
-    void renderShadowPass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphoreData,
-                          std::vector<VkSemaphore> signalsemaphores);
-    void renderOpaquePass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphoreData, std::vector<VkSemaphore>
-                          signalsemaphores);
+    void renderShadowPass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores,
+                          std::vector<VkSemaphore> signalsemaphores, std::span<simplePassInfo> passes);
+    void renderOpaquePass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores, std::vector<VkSemaphore>
+                          signalsemaphores, std::span<opaquePassInfo> batchedDraws);
 
     void cleanup();
 
