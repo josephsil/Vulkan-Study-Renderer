@@ -212,7 +212,6 @@ MeshData::MeshData(RendererHandles app, const char* path)
                 Array<glm::vec4> uvvec = Array(MemoryArena::AllocSpan<glm::vec4>(rendererHandles.perframeArena, indxCt));
                 Array<glm::vec4> colorvec = Array(MemoryArena::AllocSpan<glm::vec4>(rendererHandles.perframeArena, indxCt));
                 Array<glm::vec4> tangentvec =Array( MemoryArena::AllocSpan<glm::vec4>(rendererHandles.perframeArena, indxCt));
-                Array<uint32_t> indexvec = Array(MemoryArena::AllocSpan<uint32_t>(rendererHandles.perframeArena, indxCt));
                 tinygltf::Accessor& accessor = model.accessors[prim.attributes["POSITION"]];
                 tinygltf::BufferView& bufferView = model.bufferViews[accessor.bufferView];
                 tinygltf::Buffer& buffer = model.buffers[bufferView.buffer];
@@ -295,7 +294,6 @@ MeshData::MeshData(RendererHandles app, const char* path)
                 accessor = model.accessors[prim.indices > -1 ? prim.indices : 0];
                 bufferView = model.bufferViews[accessor.bufferView];
                 buffer = model.buffers[bufferView.buffer];
-                auto indexs = reinterpret_cast<const float*>(&buffer.data[bufferView.byteOffset + accessor.byteOffset]);
                 const uint8_t* indicesData = buffer.data.data() + bufferView.byteOffset + accessor.byteOffset;
 
                 if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
@@ -463,6 +461,10 @@ MeshData::MeshData(RendererHandles app, const char* path)
                  _indices[iI++] = index;
              }
          }
+
+        //Shrink vertices 
+        assert(vI <= _vertices.ct);
+        _vertices.ct = vI ;
           
          // _indices = remapvec;
      }
