@@ -469,6 +469,8 @@ MeshData::MeshData(RendererHandles app, const char* path)
          // _indices = remapvec;
      }
 
+    //
+
     MemoryArena::memoryArena* globalArena = rendererHandles.arena;
     this->vertices = MemoryArena::copySpan(globalArena, _vertices.getSpan());
     this->indices = MemoryArena::copySpan(globalArena, _indices.getSpan());
