@@ -9,7 +9,7 @@ temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygl
     uint32_t indxCt = 0;
     uint32_t vertCt = 0;
     
-    MemoryArena::setCursor(tempArena);
+   
     
     //get count 
     for (auto prim : mesh.primitives)
@@ -152,7 +152,7 @@ temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygl
                 
             }
 
-    return {_vertices.getSpan(), _indices.getSpan(), tangentsLoaded, tempArena, tempArena->head};
+    return {_vertices.getSpan(), _indices.getSpan(), tangentsLoaded};
 }
 
 
@@ -188,8 +188,10 @@ gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
     
     for(int i = 0; i < meshCt; i++)
     {
+		MemoryArena::setCursor(tempArena);
         temporaryloadingMesh tempMesh = geoFromGLTFMesh(tempArena, model, model.meshes[i]);
-        meshes[i] = FinalizeMeshDataFromTempMesh(permanentArena, tempMesh);
+        meshes[i] = FinalizeMeshDataFromTempMesh(permanentArena, tempArena, tempMesh);
+		MemoryArena::freeToCursor(tempArena);
     }
     //Supporting: Textures using first tex coord, meshes with one tex coord, lights
     //TODO support: multiple materials per mesh (prims), multiple tex coords
@@ -199,6 +201,12 @@ gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
     int texCt = model.textures.size();
     int matCt = model.materials.size();
     int nodeCt = model.nodes.size();
+
+
+	for (int i = 0; i < texCt; i++)
+	{
+
+	}
 
 
     //Not supporting, just for logging

@@ -23,11 +23,9 @@ MeshData MeshDataFromSpans(std::span<Vertex> vertices,
 }
 
 //TODO JS: not sure what the interface should be like, but playing with this idea of a temporary/scratch mesh and then a final mesh
-MeshData FinalizeMeshDataFromTempMesh(MemoryArena::memoryArena* outputArena, temporaryloadingMesh tempMesh)
+MeshData FinalizeMeshDataFromTempMesh(MemoryArena::memoryArena* outputArena, MemoryArena::memoryArena* tempArena, temporaryloadingMesh tempMesh)
 {
 
-    //Temp mesh must be the last thing allocated to scratch arena.
-    assert(tempMesh.expectedArenaHead == tempMesh.temporaryArena->head);
     //Generate MikkT tangents
     if (!tempMesh.tangentsLoaded)
      {
@@ -39,7 +37,7 @@ MeshData FinalizeMeshDataFromTempMesh(MemoryArena::memoryArena* outputArena, tem
          }
          else
          {
-             expandedVertices = MemoryArena::AllocSpan<Vertex>(tempMesh.temporaryArena, tempMesh.indices.size());
+             expandedVertices = MemoryArena::AllocSpan<Vertex>(tempArena, tempMesh.indices.size());
              for (int i = 0; i < tempMesh.indices.size(); i++)
              {
                  assert(tempMesh.indices[i] < tempMesh.vertices.size());
@@ -47,7 +45,7 @@ MeshData FinalizeMeshDataFromTempMesh(MemoryArena::memoryArena* outputArena, tem
              }
          }
          //
-         auto m = MeshForMikkt(tempMesh.temporaryArena, expandedVertices, tempMesh.indices);
+         auto m = MeshForMikkt(tempArena, expandedVertices, tempMesh.indices);
          auto mikkt = MikktImpl();
          mikkt.calculateTangents(&m);
          for (int i = 0; i < expandedVertices.size(); i++)
@@ -122,7 +120,7 @@ MeshData FinalizeMeshDataFromTempMesh(MemoryArena::memoryArena* outputArena, tem
 
 temporaryloadingMesh geoFromObjPath(MemoryArena::memoryArena* tempArena, const char* path)
 {
-    MemoryArena::setCursor(tempArena);
+   
     tinyobj::ObjReader reader;
     tinyobj::ObjReaderConfig reader_config;
 
@@ -188,15 +186,18 @@ temporaryloadingMesh geoFromObjPath(MemoryArena::memoryArena* tempArena, const c
             _vertices.push_back(vertex);
         }
     }
-    return {_vertices.getSpan(), _indices.getSpan(), false, tempArena, tempArena->head};
+    return {_vertices.getSpan(), _indices.getSpan(), false};
 }
 
 MeshData MeshDataFromObjFile(RendererContext rendererHandles, const char* path)
 {
+	MemoryArena::setCursor(rendererHandles.perframeArena);
     const char* ext = strrchr(path, '.');
     assert(strcmp(ext, ".obj") == 0);
-    auto geo = geoFromObjPath(rendererHandles.perframeArena, path);
-    return FinalizeMeshDataFromTempMesh(rendererHandles.arena, geo);
+    temporaryloadingMesh geo = geoFromObjPath(rendererHandles.perframeArena, path);
+    MeshData mesh = FinalizeMeshDataFromTempMesh(rendererHandles.arena, rendererHandles.perframeArena, geo);
+	MemoryArena::freeToCursor(rendererHandles.perframeArena); 
+	return mesh;
 }
 
 positionRadius boundingSphereFromMeshBounds(std::span<glm::vec3> boundsCorners)

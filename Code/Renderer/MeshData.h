@@ -23,9 +23,6 @@ struct temporaryloadingMesh
     std::span<uint32_t> indices;
     bool tangentsLoaded = false;
 
-    //goofy thing where a temporary mesh is going to cursor reset its arena later
-    MemoryArena::memoryArena* temporaryArena;
-    ptrdiff_t expectedArenaHead;
 };
 
 struct MeshData
@@ -40,4 +37,4 @@ positionRadius boundingSphereFromMeshBounds(std::span<glm::vec3> boundsCorners);
 MeshData MeshDataFromSpans(std::span<Vertex> vertices,
          std::span<uint32_t> indices);
 MeshData MeshDataFromObjFile(RendererContext rendererHandles, const char* path);
-MeshData FinalizeMeshDataFromTempMesh(MemoryArena::memoryArena* outputArena, temporaryloadingMesh tempMesh);
+MeshData FinalizeMeshDataFromTempMesh(MemoryArena::memoryArena* outputArena, MemoryArena::memoryArena* tempArena, temporaryloadingMesh tempMesh);
