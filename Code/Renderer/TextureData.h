@@ -39,15 +39,16 @@ public:
     VkImage textureImage;
     VmaAllocation textureImageMemory;
 
-    //TODO JS: move out of texturedata
     RendererContext rendererHandles;
     uint32_t maxmip = 1; //TODO JS: mutate less places
     uint32_t layerct = 1;
     bool uncompressed = false;
 
-    
+    //FILEPATH PATH 
     TextureData(RendererContext rendererHandles, const char* path, TextureType type, VkImageViewType viewType = (VkImageViewType)-1);
-    VkFormat GetOrLoadTexture(const char* path, VkFormat format, TextureType textureType, bool use_mipmaps);
+    //GLTF PATH 
+	TextureData(VkFormat format, VkSampler sampler, unsigned char* pixels, uint64_t width, uint64_t height, int mipCt, RendererContext handles);
+	VkFormat GetOrLoadTexture(const char* path, VkFormat format, TextureType textureType, bool use_mipmaps);
 
     TextureData();
 
@@ -60,7 +61,7 @@ public:
 private:
 
 
-    void cacheKTXFromSTB(const char* path, const char* outpath, VkFormat format, TextureType textureType,
+    void cacheKTXFromTempTexture(temporaryTextureInfo staging, const char* outpath, VkFormat format, TextureType textureType,
                          bool use_mipmaps);
     
 

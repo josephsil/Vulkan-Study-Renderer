@@ -193,6 +193,7 @@ gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
         meshes[i] = FinalizeMeshDataFromTempMesh(permanentArena, tempArena, tempMesh);
 		MemoryArena::freeToCursor(tempArena);
     }
+
     //Supporting: Textures using first tex coord, meshes with one tex coord, lights
     //TODO support: multiple materials per mesh (prims), multiple tex coords
     //Won't do currently: any kinds of animation, cameras, samplers 
@@ -205,6 +206,10 @@ gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
 
 	for (int i = 0; i < texCt; i++)
 	{
+		uint32_t imageIDX = model.textures[i].source;
+		assert (imageIDX != -1);
+		tinygltf::Image image = model.images[imageIDX];
+		//image.
 
 	}
 
