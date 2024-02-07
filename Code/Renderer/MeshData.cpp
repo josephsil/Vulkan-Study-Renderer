@@ -26,7 +26,7 @@ MeshData MeshDataFromSpans(std::span<Vertex> vertices,
 MeshData FinalizeMeshDataFromTempMesh(MemoryArena::memoryArena* outputArena, temporaryloadingMesh tempMesh)
 {
 
-    //Temp mesh should be the last thing allocated to scratch arena.
+    //Temp mesh must be the last thing allocated to scratch arena.
     assert(tempMesh.expectedArenaHead == tempMesh.temporaryArena->head);
     //Generate MikkT tangents
     if (!tempMesh.tangentsLoaded)

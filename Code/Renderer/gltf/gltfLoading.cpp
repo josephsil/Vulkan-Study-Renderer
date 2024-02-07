@@ -3,7 +3,6 @@
 #include "../../General/MemoryArena.h"
 #include "../../General/Array.h"
 #include "gltf_impl.h"
-struct Vertex;
 
 temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygltf::Model model, tinygltf::Mesh mesh)
 {
@@ -157,6 +156,10 @@ temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygl
 }
 
 
+//TODO: Objects+Transforms from nodes
+//TODO: Textures
+//TODO: Cameras? Probably not
+//TODO:
 gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
 {
     //TODO JS: idea here is parse out te gltf to formats I can use, then pass it to the scene somehow
@@ -182,12 +185,27 @@ gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
     {
         printf("Warn: %s\n", warn);
     }
+    
     for(int i = 0; i < meshCt; i++)
     {
         temporaryloadingMesh tempMesh = geoFromGLTFMesh(tempArena, model, model.meshes[i]);
         meshes[i] = FinalizeMeshDataFromTempMesh(permanentArena, tempMesh);
     }
+    //Supporting: Textures using first tex coord, meshes with one tex coord, lights
+    //TODO support: multiple materials per mesh (prims), multiple tex coords
+    //Won't do currently: any kinds of animation, cameras, samplers 
+    //For models, going to go with one tex coord for now
+    int imageCt = model.images.size();
+    int texCt = model.textures.size();
+    int matCt = model.materials.size();
+    int nodeCt = model.nodes.size();
 
-    return {meshes, {}, {}, {}};
+
+    //Not supporting, just for logging
+    int cameraCt = model.cameras.size();
+    int animCt = model.animations.size();
+
+    
+    return {meshes, {}, {},  {}};
     
 }

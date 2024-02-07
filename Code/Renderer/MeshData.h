@@ -22,28 +22,19 @@ struct temporaryloadingMesh
     std::span<Vertex> vertices; 
     std::span<uint32_t> indices;
     bool tangentsLoaded = false;
+
+    //goofy thing where a temporary mesh is going to cursor reset its arena later
     MemoryArena::memoryArena* temporaryArena;
     ptrdiff_t expectedArenaHead;
 };
 
 struct MeshData
 {
-public:
-   
     std::span<Vertex> vertices; 
     std::span<uint32_t> indices; 
     std::span<glm::vec3> boundsCorners;
-    int id;
-
-
-
-
-    //TODO JS: should probably clean itself up in a destructor or whatever 
-    void cleanup();
-
+    int id; //TODO JS: needed?
 };
-
-
 
 positionRadius boundingSphereFromMeshBounds(std::span<glm::vec3> boundsCorners);
 MeshData MeshDataFromSpans(std::span<Vertex> vertices,
