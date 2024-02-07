@@ -325,10 +325,7 @@ int Scene::shadowCasterCount()
 
 void Scene::Cleanup()
 {
-    for (int i = 0; i < meshCount; i++)
-    {
-        backing_meshes[i].cleanup();
-    }
+ 
     for (int i = 0; i <  materialCount(); i++)
     {
         backing_diffuse_textures[i].cleanup();

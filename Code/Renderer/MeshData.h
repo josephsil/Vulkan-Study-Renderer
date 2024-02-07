@@ -46,10 +46,7 @@ public:
 
 
 positionRadius boundingSphereFromMeshBounds(std::span<glm::vec3> boundsCorners);
-
 MeshData MeshDataFromSpans(std::span<Vertex> vertices,
          std::span<uint32_t> indices);
 MeshData MeshDataFromObjFile(RendererContext rendererHandles, const char* path);
-
-//TODO JS: remove, replace with gltf ver 
-MeshData MeshDataFromFile(RendererContext rendererHandles, const char* path);
+MeshData FinalizeMeshDataFromTempMesh(MemoryArena::memoryArena* outputArena, temporaryloadingMesh tempMesh);

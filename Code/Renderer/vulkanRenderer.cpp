@@ -23,6 +23,7 @@
 #include "TextureData.h"
 #include "VkBootstrap.h"
 #include "vulkan-utilities.h"
+#include "gltf/gltfLoading.h"
 #include "VulkanIncludes/VulkanMemory.h"
 
 struct gpuPerShadowData;
@@ -2219,11 +2220,11 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
     randomMaterials.push_back(placeholderTextureidx);
 
     //TODO: Scene loads mesh instead? 
-    randomMeshes.push_back(app->scene->AddBackingMesh(MeshDataFromFile(app->getHandles(), "Meshes/pig.glb")));
-    randomMeshes.push_back(app->scene->AddBackingMesh(MeshDataFromFile(app->getHandles(), "Meshes/cubesphere.glb")));
+    randomMeshes.push_back(app->scene->AddBackingMesh(GltfLoadMeshes(app->getHandles(), "Meshes/pig.glb").meshes[0]));
+    randomMeshes.push_back(app->scene->AddBackingMesh(GltfLoadMeshes(app->getHandles(), "Meshes/cubesphere.glb").meshes[0]));
     randomMeshes.push_back(app->scene->AddBackingMesh(MeshDataFromObjFile(app->getHandles(), "Meshes/monkey.obj")));
 
-    int cube = app->scene->AddBackingMesh(MeshDataFromFile(app->getHandles(), "Meshes/cube.glb"));
+    int cube = app->scene->AddBackingMesh(GltfLoadMeshes(app->getHandles(), "Meshes/cube.glb").meshes[0]);
 
     //direciton light
        
