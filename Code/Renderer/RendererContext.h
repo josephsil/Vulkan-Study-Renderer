@@ -10,7 +10,7 @@ namespace  MemoryArena
     //TODO JS: pass an arena in
 
 //This is stuff that I (currently) have to pass around a lot
-struct RendererHandles
+struct RendererContext
 {
     VkPhysicalDevice physicalDevice;
     VkDevice device; //Logical device

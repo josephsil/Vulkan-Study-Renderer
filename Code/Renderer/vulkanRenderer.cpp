@@ -171,9 +171,9 @@ vkb::Swapchain vkb_swapchain;
 
 void SET_UP_SCENE(HelloTriangleApplication* app);
 
-RendererHandles HelloTriangleApplication::getHandles()
+RendererContext HelloTriangleApplication::getHandles()
 {
-    return RendererHandles{physicalDevice, device, &commandPoolmanager, allocator, &rendererArena, &perFrameArenas[currentFrame], HAS_HOST_IMAGE_COPY};
+    return RendererContext{physicalDevice, device, &commandPoolmanager, allocator, &rendererArena, &perFrameArenas[currentFrame], HAS_HOST_IMAGE_COPY};
 }
 
 
@@ -456,7 +456,7 @@ void HelloTriangleApplication::createUniformBuffers()
     VkDeviceSize lightdataSize = sizeof(gpulight) * scene->lightCount;
     VkDeviceSize shadowDataSize = sizeof(PerShadowData) * scene->lightCount * 10; //times six is plenty right?
 
-    RendererHandles handles = getHandles();
+    RendererContext handles = getHandles();
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
@@ -486,7 +486,7 @@ void HelloTriangleApplication::createUniformBuffers()
 #pragma endregion
 
 #pragma region descriptorsets
-void HelloTriangleApplication::createDescriptorSetPool(RendererHandles handles, VkDescriptorPool* pool)
+void HelloTriangleApplication::createDescriptorSetPool(RendererContext handles, VkDescriptorPool* pool)
 {
     
     std::vector<VkDescriptorPoolSize> sizes =
@@ -1782,7 +1782,7 @@ semaphoreData getSemaphoreDataFromSemaphores(std::span<VkSemaphore> semaphores, 
     return {semaphores, flags};
     
 }
-void transitionImageForRendering(RendererHandles handles, VkCommandBuffer commandBuffer, semaphoreData waitSemaphores, std::span<VkSemaphore> signalSemaphores, VkImage image, VkImageLayout layoutIn, VkImageLayout layoutOut, VkPipelineStageFlags* waitStages, bool depth)
+void transitionImageForRendering(RendererContext handles, VkCommandBuffer commandBuffer, semaphoreData waitSemaphores, std::span<VkSemaphore> signalSemaphores, VkImage image, VkImageLayout layoutIn, VkImageLayout layoutOut, VkPipelineStageFlags* waitStages, bool depth)
 {
 
     VkCommandBufferBeginInfo beginInfo{};
@@ -2221,7 +2221,7 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
     //TODO: Scene loads mesh instead? 
     randomMeshes.push_back(app->scene->AddBackingMesh(MeshDataFromFile(app->getHandles(), "Meshes/pig.glb")));
     randomMeshes.push_back(app->scene->AddBackingMesh(MeshDataFromFile(app->getHandles(), "Meshes/cubesphere.glb")));
-    randomMeshes.push_back(app->scene->AddBackingMesh(MeshDataFromFile(app->getHandles(), "Meshes/monkey.obj")));
+    randomMeshes.push_back(app->scene->AddBackingMesh(MeshDataFromObjFile(app->getHandles(), "Meshes/monkey.obj")));
 
     int cube = app->scene->AddBackingMesh(MeshDataFromFile(app->getHandles(), "Meshes/cube.glb"));
 

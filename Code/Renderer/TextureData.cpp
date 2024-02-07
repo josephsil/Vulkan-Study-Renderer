@@ -23,7 +23,7 @@
 int TEXTURE_INDEX;
 #pragma region textureData
 
-TextureData::TextureData(RendererHandles rendererHandles, const char* path, TextureType textureType,VkImageViewType viewType)
+TextureData::TextureData(RendererContext rendererHandles, const char* path, TextureType textureType,VkImageViewType viewType)
 {
 
     this->rendererHandles = rendererHandles;
@@ -274,7 +274,7 @@ uint32_t getFormatSize(VkFormat f)
 }
 
 
-void readImageData(RendererHandles rendererInfo, VmaAllocation alloc, VkImage image, void* data, VkExtent3D extent,size_t level)
+void readImageData(RendererContext rendererInfo, VmaAllocation alloc, VkImage image, void* data, VkExtent3D extent,size_t level)
 {
 
 	PFN_vkCopyImageToMemoryEXT vkCopyImageToMemoryEXT = (PFN_vkCopyImageToMemoryEXT)vkGetDeviceProcAddr(rendererInfo.device, "vkCopyImageToMemoryEXT");    
@@ -351,7 +351,7 @@ void TextureData::cleanup()
 	VulkanMemory::DestroyImage(rendererHandles.allocator, textureImage, textureImageMemory);
 }
 
-void TextureData::createTextureSampler(VkSampler* textureSampler, RendererHandles handles, VkSamplerAddressMode mode, float bias, float maxMip, bool shadow)
+void TextureData::createTextureSampler(VkSampler* textureSampler, RendererContext handles, VkSamplerAddressMode mode, float bias, float maxMip, bool shadow)
 {
     VkPhysicalDeviceProperties properties{};
     vkGetPhysicalDeviceProperties(handles.physicalDevice, &properties);
@@ -382,7 +382,7 @@ void TextureData::createTextureSampler(VkSampler* textureSampler, RendererHandle
     }
 }
 //
-static temporaryTextureInfo createTextureImage(RendererHandles rendererHandles, const char* path, VkFormat format, bool mips);
+static temporaryTextureInfo createTextureImage(RendererContext rendererHandles, const char* path, VkFormat format, bool mips);
 
 void TextureData::cacheKTXFromSTB(const char* path, const char* outpath, VkFormat format, TextureType textureType, bool use_mipmaps)
 {
@@ -459,7 +459,7 @@ VkImageView TextureData::createTextureImageView(VkFormat format, VkImageViewType
 
 
 //TODO JS less side effects -- now that this is a interim step, it should be static
-static temporaryTextureInfo createTextureImage(RendererHandles rendererHandles, const char* path, VkFormat format, bool mips)
+static temporaryTextureInfo createTextureImage(RendererContext rendererHandles, const char* path, VkFormat format, bool mips)
 {
     auto workingTextureBuffer = rendererHandles.commandPoolmanager->beginSingleTimeCommands(true);
     int texWidth, texHeight, texChannels;

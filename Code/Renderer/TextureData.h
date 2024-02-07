@@ -3,7 +3,7 @@
 #pragma region forward declarations
 #include <cstdint>
 
-#include "RendererHandles.h"
+#include "RendererContext.h"
 #include "VulkanIncludes/forward-declarations-renderer.h"
 using ktxTexture2 =  struct ktxTexture2;
 using  ktxVulkanTexture = struct ktxVulkanTexture;
@@ -40,13 +40,13 @@ public:
     VmaAllocation textureImageMemory;
 
     //TODO JS: move out of texturedata
-    RendererHandles rendererHandles;
+    RendererContext rendererHandles;
     uint32_t maxmip = 1; //TODO JS: mutate less places
     uint32_t layerct = 1;
     bool uncompressed = false;
 
     
-    TextureData(RendererHandles rendererHandles, const char* path, TextureType type, VkImageViewType viewType = (VkImageViewType)-1);
+    TextureData(RendererContext rendererHandles, const char* path, TextureType type, VkImageViewType viewType = (VkImageViewType)-1);
     VkFormat GetOrLoadTexture(const char* path, VkFormat format, TextureType textureType, bool use_mipmaps);
 
     TextureData();
@@ -55,7 +55,7 @@ public:
 
     //TODO JS: move tou tilities?
     // 0 = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    static void createTextureSampler(VkSampler* textureSampler, RendererHandles handles, VkSamplerAddressMode mode, float bias, float maxMip, bool shadow = false);
+    static void createTextureSampler(VkSampler* textureSampler, RendererContext handles, VkSamplerAddressMode mode, float bias, float maxMip, bool shadow = false);
     VkImageView createTextureImageView(VkFormat format, VkImageViewType type);
 private:
 

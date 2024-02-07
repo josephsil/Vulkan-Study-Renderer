@@ -23,7 +23,7 @@ VkDescriptorSetLayoutCreateInfo createInfoFromSpan( std::span<VkDescriptorSetLay
 
     return _createInfo;
 }
-PipelineDataObject::PipelineDataObject(RendererHandles handles, VkDescriptorPool pool, std::span<VkDescriptorSetLayoutBinding> opaqueLayout)
+PipelineDataObject::PipelineDataObject(RendererContext handles, VkDescriptorPool pool, std::span<VkDescriptorSetLayoutBinding> opaqueLayout)
 {
     device = handles.device;
     createLayout(handles , opaqueLayout);
@@ -31,7 +31,7 @@ PipelineDataObject::PipelineDataObject(RendererHandles handles, VkDescriptorPool
     
 }
 
-void PipelineDataObject::createLayout(RendererHandles handles,  std::span<VkDescriptorSetLayoutBinding> layout )
+void PipelineDataObject::createLayout(RendererContext handles,  std::span<VkDescriptorSetLayoutBinding> layout )
 {
     VkDescriptorSetLayoutCreateInfo perSceneLaout = createInfoFromSpan(layout);
 

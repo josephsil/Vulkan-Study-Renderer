@@ -5,7 +5,7 @@
 #include <cstdlib>
 
 #include "BufferAndPool.h"
-#include "RendererHandles.h"
+#include "RendererContext.h"
 #include "bufferCreation.h"
 #include "CommandPoolManager.h"
 #include "VulkanIncludes/Vulkan_Includes.h"
@@ -34,7 +34,7 @@ VkImageView TextureUtilities::createImageView(VkDevice device, VkImage image, Vk
 }
 
 
-void TextureUtilities::createImage(RendererHandles rendererHandles, uint32_t width, uint32_t height, VkFormat format,
+void TextureUtilities::createImage(RendererContext rendererHandles, uint32_t width, uint32_t height, VkFormat format,
                                    VkImageTiling tiling,
                                    VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image,
                                    VmaAllocation& allocation, uint32_t miplevels, uint32_t araryLayers, bool cubeCompatible)
@@ -66,7 +66,7 @@ void TextureUtilities::createImage(RendererHandles rendererHandles, uint32_t wid
     BufferUtilities::CreateImage(rendererHandles.allocator, &imageInfo, &image, &allocation, nullptr);
 }
 
-void TextureUtilities::transitionImageLayout(RendererHandles rendererHandles, VkImage image, VkFormat format,
+void TextureUtilities::transitionImageLayout(RendererContext rendererHandles, VkImage image, VkFormat format,
                                              VkImageLayout oldLayout,
                                              VkImageLayout newLayout, VkCommandBuffer workingBuffer, uint32_t miplevels, bool useTransferPool, bool depth)
 {
@@ -160,7 +160,7 @@ void TextureUtilities::transitionImageLayout(RendererHandles rendererHandles, Vk
     }
 }
 
-void TextureUtilities::generateMipmaps(RendererHandles rendererHandles, VkImage image, VkFormat imageFormat,
+void TextureUtilities::generateMipmaps(RendererContext rendererHandles, VkImage image, VkFormat imageFormat,
                                        int32_t texWidth,
                                        int32_t texHeight, uint32_t mipLevels)
 {

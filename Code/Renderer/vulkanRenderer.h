@@ -86,7 +86,7 @@ public:
     };
     
     Scene* scene;
-    RendererHandles getHandles();
+    RendererContext getHandles();
     void updateShadowImageViews(int frame);
     HelloTriangleApplication();
 
@@ -171,7 +171,7 @@ private:
     PipelineDataObject descriptorsetLayoutsDataCompute;
 
     
-    void createDescriptorSetPool(RendererHandles handles, VkDescriptorPool* pool);
+    void createDescriptorSetPool(RendererContext handles, VkDescriptorPool* pool);
     void updateOpaqueDescriptorSets(PipelineDataObject* layoutData);
     std::span<descriptorUpdateData> createOpaqueDescriptorUpdates(uint32_t frame, MemoryArena::memoryArena* arena, std::span<VkDescriptorSetLayoutBinding> layoutBindings);
     std::span<descriptorUpdateData> createShadowDescriptorUpdates(MemoryArena::memoryArena* arena, uint32_t frame, uint32_t shadowIndex, std::span<VkDescriptorSetLayoutBinding>

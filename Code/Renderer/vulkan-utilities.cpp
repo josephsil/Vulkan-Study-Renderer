@@ -5,14 +5,14 @@
 
 #include "bufferCreation.h"
 #include "../General/Array.h"
-#include "RendererHandles.h"
+#include "RendererContext.h"
 #include "TextureData.h"
 #include "../General/MemoryArena.h"
 #include "VulkanIncludes/Vulkan_Includes.h"
 
 
 
-VkFormat Capabilities::findDepthFormat(RendererHandles rendererHandles)
+VkFormat Capabilities::findDepthFormat(RendererContext rendererHandles)
 {
     return findSupportedFormat(rendererHandles,
                                {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT},
@@ -22,7 +22,7 @@ VkFormat Capabilities::findDepthFormat(RendererHandles rendererHandles)
 }
 
 
-VkFormat Capabilities::findSupportedFormat(RendererHandles rendererHandles, const std::vector<VkFormat>& candidates,
+VkFormat Capabilities::findSupportedFormat(RendererContext rendererHandles, const std::vector<VkFormat>& candidates,
                                            VkImageTiling tiling,
                                            VkFormatFeatureFlags features)
 {
@@ -45,7 +45,7 @@ VkFormat Capabilities::findSupportedFormat(RendererHandles rendererHandles, cons
     exit(1);
 }
 
-uint32_t Capabilities::findMemoryType(RendererHandles rendererHandles, uint32_t typeFilter,
+uint32_t Capabilities::findMemoryType(RendererContext rendererHandles, uint32_t typeFilter,
                                       VkMemoryPropertyFlags properties)
 {
     VkPhysicalDeviceMemoryProperties memProperties;
@@ -108,7 +108,7 @@ void dataBuffer::updateMappedMemory(void* data, size_t size)
     memcpy(this->mapped, data, size);
 }
 
-void dataBuffer::allocateVulkanMemory(RendererHandles h, VmaAllocation* allocation, VkBufferUsageFlags usage)
+void dataBuffer::allocateVulkanMemory(RendererContext h, VmaAllocation* allocation, VkBufferUsageFlags usage)
 {
    mapped = BufferUtilities::createDynamicBuffer(
       h,  size, usage,

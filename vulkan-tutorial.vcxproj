@@ -164,6 +164,7 @@
     </ClCompile>
     <ClCompile Include="Code\Renderer\CommandPoolManager.cpp">
     </ClCompile>
+    <ClCompile Include="Code\Renderer\gltf\gltfLoading.cpp" />
     <ClCompile Include="Code\Renderer\MeshData.cpp">
     </ClCompile>
     <ClCompile Include="Code\Renderer\MikkTImpl.cpp" />
@@ -196,12 +197,13 @@
     <ClInclude Include="Code\Renderer\BufferAndPool.h" />
     <ClInclude Include="Code\Renderer\bufferCreation.h" />
     <ClInclude Include="Code\Renderer\CommandPoolManager.h" />
+    <ClInclude Include="Code\Renderer\gltf\gltfLoading.h" />
     <ClInclude Include="Code\Renderer\gpu-data-structs.h" />
     <ClInclude Include="Code\Renderer\MeshData.h" />
     <ClInclude Include="Code\Renderer\MikkTImpl.h" />
     <ClInclude Include="Code\Renderer\PipelineDataObject.h" />
     <ClInclude Include="Code\Renderer\rendererGlobals.h" />
-    <ClInclude Include="Code\Renderer\RendererHandles.h" />
+    <ClInclude Include="Code\Renderer\RendererContext.h" />
     <ClInclude Include="Code\Renderer\Shaders\ShaderLoading.h" />
     <ClInclude Include="Code\Renderer\textureCreation.h" />
     <ClInclude Include="Code\Renderer\TextureData.h" />
