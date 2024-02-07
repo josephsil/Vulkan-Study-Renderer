@@ -408,9 +408,6 @@ void HelloTriangleApplication::initVulkan()
     createGraphicsPipeline("shadow",  &descriptorsetLayoutsDataShadow, shadowPipelineSettings,false, sizeof(debugLinePConstants));
 
 
-    
-    
- 
 }
 
 void HelloTriangleApplication::populateMeshBuffers()
@@ -418,7 +415,7 @@ void HelloTriangleApplication::populateMeshBuffers()
     uint32_t vertCt = 0;
     for (int i = 0; i < scene->meshCount; i++)
     {
-        vertCt += scene->backing_meshes[i].vertcount;
+        vertCt += scene->backing_meshes[i].indices.size();
     }
 
     //TODO JS: to ring buffer?
@@ -1918,7 +1915,7 @@ void updateIndirectCommandBufferForPasses(Scene* scene, MemoryArena::memoryArena
             {
          
                 mappedDrawCommandBuffer[passes.shadowDraws[i].firstDraw + j] =  {
-                    (uint32_t)j, (uint32_t)scene->backing_meshes[meshIndices[j]].vertcount, 1, 0, (uint32_t)j};
+                    (uint32_t)j, (uint32_t)scene->backing_meshes[meshIndices[j]].indices.size(), 1, 0, (uint32_t)j};
             }
         drawOffset += drawCount;
     }
@@ -1933,7 +1930,7 @@ void updateIndirectCommandBufferForPasses(Scene* scene, MemoryArena::memoryArena
         for (size_t k = 0; k < indices.size(); k++)
         {
          
-            mappedDrawCommandBuffer[drawOffset + drawCt2 + k] = {indices[k], static_cast<uint32_t>(scene->backing_meshes[meshIndices[indices[k]]].vertcount), 1, 0, (uint32_t)indices[k]};
+            mappedDrawCommandBuffer[drawOffset + drawCt2 + k] = {indices[k], static_cast<uint32_t>(scene->backing_meshes[meshIndices[indices[k]]].indices.size()), 1, 0, (uint32_t)indices[k]};
         }
         drawCt2 += indices.size();
     }
@@ -2222,11 +2219,11 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
     randomMaterials.push_back(placeholderTextureidx);
 
     //TODO: Scene loads mesh instead? 
-    randomMeshes.push_back(app->scene->AddBackingMesh(MeshData(app->getHandles(), "Meshes/pig.glb")));
-    randomMeshes.push_back(app->scene->AddBackingMesh(MeshData(app->getHandles(), "Meshes/cubesphere.glb")));
-    randomMeshes.push_back(app->scene->AddBackingMesh(MeshData(app->getHandles(), "Meshes/monkey.obj")));
+    randomMeshes.push_back(app->scene->AddBackingMesh(MeshDataFromFile(app->getHandles(), "Meshes/pig.glb")));
+    randomMeshes.push_back(app->scene->AddBackingMesh(MeshDataFromFile(app->getHandles(), "Meshes/cubesphere.glb")));
+    randomMeshes.push_back(app->scene->AddBackingMesh(MeshDataFromFile(app->getHandles(), "Meshes/monkey.obj")));
 
-    int cube = app->scene->AddBackingMesh(MeshData(app->getHandles(), "Meshes/cube.glb"));
+    int cube = app->scene->AddBackingMesh(MeshDataFromFile(app->getHandles(), "Meshes/cube.glb"));
 
     //direciton light
        

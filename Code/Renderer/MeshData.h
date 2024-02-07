@@ -20,34 +20,25 @@
 struct MeshData
 {
 public:
-    VkBuffer vertBuffer;
-    VkBuffer indexBuffer;
-    RendererHandles rendererHandles; //TODO to pointer?
-    VmaAllocation vertMemory;
-    VmaAllocation indexMemory;
+   
     std::span<Vertex> vertices; // Span into memoryArena
     std::span<uint32_t> indices; //Span into memoryArena
     std::span<glm::vec3> boundsCorners;
-    VkDevice device; //Device pointers
-    size_t vertcount;
     int id;
 
 
-    positionRadius getBoundingSphere();
-    MeshData(RendererHandles rendererHandles, std::vector<Vertex> vertices,
-             std::vector<uint32_t> indices);
 
-    MeshData(RendererHandles rendererHandles, const char* path);
-
-    MeshData()
-    {
-    }
 
     //TODO JS: should probably clean itself up in a destructor or whatever 
     void cleanup();
 
-private:
-    VkBuffer meshDataCreateVertexBuffer();
-
-    VkBuffer meshDataCreateIndexBuffer();
 };
+
+
+
+positionRadius boundingSphereFromMeshBounds(std::span<glm::vec3> boundsCorners);
+
+MeshData MeshDataFromSpans(std::vector<Vertex> vertices,
+         std::vector<uint32_t> indices);
+
+MeshData MeshDataFromFile(RendererHandles rendererHandles, const char* path);

@@ -8,10 +8,6 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/glm.hpp>
 
-
-#pragma region Forward Declarations
-#include "VulkanIncludes/forward-declarations-renderer.h"
-#pragma endregion
 struct Vertex
 {
     glm::vec4 pos;
@@ -20,9 +16,6 @@ struct Vertex
     glm::vec4 normal;
     glm::vec4 tangent;
 
-    static VkVertexInputBindingDescription getBindingDescription();
-
-    static std::array<VkVertexInputAttributeDescription, 4> getAttributeDescriptions();
 
     bool operator==(const Vertex& other) const
     {

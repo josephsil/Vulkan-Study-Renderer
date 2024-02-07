@@ -117,7 +117,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
-      <WarningLevel>Level3</WarningLevel>
+      <WarningLevel>EnableAllWarnings</WarningLevel>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
@@ -166,6 +166,7 @@
     </ClCompile>
     <ClCompile Include="Code\Renderer\MeshData.cpp">
     </ClCompile>
+    <ClCompile Include="Code\Renderer\MikkTImpl.cpp" />
     <ClCompile Include="Code\Renderer\PipelineDataObject.cpp">
     </ClCompile>
     <ClCompile Include="Code\Renderer\Shaders\ShaderLoading.cpp">
@@ -197,6 +198,7 @@
     <ClInclude Include="Code\Renderer\CommandPoolManager.h" />
     <ClInclude Include="Code\Renderer\gpu-data-structs.h" />
     <ClInclude Include="Code\Renderer\MeshData.h" />
+    <ClInclude Include="Code\Renderer\MikkTImpl.h" />
     <ClInclude Include="Code\Renderer\PipelineDataObject.h" />
     <ClInclude Include="Code\Renderer\rendererGlobals.h" />
     <ClInclude Include="Code\Renderer\RendererHandles.h" />

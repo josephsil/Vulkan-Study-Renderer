@@ -1,5 +1,5 @@
 #include "MeshData.h"
-#include "../../mikktspace.h"
+#include "MikkTImpl.h"
 #include <unordered_map>
 #include "RendererHandles.h"
 #include "../General/Array.h"
@@ -11,150 +11,24 @@
 #include "VulkanIncludes/VulkanMemory.h"
 
 //TODO JS 0: Separate mesh import and mesh data
-struct MeshForMikkt
-{
-public:
-    std::span<glm::vec3> pos;
-    std::span<uint32_t> idx;
-    std::span<glm::vec3> norm;
-    std::span<glm::vec4> tan;
-    std::span<glm::vec3> uv;
 
-    MeshForMikkt(MemoryArena::memoryArena* alloc, std::span<Vertex> verts, std::span<uint32_t> indices)
-    {
-        
-        //TODO JS: pass in temp allocator?
-        pos = MemoryArena::AllocSpan<glm::vec3>(alloc, verts.size());
-        norm = MemoryArena::AllocSpan<glm::vec3>(alloc, verts.size());
-        tan = MemoryArena::AllocSpan<glm::vec4>(alloc, verts.size());
-        uv = MemoryArena::AllocSpan<glm::vec3>(alloc, verts.size());
-        idx = indices;
-        for (int i = 0; i < verts.size(); i++)
-        {
-            pos[i] = {verts[i].pos.x, verts[i].pos.y, verts[i].pos.z};
-            norm[i] = {verts[i].normal.x, verts[i].normal.y, verts[i].normal.z};
-            uv[i] = {verts[i].texCoord.x, verts[i].texCoord.y, verts[i].texCoord.z};
-        }
-    }
-};
-#pragma region mikkt
-struct MikktImpl
-{
-    MikktImpl();
-    void calculateTangents(MeshForMikkt* mesh);
-
-
-private:
-    SMikkTSpaceInterface interace{};
-    SMikkTSpaceContext context{};
-    static int face_count(const SMikkTSpaceContext* context);
-    static int faceverts(const SMikkTSpaceContext* context, int iFace);
-    static void vertpos(const SMikkTSpaceContext* context, float outpos[],
-                        int iFace, int iVert);
-
-    static void norm(const SMikkTSpaceContext* context, float outnormal[],
-                     int iFace, int iVert);
-
-    static void getUV(const SMikkTSpaceContext* context, float outuv[],
-                      int iFace, int iVert);
-
-    static void set_tspace_basic(const SMikkTSpaceContext* context,
-                                 const float tangentu[],
-                                 float fSign, int iFace, int iVert);
-};
-
-
-int MikktImpl::face_count(const SMikkTSpaceContext* context)
-{
-    auto mesh = static_cast<MeshForMikkt*>(context->m_pUserData);
-
-    return (mesh->idx.size() / 3);
-}
-
-int MikktImpl::faceverts(const SMikkTSpaceContext* context, int iFace)
-{
-    return 3;
-}
-
-void MikktImpl::vertpos(const SMikkTSpaceContext* context, float outpos[],
-                        int iFace, int iVert)
-{
-    auto mesh = static_cast<MeshForMikkt*>(context->m_pUserData);
-    int idx = (iFace * 3) + iVert;
-    outpos[0] = mesh->pos[idx].x;
-    outpos[1] = mesh->pos[idx].y;
-    outpos[2] = mesh->pos[idx].z;
-}
-
-void MikktImpl::norm(const SMikkTSpaceContext* context, float outnormal[],
-                     int iFace, int iVert)
-{
-    auto mesh = static_cast<MeshForMikkt*>(context->m_pUserData);
-    int idx = (iFace * 3) + iVert;
-    outnormal[0] = mesh->norm[idx].x;
-    outnormal[1] = mesh->norm[idx].y;
-    outnormal[2] = mesh->norm[idx].z;
-}
-
-void MikktImpl::getUV(const SMikkTSpaceContext* context, float outuv[],
-                      int iFace, int iVert)
-{
-    auto mesh = static_cast<MeshForMikkt*>(context->m_pUserData);
-    int idx = (iFace * 3) + iVert;
-    outuv[0] = (mesh->uv[idx].x);
-    outuv[1] = (mesh->uv[idx].y);
-}
-
-void MikktImpl::set_tspace_basic(const SMikkTSpaceContext* context,
-                                 const float tangentu[],
-                                 float fSign, int iFace, int iVert)
-{
-    auto mesh = static_cast<MeshForMikkt*>(context->m_pUserData);
-    int idx = (iFace * 3) + iVert;
-    mesh->tan[idx] = {tangentu[0], tangentu[1], tangentu[2], fSign};
-}
-
-MikktImpl::MikktImpl()
-{
-    interace.m_getNumFaces = face_count;
-    interace.m_getNumVerticesOfFace = faceverts;
-
-    interace.m_getNormal = norm;
-    interace.m_getPosition = vertpos;
-    interace.m_getTexCoord = getUV;
-    interace.m_setTSpaceBasic = set_tspace_basic;
-
-    context.m_pInterface = &interace;
-}
-
-void MikktImpl::calculateTangents(MeshForMikkt* mesh)
-{
-    context.m_pUserData = mesh;
-
-    genTangSpaceDefault(&this->context);
-}
-
-
-#pragma endreion
 int MESHID = 0;
 
-MeshData::MeshData(RendererHandles rendererHandles, std::vector<Vertex> vertices,
+MeshData MeshDataFromSpans(std::vector<Vertex> vertices,
                    std::vector<uint32_t> indices)
 {
-    this->rendererHandles = rendererHandles;
-    this->vertices = vertices;
-    this->indices = indices;
-    vertBuffer = this->meshDataCreateVertexBuffer();
-    indexBuffer = this->meshDataCreateIndexBuffer();
-    this->vertcount = indices.size();
-    this->id = MESHID++;
+    MeshData m = {};
+    m.vertices = vertices;
+    m.indices = indices;
+    m.id = MESHID++;
+    return m;
 }
 
-MeshData::MeshData(RendererHandles app, const char* path)
+MeshData MeshDataFromFile(RendererHandles rendererHandles, const char* path)
 {
+    MeshData m = {};
     const char* ext = strrchr(path, '.');
     bool tangentsLoaded = false;
-    this->rendererHandles = app;
     
     MemoryArena::memoryArena* tempArena = rendererHandles.perframeArena;
 
@@ -207,11 +81,11 @@ MeshData::MeshData(RendererHandles app, const char* path)
             {
                     
                 Vertex vert;
-                Array<glm::vec4> positionvec = Array(MemoryArena::AllocSpan<glm::vec4>(rendererHandles.perframeArena, indxCt));
-                Array<glm::vec4> normalvec = Array(MemoryArena::AllocSpan<glm::vec4>(rendererHandles.perframeArena, indxCt));
-                Array<glm::vec4> uvvec = Array(MemoryArena::AllocSpan<glm::vec4>(rendererHandles.perframeArena, indxCt));
-                Array<glm::vec4> colorvec = Array(MemoryArena::AllocSpan<glm::vec4>(rendererHandles.perframeArena, indxCt));
-                Array<glm::vec4> tangentvec =Array( MemoryArena::AllocSpan<glm::vec4>(rendererHandles.perframeArena, indxCt));
+                Array<glm::vec4> positionvec = Array(MemoryArena::AllocSpan<glm::vec4>(tempArena, indxCt));
+                Array<glm::vec4> normalvec = Array(MemoryArena::AllocSpan<glm::vec4>(tempArena, indxCt));
+                Array<glm::vec4> uvvec = Array(MemoryArena::AllocSpan<glm::vec4>(tempArena, indxCt));
+                Array<glm::vec4> colorvec = Array(MemoryArena::AllocSpan<glm::vec4>(tempArena, indxCt));
+                Array<glm::vec4> tangentvec =Array( MemoryArena::AllocSpan<glm::vec4>(tempArena, indxCt));
                 tinygltf::Accessor& accessor = model.accessors[prim.attributes["POSITION"]];
                 tinygltf::BufferView& bufferView = model.bufferViews[accessor.bufferView];
                 tinygltf::Buffer& buffer = model.buffers[bufferView.buffer];
@@ -472,62 +346,43 @@ MeshData::MeshData(RendererHandles app, const char* path)
     //
 
     MemoryArena::memoryArena* globalArena = rendererHandles.arena;
-    this->vertices = MemoryArena::copySpan(globalArena, _vertices.getSpan());
-    this->indices = MemoryArena::copySpan(globalArena, _indices.getSpan());
+    m.vertices = MemoryArena::copySpan(globalArena, _vertices.getSpan());
+    m.indices = MemoryArena::copySpan(globalArena, _indices.getSpan());
 
     MemoryArena::freeToCursor(tempArena);
 
 
-    this->boundsCorners = MemoryArena::AllocSpan<glm::vec3>(globalArena, 2);
-    boundsCorners[0] = this->vertices[0].pos;
-    boundsCorners[1] = this->vertices[0].pos;
+    m.boundsCorners = MemoryArena::AllocSpan<glm::vec3>(globalArena, 2);
+    m.boundsCorners[0] = m.vertices[0].pos;
+    m.boundsCorners[1] = m.vertices[0].pos;
     
-    for(int i =1; i < this->vertices.size(); i++)
+    for(int i =1; i < m.vertices.size(); i++)
     {
-        glm::vec3 compPos = glm::vec3(this->vertices[i].pos);
-        boundsCorners[0].x = glm::min<float>(boundsCorners[0].x, compPos.x);
-        boundsCorners[0].y = glm::min<float>(boundsCorners[0].y, compPos.y);
-        boundsCorners[0].z = glm::min<float>(boundsCorners[0].z, compPos.z);
-        boundsCorners[1].x =  glm::max<float>(boundsCorners[1].x, compPos.x);
-        boundsCorners[1].y = glm::max<float>(boundsCorners[1].y, compPos.y);
-        boundsCorners[1].z = glm::max<float>(boundsCorners[1].z, compPos.z);
+        glm::vec3 compPos = glm::vec3(m.vertices[i].pos);
+        m.boundsCorners[0].x = glm::min<float>(m.boundsCorners[0].x, compPos.x);
+        m.boundsCorners[0].y = glm::min<float>(m.boundsCorners[0].y, compPos.y);
+        m.boundsCorners[0].z = glm::min<float>(m.boundsCorners[0].z, compPos.z);
+        m.boundsCorners[1].x =  glm::max<float>(m.boundsCorners[1].x, compPos.x);
+        m.boundsCorners[1].y = glm::max<float>(m.boundsCorners[1].y, compPos.y);
+        m.boundsCorners[1].z = glm::max<float>(m.boundsCorners[1].z, compPos.z);
     }
  
     //TODO: Dedupe verts
-    this->vertBuffer = this->meshDataCreateVertexBuffer();
-    this->indexBuffer = this->meshDataCreateIndexBuffer();
-    this->vertcount = _indices.size();
-    this->id = MESHID++;
+    m.id = MESHID++;
+
+    return m;
 }
 
-positionRadius MeshData::getBoundingSphere()
+positionRadius boundingSphereFromMeshBounds(std::span<glm::vec3> boundsCorners)
 {
     return { {(boundsCorners[0] +  boundsCorners[1]) / 2.0f, 0.0}, glm::distance(boundsCorners[0], boundsCorners[1]) / 2.0f};
 }
-//TODO JS 0: Separate memory ownership? give it to the renderer?
+
 void MeshData::cleanup()
 {
-   VulkanMemory::DestroyBuffer(rendererHandles.allocator, vertBuffer, vertMemory);
+   // VulkanMemory::DestroyBuffer(rendererHandles.allocator, vertBuffer, vertMemory);
 
-   VulkanMemory::DestroyBuffer(rendererHandles.allocator, indexBuffer, indexMemory);
+   // VulkanMemory::DestroyBuffer(rendererHandles.allocator, indexBuffer, indexMemory);
 }
 
-VkBuffer MeshData::meshDataCreateVertexBuffer()
-{
-    VkBuffer vertexBuffer;
-    auto bufferSize = sizeof(this->vertices[0]) * this->vertices.size();
-
-    BufferUtilities::stageVertexBuffer(rendererHandles, bufferSize, vertexBuffer, vertMemory,this->vertices.data());
-
-    return vertexBuffer;
-}
-
-VkBuffer MeshData::meshDataCreateIndexBuffer()
-{
-    VkBuffer indexBuffer;
-    auto bufferSize = sizeof(this->indices[0]) * this->indices.size();
-    BufferUtilities::stageIndexBuffer(rendererHandles, bufferSize, indexBuffer, indexMemory,this->indices.data());
-    
-
-    return indexBuffer;
-}
+//

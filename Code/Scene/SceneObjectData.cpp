@@ -147,7 +147,7 @@ int Scene::AddMaterial(TextureData D, TextureData S, TextureData N)
 int Scene::AddBackingMesh(MeshData M)
 {
     backing_meshes.push_back(M);
-    meshBoundingSphereRad.push_back(M.getBoundingSphere());
+    meshBoundingSphereRad.push_back(boundingSphereFromMeshBounds(M.boundsCorners));
     return meshCount ++;
 }
 
