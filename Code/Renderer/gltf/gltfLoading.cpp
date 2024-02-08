@@ -1,9 +1,13 @@
 #include "gltfLoading.h"
+
+#include <vulkan/vulkan_core.h>
+
 #include "../MeshData.h"
 #include "../../General/MemoryArena.h"
 #include "../../General/Array.h"
 #include "gltf_impl.h"
-
+#include "../TextureData.h"
+#include "../../General/FileCaching.h"
 temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygltf::Model model, tinygltf::Mesh mesh)
 {
     uint32_t indxCt = 0;
@@ -179,12 +183,19 @@ gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
     bool ret = loader.LoadBinaryFromFile(&model, &err, &warn, gltfpath);
     
     int meshCt = model.meshes.size();
+    int imageCt = model.images.size();
+    int texCt = model.textures.size();
+    int matCt = model.materials.size();
+    int nodeCt = model.nodes.size();
 
     std::span<MeshData> meshes = MemoryArena::AllocSpan<MeshData>(permanentArena, meshCt);
+    std::span<TextureData> textures = MemoryArena::AllocSpan<TextureData>(permanentArena, imageCt); //These are what I call textures, what vulkan calls images
+    std::span<material> materials = MemoryArena::AllocSpan<material>(permanentArena, matCt); //These are what I call textures, what vulkan calls images 
     if (!warn.empty())
     {
-        printf("Warn: %s\n", warn);
+        printf("GLTF LOADER WARNING: %s\n", warn);
     }
+    assert(err.empty());
     
     for(int i = 0; i < meshCt; i++)
     {
@@ -198,27 +209,42 @@ gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
     //TODO support: multiple materials per mesh (prims), multiple tex coords
     //Won't do currently: any kinds of animation, cameras, samplers 
     //For models, going to go with one tex coord for now
-    int imageCt = model.images.size();
-    int texCt = model.textures.size();
-    int matCt = model.materials.size();
-    int nodeCt = model.nodes.size();
 
 
-	for (int i = 0; i < texCt; i++)
+	for (int i = 0; i < matCt; i++)
 	{
-		uint32_t imageIDX = model.textures[i].source;
-		assert (imageIDX != -1);
-		tinygltf::Image image = model.images[imageIDX];
-		//image.
+	    auto gltfmaterial = model.materials[i];
+	    materials[i] = {};
+
+	    //TODO JS: if these don't exist they're -1 -- otherwise they're 1 indexed 
+	    materials[i].diffIndex =  gltfmaterial.pbrMetallicRoughness.baseColorTexture.index -1;
+	    materials[i].specIndex = gltfmaterial.pbrMetallicRoughness.metallicRoughnessTexture.index -1;
+	    materials[i].normIndex =  gltfmaterial.normalTexture.index -1;
+	    		//image.
 
 	}
 
+    for (int i = 0; i < imageCt; i++)
+    {
+        tinygltf::Image image = model.images[i];
+        assert( image.name.empty());
+        std::string name = image.name.empty() ? std::to_string(i) : image.name;
+        //TODO JS: No gaurantee pixels data is interpreted correctly -- do I need to pass in type?
+        assert(image.component == 4);
+        assert(image.pixel_type == TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE);
+        assert(image.bits == 8);
+        textures[i] = TextureData(gltfpath,name.data(),  (VkFormat)VK_FORMAT_R8G8B8A8_SRGB,   VK_SAMPLER_ADDRESS_MODE_REPEAT, image.image.data(), image.width, image.height, 6,  handles);
+        //image.
 
+    }
+
+
+    FileCaching::saveAssetChangedTime(gltfpath);
     //Not supporting, just for logging
     int cameraCt = model.cameras.size();
     int animCt = model.animations.size();
 
     
-    return {meshes, {}, {},  {}};
+    return {meshes, textures, materials,  {}, {}};
     
 }

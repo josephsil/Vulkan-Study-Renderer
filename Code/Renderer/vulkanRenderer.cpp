@@ -2201,26 +2201,18 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
                     TextureData::TextureType::NORMAL));
     randomMaterials.push_back(placeholderTextureidx);
 
-    placeholderTextureidx = app->scene->AddMaterial(
-        TextureData(app->getHandles(), "textures/pbr_stainless-steel/used-stainless-steel2_albedo.png",
-                    TextureData::TextureType::DIFFUSE),
-        TextureData(app->getHandles(), "textures/pbr_stainless-steel/used-stainless-steel2_roughness_metallic.tga",
-                    TextureData::TextureType::SPECULAR),
-        TextureData(app->getHandles(), "textures/pbr_stainless-steel/used-stainless-steel2_normal-dx.png",
-                    TextureData::TextureType::NORMAL));
-    randomMaterials.push_back(placeholderTextureidx);
+ 
 
+    //TODO: Scene loads mesh instead?
+    auto gltf = GltfLoadMeshes(app->getHandles(), "Meshes/pig.glb");
     placeholderTextureidx = app->scene->AddMaterial(
-        TextureData(app->getHandles(), "textures/pbr_factory-sliding/worn-factory-siding_albedo.png",
-                    TextureData::TextureType::DIFFUSE),
-        TextureData(app->getHandles(), "textures/pbr_factory-sliding/worn-factory-siding_roughness_metallic.tga",
-                    TextureData::TextureType::SPECULAR),
-        TextureData(app->getHandles(), "textures/pbr_factory-sliding/worn-factory-siding_normal-dx.png",
-                    TextureData::TextureType::NORMAL));
+    gltf.textures[gltf.materials[0].diffIndex],
+      TextureData(app->getHandles(), "textures/pbr_factory-sliding/worn-factory-siding_roughness_metallic.tga",
+                  TextureData::TextureType::SPECULAR),
+      TextureData(app->getHandles(), "textures/pbr_factory-sliding/worn-factory-siding_normal-dx.png",
+                  TextureData::TextureType::NORMAL));
     randomMaterials.push_back(placeholderTextureidx);
-
-    //TODO: Scene loads mesh instead? 
-    randomMeshes.push_back(app->scene->AddBackingMesh(GltfLoadMeshes(app->getHandles(), "Meshes/pig.glb").meshes[0]));
+    randomMeshes.push_back(app->scene->AddBackingMesh(gltf.meshes[0]));
     randomMeshes.push_back(app->scene->AddBackingMesh(GltfLoadMeshes(app->getHandles(), "Meshes/cubesphere.glb").meshes[0]));
     randomMeshes.push_back(app->scene->AddBackingMesh(MeshDataFromObjFile(app->getHandles(), "Meshes/monkey.obj")));
 
@@ -2235,8 +2227,8 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
 
     //point lights    
     app->scene->AddPointLight(glm::vec3(1, 1, 0), glm::vec3(1, 1, 1), 55);
-    app->scene->AddDirLight(glm::vec3(0,0,1), glm::vec3(0,1,0), 3);
-    app->scene->AddDirLight(glm::vec3(0.00, 1, 0),  glm::vec3(0, 0, 1), 33);
+    app->scene->AddDirLight(glm::vec3(0,0,1), glm::vec3(1,1,1), 3);
+    app->scene->AddDirLight(glm::vec3(0.00, 1, 0),  glm::vec3(1, 1, 1), 33);
     app->scene->AddPointLight(glm::vec3(-2, 2, 0), glm::vec3(1, 0, 0), 4422 / 2);
     // app->scene->AddDirLight(glm::vec3(0,0,1), glm::vec3(0,1,0), 3);
     app->scene->AddPointLight(glm::vec3(0, 0, 0), glm::vec3(1, 1, 0), 999 / 2);

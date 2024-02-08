@@ -47,7 +47,7 @@ public:
     //FILEPATH PATH 
     TextureData(RendererContext rendererHandles, const char* path, TextureType type, VkImageViewType viewType = (VkImageViewType)-1);
     //GLTF PATH 
-	TextureData(VkFormat format, VkSampler sampler, unsigned char* pixels, uint64_t width, uint64_t height, int mipCt, RendererContext handles);
+	TextureData(const char* gltfPath, const char* textureName,  VkFormat format,  VkSamplerAddressMode samplerMode, unsigned char* pixels, uint64_t width, uint64_t height, int mipCt, RendererContext handles);
 	VkFormat GetOrLoadTexture(const char* path, VkFormat format, TextureType textureType, bool use_mipmaps);
 
     TextureData();

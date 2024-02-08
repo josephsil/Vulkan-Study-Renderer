@@ -46,7 +46,7 @@ void MemoryArena::setCursor(memoryArena* a)
 
 void MemoryArena::freeToCursor(memoryArena* a)
 {
-    assert(a->cursor <= 0 && a->cursor < a->head);
+    assert(a->cursor >= 0 && a->cursor < a->head);
     a->head = a->cursor;
 }
 

@@ -21,10 +21,10 @@ struct material
     glm::float32_t roughnessFactor;
     glm::float32_t normalStrength;
     glm::float32_t occlusionStrength;
-    uint32_t diffIndex;
-    uint32_t specIndex;
-    uint32_t normIndex;
-    uint32_t occlusionIndex;
+    int diffIndex;
+    int specIndex;
+    int normIndex;
+    int occlusionIndex;
     //texture indices?
     //roughness/metal?
 };
@@ -32,6 +32,7 @@ struct gltfdata
 {
     std::span<MeshData> meshes;
     std::span<TextureData> textures;
+    std::span<material> materials;
     std::span<tinygltf::Light> lights;
     std::span<gltfNode> objects;
 };

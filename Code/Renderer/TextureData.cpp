@@ -87,15 +87,45 @@ TextureData::TextureData(RendererContext rendererHandles, const char* path, Text
 }
 
 //GLTF PATH 
-TextureData::TextureData(VkFormat format, VkSampler sampler, unsigned char* pixels, uint64_t width, uint64_t height, int mipCt, RendererContext handles)
+TextureData::TextureData(const char* gltfPath, const char* textureName, VkFormat format, VkSamplerAddressMode samplerMode, unsigned char* pixels, uint64_t width, uint64_t height, int mipCt, RendererContext handles)
 {
-	auto OUTPUT_PATH = "./test.ktx";
-	//TODO JS: implement way to cache imported ktx 
-	//TODO JS: Or should I cache at the gltf level, and have another constructor to pass thru ktx?
-	temporaryTextureInfo staging = createTextureImage(rendererHandles, pixels, width, height, format, mipCt); 
-	cacheKTXFromTempTexture(staging, OUTPUT_PATH, format, TextureType::DIFFUSE, mipCt != 0);
+	this->rendererHandles = handles;
+	std::span<const char> gltfPathSpan = std::span(gltfPath, strlen(gltfPath));
+	std::span<const char> textureNameSpan = std::span(textureName, strlen(textureName));
+	int len = gltfPathSpan.size() + textureNameSpan.size() + 5; //4 for ".ktx" and 1 for null terminated
+	auto newName = MemoryArena::AllocSpan<char>(handles.perframeArena, len);
+	memcpy(newName.data(),gltfPathSpan.data(), gltfPathSpan.size_bytes());
+	memcpy(newName.data() + gltfPathSpan.size_bytes(),textureNameSpan.data(), textureNameSpan.size_bytes());
+	memcpy(newName.data() + gltfPathSpan.size_bytes() + textureNameSpan.size_bytes(),".ktx\0", 5 * sizeof(char));
+	//TODO JS: no gaurantee this memcpy stuff works
 	
-	createImageKTX(OUTPUT_PATH, TextureType::DIFFUSE, true);
+	auto OUTPUT_PATH = std::string_view(newName.data(), newName.size());
+	bool generateKTX = true;
+	
+	//Don't regenerate ktx if image modified time is older than last ktx 
+	if (FileCaching::fileExists(OUTPUT_PATH))
+	{
+		if (!FileCaching::assetOutOfDate(gltfPath))
+		{
+			generateKTX = false;
+		}
+	}
+
+	// generateKTX = true;
+	if (generateKTX)
+	{
+		temporaryTextureInfo staging = createTextureImage(handles, pixels, width, height, format, true);
+		//TODO JS: no gaurantee taking output path data works -- not null terminated rght?
+		cacheKTXFromTempTexture(staging, OUTPUT_PATH.data(), format, TextureType::DIFFUSE, mipCt != 0);
+		
+	}
+
+	VkFormat loadedFormat = createImageKTX(OUTPUT_PATH.data(), TextureType::DIFFUSE, true);
+	
+	textureImageView = createTextureImageView(loadedFormat, VK_IMAGE_VIEW_TYPE_2D);
+	assert(textureImageView != VK_NULL_HANDLE);
+	createTextureSampler(&textureSampler, handles, samplerMode, 0, mipCt);
+	rendererHandles = handles;
 
 }
 
@@ -499,7 +529,7 @@ static temporaryTextureInfo createTextureImage(RendererContext rendererHandles, 
  	memcpy(data, pixels, imageSize);
  	VulkanMemory::UnmapMemory(rendererHandles.allocator,bufferAlloc);
 
-    stbi_image_free((void*)pixels);
+  
 
 	uint32_t fullMipPyramid =  mips ? static_cast<uint32_t>(std::floor(std::log2(glm::max(texWidth, texHeight)))) + 1: 1;
     TextureUtilities::createImage(rendererHandles, texWidth, texHeight, format,
@@ -541,8 +571,10 @@ static temporaryTextureInfo createtempTextureFromPath(RendererContext rendererHa
 {
 	int texWidth, texHeight, texChannels;
     stbi_uc* pixels = stbi_load(path, &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
-    
-	return createTextureImage(rendererHandles, pixels, texWidth, texHeight, format, mips);
+
+	temporaryTextureInfo tex = createTextureImage(rendererHandles, pixels, texWidth, texHeight, format, mips);
+	stbi_image_free((void*)pixels);
+	return tex;
 }
 
 
