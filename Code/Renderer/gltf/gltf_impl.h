@@ -1,2 +1,2 @@
 #pragma once
-#include "../../tinygltf/tiny_gltf.h"
+#include <tiny_gltf.h>

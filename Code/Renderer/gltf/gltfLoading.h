@@ -2,8 +2,8 @@
 #include <span>
 #include <glm/fwd.hpp>
 
-#include "../RendererContext.h"
-#include "../../../tinygltf/tiny_gltf.h"
+#include <Renderer/RendererContext.h>
+#include <tiny_gltf.h>
 #include <glm/mat4x4.hpp>
 
 struct TextureData;

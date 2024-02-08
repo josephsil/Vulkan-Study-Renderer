@@ -117,13 +117,14 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
-      <WarningLevel>EnableAllWarnings</WarningLevel>
+      <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>.\vkbootstrap;C:\VulkanSDK\1.3.239.0\Include;C:\Program Files\Microsoft Visual Studio\2022\Community\libraries\glfw-3.3.8\include;C:\Program Files\Microsoft Visual Studio\2022\Community\libraries\stb-master;C:\VulkanSDK\1.3.239.0\Include\vma;C:\Program Files\Microsoft Visual Studio\2022\Community\libraries\tinyobjloader-release;C:\VulkanSDK\KTX-Software\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\vkbootstrap;C:\VulkanSDK\1.3.239.0\Include;C:\Program Files\Microsoft Visual Studio\2022\Community\libraries\glfw-3.3.8\include;C:\Program Files\Microsoft Visual Studio\2022\Community\libraries\stb-master;C:\VulkanSDK\1.3.239.0\Include\vma;C:\Program Files\Microsoft Visual Studio\2022\Community\libraries\tinyobjloader-release;C:\VulkanSDK\KTX-Software\include;.\Code;.\tinygltf;.\External;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <TreatWarningAsError>true</TreatWarningAsError>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -187,9 +188,9 @@
     </ClCompile>
     <ClCompile Include="Code\Scene\SceneObjectData.cpp">
     </ClCompile>
-    <ClCompile Include="ImageLibraryImplementations.cpp" />
-    <ClCompile Include="MeshLibraryImplementations.cpp" />
-    <ClCompile Include="mikktspace.c" />
+    <ClCompile Include="External\ImageLibraryImplementations.cpp" />
+    <ClCompile Include="External\MeshLibraryImplementations.cpp" />
+    <ClCompile Include="External\mikktspace.c" />
     <ClCompile Include="vkbootstrap\VkBootstrap.cpp" />
     <ClCompile Include="vulkan-tutorial.cpp" />
     <ClInclude Include="Code\General\Array.h" />
@@ -219,7 +220,7 @@
     <ClInclude Include="Code\Scene\SceneObjectData.h" />
     <ClInclude Include="ImageLibraryImplementations.h" />
     <ClInclude Include="MeshLibraryImplementations.h" />
-    <ClCompile Include="weldmesh.c" />
+    <ClCompile Include="External\weldmesh.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="mikktspace.h" />
@@ -229,7 +230,7 @@
     <ClInclude Include="vkbootstrap\VkBootstrap.h" />
     <ClInclude Include="vkbootstrap\VkBootstrapDispatch.h" />
     <ClInclude Include="vulkan-tutorial.h" />
-    <ClInclude Include="weldmesh.h" />
+    <ClInclude Include="External\weldmesh.h" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="viking_room.obj.txt" />

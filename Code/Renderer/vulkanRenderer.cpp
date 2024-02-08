@@ -9,15 +9,15 @@
 #include <cstdlib>
 #include <span>
 #include "Vertex.h"
-#include "../../ImageLibraryImplementations.h"
-#include "../General/Array.h"
-#include "../General/MemoryArena.h"
+#include <ImageLibraryImplementations.h>
+#include <General/Array.h>
+#include <General/MemoryArena.h>
 
 #include "bufferCreation.h"
 #include "CommandPoolManager.h"
 #include "gpu-data-structs.h"
 #include "meshData.h"
-#include "../Scene/SceneObjectData.h"
+#include <Scene/SceneObjectData.h>
 #include "Shaders/ShaderLoading.h"
 #include "textureCreation.h"
 #include "TextureData.h"
@@ -41,7 +41,7 @@ vkb::Instance GET_INSTANCE()
                                  .build();
     if (!instanceBuilderResult)
     {
-        printf("Failed to create Vulkan instance. Error: %s, \n", instanceBuilderResult.error().message());
+        printf("Failed to create Vulkan instance. Error: %s, \n", instanceBuilderResult.error().message().data());
         assert(false);
     }
 
@@ -90,7 +90,7 @@ vkb::PhysicalDevice GET_GPU(vkb::Instance instance)
 
     if (!physicalDeviceBuilderResult)
     {
-        printf("Failed to create Physical Device %s \n",  physicalDeviceBuilderResult.error().message());
+        printf("Failed to create Physical Device %s \n",  physicalDeviceBuilderResult.error().message().data());
         exit(1);
     }
     
@@ -203,7 +203,7 @@ void HelloTriangleApplication::updateShadowImageViews(int frame )
         {
             VkImageViewType type = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
             int ct = scene->lightshadowMapCount[j];
-            if (scene->lightTypes[j] == LIGHT_POINT)
+            if ((lightType)scene->lightTypes[j] == LIGHT_POINT)
             {
                 type = VK_IMAGE_VIEW_TYPE_CUBE;
             }
@@ -413,7 +413,7 @@ void HelloTriangleApplication::initVulkan()
 
 void HelloTriangleApplication::populateMeshBuffers()
 {
-    uint32_t vertCt = 0;
+    size_t vertCt = 0;
     for (int i = 0; i < scene->meshCount; i++)
     {
         vertCt += scene->backing_meshes[i].indices.size();
@@ -422,7 +422,7 @@ void HelloTriangleApplication::populateMeshBuffers()
     //TODO JS: to ring buffer?
     auto gpuVerts = MemoryArena::AllocSpan<gpuvertex>(getHandles().perframeArena, vertCt);
 
-    uint32_t vert = 0;
+    size_t vert = 0;
     for (int j = 0; j < scene->meshCount; j++)
     {
         MeshData mesh = scene->backing_meshes[j];
@@ -962,7 +962,7 @@ std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocato
     //offset directions that are invalid for lookat
     if (abs(up) == abs(dir))
     {
-        dir += glm::vec3(0.00001);
+        dir += glm::vec3(0.00001F);
         dir = glm::normalize(dir);
     }
     glm::mat4 lightViewMatrix = {};
@@ -1104,6 +1104,9 @@ std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocato
         }
         return  outputSpan;
         }
+
+        assert(!outputSpan.empty());
+        return outputSpan;
 
 }
 
@@ -1255,10 +1258,10 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
     descriptorsetLayoutsDataShadow.bindToCommandBuffer(commandBuffer, currentFrame);
     VkPipelineLayout layout = descriptorsetLayoutsDataShadow.pipelineData.bindlessPipelineLayout;
 
-    for(int i = 0; i < passes.size(); i ++)
+    for(uint32_t i = 0; i < passes.size(); i ++)
     {
         
-            int shadowMapIndex = i;
+            uint32_t shadowMapIndex = i;
             const VkRenderingAttachmentInfoKHR dynamicRenderingDepthAttatchment {
                 .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
                 .imageView = shadowMapRenderingImageViews[imageIndex][shadowMapIndex],
@@ -1314,7 +1317,7 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
 
             shadowPushConstants constants;
             //Light count, vert offset, texture index, and object data index
-            constants.shadowIndex = shadowMapIndex;
+            constants.shadowIndex = (glm::float32_t)shadowMapIndex;
             vkCmdPushConstants(commandBuffer, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                                sizeof(shadowPushConstants), &constants);
 
@@ -1422,13 +1425,13 @@ void HelloTriangleApplication::submitComputePass(uint32_t currentFrame, uint32_t
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     VkPipelineStageFlags _waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-    submitInfo.waitSemaphoreCount = waitSemaphores.semaphores.size();
+    submitInfo.waitSemaphoreCount = (uint32_t)waitSemaphores.semaphores.size();
     submitInfo.pWaitSemaphores = waitSemaphores.semaphores.data();
     submitInfo.pWaitDstStageMask = waitSemaphores.waitStages.data();
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &FramesInFlightData[imageIndex].computeCommandBuffers;
 
-    submitInfo.signalSemaphoreCount = signalsemaphores.size();
+    submitInfo.signalSemaphoreCount = (uint32_t)signalsemaphores.size();
     submitInfo.pSignalSemaphores = signalsemaphores.data();
     
     //Submit pass 
@@ -1600,8 +1603,7 @@ void HelloTriangleApplication::createDepthResources()
 
 
 void HelloTriangleApplication::createGraphicsPipeline(const char* shaderName, PipelineDataObject* descriptorsetdata,  PipelineDataObject::graphicsPipelineSettings settings, bool compute, size_t pconstantSize)
-{
-    VkPipeline newGraphicsPipeline; 
+{ 
     auto shaders = shaderLoader->compiledShaders[shaderName];
     if (!compute)
     descriptorsetdata->createGraphicsPipeline(shaders, settings, pconstantSize);
@@ -1653,7 +1655,7 @@ void HelloTriangleApplication::mainLoop()
         }
         this->T2 = SDL_GetTicks();
         uint32_t deltaTicks = this->T2 - this->T;
-        this->deltaTime = deltaTicks * 0.001;
+        this->deltaTime = deltaTicks * 0.001f;
         this->T = SDL_GetTicks();
 
 
@@ -1688,8 +1690,8 @@ void HelloTriangleApplication::mainLoop()
         glm::vec3 translate = glm::vec3(0);
         SDL_PumpEvents();
         const uint8_t* KeyboardState = SDL_GetKeyboardState(nullptr);
-        translate.x = 0 -KeyboardState[SDL_SCANCODE_A] + KeyboardState[SDL_SCANCODE_D];
-        translate.y = 0 +KeyboardState[SDL_SCANCODE_W] - KeyboardState[SDL_SCANCODE_S];
+        translate.x = 0.0f -KeyboardState[SDL_SCANCODE_A] + KeyboardState[SDL_SCANCODE_D];
+        translate.y = 0.0f +KeyboardState[SDL_SCANCODE_W] - KeyboardState[SDL_SCANCODE_S];
         translate *= translateSpeed;
         int x, y;
 
@@ -1803,9 +1805,9 @@ void transitionImageForRendering(RendererContext handles, VkCommandBuffer comman
     swapChainInSubmitInfo.commandBufferCount = 1;
     swapChainInSubmitInfo.pWaitDstStageMask = waitSemaphores.waitStages.data();
     swapChainInSubmitInfo.pCommandBuffers = &commandBuffer;
-    swapChainInSubmitInfo.waitSemaphoreCount = waitSemaphores.semaphores.size();
+    swapChainInSubmitInfo.waitSemaphoreCount = (uint32_t)waitSemaphores.semaphores.size();
     swapChainInSubmitInfo.pWaitSemaphores = waitSemaphores.semaphores.data();
-    swapChainInSubmitInfo.signalSemaphoreCount = signalSemaphores.size();
+    swapChainInSubmitInfo.signalSemaphoreCount = (uint32_t)signalSemaphores.size();
     swapChainInSubmitInfo.pSignalSemaphores = signalSemaphores.data();
 
     vkQueueSubmit(handles.commandPoolmanager->Queues.graphicsQueue, 1, &swapChainInSubmitInfo, VK_NULL_HANDLE);
@@ -1827,7 +1829,7 @@ framePasses preparePasses(Scene* scene, HelloTriangleApplication::cameraData* ca
     Array simplePasses =  MemoryArena::AllocSpan<simplePassInfo>(allocator, MAX_SHADOWMAPS); //These are used for both shadows and compute
     for(int i = 0; i < scene->shadowCasterCount(); i ++)
     {
-        float type = scene->lightTypes[i];
+        lightType type = (lightType)scene->lightTypes[i];
         int lightSubpasses = type == LIGHT_POINT ? 6 : type == LIGHT_DIR ? CASCADE_CT : 1; //TODO JS: look up how many a light should have per light
         for (int j = 0; j < lightSubpasses; j++)
         {
@@ -1889,7 +1891,7 @@ framePasses preparePasses(Scene* scene, HelloTriangleApplication::cameraData* ca
             batchedDraws.push_back({opaqueDrawOffset, (uint32_t)indices.size(), viewProjFromCamera(*camera).view, opaquePipelineData.getPipeline(bucketedPipelines[j].pipelineIDX), indices.getSpan()});
         }
 
-        opaqueDrawOffset += indices.size();
+        opaqueDrawOffset += (uint32_t)indices.size();
     }
 
 
@@ -1933,7 +1935,7 @@ void updateIndirectCommandBufferForPasses(Scene* scene, MemoryArena::memoryArena
          
             mappedDrawCommandBuffer[drawOffset + drawCt2 + k] = {indices[k], static_cast<uint32_t>(scene->backing_meshes[meshIndices[indices[k]]].indices.size()), 1, 0, (uint32_t)indices[k]};
         }
-        drawCt2 += indices.size();
+        drawCt2 += (uint32_t)indices.size();
     }
 }
 
@@ -2066,13 +2068,13 @@ void HelloTriangleApplication::renderShadowPass(uint32_t currentFrame, uint32_t 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     VkPipelineStageFlags _waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-    submitInfo.waitSemaphoreCount = waitSemaphores.semaphores.size();
+    submitInfo.waitSemaphoreCount = (uint32_t)waitSemaphores.semaphores.size();
     submitInfo.pWaitSemaphores = waitSemaphores.semaphores.data();
     submitInfo.pWaitDstStageMask = waitSemaphores.waitStages.data();
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &FramesInFlightData[imageIndex].shadowCommandBuffers;
 
-    submitInfo.signalSemaphoreCount = signalsemaphores.size();
+    submitInfo.signalSemaphoreCount = (uint32_t)signalsemaphores.size();
     submitInfo.pSignalSemaphores = signalsemaphores.data();
     
     //Submit pass 
@@ -2090,14 +2092,14 @@ void HelloTriangleApplication::renderOpaquePass(uint32_t currentFrame, uint32_t 
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     
     VkPipelineStageFlags _waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-    submitInfo.waitSemaphoreCount = waitSemaphores.semaphores.size();
+    submitInfo.waitSemaphoreCount = (uint32_t)waitSemaphores.semaphores.size();
     submitInfo.pWaitSemaphores = waitSemaphores.semaphores.data();
     submitInfo.pWaitDstStageMask = waitSemaphores.waitStages.data();
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &FramesInFlightData[currentFrame].opaqueCommandBuffers;
     
    
-    submitInfo.signalSemaphoreCount = signalsemaphores.size();
+    submitInfo.signalSemaphoreCount = (uint32_t)signalsemaphores.size();
     submitInfo.pSignalSemaphores = signalsemaphores.data();
 
     //Submit pass 
@@ -2246,7 +2248,7 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
     {
         for (int j = i == 0 ? 1 : 0 ; j < 10; j ++)
         {
-            float rowRoughness = glm::clamp(static_cast<float>(i) / 8.0, 0.0, 1.0);
+            float rowRoughness = (float)glm::clamp(static_cast<float>(i) / 8.0, 0.0, 1.0);
             bool rowmetlalic = i % 3 == 0;
             int textureIndex = rand() % randomMaterials.size();
     

@@ -4,10 +4,10 @@
 #include <cassert>
 
 #include "bufferCreation.h"
-#include "../General/Array.h"
+#include <General/Array.h>
 #include "RendererContext.h"
 #include "TextureData.h"
-#include "../General/MemoryArena.h"
+#include <General/MemoryArena.h>
 #include "VulkanIncludes/Vulkan_Includes.h"
 
 

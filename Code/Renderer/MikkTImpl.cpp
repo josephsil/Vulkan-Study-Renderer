@@ -1,5 +1,5 @@
 #include "MikkTImpl.h"
-#include "../General/MemoryArena.h"
+#include <General/MemoryArena.h>
 #include <span>
 #include "Vertex.h"
 
@@ -28,7 +28,7 @@ int MikktImpl::face_count(const SMikkTSpaceContext* context)
 {
     auto mesh = static_cast<MeshForMikkt*>(context->m_pUserData);
 
-    return (mesh->idx.size() / 3);
+    return ((int)mesh->idx.size() / 3);
 }
 
 int MikktImpl::faceverts(const SMikkTSpaceContext* context, int iFace)
@@ -95,4 +95,4 @@ void MikktImpl::calculateTangents(MeshForMikkt* mesh)
 }
 
 
-#pragma endreion
+#pragma endregion

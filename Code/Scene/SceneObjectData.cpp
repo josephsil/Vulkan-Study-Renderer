@@ -7,12 +7,12 @@
 
 #include <algorithm>
 
-#include "../Renderer/MeshData.h" // TODO JS: I want to separate the backing data from the scene 
-#include "../Renderer/TextureData.h" // TODO JS: I want to separate the backing data from the scene 
+#include <Renderer/MeshData.h> // TODO JS: I want to separate the backing data from the scene 
+#include <Renderer/TextureData.h> // TODO JS: I want to separate the backing data from the scene 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/quaternion.hpp>
 
-#include "../General/MemoryArena.h"
+#include <General/MemoryArena.h>
 
 const int OBJECT_MAX = 3000; 
 const int LIGHT_MAX = 3000; 
@@ -89,20 +89,20 @@ int Scene::AddObject(MeshData* mesh, int textureidx, float material_roughness, b
 
 uint32_t Scene::getOffsetFromMeshID(int id)
 {
-    int indexcount = 0;
+    uint32_t indexcount = 0;
     for (int i = 0; i < id; i++)
     {
-        indexcount += backing_meshes[i].indices.size();
+        indexcount += (uint32_t)backing_meshes[i].indices.size();
     }
     return indexcount;
 }
 
 uint32_t Scene::getVertexCount()
 {
-    int indexcount = 0;
+    uint32_t indexcount = 0;
     for (int i = 0; i < meshCount; i++)
     {
-        indexcount += backing_meshes[i].indices.size();
+        indexcount += (uint32_t)backing_meshes[i].indices.size();
     }
     return indexcount;
 }
@@ -168,7 +168,7 @@ int orderComparator(void * context, void const* elem1, void const* elem2 )
     sortData dists = *(sortData*)context;
     glm::float32_t _1 = (dists.data[*(int*)elem1]);
     glm::float32_t _2 = (dists.data[*(int*)elem2]);
-    return ( _1 - _2 );
+    return int( _1 - _2 );
 }
 
 
@@ -286,7 +286,7 @@ int Scene::AddLight(glm::vec3 position, glm::vec3 dir, glm::vec3 color, float ra
     lightposandradius.push_back(glm::vec4(position.x, position.y, position.z, radius));
     lightcolorAndIntensity.push_back(glm::vec4(color.x, color.y, color.z, intensity));
     lightDir.push_back(glm::vec4(dir, -1.0));
-    lightTypes.push_back(type);
+    lightTypes.push_back((glm::float32)type);
     lightCount ++;
     shadowmapCount += shadowMapCt;
 

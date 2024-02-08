@@ -8,11 +8,11 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include "./VulkanIncludes/Vulkan_Includes.h"
-#include "../General/Array.h"
+#include <General/Array.h>
 #include "rendererGlobals.h"
 #include "CommandPoolManager.h"
 #include "gpu-data-structs.h"
-#include "../General/MemoryArena.h"
+#include <General/MemoryArena.h>
 #include "PipelineDataObject.h"
 // My stuff 
 struct gpulight;

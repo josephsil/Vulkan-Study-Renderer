@@ -4,8 +4,8 @@
 #include <glm/glm.hpp>
 #include<glm/gtc/quaternion.hpp>
 
-#include "../General/Array.h"
-#include "../Renderer/rendererGlobals.h"
+#include <General/Array.h>
+#include <Renderer/rendererGlobals.h>
 //
 struct positionRadius;
 

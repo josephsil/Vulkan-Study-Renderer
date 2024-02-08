@@ -1,7 +1,7 @@
 #pragma once
 #include <span>
 #include <glm/glm.hpp>
-#include "../../mikktspace.h"
+#include <mikktspace.h>
 struct Vertex;
 
 namespace MemoryArena

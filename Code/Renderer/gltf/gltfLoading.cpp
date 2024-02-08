@@ -2,12 +2,12 @@
 
 #include <vulkan/vulkan_core.h>
 
-#include "../MeshData.h"
-#include "../../General/MemoryArena.h"
-#include "../../General/Array.h"
+#include <Renderer/MeshData.h>
+#include <General/MemoryArena.h>
+#include <General/Array.h>
 #include "gltf_impl.h"
-#include "../TextureData.h"
-#include "../../General/FileCaching.h"
+#include <Renderer/TextureData.h>
+#include <General/FileCaching.h>
 temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygltf::Model model, tinygltf::Mesh mesh)
 {
     uint32_t indxCt = 0;
@@ -19,9 +19,9 @@ temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygl
     for (auto prim : mesh.primitives)
     {
         tinygltf::Accessor& accessor = model.accessors[prim.attributes["POSITION"]];
-        vertCt += accessor.count;
+        vertCt += (uint32_t)accessor.count;
         tinygltf::Accessor& accessor2 = model.accessors[prim.indices > -1 ? prim.indices : 0];
-        indxCt += accessor2.count;
+        indxCt += (uint32_t)accessor2.count;
     }
     
 
@@ -33,7 +33,6 @@ temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygl
        for (auto prim : mesh.primitives)
             {
                     
-                Vertex vert;
                 Array<glm::vec4> positionvec = Array(MemoryArena::AllocSpan<glm::vec4>(tempArena, indxCt));
                 Array<glm::vec4> normalvec = Array(MemoryArena::AllocSpan<glm::vec4>(tempArena, indxCt));
                 Array<glm::vec4> uvvec = Array(MemoryArena::AllocSpan<glm::vec4>(tempArena, indxCt));
@@ -182,18 +181,18 @@ gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
 
     bool ret = loader.LoadBinaryFromFile(&model, &err, &warn, gltfpath);
     
-    int meshCt = model.meshes.size();
-    int imageCt = model.images.size();
-    int texCt = model.textures.size();
-    int matCt = model.materials.size();
-    int nodeCt = model.nodes.size();
+    size_t meshCt = model.meshes.size();
+    size_t imageCt = model.images.size();
+    size_t texCt = model.textures.size();
+    size_t matCt = model.materials.size();
+    size_t nodeCt = model.nodes.size();
 
     std::span<MeshData> meshes = MemoryArena::AllocSpan<MeshData>(permanentArena, meshCt);
     std::span<TextureData> textures = MemoryArena::AllocSpan<TextureData>(permanentArena, imageCt); //These are what I call textures, what vulkan calls images
     std::span<material> materials = MemoryArena::AllocSpan<material>(permanentArena, matCt); //These are what I call textures, what vulkan calls images 
     if (!warn.empty())
     {
-        printf("GLTF LOADER WARNING: %s\n", warn);
+        printf("GLTF LOADER WARNING: %s\n", warn.data());
     }
     assert(err.empty());
     
@@ -241,8 +240,8 @@ gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
 
     FileCaching::saveAssetChangedTime(gltfpath);
     //Not supporting, just for logging
-    int cameraCt = model.cameras.size();
-    int animCt = model.animations.size();
+    size_t cameraCt = model.cameras.size();
+    size_t animCt = model.animations.size();
 
     
     return {meshes, textures, materials,  {}, {}};

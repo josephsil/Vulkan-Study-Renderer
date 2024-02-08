@@ -14,7 +14,7 @@ namespace TextureUtilities
                                 VkImageViewType type = (VkImageViewType)-1, uint32_t miplevels = 1,
                                 uint32_t layerCount = 1, uint32_t layer = 0);
 
-    void createImage(RendererContext rendererHandles, uint32_t width, uint32_t height, VkFormat format,
+    void createImage(RendererContext rendererHandles, uint64_t width, uint64_t height, VkFormat format,
                      VkImageTiling tiling,
                      VkFlags usage, VkFlags properties, VkImage& image,
                      VmaAllocation& allocation, uint32_t miplevels = 1, uint32_t araryLayers = 1, bool cubeCompatible = false);

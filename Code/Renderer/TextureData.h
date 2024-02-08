@@ -14,9 +14,9 @@ struct temporaryTextureInfo
 {
     VkImage textureImage;
     VmaAllocation alloc;
-    uint32_t width;
-    uint32_t height;
-    uint8_t mipCt;
+    uint64_t width;
+    uint64_t  height;
+    uint64_t  mipCt;
 };
 //TODO JS: obviously improve 
 struct TextureData
@@ -56,7 +56,7 @@ public:
 
     //TODO JS: move tou tilities?
     // 0 = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    static void createTextureSampler(VkSampler* textureSampler, RendererContext handles, VkSamplerAddressMode mode, float bias, float maxMip, bool shadow = false);
+    static void createTextureSampler(VkSampler* textureSampler, RendererContext handles, VkSamplerAddressMode mode, float bias, uint32_t maxMip, bool shadow = false);
     VkImageView createTextureImageView(VkFormat format, VkImageViewType type);
 private:
 

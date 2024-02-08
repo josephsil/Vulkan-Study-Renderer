@@ -1,6 +1,6 @@
 #define DEBUG 
 #include "TextureData.h"
-#include "../../ImageLibraryImplementations.h"
+#include <ImageLibraryImplementations.h>
 #include "vulkan-utilities.h"
 #include "VulkanIncludes/Vulkan_Includes.h"
 
@@ -15,15 +15,15 @@
 #include "BufferAndPool.h"
 #include "bufferCreation.h"
 #include "CommandPoolManager.h"
-#include "../General/MemoryArena.h"
+#include <General/MemoryArena.h>
 #include "textureCreation.h"
-#include "../General/FileCaching.h"
+#include <General/FileCaching.h>
 
 
 int TEXTURE_INDEX;
 #pragma region textureData
 static temporaryTextureInfo createtempTextureFromPath(RendererContext rendererHandles, const char* path, VkFormat format, bool mips);
-static temporaryTextureInfo createTextureImage(RendererContext rendererHandles, const unsigned char* pixels, int texWidth, int texHeight, VkFormat format, bool mips);
+static temporaryTextureInfo createTextureImage(RendererContext rendererHandles, const unsigned char* pixels, uint64_t texWidth, uint64_t texHeight, VkFormat format, bool mips);
 
 //TODO JS: get rid of object oriented and constructor, clean up
 TextureData::TextureData(RendererContext rendererHandles, const char* path, TextureType textureType,VkImageViewType viewType)
@@ -92,7 +92,7 @@ TextureData::TextureData(const char* gltfPath, const char* textureName, VkFormat
 	this->rendererHandles = handles;
 	std::span<const char> gltfPathSpan = std::span(gltfPath, strlen(gltfPath));
 	std::span<const char> textureNameSpan = std::span(textureName, strlen(textureName));
-	int len = gltfPathSpan.size() + textureNameSpan.size() + 5; //4 for ".ktx" and 1 for null terminated
+	size_t len = gltfPathSpan.size() + textureNameSpan.size() + 5; //4 for ".ktx" and 1 for null terminated
 	auto newName = MemoryArena::AllocSpan<char>(handles.perframeArena, len);
 	memcpy(newName.data(),gltfPathSpan.data(), gltfPathSpan.size_bytes());
 	memcpy(newName.data() + gltfPathSpan.size_bytes(),textureNameSpan.data(), textureNameSpan.size_bytes());
@@ -353,7 +353,7 @@ std::basic_string<char> replaceExt(const char* target, const char* extension)
 	
 }
 
-const uint32_t cubeMips = 6.0;
+const uint32_t cubeMips = 6;
 
 
 VkFormat TextureData::GetOrLoadTexture(const char* path, VkFormat format, TextureType textureType, bool use_mipmaps)
@@ -398,7 +398,7 @@ void TextureData::cleanup()
 	VulkanMemory::DestroyImage(rendererHandles.allocator, textureImage, textureImageMemory);
 }
 
-void TextureData::createTextureSampler(VkSampler* textureSampler, RendererContext handles, VkSamplerAddressMode mode, float bias, float maxMip, bool shadow)
+void TextureData::createTextureSampler(VkSampler* textureSampler, RendererContext handles, VkSamplerAddressMode mode, float bias, uint32_t maxMip, bool shadow)
 {
     VkPhysicalDeviceProperties properties{};
     vkGetPhysicalDeviceProperties(handles.physicalDevice, &properties);
@@ -418,7 +418,7 @@ void TextureData::createTextureSampler(VkSampler* textureSampler, RendererContex
     samplerInfo.anisotropyEnable = VK_FALSE;
     samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
     samplerInfo.minLod = .0; // Optional
-    samplerInfo.maxLod = maxMip;
+    samplerInfo.maxLod = (float)maxMip;
     samplerInfo.mipLodBias = bias;
 
 
@@ -437,20 +437,20 @@ void TextureData::cacheKTXFromTempTexture(temporaryTextureInfo staging, const ch
 	{
 		exit (-1);
 	}
-	ktx_size_t srcSize;
+	ktx_size_t srcSize = 0;
 	VkImage image = staging.textureImage;
 	ktxTexture2* texture;                   // For KTX2
 	//ktxTexture1* texture;                 // For KTX
 	ktxTextureCreateInfo createInfo;
 	KTX_error_code result;
-	FILE* src;
+	//FILE* src;
     createInfo.vkFormat = format;   // Ignored if creating a ktxTexture1.
-    createInfo.baseWidth = staging.width;
-    createInfo.baseHeight = staging.height;
+    createInfo.baseWidth = (ktx_uint32_t)staging.width;
+    createInfo.baseHeight = (ktx_uint32_t)staging.height;
     createInfo.baseDepth = 1; //TODO JS: ?????? I think only for 3d textures
     createInfo.numDimensions = 2;
     // Note: it is not necessary to provide a full mipmap pyramid.
-    createInfo.numLevels = use_mipmaps ? staging.mipCt : 1; 
+    createInfo.numLevels = use_mipmaps ? (ktx_uint32_t)staging.mipCt : 1;
     createInfo.numLayers = 1; //TOOD JS: Get this when we load cube 
     createInfo.numFaces = textureType == CUBE ? 6 : 1; 
     createInfo.isArray = KTX_FALSE;
@@ -461,10 +461,10 @@ void TextureData::cacheKTXFromTempTexture(temporaryTextureInfo staging, const ch
                             KTX_TEXTURE_CREATE_NO_STORAGE,
                             &texture);
 	
-	uint32_t currentLevelWidth = (size_t) staging.width;
-	uint32_t currentLevelheight = (size_t) staging.height;
+	uint32_t currentLevelWidth = (uint32_t) staging.width;
+	uint32_t currentLevelheight = (uint32_t) staging.height;
 	ktxTexture2_Create(&createInfo, KTX_TEXTURE_CREATE_ALLOC_STORAGE, &texture);
-	for(int i = 0; i < createInfo.numLevels; i++)
+	for(uint32_t i = 0; i < createInfo.numLevels; i++)
 	{
 		int j = 0;
 		int k = 0;
@@ -502,7 +502,7 @@ VkImageView TextureData::createTextureImageView(VkFormat format, VkImageViewType
                                                          VK_IMAGE_ASPECT_COLOR_BIT, type, maxmip, layerct);
 }
 
-static temporaryTextureInfo createTextureImage(RendererContext rendererHandles, const unsigned char* pixels, int texWidth, int texHeight, VkFormat format, bool mips)
+static temporaryTextureInfo createTextureImage(RendererContext rendererHandles, const unsigned char* pixels, uint64_t texWidth, uint64_t texHeight, VkFormat format, bool mips)
 { 
 	VkDeviceSize imageSize = texWidth * texHeight * 4;
 	auto workingTextureBuffer = rendererHandles.commandPoolmanager->beginSingleTimeCommands(true);
@@ -605,13 +605,13 @@ VkFormat TextureData::createImageKTX(const char* path, TextureType type, bool mi
 	if (ktxTexture2_NeedsTranscoding(kTexture))
 	{
 		ktx_transcode_fmt_e transcodeFormat;
-		switch (type)
-		{
-		default:
-			{
+	//	switch (type)
+		//{
+		//default:
+//			{
 				transcodeFormat = KTX_TTF_BC1_OR_3;
-			}
-		}
+	//		}
+		//}
 
 		
 		ktxTexture2_TranscodeBasis(kTexture, transcodeFormat, KTX_TF_HIGH_QUALITY);
@@ -620,7 +620,7 @@ VkFormat TextureData::createImageKTX(const char* path, TextureType type, bool mi
 	
 	uint32_t fullMipPyramid = static_cast<uint32_t>(std::floor(std::log2(glm::max(kTexture->baseWidth, kTexture->baseHeight)))) + 1;
 	uint32_t mipCount = kTexture->generateMipmaps ? fullMipPyramid : kTexture->numLevels;
-	VkImage image;
+	
 	VkImageCreateInfo vkimageinfo = {};
 	// VkImageCreateFlags       flags;
 	vkimageinfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
