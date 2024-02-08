@@ -1,7 +1,7 @@
 #pragma once
 #include <string>
 #include <vector>
-#include <map>
+#include <unordered_map>
 
 
 #pragma region forward declarations
@@ -19,7 +19,7 @@ public:
 
     ShaderLoader(VkDevice device);
 
-    std::map<const char*, std::vector<VkPipelineShaderStageCreateInfo>> compiledShaders;
+    std::unordered_map<std::string_view, std::vector<VkPipelineShaderStageCreateInfo>> compiledShaders;
 
     void AddShader(const char* name, std::wstring shaderPath, bool compute = false);
 private:
