@@ -58,7 +58,7 @@ struct  semaphoreData
     std::span<VkPipelineStageFlags> waitStages;
 };
 
-class HelloTriangleApplication
+class vulkanRenderer
 {
 
     uint32_t k_timeout = 0;
@@ -88,7 +88,7 @@ public:
     Scene* scene;
     RendererContext getHandles();
     void updateShadowImageViews(int frame);
-    HelloTriangleApplication();
+    vulkanRenderer();
 
 
 private:

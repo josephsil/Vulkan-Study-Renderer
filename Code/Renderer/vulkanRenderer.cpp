@@ -135,7 +135,7 @@ unsigned int MAX_TEXTURES = 30;
 
 
 
-HelloTriangleApplication::HelloTriangleApplication()
+vulkanRenderer::vulkanRenderer()
 {
     initWindow();
     initVulkan();
@@ -145,7 +145,7 @@ HelloTriangleApplication::HelloTriangleApplication()
 }
 
 
-void HelloTriangleApplication::initWindow()
+void vulkanRenderer::initWindow()
 {
     // We initialize SDL and create a window with it. 
     SDL_Init(SDL_INIT_VIDEO);
@@ -170,9 +170,9 @@ vkb::PhysicalDevice vkb_physicalDevice;
 vkb::Device vkb_device;
 vkb::Swapchain vkb_swapchain;
 
-void SET_UP_SCENE(HelloTriangleApplication* app);
+void SET_UP_SCENE(vulkanRenderer* app);
 
-RendererContext HelloTriangleApplication::getHandles()
+RendererContext vulkanRenderer::getHandles()
 {
     return RendererContext{physicalDevice, device, &commandPoolmanager, allocator, &rendererArena, &perFrameArenas[currentFrame], HAS_HOST_IMAGE_COPY};
 }
@@ -180,7 +180,7 @@ RendererContext HelloTriangleApplication::getHandles()
 
 //TODO JS: Eventually, these should change per frame
 //TODO JS: I think I would create the views up front, and then swap them in and out at bind time 
-void HelloTriangleApplication::updateShadowImageViews(int frame )
+void vulkanRenderer::updateShadowImageViews(int frame )
 {
     int i = frame;
        
@@ -229,7 +229,7 @@ void HelloTriangleApplication::updateShadowImageViews(int frame )
 
 
 
-void HelloTriangleApplication::initVulkan()
+void vulkanRenderer::initVulkan()
 {
     this->rendererArena = {};
     MemoryArena::initialize(&rendererArena, 1000000 * 10); // 10mb
@@ -411,7 +411,7 @@ void HelloTriangleApplication::initVulkan()
 
 }
 
-void HelloTriangleApplication::populateMeshBuffers()
+void vulkanRenderer::populateMeshBuffers()
 {
     size_t vertCt = 0;
     for (int i = 0; i < scene->meshCount; i++)
@@ -449,7 +449,7 @@ void HelloTriangleApplication::populateMeshBuffers()
 
 //TODO JS: Move?
 //TODO JS: https://gpuopen-librariesandsdks.github.io/VulkanMemoryAllocator/html/usage_patterns.html advanced
-void HelloTriangleApplication::createUniformBuffers()
+void vulkanRenderer::createUniformBuffers()
 {
     VkDeviceSize globalsSize = sizeof(ShaderGlobals);
     VkDeviceSize ubosSize = sizeof(UniformBufferObject) * scene->objectsCount();
@@ -487,7 +487,7 @@ void HelloTriangleApplication::createUniformBuffers()
 #pragma endregion
 
 #pragma region descriptorsets
-void HelloTriangleApplication::createDescriptorSetPool(RendererContext handles, VkDescriptorPool* pool)
+void vulkanRenderer::createDescriptorSetPool(RendererContext handles, VkDescriptorPool* pool)
 {
     
     std::vector<VkDescriptorPoolSize> sizes =
@@ -559,14 +559,14 @@ std::span<VkDescriptorImageInfo> getBindlessTextureInfos(MemoryArena::memoryAren
 }
 
 
-void HelloTriangleApplication::updateOpaqueDescriptorSets(PipelineDataObject* layoutData)
+void vulkanRenderer::updateOpaqueDescriptorSets(PipelineDataObject* layoutData)
 {
     layoutData->updateDescriptorSets(opaqueUpdates[currentFrame], currentFrame);
 }
 
 
 
-std::span<descriptorUpdateData> HelloTriangleApplication::createOpaqueDescriptorUpdates(uint32_t frame, MemoryArena::memoryArena* arena, std::span<VkDescriptorSetLayoutBinding> layoutBindings)
+std::span<descriptorUpdateData> vulkanRenderer::createOpaqueDescriptorUpdates(uint32_t frame, MemoryArena::memoryArena* arena, std::span<VkDescriptorSetLayoutBinding> layoutBindings)
 {
 
     //Get data
@@ -654,7 +654,7 @@ std::span<descriptorUpdateData> HelloTriangleApplication::createOpaqueDescriptor
    return descriptorUpdates.getSpan();
 }
 
-std::span<descriptorUpdateData> HelloTriangleApplication::createShadowDescriptorUpdates(MemoryArena::memoryArena* arena, uint32_t frame, uint32_t shadowIndex,  std::span<VkDescriptorSetLayoutBinding> layoutBindings)
+std::span<descriptorUpdateData> vulkanRenderer::createShadowDescriptorUpdates(MemoryArena::memoryArena* arena, uint32_t frame, uint32_t shadowIndex,  std::span<VkDescriptorSetLayoutBinding> layoutBindings)
 {
     //Get data
     VkDescriptorBufferInfo* meshBufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
@@ -692,7 +692,7 @@ std::span<descriptorUpdateData> HelloTriangleApplication::createShadowDescriptor
 }
 //TODO JS: Need to use separate descriptors  
 //TODO JS: Probably want to duplicate less code
-void HelloTriangleApplication::updateShadowDescriptorSets(PipelineDataObject* layoutData, uint32_t shadowIndex)
+void vulkanRenderer::updateShadowDescriptorSets(PipelineDataObject* layoutData, uint32_t shadowIndex)
 {
     layoutData->
     updateDescriptorSets(shadowUpdates[currentFrame][shadowIndex], currentFrame);
@@ -702,7 +702,7 @@ void HelloTriangleApplication::updateShadowDescriptorSets(PipelineDataObject* la
 #pragma endregion
 
 
-void HelloTriangleApplication::createSyncObjects()
+void vulkanRenderer::createSyncObjects()
 {
     VkSemaphoreCreateInfo semaphoreInfo{};
     semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -745,7 +745,7 @@ glm::quat OrientationFromYawPitch(glm::vec2 yawPitch )
     return yawQuat * pitchQUat;
 }
 
-Transform getCameraTransform(HelloTriangleApplication::cameraData camera)
+Transform getCameraTransform(vulkanRenderer::cameraData camera)
 {
     
     Transform output{};
@@ -814,7 +814,7 @@ VkImageMemoryBarrier2 imageBarrier(VkImage image, VkPipelineStageFlags2 srcStage
 
 std::vector<linePair> debugLines;
 //TODO JS: this sucks!
-void HelloTriangleApplication::updateCamera(inputData input)
+void vulkanRenderer::updateCamera(inputData input)
 {
     sceneCamera.eyeRotation += (input.mouseRot *  30000.0f *  deltaTime);  // 30000 degrees per full screen rotation per second
     if(sceneCamera.eyeRotation.y > 89.0f)
@@ -939,7 +939,7 @@ struct viewProj
     glm::mat4 proj;
 };
 
-viewProj viewProjFromCamera( HelloTriangleApplication::cameraData camera)
+viewProj viewProjFromCamera( vulkanRenderer::cameraData camera)
 {
     Transform cameraTform = getCameraTransform(camera);
     glm::mat4 view = cameraTform.rot * cameraTform.translation;
@@ -953,7 +953,7 @@ viewProj viewProjFromCamera( HelloTriangleApplication::cameraData camera)
     return {view, proj};
 }
 
-std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocator, HelloTriangleApplication::cameraData cam, glm::vec3 lightPos, glm::vec3 spotDir, float spotRadius, lightType type)
+std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocator, vulkanRenderer::cameraData cam, glm::vec3 lightPos, glm::vec3 spotDir, float spotRadius, lightType type)
 {
     viewProj vp = viewProjFromCamera(cam);
     
@@ -1111,7 +1111,7 @@ std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocato
 }
 
 
-void updateGlobals(HelloTriangleApplication::cameraData camera, Scene* scene, int cubeMapLutIndex, dataBufferObject<ShaderGlobals> globalsBuffer)
+void updateGlobals(vulkanRenderer::cameraData camera, Scene* scene, int cubeMapLutIndex, dataBufferObject<ShaderGlobals> globalsBuffer)
 {
     ShaderGlobals globals{};
     viewProj vp = viewProjFromCamera(camera);
@@ -1129,7 +1129,7 @@ void updateGlobals(HelloTriangleApplication::cameraData camera, Scene* scene, in
 
 }
 
-void updateShadowData(MemoryArena::memoryArena* allocator, std::span<std::span<PerShadowData>> perLightShadowData, Scene* scene, HelloTriangleApplication::cameraData camera)
+void updateShadowData(MemoryArena::memoryArena* allocator, std::span<std::span<PerShadowData>> perLightShadowData, Scene* scene, vulkanRenderer::cameraData camera)
 {
     for(int i =0; i <scene->lightCount; i++)
     {
@@ -1144,7 +1144,7 @@ glm::vec4 normalizePlane(glm::vec4 p)
     return p / length(glm::vec3(p));
 }
 
-void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Array<glm::mat4> models)
+void vulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<glm::mat4> models)
 {
     //TODO JS: to ring buffer?
     auto tempArena = getHandles().perframeArena;
@@ -1241,7 +1241,7 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
 
 #pragma endregion
 #pragma region draw 
-void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer commandBuffer, uint32_t imageIndex, std::span<simplePassInfo> passes)
+void vulkanRenderer::recordCommandBufferShadowPass(VkCommandBuffer commandBuffer, uint32_t imageIndex, std::span<simplePassInfo> passes)
 {
      uint32_t shadowSize = SHADOW_MAP_SIZE; //TODO JS: make const
      VkCommandBufferBeginInfo beginInfo{};
@@ -1352,7 +1352,7 @@ struct pipelineBucket
     Array<uint32_t> indices; 
 };
 
-void HelloTriangleApplication::recordCommandBufferCompute(VkCommandBuffer commandBuffer, uint32_t currentFrame, std::span<simplePassInfo> passes)
+void vulkanRenderer::recordCommandBufferCompute(VkCommandBuffer commandBuffer, uint32_t currentFrame, std::span<simplePassInfo> passes)
 {
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -1418,7 +1418,7 @@ void HelloTriangleApplication::recordCommandBufferCompute(VkCommandBuffer comman
 }//
 
 
-void HelloTriangleApplication::submitComputePass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores, std::vector<VkSemaphore> signalsemaphores, std::span<simplePassInfo> passes)
+void vulkanRenderer::submitComputePass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores, std::vector<VkSemaphore> signalsemaphores, std::span<simplePassInfo> passes)
 {
     recordCommandBufferCompute(FramesInFlightData[imageIndex].computeCommandBuffers, imageIndex, passes);
 
@@ -1441,7 +1441,7 @@ void HelloTriangleApplication::submitComputePass(uint32_t currentFrame, uint32_t
     
 }
 //command buffer to draw the frame 
-void HelloTriangleApplication::recordCommandBufferOpaquePass(VkCommandBuffer commandBuffer, uint32_t imageIndex, std::span<opaquePassInfo> batchedDraws)
+void vulkanRenderer::recordCommandBufferOpaquePass(VkCommandBuffer commandBuffer, uint32_t imageIndex, std::span<opaquePassInfo> batchedDraws)
 {
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -1558,7 +1558,7 @@ void HelloTriangleApplication::recordCommandBufferOpaquePass(VkCommandBuffer com
 }
 #pragma endregion
 
-void HelloTriangleApplication::createCommandBuffers()
+void vulkanRenderer::createCommandBuffers()
 {
     for (int i = 0; i < FramesInFlightData.size(); i++)
     {
@@ -1578,14 +1578,14 @@ void HelloTriangleApplication::createCommandBuffers()
     }
 }
 
-bool HelloTriangleApplication::hasStencilComponent(VkFormat format)
+bool vulkanRenderer::hasStencilComponent(VkFormat format)
 {
     return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
 }
 
 #pragma region depth
 
-void HelloTriangleApplication::createDepthResources()
+void vulkanRenderer::createDepthResources()
 {
     depthFormat = Capabilities::findDepthFormat(getHandles());
 
@@ -1602,7 +1602,7 @@ void HelloTriangleApplication::createDepthResources()
 
 
 
-void HelloTriangleApplication::createGraphicsPipeline(const char* shaderName, PipelineDataObject* descriptorsetdata,  PipelineDataObject::graphicsPipelineSettings settings, bool compute, size_t pconstantSize)
+void vulkanRenderer::createGraphicsPipeline(const char* shaderName, PipelineDataObject* descriptorsetdata,  PipelineDataObject::graphicsPipelineSettings settings, bool compute, size_t pconstantSize)
 { 
     auto shaders = shaderLoader->compiledShaders[shaderName];
     if (!compute)
@@ -1623,7 +1623,7 @@ void HelloTriangleApplication::createGraphicsPipeline(const char* shaderName, Pi
 #pragma region perFrameUpdate
 
 
-void HelloTriangleApplication::mainLoop()
+void vulkanRenderer::mainLoop()
 {
    
     SDL_Event e;
@@ -1757,7 +1757,7 @@ void HelloTriangleApplication::mainLoop()
 }
 
 //Placeholder "gameplay" function
-void HelloTriangleApplication::UpdateRotations()
+void vulkanRenderer::UpdateRotations()
 {
     //<Rotation update
     glm::vec3 EulerAngles = glm::vec3(0, 1, 0.00) * deltaTime; // One revolution per second
@@ -1819,7 +1819,7 @@ VkPipelineStageFlags swapchainWaitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT
 VkPipelineStageFlags shadowWaitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
 
 
-framePasses preparePasses(Scene* scene, HelloTriangleApplication::cameraData* camera, MemoryArena::memoryArena* allocator, std::span<std::span<PerShadowData>> inputShadowdata, PipelineDataObject opaquePipelineData)
+framePasses preparePasses(Scene* scene, vulkanRenderer::cameraData* camera, MemoryArena::memoryArena* allocator, std::span<std::span<PerShadowData>> inputShadowdata, PipelineDataObject opaquePipelineData)
 {
 
     uint32_t PIPELINE_COUNT = opaquePipelineData.getPipelineCt();
@@ -1939,7 +1939,7 @@ void updateIndirectCommandBufferForPasses(Scene* scene, MemoryArena::memoryArena
     }
 }
 
-void HelloTriangleApplication::drawFrame()
+void vulkanRenderer::drawFrame()
 {
   //Update per frame data
 
@@ -2061,7 +2061,7 @@ void HelloTriangleApplication::drawFrame()
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
-void HelloTriangleApplication::renderShadowPass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores, std::vector<VkSemaphore> signalsemaphores, std::span<simplePassInfo> passes)
+void vulkanRenderer::renderShadowPass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores, std::vector<VkSemaphore> signalsemaphores, std::span<simplePassInfo> passes)
 {
     recordCommandBufferShadowPass(FramesInFlightData[imageIndex].shadowCommandBuffers, imageIndex, passes);
 
@@ -2083,7 +2083,7 @@ void HelloTriangleApplication::renderShadowPass(uint32_t currentFrame, uint32_t 
     
     
 }
-void HelloTriangleApplication::renderOpaquePass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores, std::vector<VkSemaphore> signalsemaphores, std::span<opaquePassInfo> batchedDraws)
+void vulkanRenderer::renderOpaquePass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores, std::vector<VkSemaphore> signalsemaphores, std::span<opaquePassInfo> batchedDraws)
 {   
     //Record command buffer for pass
     recordCommandBufferOpaquePass(FramesInFlightData[currentFrame].opaqueCommandBuffers, imageIndex, batchedDraws);
@@ -2107,7 +2107,7 @@ void HelloTriangleApplication::renderOpaquePass(uint32_t currentFrame, uint32_t 
     
 }
 
-void HelloTriangleApplication::cleanup()
+void vulkanRenderer::cleanup()
 {
     //TODO clenaup swapchain
 
@@ -2177,7 +2177,7 @@ void HelloTriangleApplication::cleanup()
 
 
 //TODO move or replace
-void SET_UP_SCENE(HelloTriangleApplication* app)
+void SET_UP_SCENE(vulkanRenderer* app)
 {
     std::vector<int> randomMeshes;
     std::vector<int> randomMaterials;
@@ -2205,7 +2205,7 @@ void SET_UP_SCENE(HelloTriangleApplication* app)
 
  
 
-    //TODO: Scene loads mesh instead?
+    //TODO: gltf load fn that gets back struct, then append its contents to scene 
     auto gltf = GltfLoadMeshes(app->getHandles(), "Meshes/pig.glb");
     placeholderTextureidx = app->scene->AddMaterial(
     gltf.textures[gltf.materials[0].diffIndex],

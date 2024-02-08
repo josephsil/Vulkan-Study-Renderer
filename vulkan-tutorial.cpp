@@ -5,7 +5,7 @@
 int main()
 {
     printf("NEW ENTRY");
-    HelloTriangleApplication app;
+    vulkanRenderer app;
 
     return EXIT_SUCCESS;
 }
