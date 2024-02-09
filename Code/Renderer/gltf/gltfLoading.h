@@ -10,10 +10,11 @@ struct TextureData;
 struct MeshData;
 struct gltfNode
 {
-    uint32_t meshidx;
-    uint32_t matidx;
+    int meshidx;
+    int matidx;
     glm::mat4 tform;
 };
+
 struct material
 {
     glm::vec3 baseColorFactor;  
@@ -33,8 +34,8 @@ struct gltfdata
     std::span<MeshData> meshes;
     std::span<TextureData> textures;
     std::span<material> materials;
-    std::span<tinygltf::Light> lights;
     std::span<gltfNode> objects;
+    //std::span<tinygltf::Light> lights;
 };
 
 gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath);

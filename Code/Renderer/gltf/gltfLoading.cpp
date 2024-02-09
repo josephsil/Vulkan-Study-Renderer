@@ -1,4 +1,4 @@
-#include "gltfLoading.h"
+\#include "gltfLoading.h"
 
 #include <vulkan/vulkan_core.h>
 
@@ -8,6 +8,7 @@
 #include "gltf_impl.h"
 #include <Renderer/TextureData.h>
 #include <General/FileCaching.h>
+#include <glm/gtc/type_ptr.hpp>
 temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygltf::Model model, tinygltf::Mesh mesh)
 {
     uint32_t indxCt = 0;
@@ -183,13 +184,14 @@ gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
     
     size_t meshCt = model.meshes.size();
     size_t imageCt = model.images.size();
-    size_t texCt = model.textures.size();
+  
     size_t matCt = model.materials.size();
     size_t nodeCt = model.nodes.size();
 
     std::span<MeshData> meshes = MemoryArena::AllocSpan<MeshData>(permanentArena, meshCt);
     std::span<TextureData> textures = MemoryArena::AllocSpan<TextureData>(permanentArena, imageCt); //These are what I call textures, what vulkan calls images
-    std::span<material> materials = MemoryArena::AllocSpan<material>(permanentArena, matCt); //These are what I call textures, what vulkan calls images 
+    std::span<material> materials = MemoryArena::AllocSpan<material>(permanentArena, matCt); //These are what I call textures, what vulkan calls images
+    std::span<gltfNode> gltfNodes = MemoryArena::AllocSpan<gltfNode>(permanentArena, nodeCt); //These are what I call textures, what vulkan calls images 
     if (!warn.empty())
     {
         printf("GLTF LOADER WARNING: %s\n", warn.data());
@@ -204,23 +206,26 @@ gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
 		MemoryArena::freeToCursor(tempArena);
     }
 
-    //Supporting: Textures using first tex coord, meshes with one tex coord, lights
-    //TODO support: multiple materials per mesh (prims), multiple tex coords
+    //Supporting: Textures using first tex coord, meshes with one tex coord
+    //TODO support: multiple materials per mesh (prims), multiple tex coords, , lights
     //Won't do currently: any kinds of animation, cameras, samplers 
     //For models, going to go with one tex coord for now
 
 
 	for (int i = 0; i < matCt; i++)
 	{
-	    auto gltfmaterial = model.materials[i];
+	    tinygltf::Material gltfmaterial = model.materials[i];
 	    materials[i] = {};
-
 	    //TODO JS: if these don't exist they're -1 -- otherwise they're 1 indexed 
 	    materials[i].diffIndex =  gltfmaterial.pbrMetallicRoughness.baseColorTexture.index -1;
 	    materials[i].specIndex = gltfmaterial.pbrMetallicRoughness.metallicRoughnessTexture.index -1;
 	    materials[i].normIndex =  gltfmaterial.normalTexture.index -1;
-	    		//image.
-
+		materials[i].occlusionIndex = gltfmaterial.occlusionTexture.index;
+		materials[i].baseColorFactor = {gltfmaterial.pbrMetallicRoughness.baseColorFactor[0], gltfmaterial.pbrMetallicRoughness.baseColorFactor[1], gltfmaterial.pbrMetallicRoughness.baseColorFactor[2]};
+		materials[i].metallicFactor = gltfmaterial.pbrMetallicRoughness.metallicFactor;
+		materials[i].roughnessFactor = gltfmaterial.pbrMetallicRoughness.roughnessFactor;
+		materials[i].normalStrength = gltfmaterial.normalTexture.scale;
+		materials[i].occlusionStrength = gltfmaterial.occlusionTexture.strength;
 	}
 
     for (int i = 0; i < imageCt; i++)
@@ -228,22 +233,41 @@ gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
         tinygltf::Image image = model.images[i];
         assert( image.name.empty());
         std::string name = image.name.empty() ? std::to_string(i) : image.name;
+
         //TODO JS: No gaurantee pixels data is interpreted correctly -- do I need to pass in type?
         assert(image.component == 4);
         assert(image.pixel_type == TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE);
         assert(image.bits == 8);
         textures[i] = TextureData(gltfpath,name.data(),  (VkFormat)VK_FORMAT_R8G8B8A8_SRGB,   VK_SAMPLER_ADDRESS_MODE_REPEAT, image.image.data(), image.width, image.height, 6,  handles);
-        //image.
-
     }
+
+	for(int i = 0; i < nodeCt; i++)
+	{
+		tinygltf::Node node = model.nodes[i];
+		auto childIndices = node.children;
+	    glm::mat4 xform = {};
+	    if(node.matrix.size() == 16)
+	    {
+	        xform = glm::make_mat4<double>(node.matrix.data()); //TODO JS: do i need to transpose?
+	    }
+	    else
+	    {
+	        xform = glm::mat4(1);
+	    }
+	    gltfNodes[i] = {node.mesh, model.meshes[node.mesh].primitives[0].material, xform};
+	}
 
 
     FileCaching::saveAssetChangedTime(gltfpath);
+    
     //Not supporting, just for logging
     size_t cameraCt = model.cameras.size();
     size_t animCt = model.animations.size();
+    size_t texCt = model.textures.size();
+    size_t lightCt = model.lights.size();
+    printf("=======GLTF LOAD \nLoaded gltf %s \nLoaded %llu nodes, %llu models, %llu materials, %llu images. Didn't load %llu cameras, %llu animations, %llu textures, and %llu lights\n", gltfpath, nodeCt, meshCt, matCt, imageCt, cameraCt, animCt, texCt, lightCt);
 
     
-    return {meshes, textures, materials,  {}, {}};
+    return {meshes, textures, materials,gltfNodes};
     
 }
