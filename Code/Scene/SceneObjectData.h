@@ -21,6 +21,26 @@ struct MeshData;
 struct VkDescriptorImageInfo;
 class Scene;
 
+
+//TODO JS: Transform hiearchy 
+//Basic idea: loop over each level of the hiearchy and compute all the matrices
+//In theory each level could be done in parallel
+//so like
+// [0][0][0][0][0][0][0][0][1][1][1][2][2][2][2][3][3][4]
+//Within each sub-level I'll order them by common parent, like
+// [1a][1a][1b][2a][2b][2c][2c][3a][3a][4a]
+// That ought to give us cache hits looking to parent, right, which will help in the case of big flat levels
+//All the 0s have no dependencies -- all the 1s depend on one of the 0s, and so on
+//How to store?
+//In theory one backing array, but I may do an array of arrays per level for add/remove convenience
+//Then a parallel(?) array of indices back to parent, which is walkable to get up graph
+//Finally I'll need to capture the span of each level somewhere for dispathing work for them
+//Either a short array of indices or just spans.
+
+//And then for update: the game will always submit an update for the NEXT frame
+//We'll always compute all updates and run whole graph at the start of each frame.
+//So we always query up to date info, and we always queue up info for next frame.
+
 void InitializeScene(MemoryArena::memoryArena* arena, Scene* scene);
 class Scene
 {
