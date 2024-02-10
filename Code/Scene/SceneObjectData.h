@@ -35,67 +35,6 @@ class Scene;
 // [1a][1a][1b][2a][2b][2c][2c][3a][3a][4a]
 // That ought to give us cache hits looking to parent, right, which will help in the case of big flat levels
 //All the 0s have no dependencies -- all the 1s depend on one of the 0s, and so on
-//How to store?
-//In theory one backing array, but I may do an array of arrays per level for add/remove convenience
-//Then a parallel(?) array of indices back to parent, which is walkable to get up graph
-//Finally I'll need to capture the span of each level somewhere for dispatching work for them
-//Either a short array of indices or just spans.
-
-//And then for update: the game will always submit an update for the NEXT frame
-//We'll always compute all updates and run whole graph at the start of each frame.
-//So we always query up to date info, and we always queue up info for next frame.
-
-//Would need two paralell sets of matrices -- world and local. For the operations above, we loop over LOCAL, and read/write WORLD
-//Local doesn't change, world does. We look at our parents' world.
-//For the loop, we skip over level 0, since the root doesn't have a local transform.
-
-//What do we do to 'insert' new nodes to a level?
-//Most common for root level 0.
-//Don't order 0, not an issue.  
-//Everything on the next level could need its parent node updated
-//Everything on the next level AFTER the insertion needs its parent node updated
-
-/*
- *if (parent.childcount != 0) //this is an insert
- *insertionIDX = 0
- *for(int i = 0; i < level.size(); i++
- *if (node[i].parent == parent)
- *  insertionIDX = i
- *  break;
- *subspan = level.subspan(insertionIDX, level.size)
- *for(int i =subspan.size -1; i > 0; i--)
- *  node[i+1] = node[i]
- *node[inseritionIDX] = newNode;
- * //NEXT, fix up children 
- *nextLevel = level + 1;
- *insertion = insertionIDX
- *for(int i = 0; i < nextLevel.size(); i++)
- *  if (node[i].parent > insertionIDX)
- *      node.parent +=1
- * ?????
- * else just add it to the end.
- * Honestly not sure sorting the levels is worth it. 
- *
- //May just be better to be naieve and rebuild the whole hiearchy, then I can use the same logic for unparent and change parent.
- //How does unparenting work?
- //Just mark the spot empty and skip?
- //Maybe I can do something simpler, and just bump anyone who gets updated to the back
- //Pop all of them off, compact 
- */
-/* [1a][1a][1b][2a][2b][2c][2c][3a][3a][4a] ->
- * [1a][1a][++1a++][1b][2a][2b][2c][2c][3a][3a][4a]->
- * [1b][1a][1a][1a][2a][2b][2c][2c][3a][3a][4a]
- * How? Loop over everyone after the start of the parentSet and subtract the size of the parentSet from their index
- * Then add the parentSet to the end. This would do subtraction too, bump the subtraction to the end with one clipped off.
- * Then for the next depth, apply all the same moves to fix up parent pointers
- * #### I think I like this. ####
- * How to handle world matrices? 
- * They get re-written every frame
- * I should move it to the START, that way I don't have to update as many
- * Only the ones before it get bumped 
- * 
-*/
-
 
 
 //Tree representation for inserting 
@@ -114,6 +53,8 @@ void rmChild(localTransform* tgt, std::shared_ptr<localTransform> remove);
 
 
 //Flat representation for updating
+//TODO when I flatten I'll just also build a LUT to the flattened indices by ID
+//TODO Objects cna be in ID order 
 struct flatlocalTransform
 {
     glm::mat4 matrix;
@@ -145,7 +86,9 @@ public:
         Array<glm::vec3> scales;
         Array<uint32_t> meshIndices;
         Array<Material> materials;
-        Array<glm::mat4> matrices;
+        Array<glm::mat4> matrices; //Separate root matrices and non-root?
+                                    //Root never have to get re-sorted
+                                    //non-root need to look up where they are in flattened? 
     };
 
     Objects objects;

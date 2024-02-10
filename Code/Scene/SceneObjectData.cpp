@@ -19,6 +19,31 @@ const int OBJECT_MAX = 3000;
 const int LIGHT_MAX = 3000; 
 const int ASSET_MAX = 300;
 
+//TODO P0:
+/*
+ *Look up table for locals -- store indices on graph and objects, make table during flatten
+ *- GetLocalMatrix(ID)
+ *  {
+ *  localId = LUT[ID]
+ *  return localMatrix[localId_something][localId_something]
+ *      }
+ *World matrices that are paralell with locals 
+ *Update code that calculates world by looping over locals
+ *System where like, every frame we loop over local transforms to build global transforms, then feed them to gpu
+ *Move old transforms to new system 
+ * Test with existing pipeline 
+ */
+//TODO P1:
+/*
+ * Feed transforms from gltf
+ * Maybe API to make a bunch of graph side changes and then rebuild flattened after
+ * */
+//TODO p2:
+/*
+ *Better memory layout (nested localtransforms sequential in memory)
+ *Don't rebuild from graph, do adds/removes directly to flattened
+ *Get rid of sharedptrs, use a local arena and mark dead stuff (for compaction?)comm
+ */
 std::shared_ptr<localTransform> AddChild(localTransform* tgt, std::string childName, glm::mat4 childMat)
 {
     tgt->children.push_back(std::make_shared<localTransform>(childMat, childName, tgt->depth +1u));
@@ -51,6 +76,7 @@ void flattenTransformHiearchy(std::span<localTransform> roots)
         while(!queue.empty())
         {
             stackEntry* t = &queue.top();
+            //We're finished with this node, pop it off the stack
             if(t->visited >= t->entry.size())
             {
                 queue.pop();

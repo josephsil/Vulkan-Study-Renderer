@@ -2210,13 +2210,21 @@ void SET_UP_SCENE(vulkanRenderer* app)
     printf("PRE REMOVE ==== \n");
     printGraph(root1, 0 );
     rmChild(child.get(), child1_1);
-    // printf("POST REMOVE ==== \n");
+    printf("POST REMOVE ==== \n");
     printGraph(root1, 0 );
 
     std::span roots = std::span(&root1, 1);
     flattenTransformHiearchy(roots);
   
     exit(10);
+
+    //NEXT STEPS:
+    //1- Way to associate objects with flattened tree matrices
+    //2- Mock up transforming something with a parent
+    //3- Feed gltf nodes in 
+    //TODO JS: Whenever we update the scene graph we'll re-flatten
+    //TODO JS: We'll do matrix calculations on the flattened version. 
+    
 
 
     int placeholderTextureidx = app->scene->AddMaterial(
