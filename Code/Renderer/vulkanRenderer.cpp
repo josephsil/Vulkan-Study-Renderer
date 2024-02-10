@@ -1620,6 +1620,7 @@ void vulkanRenderer::createGraphicsPipeline(const char* shaderName, PipelineData
 
 
 
+
 #pragma region perFrameUpdate
 
 
@@ -2175,13 +2176,47 @@ void vulkanRenderer::cleanup()
 
 #pragma endregion
 
-
+void printGraph(localTransform g, int depth)
+{
+    for(int i = 0; i < depth; i++)
+    {
+        printf(".");
+    }
+    printf("%s \n ", g.name.c_str());
+    if (!g.children.empty())
+    {
+        depth++;
+        for(int i =0; i < g.children.size(); i++)
+        {
+            printGraph(*g.children[i], depth);
+        }
+    }
+}
 //TODO move or replace
 void SET_UP_SCENE(vulkanRenderer* app)
 {
     std::vector<int> randomMeshes;
     std::vector<int> randomMaterials;
 
+    localTransform root1 = {{}, "ROOT 1", {0}, {}};
+    localTransform root2 = {{}, "ROOT 2", {0}, {}};
+    auto child = AddChild(&root1, "CHILD1", {});
+    auto child1_1 = AddChild(child.get(), "CHILD1_CHILD1", {});
+    AddChild(child.get(), "CHILD1_CHILD2", {});
+    AddChild(child.get(), "CHILD1_CHILD3", {});
+    auto child1_4 = AddChild(child.get(), "CHILD1_CHILD4", {});
+    AddChild(child1_1.get(), "CHILD1_CHILD1_CHILD1", {});
+    AddChild(child1_4.get(), "CHILD1_CHILD4_CHILD1", {});
+    printf("PRE REMOVE ==== \n");
+    printGraph(root1, 0 );
+    rmChild(child.get(), child1_1);
+    // printf("POST REMOVE ==== \n");
+    printGraph(root1, 0 );
+
+    std::span roots = std::span(&root1, 1);
+    flattenTransformHiearchy(roots);
+  
+    exit(10);
 
 
     int placeholderTextureidx = app->scene->AddMaterial(

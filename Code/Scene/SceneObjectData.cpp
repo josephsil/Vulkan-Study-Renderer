@@ -6,6 +6,7 @@
 #include "SceneObjectData.h"
 
 #include <algorithm>
+#include <stack>
 
 #include <Renderer/MeshData.h> // TODO JS: I want to separate the backing data from the scene 
 #include <Renderer/TextureData.h> // TODO JS: I want to separate the backing data from the scene 
@@ -16,7 +17,60 @@
 
 const int OBJECT_MAX = 3000; 
 const int LIGHT_MAX = 3000; 
-const int ASSET_MAX = 300; 
+const int ASSET_MAX = 300;
+
+std::shared_ptr<localTransform> AddChild(localTransform* tgt, std::string childName, glm::mat4 childMat)
+{
+    tgt->children.push_back(std::make_shared<localTransform>(childMat, childName, tgt->depth +1u));
+    return tgt->children[tgt->children.size() - 1];
+}
+
+void rmChild(localTransform* tgt, std::shared_ptr<localTransform> remove)
+{
+    tgt->children.erase(std::remove(tgt->children.begin(), tgt->children.end(), remove), tgt->children.end());
+    
+}
+
+struct stackEntry
+{
+    int visited;
+    std::span<std::shared_ptr<localTransform>> entry;
+};
+
+//This is probably insane, i have a cold and can't remember how trees work
+void flattenTransformHiearchy(std::span<localTransform> roots)
+{
+    localTransformHiearchy.clear();
+    localTransformHiearchy.push_back({});
+    std::stack<stackEntry> queue = {};
+    for(int i = 0; i < roots.size(); i++)
+    {
+        if (roots[i].children.size() != 0)
+            queue.push({0, std::span(roots[i].children)});
+        localTransformHiearchy[0].push_back({roots[i].matrix, roots[i].name, 0});
+        while(!queue.empty())
+        {
+            stackEntry* t = &queue.top();
+            if(t->visited >= t->entry.size())
+            {
+                queue.pop();
+                continue;
+            }
+            int i = t->visited;
+            //"Inner loop"
+            if (t->entry[i]->children.size() != 0)
+                queue.push({0, t->entry[i]->children});
+            if (localTransformHiearchy.size() == t->entry[i]->depth)
+            {
+                localTransformHiearchy.push_back({});
+            }
+            localTransformHiearchy[t->entry[i]->depth]
+                .push_back({t->entry[i]->matrix, t->entry[i]->name, (uint8_t)(localTransformHiearchy[t->entry[i]->depth -1].size() -1)});
+
+            t->visited++;
+        }
+    }
+}
 
 //No scale for now
 void InitializeScene(MemoryArena::memoryArena* arena, Scene* scene)
