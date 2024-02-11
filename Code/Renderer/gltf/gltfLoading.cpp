@@ -11,37 +11,58 @@
 #include <glm/gtc/type_ptr.hpp>
 temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygltf::Model model, tinygltf::Mesh mesh)
 {
-    uint32_t indxCt = 0;
-    uint32_t vertCt = 0;
+ 
     
    
     
-    //get count 
+    //get count
+
+    //TODOS: 1- Something is relaly wrong with memory
+    //TODOs: 2- Model can have partial colors -- default fill the rest -- is this cause theyre vec3 instead of vec4?
+    //TODOs: 3- What's going on with tangents? Do meshes have them on some prims only? Unless we have tangents on every revert, build 
+    //TODOs: 3- The vecs should be the size of the biggest prim -- need to index in to _vertices and _indices correctly from them
+    uint32_t indxCt = 0;
+    uint32_t vertCt = 0;
+    uint32_t largest_prim = 0;
     for (auto prim : mesh.primitives)
     {
         tinygltf::Accessor& accessor = model.accessors[prim.attributes["POSITION"]];
         vertCt += (uint32_t)accessor.count;
         tinygltf::Accessor& accessor2 = model.accessors[prim.indices > -1 ? prim.indices : 0];
         indxCt += (uint32_t)accessor2.count;
+        if ((uint32_t)accessor2.count > largest_prim)
+        {
+            largest_prim = (uint32_t)accessor2.count;
+        }
     }
     
 
-    Array _vertices = MemoryArena::AllocSpan<Vertex>(tempArena, vertCt);
+    Array _vertices = MemoryArena::AllocSpan<Vertex>(tempArena, indxCt);
     Array _indices = MemoryArena::AllocSpan<uint32_t>(tempArena, indxCt);
-
+    Array<glm::vec4> positionvec = Array(MemoryArena::AllocSpan<glm::vec4>(tempArena, largest_prim));
+    Array<glm::vec4> normalvec = Array(MemoryArena::AllocSpan<glm::vec4>(tempArena, largest_prim));
+    Array<glm::vec4> uvvec = Array(MemoryArena::AllocSpan<glm::vec4>(tempArena, largest_prim));
+    Array<glm::vec4> colorvec = Array(MemoryArena::AllocSpan<glm::vec4>(tempArena, largest_prim));
+    Array<glm::vec4> tangentvec =Array( MemoryArena::AllocSpan<glm::vec4>(tempArena, largest_prim));
     bool tangentsLoaded = false;    
 
+    uint32_t primIndexOffset = 0; 
        for (auto prim : mesh.primitives)
             {
+
+           //clear out the vectors
+            positionvec.ct = 0;
+             normalvec.ct = 0;
+             uvvec.ct = 0;
+             colorvec.ct = 0;
+             tangentvec.ct = 0;
+
                     
-                Array<glm::vec4> positionvec = Array(MemoryArena::AllocSpan<glm::vec4>(tempArena, indxCt));
-                Array<glm::vec4> normalvec = Array(MemoryArena::AllocSpan<glm::vec4>(tempArena, indxCt));
-                Array<glm::vec4> uvvec = Array(MemoryArena::AllocSpan<glm::vec4>(tempArena, indxCt));
-                Array<glm::vec4> colorvec = Array(MemoryArena::AllocSpan<glm::vec4>(tempArena, indxCt));
-                Array<glm::vec4> tangentvec =Array( MemoryArena::AllocSpan<glm::vec4>(tempArena, indxCt));
+             
                 tinygltf::Accessor& accessor = model.accessors[prim.attributes["POSITION"]];
                 tinygltf::BufferView& bufferView = model.bufferViews[accessor.bufferView];
                 tinygltf::Buffer& buffer = model.buffers[bufferView.buffer];
+                uint32_t primIdxCount  = accessor.count;
                 auto positions = reinterpret_cast<const float*>(&buffer.data[bufferView.byteOffset + accessor.
                     byteOffset]);
 
@@ -54,13 +75,8 @@ temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygl
                     positionvec.push_back(position);
                 }
 
-                if (!prim.attributes.contains("NORMAL"))
-                {
-                   printf("NOT IMPLEMENTED -- DONT WORK SUPPORT MODELS WITHOUT NORMALS");
-                exit(-1);
-                }
-
-
+                assert(prim.attributes.contains("NORMAL"), "NOT IMPLEMENTED -- DONT WORK SUPPORT MODELS WITHOUT NORMALS");
+            
                 accessor = model.accessors[prim.attributes[std::string("NORMAL")]];
                 bufferView = model.bufferViews[accessor.bufferView];
                 buffer = model.buffers[bufferView.buffer];
@@ -87,22 +103,45 @@ temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygl
                 }
 
                 accessor = model.accessors[prim.attributes[std::string("COLOR_0")]];
+               
                 bufferView = model.bufferViews[accessor.bufferView];
                 buffer = model.buffers[bufferView.buffer];
-                auto colors = reinterpret_cast<const float*>(&buffer.data[bufferView.byteOffset + accessor.byteOffset]);
-                for (size_t i = 0; i < accessor.count; ++i)
-                {
-                    glm::vec4 color;
-                    color.x = colors[i * 3 + 0];
-                    color.y = colors[i * 3 + 1];
-                    color.z = colors[i * 3 + 2];
-                    colorvec.push_back(color);
-                }
+           switch (accessor.componentType)
+           {
+              case (TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT):
+               {
+                   auto colors = reinterpret_cast<const unsigned short*>(&buffer.data[bufferView.byteOffset + accessor.byteOffset]);
+                   for (size_t i = 0; i < accessor.count; ++i)
+                   {
+                       glm::vec4 color;
+                       color.x = colors[i * 3 + 0];
+                       color.y = colors[i * 3 + 1];
+                       color.z = colors[i * 3 + 2];
+                       colorvec.push_back(color);
+                   }
+                      break;
+               }
+               case (TINYGLTF_COMPONENT_TYPE_FLOAT):
+               {
+                   auto colors = reinterpret_cast<const float*>(&buffer.data[bufferView.byteOffset + accessor.byteOffset]);
+                   for (size_t i = 0; i < accessor.count; ++i)
+                   {
+                       glm::vec4 color;
+                       color.x = colors[i * 3 + 0];
+                       color.y = colors[i * 3 + 1];
+                       color.z = colors[i * 3 + 2];
+                       colorvec.push_back(color);
+                   }
+                   break;
+               }
+           default:
+               assert(!"unsupported color type");
+           }
 
                 //TODO JS: Not every prim
                 if (prim.attributes.contains("TANGENT"))
                 {
-                    tangentsLoaded = true;
+                    // tangentsLoaded = true;
                     accessor = model.accessors[prim.attributes[std::string("TANGENT")]];
                     bufferView = model.bufferViews[accessor.bufferView];
                     buffer = model.buffers[bufferView.buffer];
@@ -129,7 +168,7 @@ temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygl
                     auto indices16 = reinterpret_cast<const uint16_t*>(indicesData);
                     for (size_t i = 0; i < accessor.count; i++)
                     {
-                        _indices.push_back(indices16[i]);
+                        _indices.push_back(indices16[i] + primIndexOffset);
                         
                     }
                 }
@@ -139,7 +178,7 @@ temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygl
                     auto indices32 = reinterpret_cast<const uint32_t*>(indicesData);
                     for (size_t i = 0; i < accessor.count; i++)
                     {
-                         _indices.push_back(indices32[i]);
+                         _indices.push_back(indices32[i] + primIndexOffset);
                     }
                 }
                 for (int i = 0; i < positionvec.size(); i++)
@@ -150,6 +189,8 @@ temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygl
                         tangentsLoaded ? tangentvec[i] : glm::vec4(-1)
                     });
                 }
+
+           primIndexOffset += primIdxCount;
 
                 //TODO JS: should I dedupe verts here if we aren't doing mikkt?
               
@@ -177,6 +218,7 @@ gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
     std::string err;
     std::string warn;
 
+   
     MemoryArena::memoryArena* tempArena = handles.perframeArena; //TODO JS; use a loading arena 
     MemoryArena::memoryArena* permanentArena = handles.arena;
 
@@ -254,7 +296,7 @@ gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
 	    {
 	        xform = glm::mat4(1);
 	    }
-	    gltfNodes[i] = {node.mesh, model.meshes[node.mesh].primitives[0].material, xform};
+	    gltfNodes[i] = {node.mesh, model.meshes[node.mesh].primitives[0].material, xform, std::span(node.children)};
 	}
 
 

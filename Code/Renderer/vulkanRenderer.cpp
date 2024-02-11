@@ -129,7 +129,7 @@ unsigned int averageCbTime;
 
 unsigned int frames;
 
-unsigned int MAX_TEXTURES = 30;
+unsigned int MAX_TEXTURES = 120;
 
 
 
@@ -233,11 +233,11 @@ void vulkanRenderer::updateShadowImageViews(int frame )
 void vulkanRenderer::initVulkan()
 {
     this->rendererArena = {};
-    MemoryArena::initialize(&rendererArena, 1000000 * 10); // 10mb
+    MemoryArena::initialize(&rendererArena, 1000000 * 100); // 100mb
 
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        MemoryArena::initialize(&perFrameArenas[i], 1000000 * 10); // 10mb each //TODO JS: Could be much smaller if I had a separate arena for file loading
+        MemoryArena::initialize(&perFrameArenas[i], 1000000 * 100); // 100mb each //TODO JS: Could be much smaller if I had a separate arena for file loading
     }
     FramesInFlightData.resize(MAX_FRAMES_IN_FLIGHT);
     //Get instance
@@ -2193,6 +2193,7 @@ void printGraph(localTransform g, int depth)
         }
     }
 }
+
 //TODO move or replace
 void SET_UP_SCENE(vulkanRenderer* app)
 {
@@ -2255,9 +2256,78 @@ void SET_UP_SCENE(vulkanRenderer* app)
                     TextureData::TextureType::NORMAL));
     randomMaterials.push_back(placeholderTextureidx);
 
- 
 
+// #define SPONZA
+
+
+#ifdef SPONZA 
     //TODO: gltf load fn that gets back struct, then append its contents to scene 
+    auto gltf = GltfLoadMeshes(app->getHandles(), "Meshes/sponza.glb");
+    std::span<int> meshLUT = MemoryArena::AllocSpan<int>(app->getHandles().perframeArena, gltf.meshes.size());
+    std::span<int> materialLUT = MemoryArena::AllocSpan<int>(app->getHandles().perframeArena, gltf.materials.size());
+    std::span<int> parent = MemoryArena::AllocSpan<int>(app->getHandles().perframeArena, gltf.objects.size());
+    std::span<bool> created = MemoryArena::AllocSpan<bool>(app->getHandles().perframeArena, gltf.objects.size());
+    std::span<localTransform*> tforms = MemoryArena::AllocSpan<localTransform*>(app->getHandles().perframeArena, gltf.objects.size());
+    for(int i =0; i < parent.size(); i++)
+    {
+        parent[i] = -1;
+    }
+
+    TextureData DEFAULTSPEC = TextureData(app->getHandles(), "textures/pbr_factory-sliding/worn-factory-siding_roughness_metallic.tga", TextureData::TextureType::SPECULAR);
+    TextureData DEFAULTNORM =   TextureData(app->getHandles(), "textures/pbr_factory-sliding/worn-factory-siding_normal-dx.png",  TextureData::TextureType::NORMAL);
+
+    for(int i = 0; i < gltf.meshes.size(); i++)
+    {
+        meshLUT[i] = app->scene->AddBackingMesh(gltf.meshes[i]);
+    }
+    for(int i =0; i < gltf.materials.size(); i++)
+    {
+        auto mat = gltf.materials[i];
+        
+        //TODO JS: in the default case, re-use an existing texture data, don't copy a new texture.
+        //TODO JS: Pick good defalt textures (blank color)
+        
+        materialLUT[i] = app->scene->AddMaterial(mat.diffIndex >= 0 ? gltf.textures[mat.diffIndex] : DEFAULTSPEC,
+            mat.specIndex >= 0 ? gltf.textures[mat.specIndex] :
+            DEFAULTSPEC, mat.normIndex >= 0 ? gltf.textures[mat.normIndex] : DEFAULTNORM);
+    }
+
+    //prepass to set up parents
+    for(int i = 0; i < gltf.objects.size(); i++)
+    {
+        for(int j =0; j < gltf.objects[i].children.size(); j++)
+        {
+            parent[gltf.objects[i].children[j]] = i;
+        }
+    }
+    int addedCt = 0;
+
+    //lol
+    while(addedCt < gltf.objects.size())
+    {
+        for(int i = 0; i < gltf.objects.size(); i++)
+        {
+            auto object = gltf.objects[i];
+            if (parent[i] == -1 || created[parent[i]])
+            {
+
+                int objectID = 0;
+                //TODO JS: add objcet that takes matrix
+                if(parent[i] != -1)
+                objectID =  app->scene->AddObject( &app->scene->backing_meshes[meshLUT[object.meshidx]], materialLUT[object.matidx], gltf.materials[object.matidx].roughnessFactor, gltf.materials[object.matidx].metallicFactor,{},{},{}, tforms[parent[i]]);
+                else
+                objectID =  app->scene->AddObject( &app->scene->backing_meshes[meshLUT[object.meshidx]], materialLUT[object.matidx], gltf.materials[object.matidx].roughnessFactor, gltf.materials[object.matidx].metallicFactor,{},{},{});
+                
+                tforms[i] = &app->scene->transforms.transformNodes[objectID];
+                addedCt++;
+            }
+            else
+            {
+                continue;
+            }
+        }
+    }
+#else
     auto gltf = GltfLoadMeshes(app->getHandles(), "Meshes/pig.glb");
     placeholderTextureidx = app->scene->AddMaterial(
     gltf.textures[gltf.materials[0].diffIndex],
@@ -2269,16 +2339,16 @@ void SET_UP_SCENE(vulkanRenderer* app)
     randomMeshes.push_back(app->scene->AddBackingMesh(gltf.meshes[0]));
     randomMeshes.push_back(app->scene->AddBackingMesh(GltfLoadMeshes(app->getHandles(), "Meshes/cubesphere.glb").meshes[0]));
     randomMeshes.push_back(app->scene->AddBackingMesh(MeshDataFromObjFile(app->getHandles(), "Meshes/monkey.obj")));
-
+    
     int cube = app->scene->AddBackingMesh(GltfLoadMeshes(app->getHandles(), "Meshes/cube.glb").meshes[0]);
-
+    
     //direciton light
        
     //spot light
     //TODO JS: paramaterize better -- hard to set power and radius currently
     app->scene->AddSpotLight(glm::vec3(2.5, 3, 3.3), glm::vec3(0, 0, -1), glm::vec3(1, 0, 1), 45, 14000);
-
-
+    
+    
     //point lights    
     app->scene->AddPointLight(glm::vec3(1, 1, 0), glm::vec3(1, 1, 1), 55);
     app->scene->AddDirLight(glm::vec3(0,0,1), glm::vec3(1,1,1), 3);
@@ -2286,12 +2356,12 @@ void SET_UP_SCENE(vulkanRenderer* app)
     app->scene->AddPointLight(glm::vec3(-2, 2, 0), glm::vec3(1, 0, 0), 4422 / 2);
     // app->scene->AddDirLight(glm::vec3(0,0,1), glm::vec3(0,1,0), 3);
     app->scene->AddPointLight(glm::vec3(0, 0, 0), glm::vec3(1, 1, 0), 999 / 2);
-
+    
     // app->scene->AddPointLight(glm::vec3(0, 8, -10), glm::vec3(0.2, 0, 1), 44 / 2);
-
-  
-
-
+    
+    
+    
+    
     glm::vec3 EulerAngles(0, 0, 0);
     auto MyQuaternion = glm::quat(EulerAngles);
     
@@ -2301,7 +2371,7 @@ void SET_UP_SCENE(vulkanRenderer* app)
               glm::vec4(0, 0, 0, 0) * 1.2f,
               MyQuaternion,
               glm::vec3(0.5));
-
+    
     localTransform* tform = &app->scene->transforms.transformNodes[root];
     for (int i = 0; i < 100; i++)
     {
@@ -2321,6 +2391,7 @@ void SET_UP_SCENE(vulkanRenderer* app)
         }
     
     }
+#endif 
     app->scene->transforms.RebuildTransformDataFromNodes();
 }
 

@@ -84,6 +84,7 @@ public:
     int meshCount = 0;
     Array<MeshData> backing_meshes;
     Array<positionRadius> meshBoundingSphereRad;
+    
 
 
     Scene(MemoryArena::memoryArena* memoryArena);

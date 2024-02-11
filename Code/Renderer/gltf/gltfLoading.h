@@ -13,6 +13,7 @@ struct gltfNode
     int meshidx;
     int matidx;
     glm::mat4 tform;
+    std::span<int> children;
 };
 
 struct material
