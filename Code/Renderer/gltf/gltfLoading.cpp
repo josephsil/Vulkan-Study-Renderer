@@ -9,6 +9,110 @@
 #include <Renderer/TextureData.h>
 #include <General/FileCaching.h>
 #include <glm/gtc/type_ptr.hpp>
+
+
+void loadScalarAttributeshort(Array<glm::vec4>* target, const unsigned short* _shorts, size_t count, uint8_t stride)
+{
+  
+    for(size_t i = 0; i < count; i+= stride)
+    {
+        glm::vec4 color;
+        color.x = _shorts[i * stride + 0];
+        color.y = _shorts[i * stride + 1];
+        color.z = _shorts[i * stride + 2];
+        color.w = stride == 4 ? _shorts[i * stride + 3] : 1.0;
+        target->push_back(color);
+    }
+}
+
+void loadScalarAttributefloat(Array<glm::vec4>* target,const float* _floats, size_t count, uint8_t stride)
+{
+    
+    for(size_t i = 0; i < count; i+= stride)
+    {
+        glm::vec4 color;
+        color.x =  _floats[i * stride + 0];
+        color.y =  _floats[i * stride + 1];
+        color.z =  _floats[i * stride + 2];
+        color.w = stride == 4 ? _floats[i * stride + 3] : 1.0;
+        target->push_back(color);
+    }
+}
+
+void loadAttributeOrDefault(Array<glm::vec4>* target, tinygltf::Model* model, tinygltf::Primitive* prim, uint32_t idxCt, std::string attribute, glm::vec4 _default)
+{
+    if(!prim->attributes.contains(attribute))
+    {
+        for(int i =0; i < idxCt; i++)
+        {
+            target->push_back(_default);
+        }
+        return;
+        
+    }
+    tinygltf::Accessor accessor = model->accessors[prim->attributes[attribute]];
+
+    tinygltf::BufferView& bufferView = model->bufferViews[accessor.bufferView];
+    tinygltf::Buffer& buffer = model->buffers[bufferView.buffer];
+    
+            bufferView = model->bufferViews[accessor.bufferView];
+            buffer = model->buffers[bufferView.buffer];
+           uint8_t stride =  0;
+           // assert (accessor.type == TINYGLTF_TYPE_VEC3);
+           if (accessor.type == TINYGLTF_TYPE_SCALAR)
+           {
+               int countPerIDX = accessor.count / idxCt;
+               assert(countPerIDX == 1 || countPerIDX == 3 || countPerIDX == 4);
+               stride = countPerIDX;
+               switch (accessor.componentType)
+               {
+               case (TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT):
+                   {
+                       loadScalarAttributefloat(target,reinterpret_cast<const float*>(&buffer.data[bufferView.byteOffset + accessor.byteOffset]), accessor.count, stride );
+                       break;
+                   }
+               case (TINYGLTF_COMPONENT_TYPE_FLOAT):
+                   {
+                       loadScalarAttributeshort(target,reinterpret_cast<const unsigned short*>(&buffer.data[bufferView.byteOffset + accessor.byteOffset]), accessor.count, stride );
+                       break;
+                   }
+               default:
+                   assert(!"unsupported attribute type on attribute", attribute);
+               }
+           }
+           switch (accessor.componentType)
+           {
+              case (TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT):
+               {
+                   auto colors = reinterpret_cast<const unsigned short*>(&buffer.data[bufferView.byteOffset + accessor.byteOffset]);
+                   for (size_t i = 0; i < accessor.count; ++i)
+                   {
+                       glm::vec4 color;
+                       color.x = colors[i * 3 + 0];
+                       color.y = colors[i * 3 + 1];
+                       color.z = colors[i * 3 + 2];
+                       target->push_back(color);
+                   }
+                      break;
+               }
+               case (TINYGLTF_COMPONENT_TYPE_FLOAT):
+               {
+                   auto colors = reinterpret_cast<const float*>(&buffer.data[bufferView.byteOffset + accessor.byteOffset]);
+                   for (size_t i = 0; i < accessor.count; ++i)
+                   {
+                       glm::vec4 color;
+                       color.x = colors[i * 3 + 0];
+                       color.y = colors[i * 3 + 1];
+                       color.z = colors[i * 3 + 2];
+                       target->push_back(color);
+                   }
+                   break;
+               }
+           default:
+               assert(!"unsupported attribute type on attribute", attribute);
+           }
+    
+}
 temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygltf::Model model, tinygltf::Mesh mesh)
 {
  
@@ -17,10 +121,10 @@ temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygl
     
     //get count
 
-    //TODOS: 1- Something is relaly wrong with memory
-    //TODOs: 2- Model can have partial colors -- default fill the rest -- is this cause theyre vec3 instead of vec4?
-    //TODOs: 3- What's going on with tangents? Do meshes have them on some prims only? Unless we have tangents on every revert, build 
-    //TODOs: 3- The vecs should be the size of the biggest prim -- need to index in to _vertices and _indices correctly from them
+    //TODOS: 1- Something is relaly wrong with memory <- need to scrub back the cursor after every prim
+                                                    // Need a stack of cursors I guess
+    //TODOS: 2- Refactor the rest of the attributes like color?
+    //TODOS: 3- Pass matrix in to scene -- make sur eits transposed right or whatever. 
     uint32_t indxCt = 0;
     uint32_t vertCt = 0;
     uint32_t largest_prim = 0;
@@ -102,51 +206,22 @@ temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygl
                     uvvec.push_back(uv);
                 }
 
-                accessor = model.accessors[prim.attributes[std::string("COLOR_0")]];
-               
-                bufferView = model.bufferViews[accessor.bufferView];
-                buffer = model.buffers[bufferView.buffer];
-           switch (accessor.componentType)
-           {
-              case (TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT):
-               {
-                   auto colors = reinterpret_cast<const unsigned short*>(&buffer.data[bufferView.byteOffset + accessor.byteOffset]);
-                   for (size_t i = 0; i < accessor.count; ++i)
-                   {
-                       glm::vec4 color;
-                       color.x = colors[i * 3 + 0];
-                       color.y = colors[i * 3 + 1];
-                       color.z = colors[i * 3 + 2];
-                       colorvec.push_back(color);
-                   }
-                      break;
-               }
-               case (TINYGLTF_COMPONENT_TYPE_FLOAT):
-               {
-                   auto colors = reinterpret_cast<const float*>(&buffer.data[bufferView.byteOffset + accessor.byteOffset]);
-                   for (size_t i = 0; i < accessor.count; ++i)
-                   {
-                       glm::vec4 color;
-                       color.x = colors[i * 3 + 0];
-                       color.y = colors[i * 3 + 1];
-                       color.z = colors[i * 3 + 2];
-                       colorvec.push_back(color);
-                   }
-                   break;
-               }
-           default:
-               assert(!"unsupported color type");
-           }
-
+           //COLOR
+           loadAttributeOrDefault(&colorvec, &model, &prim, primIdxCount, "COLOR_0", glm::vec4(1));
+            
                 //TODO JS: Not every prim
                 if (prim.attributes.contains("TANGENT"))
                 {
                     // tangentsLoaded = true;
                     accessor = model.accessors[prim.attributes[std::string("TANGENT")]];
+
+                    assert(accessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT, "tanget is not float!");
                     bufferView = model.bufferViews[accessor.bufferView];
                     buffer = model.buffers[bufferView.buffer];
                     auto tangents = reinterpret_cast<const float*>(&buffer.data[bufferView.byteOffset + accessor.
                         byteOffset]);
+
+               
                     for (size_t i = 0; i < accessor.count; ++i)
                     {
                         glm::vec4 tangent;

@@ -233,11 +233,11 @@ void vulkanRenderer::updateShadowImageViews(int frame )
 void vulkanRenderer::initVulkan()
 {
     this->rendererArena = {};
-    MemoryArena::initialize(&rendererArena, 1000000 * 100); // 100mb
+    MemoryArena::initialize(&rendererArena, 1000000 * 400); // 100mb
 
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        MemoryArena::initialize(&perFrameArenas[i], 1000000 * 100); // 100mb each //TODO JS: Could be much smaller if I had a separate arena for file loading
+        MemoryArena::initialize(&perFrameArenas[i], 1000000 * 400); // 100mb each //TODO JS: Could be much smaller if I had a separate arena for file loading
     }
     FramesInFlightData.resize(MAX_FRAMES_IN_FLIGHT);
     //Get instance
@@ -2259,6 +2259,23 @@ void SET_UP_SCENE(vulkanRenderer* app)
 
 // #define SPONZA
 
+    //spot light
+    //TODO JS: paramaterize better -- hard to set power and radius currently
+    app->scene->AddSpotLight(glm::vec3(2.5, 3, 3.3), glm::vec3(0, 0, -1), glm::vec3(1, 0, 1), 45, 14000);
+    
+    
+    //point lights    
+    app->scene->AddPointLight(glm::vec3(1, 1, 0), glm::vec3(1, 1, 1), 55);
+    app->scene->AddDirLight(glm::vec3(0,0,1), glm::vec3(1,1,1), 3);
+    app->scene->AddDirLight(glm::vec3(0.00, 1, 0),  glm::vec3(1, 1, 1), 33);
+    app->scene->AddPointLight(glm::vec3(-2, 2, 0), glm::vec3(1, 0, 0), 4422 / 2);
+    // app->scene->AddDirLight(glm::vec3(0,0,1), glm::vec3(0,1,0), 3);
+    app->scene->AddPointLight(glm::vec3(0, 0, 0), glm::vec3(1, 1, 0), 999 / 2);
+    
+    // app->scene->AddPointLight(glm::vec3(0, 8, -10), glm::vec3(0.2, 0, 1), 44 / 2);
+    
+    
+    
 
 #ifdef SPONZA 
     //TODO: gltf load fn that gets back struct, then append its contents to scene 
@@ -2314,9 +2331,9 @@ void SET_UP_SCENE(vulkanRenderer* app)
                 int objectID = 0;
                 //TODO JS: add objcet that takes matrix
                 if(parent[i] != -1)
-                objectID =  app->scene->AddObject( &app->scene->backing_meshes[meshLUT[object.meshidx]], materialLUT[object.matidx], gltf.materials[object.matidx].roughnessFactor, gltf.materials[object.matidx].metallicFactor,{},{},{}, tforms[parent[i]]);
+                objectID =  app->scene->AddObject( &app->scene->backing_meshes[meshLUT[object.meshidx]], materialLUT[object.matidx], gltf.materials[object.matidx].roughnessFactor, gltf.materials[object.matidx].metallicFactor,glm::vec3(1),glm::vec3(1),glm::vec3(0.01), tforms[parent[i]]);
                 else
-                objectID =  app->scene->AddObject( &app->scene->backing_meshes[meshLUT[object.meshidx]], materialLUT[object.matidx], gltf.materials[object.matidx].roughnessFactor, gltf.materials[object.matidx].metallicFactor,{},{},{});
+                objectID =  app->scene->AddObject( &app->scene->backing_meshes[meshLUT[object.meshidx]], materialLUT[object.matidx], gltf.materials[object.matidx].roughnessFactor, gltf.materials[object.matidx].metallicFactor,glm::vec3(1),glm::vec3(1),glm::vec3(0.01));
                 
                 tforms[i] = &app->scene->transforms.transformNodes[objectID];
                 addedCt++;
@@ -2344,23 +2361,7 @@ void SET_UP_SCENE(vulkanRenderer* app)
     
     //direciton light
        
-    //spot light
-    //TODO JS: paramaterize better -- hard to set power and radius currently
-    app->scene->AddSpotLight(glm::vec3(2.5, 3, 3.3), glm::vec3(0, 0, -1), glm::vec3(1, 0, 1), 45, 14000);
-    
-    
-    //point lights    
-    app->scene->AddPointLight(glm::vec3(1, 1, 0), glm::vec3(1, 1, 1), 55);
-    app->scene->AddDirLight(glm::vec3(0,0,1), glm::vec3(1,1,1), 3);
-    app->scene->AddDirLight(glm::vec3(0.00, 1, 0),  glm::vec3(1, 1, 1), 33);
-    app->scene->AddPointLight(glm::vec3(-2, 2, 0), glm::vec3(1, 0, 0), 4422 / 2);
-    // app->scene->AddDirLight(glm::vec3(0,0,1), glm::vec3(0,1,0), 3);
-    app->scene->AddPointLight(glm::vec3(0, 0, 0), glm::vec3(1, 1, 0), 999 / 2);
-    
-    // app->scene->AddPointLight(glm::vec3(0, 8, -10), glm::vec3(0.2, 0, 1), 44 / 2);
-    
-    
-    
+
     
     glm::vec3 EulerAngles(0, 0, 0);
     auto MyQuaternion = glm::quat(EulerAngles);
