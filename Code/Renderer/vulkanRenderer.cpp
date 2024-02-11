@@ -24,6 +24,7 @@
 #include "VkBootstrap.h"
 #include "vulkan-utilities.h"
 #include "gltf/gltfLoading.h"
+#include "Scene/Transforms.h"
 #include "VulkanIncludes/VulkanMemory.h"
 
 struct gpuPerShadowData;
@@ -1761,7 +1762,7 @@ void vulkanRenderer::mainLoop()
 void vulkanRenderer::UpdateRotations()
 {
     //<Rotation update
-    glm::vec3 EulerAngles = glm::vec3(0, 1, 0.00) * deltaTime; // One revolution per second
+    glm::vec3 EulerAngles = glm::vec3(0, 1, 0.00) * deltaTime / 10.0f; // One revolution per second
     auto MyQuaternion = glm::quat(EulerAngles);
 
     // Conversion from axis-angle
@@ -2198,25 +2199,33 @@ void SET_UP_SCENE(vulkanRenderer* app)
     std::vector<int> randomMeshes;
     std::vector<int> randomMaterials;
 
-    localTransform root1 = {{}, "ROOT 1", {0}, {}};
-    localTransform root2 = {{}, "ROOT 2", {0}, {}};
-    auto child = AddChild(&root1, "CHILD1", {});
-    auto child1_1 = AddChild(child.get(), "CHILD1_CHILD1", {});
-    AddChild(child.get(), "CHILD1_CHILD2", {});
-    AddChild(child.get(), "CHILD1_CHILD3", {});
-    auto child1_4 = AddChild(child.get(), "CHILD1_CHILD4", {});
-    AddChild(child1_1.get(), "CHILD1_CHILD1_CHILD1", {});
-    AddChild(child1_4.get(), "CHILD1_CHILD4_CHILD1", {});
-    printf("PRE REMOVE ==== \n");
-    printGraph(root1, 0 );
-    rmChild(child.get(), child1_1);
-    printf("POST REMOVE ==== \n");
-    printGraph(root1, 0 );
-
-    std::span roots = std::span(&root1, 1);
-    flattenTransformHiearchy(roots);
+    //Original transform test  
+    // localTransform root1 = {{}, "ROOT 1", TRANSFORM_ID++, {0}, {}};
+    // localTransform root2 = {{}, "ROOT 2", TRANSFORM_ID++, {0}, {}};
+    // auto child = AddChild(&root1, "CHILD1",TRANSFORM_ID++, {});
+    // auto child1_1 = AddChild(child.get(), "CHILD1_CHILD1",TRANSFORM_ID++, {});
+    // AddChild(child.get(), "CHILD1_CHILD2",TRANSFORM_ID++, {});
+    // AddChild(child.get(), "CHILD1_CHILD3",TRANSFORM_ID++, {});
+    // auto child1_4 = AddChild(child.get(), "CHILD1_CHILD4",TRANSFORM_ID++, {});
+    // AddChild(child1_1.get(), "CHILD1_CHILD1_CHILD1",TRANSFORM_ID++, {});
+    // AddChild(child1_4.get(), "CHILD1_CHILD4_CHILD1",TRANSFORM_ID++, {});
+    // printf("PRE REMOVE ==== \n");
+    // printGraph(root1, 0 );
+    // rmChild(child.get(), child1_1);
+    // printf("POST REMOVE ==== \n");
+    // printGraph(root1, 0 );
+    //
+    // std::span roots = std::span(&root1, 1);
+    // flattenTransformHiearchy(roots);
+    //
+    // localTransform* walk = &root1;
+    // while(!walk->children.empty())
+    // {
+    //     printf("looking up from %s to %s \n", walk->name.c_str(), lookupflt(walk->ID)->name.c_str());
+    //     walk = walk->children[0].get();
+    // }
   
-    exit(10);
+    // exit(10);
 
     //NEXT STEPS:
     //1- Way to associate objects with flattened tree matrices
@@ -2286,7 +2295,14 @@ void SET_UP_SCENE(vulkanRenderer* app)
     glm::vec3 EulerAngles(0, 0, 0);
     auto MyQuaternion = glm::quat(EulerAngles);
     
-    
+    auto root = app->scene->AddObject(
+              &app->scene->backing_meshes[randomMeshes[rand() % randomMeshes.size()]],
+              randomMaterials[1], 0, false,
+              glm::vec4(0, 0, 0, 0) * 1.2f,
+              MyQuaternion,
+              glm::vec3(0.5));
+
+    localTransform* tform = &app->scene->objects.transformNodes[root];
     for (int i = 0; i < 100; i++)
     {
         for (int j = i == 0 ? 1 : 0 ; j < 10; j ++)
@@ -2300,14 +2316,15 @@ void SET_UP_SCENE(vulkanRenderer* app)
                 randomMaterials[textureIndex], rowRoughness, false,
                 glm::vec4((j), (i / 10) * 1.0, - (i % 10), 1) * 1.2f,
                 MyQuaternion,
-                glm::vec3(0.5));
+                glm::vec3(0.5), tform);
             textureIndex = rand() % randomMaterials.size();
         }
     
     }
+    flattenTransformHiearchy(app->scene->rootTransforms.getSpan(), app->scene);
 }
 
-    // add plane
+    // add planep
      // app->scene->AddObject( &app->scene->backing_meshes[cube],
      //     0,
      //     0,

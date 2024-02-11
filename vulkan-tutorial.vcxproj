@@ -189,6 +189,7 @@
     </ClCompile>
     <ClCompile Include="Code\Scene\SceneObjectData.cpp">
     </ClCompile>
+    <ClCompile Include="Code\Scene\Transforms.cpp" />
     <ClCompile Include="External\ImageLibraryImplementations.cpp" />
     <ClCompile Include="External\MeshLibraryImplementations.cpp" />
     <ClCompile Include="External\mikktspace.c" />
@@ -219,6 +220,7 @@
     <ClInclude Include="Code\Renderer\VulkanIncludes\Vulkan_Includes.h" />
     <ClInclude Include="Code\Renderer\vulkanRenderer.h" />
     <ClInclude Include="Code\Scene\SceneObjectData.h" />
+    <ClInclude Include="Code\Scene\Transforms.h" />
     <ClInclude Include="ImageLibraryImplementations.h" />
     <ClInclude Include="MeshLibraryImplementations.h" />
     <ClCompile Include="External\weldmesh.c" />

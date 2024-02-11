@@ -15,92 +15,11 @@
 
 #include <General/MemoryArena.h>
 
-const int OBJECT_MAX = 3000; 
-const int LIGHT_MAX = 3000; 
-const int ASSET_MAX = 300;
-
-//TODO P0:
-/*
- *Look up table for locals -- store indices on graph and objects, make table during flatten
- *- GetLocalMatrix(ID)
- *  {
- *  localId = LUT[ID]
- *  return localMatrix[localId_something][localId_something]
- *      }
- *World matrices that are paralell with locals 
- *Update code that calculates world by looping over locals
- *System where like, every frame we loop over local transforms to build global transforms, then feed them to gpu
- *Move old transforms to new system 
- * Test with existing pipeline 
- */
-//TODO P1:
-/*
- * Feed transforms from gltf
- * Maybe API to make a bunch of graph side changes and then rebuild flattened after
- * */
-//TODO p2:
-/*
- *Better memory layout (nested localtransforms sequential in memory)
- *Don't rebuild from graph, do adds/removes directly to flattened
- *Get rid of sharedptrs, use a local arena and mark dead stuff (for compaction?)comm
- */
-std::shared_ptr<localTransform> AddChild(localTransform* tgt, std::string childName, glm::mat4 childMat)
-{
-    tgt->children.push_back(std::make_shared<localTransform>(childMat, childName, tgt->depth +1u));
-    return tgt->children[tgt->children.size() - 1];
-}
-
-void rmChild(localTransform* tgt, std::shared_ptr<localTransform> remove)
-{
-    tgt->children.erase(std::remove(tgt->children.begin(), tgt->children.end(), remove), tgt->children.end());
-    
-}
-
-struct stackEntry
-{
-    int visited;
-    std::span<std::shared_ptr<localTransform>> entry;
-};
-
-//This is probably insane, i have a cold and can't remember how trees work
-void flattenTransformHiearchy(std::span<localTransform> roots)
-{
-    localTransformHiearchy.clear();
-    localTransformHiearchy.push_back({});
-    std::stack<stackEntry> queue = {};
-    for(int i = 0; i < roots.size(); i++)
-    {
-        if (roots[i].children.size() != 0)
-            queue.push({0, std::span(roots[i].children)});
-        localTransformHiearchy[0].push_back({roots[i].matrix, roots[i].name, 0});
-        while(!queue.empty())
-        {
-            stackEntry* t = &queue.top();
-            //We're finished with this node, pop it off the stack
-            if(t->visited >= t->entry.size())
-            {
-                queue.pop();
-                continue;
-            }
-            int i = t->visited;
-            //"Inner loop"
-            if (t->entry[i]->children.size() != 0)
-                queue.push({0, t->entry[i]->children});
-            if (localTransformHiearchy.size() == t->entry[i]->depth)
-            {
-                localTransformHiearchy.push_back({});
-            }
-            localTransformHiearchy[t->entry[i]->depth]
-                .push_back({t->entry[i]->matrix, t->entry[i]->name, (uint8_t)(localTransformHiearchy[t->entry[i]->depth -1].size() -1)});
-
-            t->visited++;
-        }
-    }
-}
 
 //No scale for now
 void InitializeScene(MemoryArena::memoryArena* arena, Scene* scene)
 {
+    scene->rootTransforms =  Array(MemoryArena::AllocSpan<localTransform*>(arena, OBJECT_MAX));
     //Parallel arrays per-object
     scene->objects = {};
     scene->objects.objectsCount = 0;
@@ -110,6 +29,8 @@ void InitializeScene(MemoryArena::memoryArena* arena, Scene* scene)
     scene->objects.materials = Array(MemoryArena::AllocSpan<Material>(arena, OBJECT_MAX));
     scene->objects.meshIndices = Array(MemoryArena::AllocSpan<uint32_t>(arena, OBJECT_MAX));
     scene->objects.matrices = Array(MemoryArena::AllocSpan<glm::mat4>(arena, OBJECT_MAX));
+    scene->objects.transformIDs = Array(MemoryArena::AllocSpan<uint64_t>(arena, OBJECT_MAX));
+    scene->objects.transformNodes.resize(OBJECT_MAX);
     // scene->objects.meshes = Array(MemoryArena::AllocSpan<MeshData*>(arena, ASSET_MAX));
     // scene->objects.meshVertCounts = Array(MemoryArena::AllocSpan<uint32_t>(arena, ASSET_MAX));
 
@@ -131,6 +52,27 @@ void InitializeScene(MemoryArena::memoryArena* arena, Scene* scene)
     
 }
 
+void applyWorldTransforms(Scene* s)
+{
+    uint32_t idx = 0;
+    for(int i =0; i < localTransformHiearchy.size(); i++)
+    {
+        for(int j = 0; j < localTransformHiearchy[i].size(); j++)
+        {
+            auto transform = localTransformHiearchy[i][j];
+            if (i != 0)
+            {
+                s->objects.matrices[idx] = localTransformHiearchy[i-1][transform.parent].matrix * transform.matrix;
+            }
+            else
+            {
+                s->objects.matrices[idx] = transform.matrix;
+            }
+            idx++;
+            
+        }
+    }
+}
 void Scene::Update()
 {
     glm::mat4 model;
@@ -142,15 +84,17 @@ void Scene::Update()
         model = translate(model, objects.translations[i]); //TODO: These should update at a different rate than camera stuff
         model *= objectLocalRotation; //TODO JS: temporarily turned off rotation to debug shadows
         model = scale(model, objects.scales[i]);
-        objects.matrices[i] = model;
+        lookupflt(objects.transformIDs[i])->matrix = model;
     }
+
+    applyWorldTransforms(this);
 }
 
 //So things like, get the index back from this and then index in to these vecs to update them
 //At some point in the future I can replace this with a more sophisticated reference system if I need
 //Even just returning a pointer is probably plenty, then I can sort the lists, prune stuff, etc.
 int Scene::AddObject(MeshData* mesh, int textureidx, float material_roughness, bool material_metallic,
-                     glm::vec3 position, glm::quat rotation, glm::vec3 scale)
+                     glm::vec3 position, glm::quat rotation, glm::vec3 scale, localTransform* parent)
 {
     //TODD JS: version that can add
     // objects.meshes.push_back(mesh);
@@ -162,7 +106,22 @@ int Scene::AddObject(MeshData* mesh, int textureidx, float material_roughness, b
     objects.scales.push_back(scale);
     objects.matrices.push_back(glm::mat4(1.0));
     objects.meshIndices.push_back(mesh->id);
+    objects.transformIDs.push_back(objects.transformIDs.size()); //TODO JS: When we use real objects, we'll only create transforms with these ids
     // objects.meshVertCounts.push_back(mesh->vertcount);
+
+    if (parent != nullptr)
+    {
+        objects.transformNodes.push_back({objects.matrices[objects.objectsCount],"default", objects.transformIDs[objects.objectsCount], parent->depth +1u, {}});
+        addChild(parent,&objects.transformNodes[objects.transformNodes.size() -1]);
+    }
+    else
+    {
+        objects.transformNodes.push_back({objects.matrices[objects.objectsCount],"default", objects.transformIDs[objects.objectsCount], 0, {}});
+        rootTransforms.push_back(&objects.transformNodes[objects.objectsCount]);
+    }
+
+    
+    
     return objects.objectsCount++;
 }
 

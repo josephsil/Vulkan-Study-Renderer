@@ -1,15 +1,15 @@
 #pragma once
-#include <memory>
-#include <memory>
-#include <queue>
+
 #include <span>
-#include <string>
+
 #include <vector>
 #include <glm/glm.hpp>
 #include<glm/gtc/quaternion.hpp>
 
 #include <General/Array.h>
 #include <Renderer/rendererGlobals.h>
+
+#include "Transforms.h"
 //
 struct positionRadius;
 
@@ -25,46 +25,10 @@ struct MeshData;
 struct VkDescriptorImageInfo;
 class Scene;
 
+const int OBJECT_MAX = 3000; 
+const int LIGHT_MAX = 3000; 
+const int ASSET_MAX = 300;
 
-//TODO JS: Transform hiearchy 
-//Basic idea: loop over each level of the hiearchy and compute all the matrices
-//In theory each level could be done in parallel
-//so like
-// [0][0][0][0][0][0][0][0][1][1][1][2][2][2][2][3][3][4]
-//Within each sub-level I'll order them by common parent, like
-// [1a][1a][1b][2a][2b][2c][2c][3a][3a][4a]
-// That ought to give us cache hits looking to parent, right, which will help in the case of big flat levels
-//All the 0s have no dependencies -- all the 1s depend on one of the 0s, and so on
-
-
-//Tree representation for inserting 
-struct localTransform
-{
-    glm::mat4 matrix;
-    std::string name;
-    uint8_t depth;
-    
-    std::vector<std::shared_ptr<localTransform>> children; 
-};
-
-std::shared_ptr<localTransform> AddChild(localTransform* tgt, std::string childName, glm::mat4 childMat);
-
-void rmChild(localTransform* tgt, std::shared_ptr<localTransform> remove);
-
-
-//Flat representation for updating
-//TODO when I flatten I'll just also build a LUT to the flattened indices by ID
-//TODO Objects cna be in ID order 
-struct flatlocalTransform
-{
-    glm::mat4 matrix;
-    std::string name;
-    uint8_t parent;
-};
-
-inline std::vector<std::vector<flatlocalTransform>> localTransformHiearchy; // [depth][object]
-
-void flattenTransformHiearchy(std::span<localTransform> roots);
 void InitializeScene(MemoryArena::memoryArena* arena, Scene* scene);
 class Scene
 {
@@ -77,6 +41,7 @@ public:
     int materialTextureCount();
 
     void OrderedObjectIndices(::MemoryArena::memoryArena* allocator, glm::vec3 eyePos, std::span<int> indices, bool invert);
+    Array<localTransform*> rootTransforms;
     struct Objects
     {
         int objectsCount = 0;
@@ -86,6 +51,8 @@ public:
         Array<glm::vec3> scales;
         Array<uint32_t> meshIndices;
         Array<Material> materials;
+        std::vector<localTransform> transformNodes;
+        Array<uint64_t> transformIDs;
         Array<glm::mat4> matrices; //Separate root matrices and non-root?
                                     //Root never have to get re-sorted
                                     //non-root need to look up where they are in flattened? 
@@ -122,7 +89,7 @@ public:
     void Update();
     //Returns the index to the object in the vectors
     int AddObject(MeshData* mesh, int textureidx, float material_roughness, bool material_metallic, glm::vec3 position,
-                  glm::quat rotation, glm::vec3 scale = glm::vec3(1));
+                  glm::quat rotation, glm::vec3 scale = glm::vec3(1), localTransform* parent = nullptr);
     uint32_t getVertexCount();
     int objectsCount();
     uint32_t getOffsetFromMeshID(int id);
