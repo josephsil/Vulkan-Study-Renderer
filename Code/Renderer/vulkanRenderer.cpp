@@ -1513,7 +1513,7 @@ void vulkanRenderer::recordCommandBufferOpaquePass(VkCommandBuffer commandBuffer
     for(int i =0; i < meshct; i++)
     {
         positionRadius bounds = scene->meshBoundingSphereRad[scene->objects.meshIndices[i]];
-        debugDrawCross(scene->objects.translations[i] + glm::vec3(scene->objects.matrices[i] * (bounds.objectSpacePos)), bounds.objectSpaceRadius * glm::max(glm::max(scene->objects.scales[i].x,scene->objects.scales[i].y), scene->objects.scales[i].z), {1,0,0});
+        debugDrawCross(scene->transforms.worldMatrices[i] * glm::vec4(glm::vec3(bounds.objectSpacePos), 1.0), bounds.objectSpaceRadius * glm::max(glm::max(scene->objects.scales[i].x,scene->objects.scales[i].y), scene->objects.scales[i].z), {1,0,0});
     }
     
 
@@ -1955,7 +1955,7 @@ void vulkanRenderer::drawFrame()
     ///    //Wait for IMAGE INDEX to be ready to present
  
 
-    updatePerFrameBuffers(currentFrame, scene->objects.matrices); // TODO JS: timing bugs if it doesn't happen after the fence
+    updatePerFrameBuffers(currentFrame, scene->transforms.worldMatrices); // TODO JS: timing bugs if it doesn't happen after the fence
 
     updateOpaqueDescriptorSets(&descriptorsetLayoutsData);
     updateShadowDescriptorSets(&descriptorsetLayoutsDataShadow, 0);
@@ -2302,7 +2302,7 @@ void SET_UP_SCENE(vulkanRenderer* app)
               MyQuaternion,
               glm::vec3(0.5));
 
-    localTransform* tform = &app->scene->objects.transformNodes[root];
+    localTransform* tform = &app->scene->transforms.transformNodes[root];
     for (int i = 0; i < 100; i++)
     {
         for (int j = i == 0 ? 1 : 0 ; j < 10; j ++)
@@ -2321,7 +2321,7 @@ void SET_UP_SCENE(vulkanRenderer* app)
         }
     
     }
-    flattenTransformHiearchy(app->scene->rootTransforms.getSpan(), app->scene);
+    app->scene->transforms.RebuildTransformDataFromNodes();
 }
 
     // add planep

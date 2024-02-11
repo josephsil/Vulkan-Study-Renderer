@@ -34,6 +34,7 @@ class Scene
 {
     //Should add a like gameobject-y thing that has a mesh and a material
 private:
+  
     //No scale for now
 public:
     int utilityTextureCount();
@@ -41,7 +42,8 @@ public:
     int materialTextureCount();
 
     void OrderedObjectIndices(::MemoryArena::memoryArena* allocator, glm::vec3 eyePos, std::span<int> indices, bool invert);
-    Array<localTransform*> rootTransforms;
+
+   
     struct Objects
     {
         int objectsCount = 0;
@@ -51,14 +53,13 @@ public:
         Array<glm::vec3> scales;
         Array<uint32_t> meshIndices;
         Array<Material> materials;
-        std::vector<localTransform> transformNodes;
         Array<uint64_t> transformIDs;
-        Array<glm::mat4> matrices; //Separate root matrices and non-root?
-                                    //Root never have to get re-sorted
-                                    //non-root need to look up where they are in flattened? 
+
+      
     };
 
     Objects objects;
+    objectTransforms transforms;
 
     // arallel arrays per Light
     int lightCount = 0;

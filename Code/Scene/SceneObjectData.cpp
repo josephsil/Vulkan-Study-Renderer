@@ -19,7 +19,7 @@
 //No scale for now
 void InitializeScene(MemoryArena::memoryArena* arena, Scene* scene)
 {
-    scene->rootTransforms =  Array(MemoryArena::AllocSpan<localTransform*>(arena, OBJECT_MAX));
+    
     //Parallel arrays per-object
     scene->objects = {};
     scene->objects.objectsCount = 0;
@@ -28,9 +28,14 @@ void InitializeScene(MemoryArena::memoryArena* arena, Scene* scene)
     scene->objects.scales = Array(MemoryArena::AllocSpan<glm::vec3>(arena, OBJECT_MAX));
     scene->objects.materials = Array(MemoryArena::AllocSpan<Material>(arena, OBJECT_MAX));
     scene->objects.meshIndices = Array(MemoryArena::AllocSpan<uint32_t>(arena, OBJECT_MAX));
-    scene->objects.matrices = Array(MemoryArena::AllocSpan<glm::mat4>(arena, OBJECT_MAX));
     scene->objects.transformIDs = Array(MemoryArena::AllocSpan<uint64_t>(arena, OBJECT_MAX));
-    scene->objects.transformNodes.resize(OBJECT_MAX);
+
+
+    
+    scene->transforms = {};
+    scene->transforms.worldMatrices = Array(MemoryArena::AllocSpan<glm::mat4>(arena, OBJECT_MAX));
+    scene->transforms.transformNodes.resize(OBJECT_MAX);
+    scene->transforms.rootTransformsView =  Array(MemoryArena::AllocSpan<localTransform*>(arena, OBJECT_MAX));
     // scene->objects.meshes = Array(MemoryArena::AllocSpan<MeshData*>(arena, ASSET_MAX));
     // scene->objects.meshVertCounts = Array(MemoryArena::AllocSpan<uint32_t>(arena, ASSET_MAX));
 
@@ -52,27 +57,7 @@ void InitializeScene(MemoryArena::memoryArena* arena, Scene* scene)
     
 }
 
-void applyWorldTransforms(Scene* s)
-{
-    uint32_t idx = 0;
-    for(int i =0; i < localTransformHiearchy.size(); i++)
-    {
-        for(int j = 0; j < localTransformHiearchy[i].size(); j++)
-        {
-            auto transform = localTransformHiearchy[i][j];
-            if (i != 0)
-            {
-                s->objects.matrices[idx] = localTransformHiearchy[i-1][transform.parent].matrix * transform.matrix;
-            }
-            else
-            {
-                s->objects.matrices[idx] = transform.matrix;
-            }
-            idx++;
-            
-        }
-    }
-}
+
 void Scene::Update()
 {
     glm::mat4 model;
@@ -84,10 +69,10 @@ void Scene::Update()
         model = translate(model, objects.translations[i]); //TODO: These should update at a different rate than camera stuff
         model *= objectLocalRotation; //TODO JS: temporarily turned off rotation to debug shadows
         model = scale(model, objects.scales[i]);
-        lookupflt(objects.transformIDs[i])->matrix = model;
+        transforms.get(objects.transformIDs[i])->matrix = model;
     }
 
-    applyWorldTransforms(this);
+    transforms.UpdateWorldTransforms();
 }
 
 //So things like, get the index back from this and then index in to these vecs to update them
@@ -104,20 +89,20 @@ int Scene::AddObject(MeshData* mesh, int textureidx, float material_roughness, b
     objects.translations.push_back(position);
     objects.rotations.push_back(rotation);
     objects.scales.push_back(scale);
-    objects.matrices.push_back(glm::mat4(1.0));
+    transforms.worldMatrices.push_back(glm::mat4(1.0));
     objects.meshIndices.push_back(mesh->id);
     objects.transformIDs.push_back(objects.transformIDs.size()); //TODO JS: When we use real objects, we'll only create transforms with these ids
     // objects.meshVertCounts.push_back(mesh->vertcount);
 
     if (parent != nullptr)
     {
-        objects.transformNodes.push_back({objects.matrices[objects.objectsCount],"default", objects.transformIDs[objects.objectsCount], parent->depth +1u, {}});
-        addChild(parent,&objects.transformNodes[objects.transformNodes.size() -1]);
+        transforms.transformNodes.push_back({transforms.worldMatrices[objects.objectsCount],"default", objects.transformIDs[objects.objectsCount], parent->depth +1u, {}});
+        addChild(parent,&transforms.transformNodes[transforms.transformNodes.size() -1]);
     }
     else
     {
-        objects.transformNodes.push_back({objects.matrices[objects.objectsCount],"default", objects.transformIDs[objects.objectsCount], 0, {}});
-        rootTransforms.push_back(&objects.transformNodes[objects.objectsCount]);
+        transforms.transformNodes.push_back({transforms.worldMatrices[objects.objectsCount],"default", objects.transformIDs[objects.objectsCount], 0, {}});
+        transforms.rootTransformsView.push_back(&transforms.transformNodes[objects.objectsCount]);
     }
 
     

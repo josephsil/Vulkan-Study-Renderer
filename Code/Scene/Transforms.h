@@ -10,10 +10,10 @@
 #include <vector>
 #include <glm/glm.hpp>
 
+#include "General/Array.h"
+
 
 class Scene;
-inline uint64_t TRANSFORM_ID = 0; //TODO JS: every object has a unique transform -- replace this with object index 
-//TODO JS: Transform hiearchy 
 //Basic idea: loop over each level of the hiearchy and compute all the matrices
 //In theory each level could be done in parallel
 //so like
@@ -34,22 +34,29 @@ struct localTransform
     std::vector<localTransform*> children; 
 };
 
-
 std::shared_ptr<localTransform> DEBUG_CREATE_CHILD(localTransform* tgt, std::string childName, uint64_t ID, glm::mat4 childMat);
 void addChild(localTransform* tgt,localTransform* child);
 void rmChild(localTransform* tgt, localTransform* remove);
-void flattenTransformHiearchy(std::span<localTransform*> roots, Scene* scene);
 
 
 //Flat representation for updating
 //TODO when I flatten I'll just also build a LUT to the flattened indices by ID
 //TODO Objects cna be in ID order
 
+
+
+
+
+
+
+
+//Non node stuff
 struct flT_lookup
 {
     uint8_t depth;
     uint32_t index;
 };
+
 struct flatlocalTransform
 {
     glm::mat4 matrix;
@@ -57,5 +64,32 @@ struct flatlocalTransform
     uint8_t parent; // Parent is always one level up 
 };
 
-flatlocalTransform* lookupflt(uint64_t ID);
-inline std::vector<std::vector<flatlocalTransform>> localTransformHiearchy; // [depth][object]
+
+
+
+//Data the scene uses for transforms
+struct objectTransforms
+{
+    //Node based representaiton
+    //Split out? Remove?
+    std::vector<localTransform> transformNodes;
+    Array<localTransform*> rootTransformsView;
+        
+
+    //world matrices we upload to gpu
+    //Add validation to make sure they've been updated?
+    Array<glm::mat4> worldMatrices;
+
+    //Representation we use every frame to calc transforms
+    //TODO: Flatten more, use contiguous memory
+    std::vector<std::vector<flatlocalTransform>> _local_transform_hiearchy; // [depth][object]
+
+
+    flatlocalTransform* get(uint64_t ID);
+    //used by get
+    std::vector<flT_lookup> _transform_lookup;
+    
+    void set (uint64_t ID, glm::mat4 mat);
+    void UpdateWorldTransforms();
+    void RebuildTransformDataFromNodes();
+};
