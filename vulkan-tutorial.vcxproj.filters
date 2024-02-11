@@ -87,6 +87,9 @@
     <ClCompile Include="External\weldmesh.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Code\Scene\Transforms.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="vulkan-tutorial.h">
@@ -194,6 +197,9 @@
     <ClInclude Include="External\weldmesh.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Code\Scene\Transforms.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="Textures\**">
@@ -1619,6 +1625,172 @@
     <None Include="Meshes\**" />
     <None Include="Meshes\**" />
     <None Include="Meshes\**" />
+    <None Include="Shaders\**" />
+    <None Include="Shaders\**" />
+    <None Include="Shaders\**" />
+    <None Include="Shaders\**" />
+    <None Include="Shaders\**" />
+    <None Include="Shaders\**" />
+    <None Include="Shaders\**" />
+    <None Include="Shaders\**" />
+    <None Include="Shaders\**" />
+    <None Include="Shaders\**" />
+    <None Include="Shaders\**" />
+    <None Include="Shaders\**" />
+    <None Include="Shaders\**" />
+    <None Include="Shaders\**" />
+    <None Include="Shaders\**" />
+    <None Include="Shaders\**" />
+    <None Include="Shaders\**" />
+    <None Include="Shaders\**" />
+    <None Include="Shaders\**" />
+    <None Include="Shaders\**" />
+    <None Include="Shaders\**" />
+    <None Include="Shaders\**" />
+    <None Include="Shaders\**" />
+    <None Include="Shaders\**" />
+    <None Include="Shaders\**" />
+    <None Include="Shaders\**" />
+    <None Include="Textures\**">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="Textures\**">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="Textures\**">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="Textures\**">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="Textures\**">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="Textures\**" />
+    <None Include="Textures\**">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="Textures\**" />
+    <None Include="Textures\**" />
+    <None Include="Textures\**" />
+    <None Include="Textures\**" />
+    <None Include="Textures\**" />
+    <None Include="Textures\**" />
+    <None Include="Textures\**" />
+    <None Include="Textures\**">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="Textures\**" />
+    <None Include="Textures\**">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="Textures\**">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="Textures\**">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="Textures\**" />
+    <None Include="Textures\**">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="Textures\**" />
+    <None Include="Textures\**">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="Textures\**">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="Textures\**" />
+    <None Include="Textures\**" />
+    <None Include="Textures\**" />
+    <None Include="Textures\**" />
+    <None Include="Textures\**">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="Textures\**" />
+    <None Include="Textures\**">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="Textures\**">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="Textures\**">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="Textures\**" />
+    <None Include="Textures\**">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="Textures\**" />
+    <None Include="Textures\**">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="Textures\**">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="Textures\**" />
+    <None Include="Textures\**" />
+    <None Include="Textures\**" />
+    <None Include="Textures\**" />
+    <None Include="Textures\**">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="Textures\**" />
+    <None Include="Textures\**">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="Textures\**">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="Textures\**">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="Textures\**" />
+    <None Include="Textures\**">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="Textures\**" />
+    <None Include="Textures\**">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="Textures\**">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="Textures\**" />
+    <None Include="Textures\**" />
+    <None Include="Textures\**" />
+    <None Include="Textures\**">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="Textures\**">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="Textures\**">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="Textures\**">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="Textures\**">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="Textures\**">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="Meshes\**" />
+    <None Include="Meshes\**" />
+    <None Include="Meshes\**" />
+    <None Include="Meshes\**" />
+    <None Include="Meshes\**" />
+    <None Include="Meshes\**" />
+    <None Include="Meshes\**" />
+    <None Include="Meshes\**" />
+    <None Include="Meshes\**" />
+    <None Include="Meshes\**" />
+    <None Include="Meshes\**" />
+    <None Include="Meshes\**" />
+    <None Include="Shaders\**" />
     <None Include="Shaders\**" />
     <None Include="Shaders\**" />
     <None Include="Shaders\**" />

@@ -5,22 +5,23 @@
 
 //TODO P0:
 /*
- *Look up table for locals -- store indices on graph and objects, make table during flatten
+ *DONE Look up table for locals -- store indices on graph and objects, make table during flatten
  *- GetLocalMatrix(ID)
  *  {
  *  localId = LUT[ID]
  *  return localMatrix[localId_something][localId_something]
  *      }
- *World matrices that are paralell with locals 
- *Update code that calculates world by looping over locals
- *System where like, every frame we loop over local transforms to build global transforms, then feed them to gpu
- *Move old transforms to new system 
- * Test with existing pipeline 
+ *DONE World matrices that are paralell with locals 
+ *DONE Update code that calculates world by looping over locals
+ *PROTOTYPE System where like, every frame we loop over local transforms to build global transforms, then feed them to gpu
+ *DONE Move old transforms to new system 
+ *DONE Test with existing pipeline 
  */
 //TODO P1:
 /*
  * Feed transforms from gltf
  * Maybe API to make a bunch of graph side changes and then rebuild flattened after
+ * API to get transform from object, etc.
  * Move out of globals
  * */
 //TODO p2:
