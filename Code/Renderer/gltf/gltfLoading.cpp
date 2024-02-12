@@ -267,10 +267,6 @@ gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
     MemoryArena::memoryArena loadingArena = {};
     MemoryArena::initialize(&loadingArena, 1000000 * 500); //TODO JS: right size this to the gltf size;
     
-    
-    //TODO JS: idea here is parse out te gltf to formats I can use, then pass it to the scene somehow
-    //Currently using the gltf native version of light and camera, but will probably refactor to use my own so I can pass the struct out elsewhere
-    //Ideally nowhere outside of here should have a tinygltf dependency 
     gltfdata output = {};
     const char* ext = strrchr(gltfpath, '.');
     assert (strcmp(ext, ".glb") == 0);
@@ -319,6 +315,8 @@ gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
         meshes[i].materialIndices = submeshMats;
     }
 
+    //TODO NEXT: submesh concept, real submeshes
+    //TODO NEXT: Import matrices 
     //Supporting: Textures using first tex coord, meshes with one tex coord
     //TODO support: multiple materials per mesh (prims), multiple tex coords, , lights
     //Won't do currently: any kinds of animation, cameras, samplers 

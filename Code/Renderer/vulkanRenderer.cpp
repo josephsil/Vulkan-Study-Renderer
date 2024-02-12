@@ -1230,7 +1230,9 @@ void vulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<glm::mat
 
         ubos[i].props.materialprops = glm::vec4(material.roughness, scene->objects.materials[i].metallic, 0, 0);
 
-        ubos[i].cullingInfo = {scene->meshBoundingSphereRad[scene->objects.meshIndices[i]]};
+        positionRadius objectBounds = scene->meshBoundingSphereRad[scene->objects.meshIndices[i]];
+        objectBounds.objectSpaceRadius *= glm::max(glm::max(scene->objects.scales[i].x, scene->objects.scales[i].y), scene->objects.scales[i].z); //TODO JS;
+        ubos[i].cullingInfo = objectBounds;
     }
     
     FramesInFlightData[currentFrame].uniformBuffers.updateMappedMemory({ubos.data(), (size_t)scene->objectsCount()});
