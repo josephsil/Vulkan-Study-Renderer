@@ -311,7 +311,8 @@ temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygl
                 //TODO JS: Not every prim
                 if (prim.attributes.contains("TANGENT"))
                 {
-                    // tangentsLoaded = true;
+                    tangentsLoaded = true;
+                  
                     accessor = model->accessors[prim.attributes[std::string("TANGENT")]];
 
                     assert(accessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT, "tanget is not float!");
@@ -320,7 +321,7 @@ temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygl
                     auto tangents = reinterpret_cast<const float*>(&buffer.data[bufferView.byteOffset + accessor.
                         byteOffset]);
 
-               
+
                     for (size_t i = 0; i < accessor.count; ++i)
                     {
                         glm::vec4 tangent;
@@ -376,7 +377,8 @@ temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygl
 
 
  //TODO: Cameras? Probably not
-//TODO: Skip importing texture sif we alreayd cache dthem -- custom load image fn for tinygltf?
+//TODO: More speed improvements: don't re-calculate tangents every load
+//TODO: Fix bounds for submeshes
 gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
 {
     bool gltfOutOfdate = FileCaching::assetOutOfDate(gltfpath);
@@ -490,7 +492,6 @@ gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
 
         if (cachetexture)
         {
-            //TODO JS: No gaurantee pixels data is interpreted correctly -- do I need to pass in type?
             assert(image.component == 4);
             assert(image.pixel_type == TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE);
             assert(image.bits == 8);
