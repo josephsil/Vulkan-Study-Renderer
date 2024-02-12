@@ -282,6 +282,10 @@ temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygl
 //TODO:
 gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
 {
+    MemoryArena::memoryArena loadingArena = {};
+    MemoryArena::initialize(&loadingArena, 1000000 * 500); //TODO JS: right size this to the gltf size;
+    
+    
     //TODO JS: idea here is parse out te gltf to formats I can use, then pass it to the scene somehow
     //Currently using the gltf native version of light and camera, but will probably refactor to use my own so I can pass the struct out elsewhere
     //Ideally nowhere outside of here should have a tinygltf dependency 
@@ -294,7 +298,7 @@ gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
     std::string warn;
 
    
-    MemoryArena::memoryArena* tempArena = handles.perframeArena; //TODO JS; use a loading arena 
+    MemoryArena::memoryArena* tempArena = &loadingArena; //TODO JS; use a loading arena 
     MemoryArena::memoryArena* permanentArena = handles.arena;
 
     bool ret = loader.LoadBinaryFromFile(&model, &err, &warn, gltfpath);
@@ -384,7 +388,8 @@ gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
     size_t lightCt = model.lights.size();
     printf("=======GLTF LOAD \nLoaded gltf %s \nLoaded %llu nodes, %llu models, %llu materials, %llu images. Didn't load %llu cameras, %llu animations, %llu textures, and %llu lights\n", gltfpath, nodeCt, meshCt, matCt, imageCt, cameraCt, animCt, texCt, lightCt);
 
-    
+
+    MemoryArena::RELEASE(&loadingArena);
     return {meshes, textures, materials,gltfNodes};
     
 }

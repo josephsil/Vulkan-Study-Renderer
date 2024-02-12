@@ -233,11 +233,11 @@ void vulkanRenderer::updateShadowImageViews(int frame )
 void vulkanRenderer::initVulkan()
 {
     this->rendererArena = {};
-    MemoryArena::initialize(&rendererArena, 1000000 * 400); // 100mb
+    MemoryArena::initialize(&rendererArena, 1000000 * 400); // 400mb
 
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        MemoryArena::initialize(&perFrameArenas[i], 1000000 * 400); // 100mb each //TODO JS: Could be much smaller if I had a separate arena for file loading
+        MemoryArena::initialize(&perFrameArenas[i], 1000000 * 100); // 100mb each //TODO JS: Could be much smaller if I used stable memory for per frame verts and stuff
     }
     FramesInFlightData.resize(MAX_FRAMES_IN_FLIGHT);
     //Get instance
@@ -421,6 +421,7 @@ void vulkanRenderer::populateMeshBuffers()
     }
 
     //TODO JS: to ring buffer?
+    //TODO JS: Use main arena? 
     auto gpuVerts = MemoryArena::AllocSpan<gpuvertex>(getHandles().perframeArena, vertCt);
 
     size_t vert = 0;
@@ -2257,7 +2258,7 @@ void SET_UP_SCENE(vulkanRenderer* app)
     randomMaterials.push_back(placeholderTextureidx);
 
 
-// #define SPONZA
+#define SPONZA
 
     //spot light
     //TODO JS: paramaterize better -- hard to set power and radius currently

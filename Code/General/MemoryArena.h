@@ -21,6 +21,7 @@ namespace MemoryArena
     void* alloc(memoryArena* a, ptrdiff_t allocSize, ptrdiff_t allocAlignment = 16);
     void free(memoryArena* a);
     void freeLast(memoryArena* a);
+    void RELEASE(memoryArena* a);
 
     template<typename T> T*get(memoryArena* a, aOFFSET offset)
     {

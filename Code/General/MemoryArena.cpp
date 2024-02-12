@@ -55,3 +55,8 @@ void MemoryArena::freeLast(memoryArena* a)
 {
     a->head = a->last;   
 }
+
+void MemoryArena::RELEASE(memoryArena* a)
+{
+    VirtualFree(a->base, 0, MEM_RELEASE);
+}
