@@ -150,7 +150,7 @@ FSOutput Frag(VSOutput input)
 
     float3 F0 = 0.04;
     F0 = lerp(F0, albedo, metallic);
-    float roughness = specMap.r;
+    float roughness = 1.0 - specMap.r;
     float3 F = FresnelSchlickRoughness(max(dot(normalMap, V), 0.0), F0, roughness);
 
     float3 kS = F;

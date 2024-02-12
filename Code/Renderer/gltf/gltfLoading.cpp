@@ -113,7 +113,7 @@ void loadAttributeOrDefault(Array<glm::vec4>* target, tinygltf::Model* model, ti
            }
     
 }
-temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygltf::Model model, tinygltf::Mesh mesh)
+temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygltf::Model model, tinygltf::Primitive prim)
 {
  
     
@@ -127,43 +127,26 @@ temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygl
     //TODOS: 3- Pass matrix in to scene -- make sur eits transposed right or whatever. 
     uint32_t indxCt = 0;
     uint32_t vertCt = 0;
-    uint32_t largest_prim = 0;
-    for (auto prim : mesh.primitives)
-    {
-        tinygltf::Accessor& accessor = model.accessors[prim.attributes["POSITION"]];
-        vertCt += (uint32_t)accessor.count;
-        tinygltf::Accessor& accessor2 = model.accessors[prim.indices > -1 ? prim.indices : 0];
-        indxCt += (uint32_t)accessor2.count;
-        if ((uint32_t)accessor2.count > largest_prim)
-        {
-            largest_prim = (uint32_t)accessor2.count;
-        }
-    }
-    
+
+    tinygltf::Accessor& accessor = model.accessors[prim.attributes["POSITION"]];
+    vertCt += (uint32_t)accessor.count;
+    tinygltf::Accessor& accessor2 = model.accessors[prim.indices > -1 ? prim.indices : 0];
+    indxCt += (uint32_t)accessor2.count;
+
+
 
     Array _vertices = MemoryArena::AllocSpan<Vertex>(tempArena, indxCt);
     Array _indices = MemoryArena::AllocSpan<uint32_t>(tempArena, indxCt);
-    Array<glm::vec4> positionvec = Array(MemoryArena::AllocSpan<glm::vec4>(tempArena, largest_prim));
-    Array<glm::vec4> normalvec = Array(MemoryArena::AllocSpan<glm::vec4>(tempArena, largest_prim));
-    Array<glm::vec4> uvvec = Array(MemoryArena::AllocSpan<glm::vec4>(tempArena, largest_prim));
-    Array<glm::vec4> colorvec = Array(MemoryArena::AllocSpan<glm::vec4>(tempArena, largest_prim));
-    Array<glm::vec4> tangentvec =Array( MemoryArena::AllocSpan<glm::vec4>(tempArena, largest_prim));
+    Array<glm::vec4> positionvec = Array(MemoryArena::AllocSpan<glm::vec4>(tempArena, indxCt));
+    Array<glm::vec4> normalvec = Array(MemoryArena::AllocSpan<glm::vec4>(tempArena, indxCt));
+    Array<glm::vec4> uvvec = Array(MemoryArena::AllocSpan<glm::vec4>(tempArena, indxCt));
+    Array<glm::vec4> colorvec = Array(MemoryArena::AllocSpan<glm::vec4>(tempArena, indxCt));
+    Array<glm::vec4> tangentvec =Array( MemoryArena::AllocSpan<glm::vec4>(tempArena, indxCt));
     bool tangentsLoaded = false;    
 
     uint32_t primIndexOffset = 0; 
-       for (auto prim : mesh.primitives)
-            {
 
-           //clear out the vectors
-            positionvec.ct = 0;
-             normalvec.ct = 0;
-             uvvec.ct = 0;
-             colorvec.ct = 0;
-             tangentvec.ct = 0;
-
-                    
-             
-                tinygltf::Accessor& accessor = model.accessors[prim.attributes["POSITION"]];
+                accessor = model.accessors[prim.attributes["POSITION"]];
                 tinygltf::BufferView& bufferView = model.bufferViews[accessor.bufferView];
                 tinygltf::Buffer& buffer = model.buffers[bufferView.buffer];
                 uint32_t primIdxCount  = accessor.count;
@@ -270,7 +253,6 @@ temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygl
                 //TODO JS: should I dedupe verts here if we aren't doing mikkt?
               
                 
-            }
 
     return {_vertices.getSpan(), _indices.getSpan(), tangentsLoaded};
 }
@@ -309,7 +291,8 @@ gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
     size_t matCt = model.materials.size();
     size_t nodeCt = model.nodes.size();
 
-    std::span<MeshData> meshes = MemoryArena::AllocSpan<MeshData>(permanentArena, meshCt);
+    //TODO JS: leaking some extra gltf loading data for now
+    std::span<gltfMesh> meshes = MemoryArena::AllocSpan<gltfMesh>(permanentArena, meshCt);
     std::span<TextureData> textures = MemoryArena::AllocSpan<TextureData>(permanentArena, imageCt); //These are what I call textures, what vulkan calls images
     std::span<material> materials = MemoryArena::AllocSpan<material>(permanentArena, matCt); //These are what I call textures, what vulkan calls images
     std::span<gltfNode> gltfNodes = MemoryArena::AllocSpan<gltfNode>(permanentArena, nodeCt); //These are what I call textures, what vulkan calls images 
@@ -322,9 +305,18 @@ gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
     for(int i = 0; i < meshCt; i++)
     {
 		MemoryArena::setCursor(tempArena);
-        temporaryloadingMesh tempMesh = geoFromGLTFMesh(tempArena, model, model.meshes[i]);
-        meshes[i] = FinalizeMeshDataFromTempMesh(permanentArena, tempArena, tempMesh);
-		MemoryArena::freeToCursor(tempArena);
+        uint32_t submeshCt = model.meshes[i].primitives.size();
+        std::span<MeshData> submeshes = MemoryArena::AllocSpan<MeshData>(permanentArena, submeshCt); 
+        std::span<uint32_t> submeshMats = MemoryArena::AllocSpan<uint32_t>(permanentArena, submeshCt); 
+        for(int j = 0; j <submeshCt; j++)
+        {
+            temporaryloadingMesh tempMesh = geoFromGLTFMesh(tempArena, model, model.meshes[i].primitives[j]);
+            submeshes[j] = FinalizeMeshDataFromTempMesh(permanentArena, tempArena, tempMesh);
+            submeshMats[j] = model.meshes[i].primitives[j].material;
+            MemoryArena::freeToCursor(tempArena);
+        }
+        meshes[i].submeshes = submeshes;
+        meshes[i].materialIndices = submeshMats;
     }
 
     //Supporting: Textures using first tex coord, meshes with one tex coord
@@ -375,7 +367,7 @@ gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
 	    {
 	        xform = glm::mat4(1);
 	    }
-	    gltfNodes[i] = {node.mesh, model.meshes[node.mesh].primitives[0].material, xform, std::span(node.children)};
+	    gltfNodes[i] = {node.mesh, xform, std::span(node.children)};
 	}
 
 

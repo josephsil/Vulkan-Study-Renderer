@@ -75,16 +75,21 @@ void Scene::Update()
     transforms.UpdateWorldTransforms();
 }
 
+//TODO JS PRIMS:
+//TODO JS Objects are currently what's drawn -- per object there's a mesh, materal, and translatio ninfo
+//TODO JS: Easiest thing is to add the prims as new objects, and then later break the transform data apart from the object data
+//TODO JS: not every objcet neeeds a transform -- prims should use a praent transform.
+//TODO JS: So I'll do it in two steps -- first I'll add prims as objects, then ill split "drawables" ("models"?) and "transformablse" ("objects"?)
 //So things like, get the index back from this and then index in to these vecs to update them
 //At some point in the future I can replace this with a more sophisticated reference system if I need
 //Even just returning a pointer is probably plenty, then I can sort the lists, prune stuff, etc.
 int Scene::AddObject(MeshData* mesh, int textureidx, float material_roughness, bool material_metallic,
-                     glm::vec3 position, glm::quat rotation, glm::vec3 scale, localTransform* parent)
+                     glm::vec3 position, glm::quat rotation, glm::vec3 scale, localTransform* parent, int pipelineidx)
 {
     //TODD JS: version that can add
     // objects.meshes.push_back(mesh);
     objects.materials.push_back(Material{
-        .pipelineidx = (uint32_t)(objects.objectsCount % 20 > 10 ? 0 : 1), .backingTextureidx = textureidx, .metallic = material_metallic, .roughness = material_roughness
+        .pipelineidx = pipelineidx == -1 ? (uint32_t)(objects.objectsCount % 20 > 10 ? 0 : 1) : pipelineidx, .backingTextureidx = textureidx, .metallic = material_metallic, .roughness = material_roughness
     });
     objects.translations.push_back(position);
     objects.rotations.push_back(rotation);
@@ -96,12 +101,13 @@ int Scene::AddObject(MeshData* mesh, int textureidx, float material_roughness, b
 
     if (parent != nullptr)
     {
-        transforms.transformNodes.push_back({transforms.worldMatrices[objects.objectsCount],"default", objects.transformIDs[objects.objectsCount], parent->depth +1u, {}});
+        transforms.transformNodes[objects.objectsCount] = {transforms.worldMatrices[objects.objectsCount],"default", objects.transformIDs[objects.objectsCount], parent->depth +1u, {}};
         addChild(parent,&transforms.transformNodes[transforms.transformNodes.size() -1]);
     }
     else
     {
-        transforms.transformNodes.push_back({transforms.worldMatrices[objects.objectsCount],"default", objects.transformIDs[objects.objectsCount], 0, {}});
+        auto span = transforms.worldMatrices.getSpan();
+        transforms.transformNodes[objects.objectsCount]= {span[objects.objectsCount],"default", objects.transformIDs[objects.objectsCount], 0, {}};
         transforms.rootTransformsView.push_back(&transforms.transformNodes[objects.objectsCount]);
     }
 

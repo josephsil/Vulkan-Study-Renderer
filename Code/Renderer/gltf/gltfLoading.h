@@ -8,10 +8,15 @@
 
 struct TextureData;
 struct MeshData;
+
+struct gltfMesh
+{
+     std::span<MeshData> submeshes;
+     std::span<uint32_t> materialIndices;
+};
 struct gltfNode
 {
     int meshidx;
-    int matidx;
     glm::mat4 tform;
     std::span<int> children;
 };
@@ -32,7 +37,9 @@ struct material
 };
 struct gltfdata
 {
-    std::span<MeshData> meshes;
+    //TODO JS: to span of spans for submeshes 
+    std::span<gltfMesh> meshes;
+
     std::span<TextureData> textures;
     std::span<material> materials;
     std::span<gltfNode> objects;

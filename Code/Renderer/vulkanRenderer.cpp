@@ -2281,8 +2281,14 @@ void SET_UP_SCENE(vulkanRenderer* app)
 #ifdef SPONZA 
     //TODO: gltf load fn that gets back struct, then append its contents to scene 
     auto gltf = GltfLoadMeshes(app->getHandles(), "Meshes/sponza.glb");
-    std::span<int> meshLUT = MemoryArena::AllocSpan<int>(app->getHandles().perframeArena, gltf.meshes.size());
+
+
+    //TODO JS: to span of spans for submeshes 
+    std::span<std::span<int>> meshLUT = MemoryArena::AllocSpan<std::span<int>>(app->getHandles().perframeArena, gltf.meshes.size());
     std::span<int> materialLUT = MemoryArena::AllocSpan<int>(app->getHandles().perframeArena, gltf.materials.size());
+
+
+    
     std::span<int> parent = MemoryArena::AllocSpan<int>(app->getHandles().perframeArena, gltf.objects.size());
     std::span<bool> created = MemoryArena::AllocSpan<bool>(app->getHandles().perframeArena, gltf.objects.size());
     std::span<localTransform*> tforms = MemoryArena::AllocSpan<localTransform*>(app->getHandles().perframeArena, gltf.objects.size());
@@ -2296,7 +2302,11 @@ void SET_UP_SCENE(vulkanRenderer* app)
 
     for(int i = 0; i < gltf.meshes.size(); i++)
     {
-        meshLUT[i] = app->scene->AddBackingMesh(gltf.meshes[i]);
+        meshLUT[i] =MemoryArena::AllocSpan<int>(app->getHandles().perframeArena, gltf.meshes[i].submeshes.size());
+        for(int j = 0; j < gltf.meshes[i].submeshes.size(); j++)
+        {
+            meshLUT[i][j] = app->scene->AddBackingMesh(gltf.meshes[i].submeshes[j]);
+        }
     }
     for(int i =0; i < gltf.materials.size(); i++)
     {
@@ -2328,16 +2338,22 @@ void SET_UP_SCENE(vulkanRenderer* app)
             auto object = gltf.objects[i];
             if (parent[i] == -1 || created[parent[i]])
             {
-
-                int objectID = 0;
-                //TODO JS: add objcet that takes matrix
-                if(parent[i] != -1)
-                objectID =  app->scene->AddObject( &app->scene->backing_meshes[meshLUT[object.meshidx]], materialLUT[object.matidx], gltf.materials[object.matidx].roughnessFactor, gltf.materials[object.matidx].metallicFactor,glm::vec3(1),glm::vec3(1),glm::vec3(0.01), tforms[parent[i]]);
-                else
-                objectID =  app->scene->AddObject( &app->scene->backing_meshes[meshLUT[object.meshidx]], materialLUT[object.matidx], gltf.materials[object.matidx].roughnessFactor, gltf.materials[object.matidx].metallicFactor,glm::vec3(1),glm::vec3(1),glm::vec3(0.01));
+                auto mesh  =  gltf.meshes[gltf.objects[i].meshidx];
+                for(int j = 0; j < mesh.submeshes.size(); j++)
+                {
+                    MeshData* scenemesh  = &app->scene->backing_meshes[j];
+                    int gltfMatIDX = mesh.materialIndices[j];
+                    int sceneMatIDX =  materialLUT[mesh.materialIndices[j]];
+                    int objectID = 0;
+                    //TODO JS: add objcet that takes matrix
+                    if(parent[i] != -1)
+                        objectID =  app->scene->AddObject(scenemesh, sceneMatIDX,  gltf.materials[gltfMatIDX].roughnessFactor, gltf.materials[gltfMatIDX].metallicFactor, glm::vec3(0),glm::vec3(0),glm::vec3(0.01), tforms[parent[i]], 1);
+                    else
+                        objectID =  app->scene->AddObject(scenemesh, sceneMatIDX,  gltf.materials[gltfMatIDX].roughnessFactor, gltf.materials[gltfMatIDX].metallicFactor, glm::vec3(0),glm::vec3(0),glm::vec3(0.01), nullptr, 1);
                 
-                tforms[i] = &app->scene->transforms.transformNodes[objectID];
-                addedCt++;
+                    if (j == 0) tforms[i] = &app->scene->transforms.transformNodes[objectID]; //Only the first one can have children because these are like "fake objects"
+                }
+                    addedCt++;
             }
             else
             {
@@ -2345,8 +2361,10 @@ void SET_UP_SCENE(vulkanRenderer* app)
             }
         }
     }
-#else
-    auto gltf = GltfLoadMeshes(app->getHandles(), "Meshes/pig.glb");
+
+printf("objects count: %d \n", app->scene->objects.objectsCount);
+// #else
+    gltf = GltfLoadMeshes(app->getHandles(), "Meshes/pig.glb");
     placeholderTextureidx = app->scene->AddMaterial(
     gltf.textures[gltf.materials[0].diffIndex],
       TextureData(app->getHandles(), "textures/pbr_factory-sliding/worn-factory-siding_roughness_metallic.tga",
@@ -2354,11 +2372,11 @@ void SET_UP_SCENE(vulkanRenderer* app)
       TextureData(app->getHandles(), "textures/pbr_factory-sliding/worn-factory-siding_normal-dx.png",
                   TextureData::TextureType::NORMAL));
     randomMaterials.push_back(placeholderTextureidx);
-    randomMeshes.push_back(app->scene->AddBackingMesh(gltf.meshes[0]));
-    randomMeshes.push_back(app->scene->AddBackingMesh(GltfLoadMeshes(app->getHandles(), "Meshes/cubesphere.glb").meshes[0]));
+    randomMeshes.push_back(app->scene->AddBackingMesh(gltf.meshes[0].submeshes[0]));
+    randomMeshes.push_back(app->scene->AddBackingMesh(GltfLoadMeshes(app->getHandles(), "Meshes/cubesphere.glb").meshes[0].submeshes[0]));
     randomMeshes.push_back(app->scene->AddBackingMesh(MeshDataFromObjFile(app->getHandles(), "Meshes/monkey.obj")));
     
-    int cube = app->scene->AddBackingMesh(GltfLoadMeshes(app->getHandles(), "Meshes/cube.glb").meshes[0]);
+    int cube = app->scene->AddBackingMesh(GltfLoadMeshes(app->getHandles(), "Meshes/cube.glb").meshes[0].submeshes[0]);
     
     //direciton light
        
@@ -2388,7 +2406,7 @@ void SET_UP_SCENE(vulkanRenderer* app)
                 randomMaterials[textureIndex], rowRoughness, false,
                 glm::vec4((j), (i / 10) * 1.0, - (i % 10), 1) * 1.2f,
                 MyQuaternion,
-                glm::vec3(0.5), tform);
+                glm::vec3(0.5));
             textureIndex = rand() % randomMaterials.size();
         }
     
