@@ -167,7 +167,11 @@
     <ClCompile Include="Code\Renderer\CommandPoolManager.cpp">
     </ClCompile>
     <ClCompile Include="Code\Renderer\gltf\gltfLoading.cpp" />
-    <ClCompile Include="Code\Renderer\gltf\gltf_impl.cpp" />
+    <ClCompile Include="Code\Renderer\gltf\gltf_impl.cpp">
+      <Optimization Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">MaxSpeed</Optimization>
+      <BasicRuntimeChecks Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+      </BasicRuntimeChecks>
+    </ClCompile>
     <ClCompile Include="Code\Renderer\MeshData.cpp">
     </ClCompile>
     <ClCompile Include="Code\Renderer\MikkTImpl.cpp" />
@@ -192,7 +196,11 @@
     <ClCompile Include="Code\Scene\Transforms.cpp" />
     <ClCompile Include="External\ImageLibraryImplementations.cpp" />
     <ClCompile Include="External\MeshLibraryImplementations.cpp" />
-    <ClCompile Include="External\mikktspace.c" />
+    <ClCompile Include="External\mikktspace.c">
+      <Optimization Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">MaxSpeed</Optimization>
+      <BasicRuntimeChecks Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+      </BasicRuntimeChecks>
+    </ClCompile>
     <ClCompile Include="vkbootstrap\VkBootstrap.cpp" />
     <ClCompile Include="vulkan-tutorial.cpp" />
     <ClInclude Include="Code\General\Array.h" />

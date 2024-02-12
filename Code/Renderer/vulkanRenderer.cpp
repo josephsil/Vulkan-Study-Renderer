@@ -2347,11 +2347,20 @@ void SET_UP_SCENE(vulkanRenderer* app)
                     int gltfMatIDX = mesh.materialIndices[j];
                     int sceneMatIDX =  materialLUT[mesh.materialIndices[j]];
                     int objectID = 0;
+                    localTransform* parentTransform =( parent[i] != -1) ? tforms[parent[i]] : nullptr;
+                    assert(object.scale == glm::vec3(1.0));
+                    assert(object.scale * 0.01f == glm::vec3(1.0) * 0.01f);
                     //TODO JS: add objcet that takes matrix
-                    if(parent[i] != -1)
-                        objectID =  app->scene->AddObject(scenemesh, sceneMatIDX,  gltf.materials[gltfMatIDX].roughnessFactor, gltf.materials[gltfMatIDX].metallicFactor, glm::vec3(0),glm::vec3(0),glm::vec3(0.01), tforms[parent[i]], 1);
-                    else
-                        objectID =  app->scene->AddObject(scenemesh, sceneMatIDX,  gltf.materials[gltfMatIDX].roughnessFactor, gltf.materials[gltfMatIDX].metallicFactor, glm::vec3(0),glm::vec3(0),glm::vec3(0.01), nullptr, 1);
+                        objectID =  app->scene->AddObject(
+                            scenemesh,
+                            sceneMatIDX,
+                            gltf.materials[gltfMatIDX].roughnessFactor,
+                            gltf.materials[gltfMatIDX].metallicFactor,
+                            object.translation,
+                            object.rotation,
+                            object.scale * 0.01f, 
+                            parentTransform, 
+                            1);
                 
                     if (j == 0) tforms[i] = &app->scene->transforms.transformNodes[objectID]; //Only the first one can have children because these are like "fake objects"
                 }
@@ -2365,7 +2374,7 @@ void SET_UP_SCENE(vulkanRenderer* app)
     }
 
 printf("objects count: %d \n", app->scene->objects.objectsCount);
-// #else
+#else
     gltf = GltfLoadMeshes(app->getHandles(), "Meshes/pig.glb");
     placeholderTextureidx = app->scene->AddMaterial(
     gltf.textures[gltf.materials[0].diffIndex],

@@ -2,6 +2,7 @@
 
 #pragma region forward declarations
 #include <cstdint>
+#include <vulkan/vulkan_core.h>
 
 #include "RendererContext.h"
 #include "VulkanIncludes/forward-declarations-renderer.h"
@@ -47,8 +48,10 @@ public:
     //FILEPATH PATH 
     TextureData(RendererContext rendererHandles, const char* path, TextureType type, VkImageViewType viewType = (VkImageViewType)-1);
     //GLTF PATH 
-	TextureData(const char* gltfPath, const char* textureName,  VkFormat format,  VkSamplerAddressMode samplerMode, unsigned char* pixels, uint64_t width, uint64_t height, int mipCt, RendererContext handles);
-	VkFormat GetOrLoadTexture(const char* path, VkFormat format, TextureType textureType, bool use_mipmaps);
+	TextureData(const char* OUTPUT_PATH, const char* textureName,  VkFormat format,  VkSamplerAddressMode samplerMode, unsigned char* pixels, uint64_t width, uint64_t height, int mipCt, RendererContext handles);
+    TextureData(const char* OUTPUT_PATH, const char* textureName, VkFormat format, VkSamplerAddressMode samplerMode,
+                uint64_t width, uint64_t height, int mipCt, RendererContext handles);
+    VkFormat GetOrLoadTexture(const char* path, VkFormat format, TextureType textureType, bool use_mipmaps);
 
     TextureData();
 

@@ -86,41 +86,36 @@ TextureData::TextureData(RendererContext rendererHandles, const char* path, Text
     createTextureSampler(&textureSampler, rendererHandles, mode, 0, maxmip);
 }
 
-//GLTF PATH 
-TextureData::TextureData(const char* gltfPath, const char* textureName, VkFormat format, VkSamplerAddressMode samplerMode, unsigned char* pixels, uint64_t width, uint64_t height, int mipCt, RendererContext handles)
+
+//TODO JS: these constructors suck and are error prone, was just easier refactor
+//FROM LOADED GLTF 
+TextureData::TextureData(const char* OUTPUT_PATH, const char* textureName, VkFormat format, VkSamplerAddressMode samplerMode, unsigned char* pixels, uint64_t width, uint64_t height, int mipCt, RendererContext handles)
 {
 	this->rendererHandles = handles;
-	std::span<const char> gltfPathSpan = std::span(gltfPath, strlen(gltfPath));
-	std::span<const char> textureNameSpan = std::span(textureName, strlen(textureName));
-	size_t len = gltfPathSpan.size() + textureNameSpan.size() + 5; //4 for ".ktx" and 1 for null terminated
-	auto newName = MemoryArena::AllocSpan<char>(handles.perframeArena, len);
-	memcpy(newName.data(),gltfPathSpan.data(), gltfPathSpan.size_bytes());
-	memcpy(newName.data() + gltfPathSpan.size_bytes(),textureNameSpan.data(), textureNameSpan.size_bytes());
-	memcpy(newName.data() + gltfPathSpan.size_bytes() + textureNameSpan.size_bytes(),".ktx\0", 5 * sizeof(char));
-	//TODO JS: no gaurantee this memcpy stuff works
-	
-	auto OUTPUT_PATH = std::string_view(newName.data(), newName.size());
-	bool generateKTX = true;
-	
-	//Don't regenerate ktx if image modified time is older than last ktx 
-	if (FileCaching::fileExists(OUTPUT_PATH))
-	{
-		if (!FileCaching::assetOutOfDate(gltfPath))
-		{
-			generateKTX = false;
-		}
-	}
+
 
 	// generateKTX = true;
-	if (generateKTX)
-	{
-		temporaryTextureInfo staging = createTextureImage(handles, pixels, width, height, format, true);
-		//TODO JS: no gaurantee taking output path data works -- not null terminated rght?
-		cacheKTXFromTempTexture(staging, OUTPUT_PATH.data(), format, TextureType::DIFFUSE, mipCt != 0);
-		
-	}
 
-	VkFormat loadedFormat = createImageKTX(OUTPUT_PATH.data(), TextureType::DIFFUSE, true);
+	temporaryTextureInfo staging = createTextureImage(handles, pixels, width, height, format, true);
+	//TODO JS: no gaurantee taking output path data works -- not null terminated rght?
+	cacheKTXFromTempTexture(staging, OUTPUT_PATH, format, TextureType::DIFFUSE, mipCt != 0);
+
+
+	VkFormat loadedFormat = createImageKTX(OUTPUT_PATH, TextureType::DIFFUSE, true);
+	
+	textureImageView = createTextureImageView(loadedFormat, VK_IMAGE_VIEW_TYPE_2D);
+	assert(textureImageView != VK_NULL_HANDLE);
+	createTextureSampler(&textureSampler, handles, samplerMode, 0, mipCt);
+	rendererHandles = handles;
+
+}
+
+//FROM CACHED GLTF 
+TextureData::TextureData(const char* OUTPUT_PATH, const char* textureName, VkFormat format, VkSamplerAddressMode samplerMode, uint64_t width, uint64_t height, int mipCt, RendererContext handles)
+{
+
+	this->rendererHandles = handles;
+	VkFormat loadedFormat = createImageKTX(OUTPUT_PATH, TextureType::DIFFUSE, true);
 	
 	textureImageView = createTextureImageView(loadedFormat, VK_IMAGE_VIEW_TYPE_2D);
 	assert(textureImageView != VK_NULL_HANDLE);

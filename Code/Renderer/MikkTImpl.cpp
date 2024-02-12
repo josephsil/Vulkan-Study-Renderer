@@ -23,7 +23,6 @@ MeshForMikkt::MeshForMikkt(MemoryArena::memoryArena* alloc, std::span<Vertex> ve
     }
 #pragma region mikkt
 
-
 int MikktImpl::face_count(const SMikkTSpaceContext* context)
 {
     auto mesh = static_cast<MeshForMikkt*>(context->m_pUserData);

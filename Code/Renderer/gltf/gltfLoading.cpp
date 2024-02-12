@@ -1,15 +1,129 @@
 #include "gltfLoading.h"
-
 #include <vulkan/vulkan_core.h>
 
 #include <Renderer/MeshData.h>
 #include <General/MemoryArena.h>
 #include <General/Array.h>
-#include "gltf_impl.h"
+
 #include <Renderer/TextureData.h>
 #include <General/FileCaching.h>
+#include <glm/gtx/matrix_decompose.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#define TINYGLTF_NO_STB_IMAGE
+#include "gltf_impl.h"
 
+
+//Default tinyobj load image fn
+bool LoadImageData(tinygltf::Image *image, const int image_idx, std::string *err,
+                   std::string *warn, int req_width, int req_height,
+                   const unsigned char *bytes, int size, void *user_data) {
+  (void)warn;
+
+  int w = 0, h = 0, comp = 0, req_comp = 0;
+
+  unsigned char *data = nullptr;
+
+  // preserve_channels true: Use channels stored in the image file.
+  // false: force 32-bit textures for common Vulkan compatibility. It appears
+  // that some GPU drivers do not support 24-bit images for Vulkan
+  req_comp = 4;
+  int bits = 8;
+  int pixel_type = TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE;
+
+  // It is possible that the image we want to load is a 16bit per channel image
+  // We are going to attempt to load it as 16bit per channel, and if it worked,
+  // set the image data accordingly. We are casting the returned pointer into
+  // unsigned char, because we are representing "bytes". But we are updating
+  // the Image metadata to signal that this image uses 2 bytes (16bits) per
+  // channel:
+  if (stbi_is_16_bit_from_memory(bytes, size)) {
+    data = reinterpret_cast<unsigned char *>(
+        stbi_load_16_from_memory(bytes, size, &w, &h, &comp, req_comp));
+    if (data) {
+      bits = 16;
+      pixel_type = TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT;
+    }
+  }
+
+  // at this point, if data is still NULL, it means that the image wasn't
+  // 16bit per channel, we are going to load it as a normal 8bit per channel
+  // image as we used to do:
+  // if image cannot be decoded, ignore parsing and keep it by its path
+  // don't break in this case
+  // FIXME we should only enter this function if the image is embedded. If
+  // image->uri references
+  // an image file, it should be left as it is. Image loading should not be
+  // mandatory (to support other formats)
+  if (!data) data = stbi_load_from_memory(bytes, size, &w, &h, &comp, req_comp);
+  if (!data) {
+    // NOTE: you can use `warn` instead of `err`
+    if (err) {
+      (*err) +=
+          "Unknown image format. STB cannot decode image data for image[" +
+          std::to_string(image_idx) + "] name = \"" + image->name + "\".\n";
+    }
+    return false;
+  }
+
+  if ((w < 1) || (h < 1)) {
+    stbi_image_free(data);
+    if (err) {
+      (*err) += "Invalid image data for image[" + std::to_string(image_idx) +
+                "] name = \"" + image->name + "\"\n";
+    }
+    return false;
+  }
+
+  if (req_width > 0) {
+    if (req_width != w) {
+      stbi_image_free(data);
+      if (err) {
+        (*err) += "Image width mismatch for image[" +
+                  std::to_string(image_idx) + "] name = \"" + image->name +
+                  "\"\n";
+      }
+      return false;
+    }
+  }
+
+  if (req_height > 0) {
+    if (req_height != h) {
+      stbi_image_free(data);
+      if (err) {
+        (*err) += "Image height mismatch. for image[" +
+                  std::to_string(image_idx) + "] name = \"" + image->name +
+                  "\"\n";
+      }
+      return false;
+    }
+  }
+
+  if (req_comp != 0) {
+    // loaded data has `req_comp` channels(components)
+    comp = req_comp;
+  }
+
+  image->width = w;
+  image->height = h;
+  image->component = comp;
+  image->bits = bits;
+  image->pixel_type = pixel_type;
+  image->image.resize(static_cast<size_t>(w * h * comp) * size_t(bits / 8));
+  std::copy(data, data + w * h * comp * (bits / 8), image->image.begin());
+  stbi_image_free(data);
+
+  return true;
+}
+
+bool LoadImageDataNoop(tinygltf::Image *image, const int image_idx, std::string *err,
+                   std::string *warn, int req_width, int req_height,
+                   const unsigned char *bytes, int size, void *user_data) {
+  int w = 0, h = 0, comp = 0, req_comp = 0;
+  unsigned char *data = nullptr;
+  req_comp = 4;
+  int bits = 8;
+  return true;
+}
 
 void loadScalarAttributeshort(Array<glm::vec4>* target, const unsigned short* _shorts, size_t count, uint8_t stride)
 {
@@ -113,9 +227,11 @@ void loadAttributeOrDefault(Array<glm::vec4>* target, tinygltf::Model* model, ti
            }
     
 }
-temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygltf::Model model, tinygltf::Primitive prim)
+
+temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygltf::Model* model, tinygltf::Primitive prim)
 {
- 
+
+    
     
    
     
@@ -128,9 +244,9 @@ temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygl
     uint32_t indxCt = 0;
     uint32_t vertCt = 0;
 
-    tinygltf::Accessor& accessor = model.accessors[prim.attributes["POSITION"]];
+    tinygltf::Accessor& accessor = model->accessors[prim.attributes["POSITION"]];
     vertCt += (uint32_t)accessor.count;
-    tinygltf::Accessor& accessor2 = model.accessors[prim.indices > -1 ? prim.indices : 0];
+    tinygltf::Accessor& accessor2 = model->accessors[prim.indices > -1 ? prim.indices : 0];
     indxCt += (uint32_t)accessor2.count;
 
 
@@ -146,9 +262,9 @@ temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygl
 
     uint32_t primIndexOffset = 0; 
 
-                accessor = model.accessors[prim.attributes["POSITION"]];
-                tinygltf::BufferView& bufferView = model.bufferViews[accessor.bufferView];
-                tinygltf::Buffer& buffer = model.buffers[bufferView.buffer];
+                accessor = model->accessors[prim.attributes["POSITION"]];
+                tinygltf::BufferView& bufferView = model->bufferViews[accessor.bufferView];
+                tinygltf::Buffer& buffer = model->buffers[bufferView.buffer];
                 uint32_t primIdxCount  = accessor.count;
                 auto positions = reinterpret_cast<const float*>(&buffer.data[bufferView.byteOffset + accessor.
                     byteOffset]);
@@ -164,9 +280,9 @@ temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygl
 
                 assert(prim.attributes.contains("NORMAL"), "NOT IMPLEMENTED -- DONT WORK SUPPORT MODELS WITHOUT NORMALS");
             
-                accessor = model.accessors[prim.attributes[std::string("NORMAL")]];
-                bufferView = model.bufferViews[accessor.bufferView];
-                buffer = model.buffers[bufferView.buffer];
+                accessor = model->accessors[prim.attributes[std::string("NORMAL")]];
+                bufferView = model->bufferViews[accessor.bufferView];
+                buffer = model->buffers[bufferView.buffer];
                 auto normals = reinterpret_cast<const float*>(&buffer.data[bufferView.byteOffset + accessor.
                     byteOffset]);
                 for (size_t i = 0; i < accessor.count; ++i)
@@ -177,9 +293,9 @@ temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygl
                     normal.z = normals[i * 3 + 2]; //TODO JS NORMAL MYSTERY: Are we loading these wrong?
                     normalvec.push_back(normal);
                 }
-                accessor = model.accessors[prim.attributes[std::string("TEXCOORD_0")]];
-                bufferView = model.bufferViews[accessor.bufferView];
-                buffer = model.buffers[bufferView.buffer];
+                accessor = model->accessors[prim.attributes[std::string("TEXCOORD_0")]];
+                bufferView = model->bufferViews[accessor.bufferView];
+                buffer = model->buffers[bufferView.buffer];
                 auto uvs = reinterpret_cast<const float*>(&buffer.data[bufferView.byteOffset + accessor.byteOffset]);
                 for (size_t i = 0; i < accessor.count; ++i)
                 {
@@ -190,17 +306,17 @@ temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygl
                 }
 
            //COLOR
-           loadAttributeOrDefault(&colorvec, &model, &prim, primIdxCount, "COLOR_0", glm::vec4(1));
+           loadAttributeOrDefault(&colorvec, model, &prim, primIdxCount, "COLOR_0", glm::vec4(1));
             
                 //TODO JS: Not every prim
                 if (prim.attributes.contains("TANGENT"))
                 {
                     // tangentsLoaded = true;
-                    accessor = model.accessors[prim.attributes[std::string("TANGENT")]];
+                    accessor = model->accessors[prim.attributes[std::string("TANGENT")]];
 
                     assert(accessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT, "tanget is not float!");
-                    bufferView = model.bufferViews[accessor.bufferView];
-                    buffer = model.buffers[bufferView.buffer];
+                    bufferView = model->bufferViews[accessor.bufferView];
+                    buffer = model->buffers[bufferView.buffer];
                     auto tangents = reinterpret_cast<const float*>(&buffer.data[bufferView.byteOffset + accessor.
                         byteOffset]);
 
@@ -215,9 +331,9 @@ temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygl
                         tangentvec.push_back(tangent);
                     }
                 }
-                accessor = model.accessors[prim.indices > -1 ? prim.indices : 0];
-                bufferView = model.bufferViews[accessor.bufferView];
-                buffer = model.buffers[bufferView.buffer];
+                accessor = model->accessors[prim.indices > -1 ? prim.indices : 0];
+                bufferView = model->bufferViews[accessor.bufferView];
+                buffer = model->buffers[bufferView.buffer];
                 const uint8_t* indicesData = buffer.data.data() + bufferView.byteOffset + accessor.byteOffset;
 
                 if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
@@ -258,12 +374,14 @@ temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygl
 }
 
 
-//TODO: Objects+Transforms from nodes
-//TODO: Textures
-//TODO: Cameras? Probably not
-//TODO:
+
+ //TODO: Cameras? Probably not
+//TODO: Skip importing texture sif we alreayd cache dthem -- custom load image fn for tinygltf?
 gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
 {
+    bool gltfOutOfdate = FileCaching::assetOutOfDate(gltfpath);
+
+
     MemoryArena::memoryArena loadingArena = {};
     MemoryArena::initialize(&loadingArena, 1000000 * 500); //TODO JS: right size this to the gltf size;
     
@@ -275,9 +393,12 @@ gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
     std::string err;
     std::string warn;
 
-   
+    if(gltfOutOfdate) loader.SetImageLoader(LoadImageData, nullptr);
+    else loader.SetImageLoader(LoadImageDataNoop, nullptr);
+    
     MemoryArena::memoryArena* tempArena = &loadingArena; //TODO JS; use a loading arena 
     MemoryArena::memoryArena* permanentArena = handles.arena;
+
 
     bool ret = loader.LoadBinaryFromFile(&model, &err, &warn, gltfpath);
     
@@ -306,7 +427,9 @@ gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
         std::span<uint32_t> submeshMats = MemoryArena::AllocSpan<uint32_t>(permanentArena, submeshCt); 
         for(int j = 0; j <submeshCt; j++)
         {
-            temporaryloadingMesh tempMesh = geoFromGLTFMesh(tempArena, model, model.meshes[i].primitives[j]);
+            temporaryloadingMesh tempMesh = geoFromGLTFMesh(tempArena, &model, model.meshes[i].primitives[j]);
+
+            //TODO JS: at some point move this out to run on the whole mesh, rather than submeshes 
             submeshes[j] = FinalizeMeshDataFromTempMesh(permanentArena, tempArena, tempMesh);
             submeshMats[j] = model.meshes[i].primitives[j].material;
             MemoryArena::freeToCursor(tempArena);
@@ -328,9 +451,9 @@ gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
 	    tinygltf::Material gltfmaterial = model.materials[i];
 	    materials[i] = {};
 	    //TODO JS: if these don't exist they're -1 -- otherwise they're 1 indexed 
-	    materials[i].diffIndex =  gltfmaterial.pbrMetallicRoughness.baseColorTexture.index -1;
-	    materials[i].specIndex = gltfmaterial.pbrMetallicRoughness.metallicRoughnessTexture.index -1;
-	    materials[i].normIndex =  gltfmaterial.normalTexture.index -1;
+	    materials[i].diffIndex =  gltfmaterial.pbrMetallicRoughness.baseColorTexture.index;
+	    materials[i].specIndex = gltfmaterial.pbrMetallicRoughness.metallicRoughnessTexture.index;
+	    materials[i].normIndex =  gltfmaterial.normalTexture.index;
 		materials[i].occlusionIndex = gltfmaterial.occlusionTexture.index;
 		materials[i].baseColorFactor = {gltfmaterial.pbrMetallicRoughness.baseColorFactor[0], gltfmaterial.pbrMetallicRoughness.baseColorFactor[1], gltfmaterial.pbrMetallicRoughness.baseColorFactor[2]};
 		materials[i].metallicFactor = gltfmaterial.pbrMetallicRoughness.metallicFactor;
@@ -345,29 +468,62 @@ gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
         assert( image.name.empty());
         std::string name = image.name.empty() ? std::to_string(i) : image.name;
 
-        //TODO JS: No gaurantee pixels data is interpreted correctly -- do I need to pass in type?
-        assert(image.component == 4);
-        assert(image.pixel_type == TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE);
-        assert(image.bits == 8);
-        textures[i] = TextureData(gltfpath,name.data(),  (VkFormat)VK_FORMAT_R8G8B8A8_SRGB,   VK_SAMPLER_ADDRESS_MODE_REPEAT, image.image.data(), image.width, image.height, 6,  handles);
+      
+
+        //Get image name 
+        std::span<const char> gltfPathSpan = std::span(gltfpath, strlen(gltfpath));
+        std::span<const char> textureNameSpan = std::span(name.data(), strlen(name.data()));
+        size_t len = gltfPathSpan.size() + textureNameSpan.size() + 5; //4 for ".ktx" and 1 for null terminated
+        auto newName = MemoryArena::AllocSpan<char>(handles.perframeArena, len);
+        memcpy(newName.data(),gltfPathSpan.data(), gltfPathSpan.size_bytes());
+        memcpy(newName.data() + gltfPathSpan.size_bytes(),textureNameSpan.data(), textureNameSpan.size_bytes());
+        memcpy(newName.data() + gltfPathSpan.size_bytes() + textureNameSpan.size_bytes(),".ktx\0", 5 * sizeof(char));
+        
+        auto cachedImagePath = std::string_view(newName.data(), newName.size());
+
+        bool cachetexture = true;
+        //Don't regenerate ktx if image modified time is older than last ktx 
+        if (FileCaching::fileExists(cachedImagePath) && !gltfOutOfdate)
+        {
+        cachetexture = false;
+        }
+
+        if (cachetexture)
+        {
+            //TODO JS: No gaurantee pixels data is interpreted correctly -- do I need to pass in type?
+            assert(image.component == 4);
+            assert(image.pixel_type == TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE);
+            assert(image.bits == 8);
+
+            textures[i] = TextureData(cachedImagePath.data(),name.data(),  (VkFormat)VK_FORMAT_R8G8B8A8_SRGB,   VK_SAMPLER_ADDRESS_MODE_REPEAT, image.image.data(), image.width, image.height, 6,  handles);
+        }
+        else
+        textures[i] = TextureData(cachedImagePath.data(),name.data(),  (VkFormat)VK_FORMAT_R8G8B8A8_SRGB,   VK_SAMPLER_ADDRESS_MODE_REPEAT,  image.width, image.height, 6,  handles);
+
     }
 
 	for(int i = 0; i < nodeCt; i++)
 	{
+	    
+	    glm::vec3 scale = glm::vec3(1.0);
+	    glm::quat rotation = glm::quat();
+	    glm::vec3 translation = glm::vec3(0);
+	    
 		tinygltf::Node node = model.nodes[i];
 		auto childIndices = node.children;
 	    glm::mat4 xform = {};
 	    if(node.matrix.size() == 16)
 	    {
 	        xform = glm::make_mat4<double>(node.matrix.data()); //TODO JS: do i need to transpose?
+	    
+	        glm::vec3 _1;
+	        glm::vec4 _2;
+	        glm::decompose(xform, scale, rotation, translation, _1, _2);
+	        rotation = glm::conjugate(rotation);
+	        //TODO JS: conjugate rot?
 	    }
-	    else
-	    {
-	        xform = glm::mat4(1);
-	    }
-	    gltfNodes[i] = {node.mesh, xform, std::span(node.children)};
+	    gltfNodes[i] = {node.mesh, std::span(node.children),  scale, rotation, translation};
 	}
-
 
     FileCaching::saveAssetChangedTime(gltfpath);
     

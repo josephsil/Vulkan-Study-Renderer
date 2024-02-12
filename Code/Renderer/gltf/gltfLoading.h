@@ -1,10 +1,15 @@
-#pragma once
-#include <span>
-#include <glm/fwd.hpp>
 
+#pragma once
+
+#define GLM_FORCE_RADIANS	
+#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#include <span>
+#include <glm/glm.hpp>
+#include<glm/gtc/quaternion.hpp>
 #include <Renderer/RendererContext.h>
-#include <tiny_gltf.h>
-#include <glm/mat4x4.hpp>
+
+
 
 struct TextureData;
 struct MeshData;
@@ -17,8 +22,12 @@ struct gltfMesh
 struct gltfNode
 {
     int meshidx;
-    glm::mat4 tform;
+
+    // glm::mat4 placeholder;
     std::span<int> children;
+    glm::vec3 scale;
+        glm::quat rotation;
+        glm::vec3 translation;
 };
 
 struct material
