@@ -231,16 +231,9 @@ void loadAttributeOrDefault(Array<glm::vec4>* target, tinygltf::Model* model, ti
 temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygltf::Model* model, tinygltf::Primitive prim)
 {
 
-    
-    
-   
-    
-    //get count
 
-    //TODOS: 1- Something is relaly wrong with memory <- need to scrub back the cursor after every prim
-                                                    // Need a stack of cursors I guess
     //TODOS: 2- Refactor the rest of the attributes like color?
-    //TODOS: 3- Pass matrix in to scene -- make sur eits transposed right or whatever. 
+
     uint32_t indxCt = 0;
     uint32_t vertCt = 0;
 
@@ -441,11 +434,8 @@ gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
     }
 
     //TODO NEXT: submesh concept, real submeshes
-    //TODO NEXT: Import matrices 
-    //Supporting: Textures using first tex coord, meshes with one tex coord
-    //TODO support: multiple materials per mesh (prims), multiple tex coords, , lights
+    //TODO support: lights
     //Won't do currently: any kinds of animation, cameras, samplers 
-    //For models, going to go with one tex coord for now
 
 
 	for (int i = 0; i < matCt; i++)
