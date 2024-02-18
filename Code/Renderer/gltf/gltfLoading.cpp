@@ -371,12 +371,7 @@ temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygl
 
  //TODO: Cameras? Probably not
 //TODO: More speed improvements: don't re-calculate tangents every load
-//TODO: Fix bounds for submeshes
-
-//TODO JS: KNOWN PROBLEMS
-        //TODO JS: Bounds are wrong (double scaled? *most* of them are right, maybe something more insidious)
-        //TODO JS: Second lion head is wrong
-        //TODO JS: 
+//TODO: Figure out what's going on with prim count 
 gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
 {
     bool gltfOutOfdate = FileCaching::assetOutOfDate(gltfpath);
@@ -432,6 +427,7 @@ gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
             //TODO JS: at some point move this out to run on the whole mesh, rather than submeshes 
             submeshes[j] = FinalizeMeshDataFromTempMesh(permanentArena, tempArena, tempMesh);
             submeshMats[j] = model.meshes[i].primitives[j].material;
+            assert( model.meshes[i].primitives[j].material != -1 && "-1 Material index (no material) not supported. TODO."); //TODO JS
             MemoryArena::freeToCursor(tempArena);
         }
         meshes[i].submeshes = submeshes;
@@ -517,6 +513,13 @@ gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
 	        glm::decompose(xform, scale, rotation, translation, _1, _2);
 	        rotation = glm::conjugate(rotation);
 	        //TODO JS: conjugate rot?
+	    }
+	    else
+	    {
+	        if (node.translation.size() == 3) translation =  glm::make_vec3(node.translation.data());
+	        if (node.scale.size() == 3) scale =   glm::make_vec3(node.scale.data());
+	        if (node.rotation.size() ==4) rotation = glm::make_quat(node.rotation.data());
+	        //
 	    }
 	    gltfNodes[i] = {node.mesh, std::span(node.children),  scale, rotation, translation};
 	}
