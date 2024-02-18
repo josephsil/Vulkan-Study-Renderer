@@ -976,7 +976,7 @@ std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocato
       
     case LIGHT_DIR:
         {
-            outputSpan = MemoryArena::AllocSpan<PerShadowData>(allocator, 4 ); //TODO JS: cascades
+            outputSpan = MemoryArena::AllocSpan<PerShadowData>(allocator, CASCADE_CT ); //TODO JS: cascades
 
             glm::mat4 invCam = glm::inverse(vp.proj * vp.view);
 
@@ -1001,7 +1001,7 @@ std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocato
          
             
             //cascades
-            float cascadeSplits[4] = {};
+            float cascadeSplits[CASCADE_CT] = {};
             for (uint32_t i = 0; i < 4; i++) {
                 float p = (i + 1) / static_cast<float>(4);
                 float log = minZ * std::pow(ratio, p);
@@ -1010,7 +1010,7 @@ std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocato
                 cascadeSplits[i] = (d - cam.nearPlane) / clipRange;
             }
 
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < CASCADE_CT; i++)
             {
                 float splitDist = cascadeSplits[i];
                 float lastSplitDist = i == 0 ? 0 : cascadeSplits[i-1]; 
@@ -1056,7 +1056,7 @@ std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocato
                 outputSpan[i] = {lightViewMatrix, lightProjection,  (cam.nearPlane + splitDist * clipRange) * -1.0f};
                 // OUTPUTPOSITION =  (cam.nearPlane + splitDist * clipRange) * -1.0f; //todo js
             }
-            return  outputSpan.subspan(0,4);
+            return  outputSpan.subspan(0,CASCADE_CT);
         }
     case LIGHT_SPOT:
         {

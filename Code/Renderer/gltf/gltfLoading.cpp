@@ -372,6 +372,11 @@ temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygl
  //TODO: Cameras? Probably not
 //TODO: More speed improvements: don't re-calculate tangents every load
 //TODO: Fix bounds for submeshes
+
+//TODO JS: KNOWN PROBLEMS
+        //TODO JS: Bounds are wrong (double scaled? *most* of them are right, maybe something more insidious)
+        //TODO JS: Second lion head is wrong
+        //TODO JS: 
 gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
 {
     bool gltfOutOfdate = FileCaching::assetOutOfDate(gltfpath);
