@@ -2246,7 +2246,7 @@ void SET_UP_SCENE(vulkanRenderer* app)
 
     int defaultTexture = app->scene->AddTexture(TextureData(app->getHandles(), "textures/blank.png", TextureData::DIFFUSE));
     int defaultSPec = app->scene->AddTexture(TextureData(app->getHandles(), "textures/default_roug.tga", TextureData::SPECULAR));
-    int defaultNormal = app->scene->AddTexture(TextureData(app->getHandles(), "textures/testtexture_normal.png", TextureData::SPECULAR));
+    int defaultNormal = app->scene->AddTexture(TextureData(app->getHandles(), "textures/blank.png", TextureData::SPECULAR));
 
     int placeholderMatidx;
     auto placeholderTextureidx = app->scene->AddTextureSet(
