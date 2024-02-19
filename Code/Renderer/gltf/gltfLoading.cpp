@@ -371,14 +371,13 @@ temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygl
 
  //TODO: Cameras? Probably not
 //TODO: More speed improvements: don't re-calculate tangents every load
-//TODO: Figure out what's going on with prim count 
 gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
 {
     bool gltfOutOfdate = FileCaching::assetOutOfDate(gltfpath);
 
 
     MemoryArena::memoryArena loadingArena = {};
-    MemoryArena::initialize(&loadingArena, 1000000 * 500); //TODO JS: right size this to the gltf size;
+    MemoryArena::initialize(&loadingArena, 100000 * 500); //TODO JS: right size this to the gltf size;
     
     gltfdata output = {};
     const char* ext = strrchr(gltfpath, '.');

@@ -235,11 +235,11 @@ void vulkanRenderer::updateShadowImageViews(int frame )
 void vulkanRenderer::initVulkan()
 {
     this->rendererArena = {};
-    MemoryArena::initialize(&rendererArena, 1000000 * 400); // 400mb
+    MemoryArena::initialize(&rendererArena, 1000000 * 200); // 200mb
 
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        MemoryArena::initialize(&perFrameArenas[i], 1000000 * 100); // 100mb each //TODO JS: Could be much smaller if I used stable memory for per frame verts and stuff
+        MemoryArena::initialize(&perFrameArenas[i], 100000 * 50); // 5mb each //TODO JS: Could be much smaller if I used stable memory for per frame verts and stuff
     }
     FramesInFlightData.resize(MAX_FRAMES_IN_FLIGHT);
     //Get instance
@@ -424,7 +424,7 @@ void vulkanRenderer::populateMeshBuffers()
 
     //TODO JS: to ring buffer?
     //TODO JS: Use main arena? 
-    auto gpuVerts = MemoryArena::AllocSpan<gpuvertex>(getHandles().perframeArena, vertCt);
+    auto gpuVerts = MemoryArena::AllocSpan<gpuvertex>(getHandles().arena, vertCt);
 
     size_t vert = 0;
     for (int j = 0; j < scene->meshCount; j++)
