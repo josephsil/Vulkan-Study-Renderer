@@ -36,14 +36,14 @@ using VkDescriptorPool = struct VkDescriptorPool_T*;
 using VkDescriptorSet = struct VkDescriptorSet_T*;
 
 using VkPipelineLayout = struct VkPipelineLayout_T*;
-enum VkSamplerAddressMode;
-enum VkImageViewType; 
+enum VkSamplerAddressMode :  int; ;
+enum VkImageViewType :  int; ; 
 
 using VkQueue = struct VkQueue_T*;
- enum VkFormat;
- enum VkImageLayout;
- enum VkDescriptorType;
- enum VkImageTiling;
+ enum VkFormat :  int; ;
+ enum VkImageLayout :  int; ;
+ enum VkDescriptorType :  int; ;
+ enum VkImageTiling :  int; ;
 typedef uint32_t VkFlags;
 typedef VkFlags VkFormatFeatureFlags;
 typedef VkFlags VkMemoryPropertyFlags;

@@ -9,20 +9,24 @@
 #include <cstdlib>
 #include <span>
 #include "Vertex.h"
-#include "../../ImageLibraryImplementations.h"
-#include "../General/Array.h"
-#include "../General/MemoryArena.h"
-
+#include <ImageLibraryImplementations.h>
+#include <General/Array.h>
+#include <General/MemoryArena.h>
+#include <windows.h>
 #include "bufferCreation.h"
 #include "CommandPoolManager.h"
 #include "gpu-data-structs.h"
 #include "meshData.h"
-#include "../Scene/SceneObjectData.h"
+#include <Scene/SceneObjectData.h>
 #include "Shaders/ShaderLoading.h"
 #include "textureCreation.h"
 #include "TextureData.h"
 #include "VkBootstrap.h"
 #include "vulkan-utilities.h"
+#include "gltf/gltfLoading.h"
+#include "Scene/SceneObjectData.h"
+#include "Scene/SceneObjectData.h"
+#include "Scene/Transforms.h"
 #include "VulkanIncludes/VulkanMemory.h"
 
 struct gpuPerShadowData;
@@ -40,7 +44,7 @@ vkb::Instance GET_INSTANCE()
                                  .build();
     if (!instanceBuilderResult)
     {
-        printf("Failed to create Vulkan instance. Error: %s, \n", instanceBuilderResult.error().message());
+        printf("Failed to create Vulkan instance. Error: %s, \n", instanceBuilderResult.error().message().data());
         assert(false);
     }
 
@@ -89,7 +93,7 @@ vkb::PhysicalDevice GET_GPU(vkb::Instance instance)
 
     if (!physicalDeviceBuilderResult)
     {
-        printf("Failed to create Physical Device %s \n",  physicalDeviceBuilderResult.error().message());
+        printf("Failed to create Physical Device %s \n",  physicalDeviceBuilderResult.error().message().data());
         exit(1);
     }
     
@@ -127,14 +131,14 @@ unsigned int averageCbTime;
 
 unsigned int frames;
 
-unsigned int MAX_TEXTURES = 30;
+unsigned int MAX_TEXTURES = 120;
 
 
 
 
 
 
-HelloTriangleApplication::HelloTriangleApplication()
+vulkanRenderer::vulkanRenderer()
 {
     initWindow();
     initVulkan();
@@ -144,7 +148,7 @@ HelloTriangleApplication::HelloTriangleApplication()
 }
 
 
-void HelloTriangleApplication::initWindow()
+void vulkanRenderer::initWindow()
 {
     // We initialize SDL and create a window with it. 
     SDL_Init(SDL_INIT_VIDEO);
@@ -169,17 +173,17 @@ vkb::PhysicalDevice vkb_physicalDevice;
 vkb::Device vkb_device;
 vkb::Swapchain vkb_swapchain;
 
-void SET_UP_SCENE(HelloTriangleApplication* app);
+void SET_UP_SCENE(vulkanRenderer* app);
 
-RendererHandles HelloTriangleApplication::getHandles()
+RendererContext vulkanRenderer::getHandles()
 {
-    return RendererHandles{physicalDevice, device, &commandPoolmanager, allocator, &rendererArena, &perFrameArenas[currentFrame], HAS_HOST_IMAGE_COPY};
+    return RendererContext{physicalDevice, device, &commandPoolmanager, allocator, &rendererArena, &perFrameArenas[currentFrame], HAS_HOST_IMAGE_COPY};
 }
 
 
 //TODO JS: Eventually, these should change per frame
 //TODO JS: I think I would create the views up front, and then swap them in and out at bind time 
-void HelloTriangleApplication::updateShadowImageViews(int frame )
+void vulkanRenderer::updateShadowImageViews(int frame )
 {
     int i = frame;
        
@@ -202,7 +206,7 @@ void HelloTriangleApplication::updateShadowImageViews(int frame )
         {
             VkImageViewType type = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
             int ct = scene->lightshadowMapCount[j];
-            if (scene->lightTypes[j] == LIGHT_POINT)
+            if ((lightType)scene->lightTypes[j] == LIGHT_POINT)
             {
                 type = VK_IMAGE_VIEW_TYPE_CUBE;
             }
@@ -228,14 +232,14 @@ void HelloTriangleApplication::updateShadowImageViews(int frame )
 
 
 
-void HelloTriangleApplication::initVulkan()
+void vulkanRenderer::initVulkan()
 {
     this->rendererArena = {};
-    MemoryArena::initialize(&rendererArena, 1000000 * 10); // 10mb
+    MemoryArena::initialize(&rendererArena, 1000000 * 200); // 200mb
 
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        MemoryArena::initialize(&perFrameArenas[i], 1000000 * 10); // 10mb each //TODO JS: Could be much smaller if I had a separate arena for file loading
+        MemoryArena::initialize(&perFrameArenas[i], 100000 * 50); // 5mb each //TODO JS: Could be much smaller if I used stable memory for per frame verts and stuff
     }
     FramesInFlightData.resize(MAX_FRAMES_IN_FLIGHT);
     //Get instance
@@ -408,23 +412,21 @@ void HelloTriangleApplication::initVulkan()
     createGraphicsPipeline("shadow",  &descriptorsetLayoutsDataShadow, shadowPipelineSettings,false, sizeof(debugLinePConstants));
 
 
-    
-    
- 
 }
 
-void HelloTriangleApplication::populateMeshBuffers()
+void vulkanRenderer::populateMeshBuffers()
 {
-    uint32_t vertCt = 0;
+    size_t vertCt = 0;
     for (int i = 0; i < scene->meshCount; i++)
     {
-        vertCt += scene->backing_meshes[i].vertcount;
+        vertCt += scene->backing_meshes[i].indices.size();
     }
 
     //TODO JS: to ring buffer?
-    auto gpuVerts = MemoryArena::AllocSpan<gpuvertex>(getHandles().perframeArena, vertCt);
+    //TODO JS: Use main arena? 
+    auto gpuVerts = MemoryArena::AllocSpan<gpuvertex>(getHandles().arena, vertCt);
 
-    uint32_t vert = 0;
+    size_t vert = 0;
     for (int j = 0; j < scene->meshCount; j++)
     {
         MeshData mesh = scene->backing_meshes[j];
@@ -451,7 +453,7 @@ void HelloTriangleApplication::populateMeshBuffers()
 
 //TODO JS: Move?
 //TODO JS: https://gpuopen-librariesandsdks.github.io/VulkanMemoryAllocator/html/usage_patterns.html advanced
-void HelloTriangleApplication::createUniformBuffers()
+void vulkanRenderer::createUniformBuffers()
 {
     VkDeviceSize globalsSize = sizeof(ShaderGlobals);
     VkDeviceSize ubosSize = sizeof(UniformBufferObject) * scene->objectsCount();
@@ -459,7 +461,7 @@ void HelloTriangleApplication::createUniformBuffers()
     VkDeviceSize lightdataSize = sizeof(gpulight) * scene->lightCount;
     VkDeviceSize shadowDataSize = sizeof(PerShadowData) * scene->lightCount * 10; //times six is plenty right?
 
-    RendererHandles handles = getHandles();
+    RendererContext handles = getHandles();
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
@@ -489,7 +491,7 @@ void HelloTriangleApplication::createUniformBuffers()
 #pragma endregion
 
 #pragma region descriptorsets
-void HelloTriangleApplication::createDescriptorSetPool(RendererHandles handles, VkDescriptorPool* pool)
+void vulkanRenderer::createDescriptorSetPool(RendererContext handles, VkDescriptorPool* pool)
 {
     
     std::vector<VkDescriptorPoolSize> sizes =
@@ -527,10 +529,9 @@ VkDescriptorImageInfo imageInfoFromImageData(
 
 
 //TODO JS: this is replacing a function that used to be in scene -- need to feed its arguments from scene's backing arrays
-std::span<VkDescriptorImageInfo> getBindlessTextureInfos(MemoryArena::memoryArena* allocator, std::span<TextureData> diffuse, std::span<TextureData> spec, std::span<TextureData> norm, std::span<TextureData> utility)
+std::span<VkDescriptorImageInfo> getBindlessTextureInfos(MemoryArena::memoryArena* allocator, std::span<TextureData> diffuse, std::span<TextureData> utility)
 {
-    assert(spec.size() == diffuse.size());
-    assert(spec.size() == norm.size());
+
     //TODO JS: Don't do this every frame
     Array<VkDescriptorImageInfo> imageInfos = MemoryArena::AllocSpan<VkDescriptorImageInfo>(allocator, (diffuse.size() * 3) + utility.size());
     // std::vector<VkDescriptorImageInfo> samplerInfos;
@@ -540,14 +541,6 @@ std::span<VkDescriptorImageInfo> getBindlessTextureInfos(MemoryArena::memoryAren
         auto imageInfo = imageInfoFromImageData(
             diffuse[texture_i]);
         imageInfos.push_back(imageInfo);
-
-        auto imageInfo2 = imageInfoFromImageData(
-            spec[texture_i]);
-        imageInfos.push_back(imageInfo2);
-
-        auto imageInfo3 = imageInfoFromImageData(
-            norm[texture_i]);
-        imageInfos.push_back(imageInfo3);
     }
 
     for (int texture_i = 0; texture_i < utility.size(); texture_i++)
@@ -561,22 +554,20 @@ std::span<VkDescriptorImageInfo> getBindlessTextureInfos(MemoryArena::memoryAren
 }
 
 
-void HelloTriangleApplication::updateOpaqueDescriptorSets(PipelineDataObject* layoutData)
+void vulkanRenderer::updateOpaqueDescriptorSets(PipelineDataObject* layoutData)
 {
     layoutData->updateDescriptorSets(opaqueUpdates[currentFrame], currentFrame);
 }
 
 
 
-std::span<descriptorUpdateData> HelloTriangleApplication::createOpaqueDescriptorUpdates(uint32_t frame, MemoryArena::memoryArena* arena, std::span<VkDescriptorSetLayoutBinding> layoutBindings)
+std::span<descriptorUpdateData> vulkanRenderer::createOpaqueDescriptorUpdates(uint32_t frame, MemoryArena::memoryArena* arena, std::span<VkDescriptorSetLayoutBinding> layoutBindings)
 {
 
     //Get data
     std::span imageInfos = getBindlessTextureInfos(
         arena,
         std::span(scene->backing_diffuse_textures.data, scene->backing_diffuse_textures.ct ),
-        std::span(scene->backing_specular_textures.data, scene->backing_specular_textures.ct ),
-        std::span(scene->backing_normal_textures.data, scene->backing_normal_textures.ct ),
         std::span(scene->backing_utility_textures.data, scene->backing_utility_textures.ct ));
 
     std::span cubeImageInfos= DescriptorSets::ImageInfoFromImageDataVec(arena,{
@@ -656,7 +647,7 @@ std::span<descriptorUpdateData> HelloTriangleApplication::createOpaqueDescriptor
    return descriptorUpdates.getSpan();
 }
 
-std::span<descriptorUpdateData> HelloTriangleApplication::createShadowDescriptorUpdates(MemoryArena::memoryArena* arena, uint32_t frame, uint32_t shadowIndex,  std::span<VkDescriptorSetLayoutBinding> layoutBindings)
+std::span<descriptorUpdateData> vulkanRenderer::createShadowDescriptorUpdates(MemoryArena::memoryArena* arena, uint32_t frame, uint32_t shadowIndex,  std::span<VkDescriptorSetLayoutBinding> layoutBindings)
 {
     //Get data
     VkDescriptorBufferInfo* meshBufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
@@ -694,7 +685,7 @@ std::span<descriptorUpdateData> HelloTriangleApplication::createShadowDescriptor
 }
 //TODO JS: Need to use separate descriptors  
 //TODO JS: Probably want to duplicate less code
-void HelloTriangleApplication::updateShadowDescriptorSets(PipelineDataObject* layoutData, uint32_t shadowIndex)
+void vulkanRenderer::updateShadowDescriptorSets(PipelineDataObject* layoutData, uint32_t shadowIndex)
 {
     layoutData->
     updateDescriptorSets(shadowUpdates[currentFrame][shadowIndex], currentFrame);
@@ -704,7 +695,7 @@ void HelloTriangleApplication::updateShadowDescriptorSets(PipelineDataObject* la
 #pragma endregion
 
 
-void HelloTriangleApplication::createSyncObjects()
+void vulkanRenderer::createSyncObjects()
 {
     VkSemaphoreCreateInfo semaphoreInfo{};
     semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -747,7 +738,7 @@ glm::quat OrientationFromYawPitch(glm::vec2 yawPitch )
     return yawQuat * pitchQUat;
 }
 
-Transform getCameraTransform(HelloTriangleApplication::cameraData camera)
+Transform getCameraTransform(vulkanRenderer::cameraData camera)
 {
     
     Transform output{};
@@ -816,7 +807,7 @@ VkImageMemoryBarrier2 imageBarrier(VkImage image, VkPipelineStageFlags2 srcStage
 
 std::vector<linePair> debugLines;
 //TODO JS: this sucks!
-void HelloTriangleApplication::updateCamera(inputData input)
+void vulkanRenderer::updateCamera(inputData input)
 {
     sceneCamera.eyeRotation += (input.mouseRot *  30000.0f *  deltaTime);  // 30000 degrees per full screen rotation per second
     if(sceneCamera.eyeRotation.y > 89.0f)
@@ -941,7 +932,7 @@ struct viewProj
     glm::mat4 proj;
 };
 
-viewProj viewProjFromCamera( HelloTriangleApplication::cameraData camera)
+viewProj viewProjFromCamera( vulkanRenderer::cameraData camera)
 {
     Transform cameraTform = getCameraTransform(camera);
     glm::mat4 view = cameraTform.rot * cameraTform.translation;
@@ -955,7 +946,7 @@ viewProj viewProjFromCamera( HelloTriangleApplication::cameraData camera)
     return {view, proj};
 }
 
-std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocator, HelloTriangleApplication::cameraData cam, glm::vec3 lightPos, glm::vec3 spotDir, float spotRadius, lightType type)
+std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocator, vulkanRenderer::cameraData cam, glm::vec3 lightPos, glm::vec3 spotDir, float spotRadius, lightType type)
 {
     viewProj vp = viewProjFromCamera(cam);
     
@@ -964,7 +955,7 @@ std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocato
     //offset directions that are invalid for lookat
     if (abs(up) == abs(dir))
     {
-        dir += glm::vec3(0.00001);
+        dir += glm::vec3(0.00001F);
         dir = glm::normalize(dir);
     }
     glm::mat4 lightViewMatrix = {};
@@ -976,7 +967,7 @@ std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocato
       
     case LIGHT_DIR:
         {
-            outputSpan = MemoryArena::AllocSpan<PerShadowData>(allocator, 4 ); //TODO JS: cascades
+            outputSpan = MemoryArena::AllocSpan<PerShadowData>(allocator, CASCADE_CT ); //TODO JS: cascades
 
             glm::mat4 invCam = glm::inverse(vp.proj * vp.view);
 
@@ -998,19 +989,20 @@ std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocato
 
             float range = maxZ - minZ;
             float ratio = maxZ / minZ;
-         
+
+            //TODO JS: Cascade generation is wrong
             
             //cascades
-            float cascadeSplits[4] = {};
-            for (uint32_t i = 0; i < 4; i++) {
-                float p = (i + 1) / static_cast<float>(4);
+            float cascadeSplits[CASCADE_CT] = {};
+            for (uint32_t i = 0; i < CASCADE_CT; i++) {
+                float p = (i + 1) / static_cast<float>(CASCADE_CT);
                 float log = minZ * std::pow(ratio, p);
                 float uniform = minZ + range * p;
                 float d = 0.98f * (log - uniform) + uniform;
                 cascadeSplits[i] = (d - cam.nearPlane) / clipRange;
             }
 
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < CASCADE_CT; i++)
             {
                 float splitDist = cascadeSplits[i];
                 float lastSplitDist = i == 0 ? 0 : cascadeSplits[i-1]; 
@@ -1056,7 +1048,7 @@ std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocato
                 outputSpan[i] = {lightViewMatrix, lightProjection,  (cam.nearPlane + splitDist * clipRange) * -1.0f};
                 // OUTPUTPOSITION =  (cam.nearPlane + splitDist * clipRange) * -1.0f; //todo js
             }
-            return  outputSpan.subspan(0,4);
+            return  outputSpan.subspan(0,CASCADE_CT);
         }
     case LIGHT_SPOT:
         {
@@ -1107,10 +1099,13 @@ std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocato
         return  outputSpan;
         }
 
+        assert(!outputSpan.empty());
+        return outputSpan;
+
 }
 
 
-void updateGlobals(HelloTriangleApplication::cameraData camera, Scene* scene, int cubeMapLutIndex, dataBufferObject<ShaderGlobals> globalsBuffer)
+void updateGlobals(vulkanRenderer::cameraData camera, Scene* scene, int cubeMapLutIndex, dataBufferObject<ShaderGlobals> globalsBuffer)
 {
     ShaderGlobals globals{};
     viewProj vp = viewProjFromCamera(camera);
@@ -1128,7 +1123,7 @@ void updateGlobals(HelloTriangleApplication::cameraData camera, Scene* scene, in
 
 }
 
-void updateShadowData(MemoryArena::memoryArena* allocator, std::span<std::span<PerShadowData>> perLightShadowData, Scene* scene, HelloTriangleApplication::cameraData camera)
+void updateShadowData(MemoryArena::memoryArena* allocator, std::span<std::span<PerShadowData>> perLightShadowData, Scene* scene, vulkanRenderer::cameraData camera)
 {
     for(int i =0; i <scene->lightCount; i++)
     {
@@ -1143,7 +1138,7 @@ glm::vec4 normalizePlane(glm::vec4 p)
     return p / length(glm::vec3(p));
 }
 
-void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Array<glm::mat4> models)
+void vulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<std::span<glm::mat4>> models)
 {
     //TODO JS: to ring buffer?
     auto tempArena = getHandles().perframeArena;
@@ -1212,22 +1207,27 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
 
     for (int i = 0; i < ubos.size(); i++)
     {
-        glm::mat4* model = &models[i];
-        ubos[i].model = models[i];
+        auto lookup = scene->transforms._transform_lookup[i];
+        glm::mat4* model = &models[lookup.depth][lookup.index];
+        ubos[i].model = *model;
         ubos[i].Normal = transpose(inverse(glm::mat3(*model)));
 
 
         
         // int i = drawIndices[j];
-        Material material = scene->objects.materials[i];
+        Material material = scene->materials[scene->objects.materials[i]];
         
-        //Light count, vert offset, texture index, and object data index
-        ubos[i].props.indexInfo = glm::vec4(material.backingTextureidx, (scene->getOffsetFromMeshID(scene->objects.meshIndices[i])),
-                                       material.backingTextureidx, 44);
+        ubos[i].props.indexInfo = glm::vec4(material.diffuseIndex, (scene->getOffsetFromMeshID(scene->objects.meshIndices[i])),
+                                       material.diffuseIndex, 44);
 
-        ubos[i].props.materialprops = glm::vec4(material.roughness, scene->objects.materials[i].metallic, 0, 0);
+        ubos[i].props.textureInfo = glm::vec4(material.diffuseIndex, material.specIndex, material.normalIndex, -1.0);
 
-        ubos[i].cullingInfo = {scene->meshBoundingSphereRad[scene->objects.meshIndices[i]]};
+        ubos[i].props.materialprops = glm::vec4(material.roughness, material.roughness, 0, 0);
+        ubos[i].props.color = glm::vec4(material.color,1.0f);
+
+        positionRadius objectBounds = scene->meshBoundingSphereRad[scene->objects.meshIndices[i]];
+        objectBounds.objectSpaceRadius *= glm::max(glm::max(scene->objects.scales[i].x, scene->objects.scales[i].y), scene->objects.scales[i].z); //TODO JS move earlier in the frame
+        ubos[i].cullingInfo = objectBounds;
     }
     
     FramesInFlightData[currentFrame].uniformBuffers.updateMappedMemory({ubos.data(), (size_t)scene->objectsCount()});
@@ -1240,7 +1240,7 @@ void HelloTriangleApplication::updatePerFrameBuffers(uint32_t currentFrame, Arra
 
 #pragma endregion
 #pragma region draw 
-void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer commandBuffer, uint32_t imageIndex, std::span<simplePassInfo> passes)
+void vulkanRenderer::recordCommandBufferShadowPass(VkCommandBuffer commandBuffer, uint32_t imageIndex, std::span<simplePassInfo> passes)
 {
      uint32_t shadowSize = SHADOW_MAP_SIZE; //TODO JS: make const
      VkCommandBufferBeginInfo beginInfo{};
@@ -1257,10 +1257,10 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
     descriptorsetLayoutsDataShadow.bindToCommandBuffer(commandBuffer, currentFrame);
     VkPipelineLayout layout = descriptorsetLayoutsDataShadow.pipelineData.bindlessPipelineLayout;
 
-    for(int i = 0; i < passes.size(); i ++)
+    for(uint32_t i = 0; i < passes.size(); i ++)
     {
         
-            int shadowMapIndex = i;
+            uint32_t shadowMapIndex = i;
             const VkRenderingAttachmentInfoKHR dynamicRenderingDepthAttatchment {
                 .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
                 .imageView = shadowMapRenderingImageViews[imageIndex][shadowMapIndex],
@@ -1316,7 +1316,7 @@ void HelloTriangleApplication::recordCommandBufferShadowPass(VkCommandBuffer com
 
             shadowPushConstants constants;
             //Light count, vert offset, texture index, and object data index
-            constants.shadowIndex = shadowMapIndex;
+            constants.shadowIndex = (glm::float32_t)shadowMapIndex;
             vkCmdPushConstants(commandBuffer, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                                sizeof(shadowPushConstants), &constants);
 
@@ -1351,7 +1351,7 @@ struct pipelineBucket
     Array<uint32_t> indices; 
 };
 
-void HelloTriangleApplication::recordCommandBufferCompute(VkCommandBuffer commandBuffer, uint32_t currentFrame, std::span<simplePassInfo> passes)
+void vulkanRenderer::recordCommandBufferCompute(VkCommandBuffer commandBuffer, uint32_t currentFrame, std::span<simplePassInfo> passes)
 {
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -1417,20 +1417,20 @@ void HelloTriangleApplication::recordCommandBufferCompute(VkCommandBuffer comman
 }//
 
 
-void HelloTriangleApplication::submitComputePass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores, std::vector<VkSemaphore> signalsemaphores, std::span<simplePassInfo> passes)
+void vulkanRenderer::submitComputePass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores, std::vector<VkSemaphore> signalsemaphores, std::span<simplePassInfo> passes)
 {
     recordCommandBufferCompute(FramesInFlightData[imageIndex].computeCommandBuffers, imageIndex, passes);
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     VkPipelineStageFlags _waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-    submitInfo.waitSemaphoreCount = waitSemaphores.semaphores.size();
+    submitInfo.waitSemaphoreCount = (uint32_t)waitSemaphores.semaphores.size();
     submitInfo.pWaitSemaphores = waitSemaphores.semaphores.data();
     submitInfo.pWaitDstStageMask = waitSemaphores.waitStages.data();
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &FramesInFlightData[imageIndex].computeCommandBuffers;
 
-    submitInfo.signalSemaphoreCount = signalsemaphores.size();
+    submitInfo.signalSemaphoreCount = (uint32_t)signalsemaphores.size();
     submitInfo.pSignalSemaphores = signalsemaphores.data();
     
     //Submit pass 
@@ -1440,7 +1440,7 @@ void HelloTriangleApplication::submitComputePass(uint32_t currentFrame, uint32_t
     
 }
 //command buffer to draw the frame 
-void HelloTriangleApplication::recordCommandBufferOpaquePass(VkCommandBuffer commandBuffer, uint32_t imageIndex, std::span<opaquePassInfo> batchedDraws)
+void vulkanRenderer::recordCommandBufferOpaquePass(VkCommandBuffer commandBuffer, uint32_t imageIndex, std::span<opaquePassInfo> batchedDraws)
 {
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -1510,8 +1510,16 @@ void HelloTriangleApplication::recordCommandBufferOpaquePass(VkCommandBuffer com
     
     for(int i =0; i < meshct; i++)
     {
+        auto scalefactor = glm::max(glm::max(abs(scene->objects.scales[i].x),abs(scene->objects.scales[i].y)), abs(scene->objects.scales[i].z));
+
         positionRadius bounds = scene->meshBoundingSphereRad[scene->objects.meshIndices[i]];
-        debugDrawCross(scene->objects.translations[i] + glm::vec3(scene->objects.matrices[i] * (bounds.objectSpacePos)), bounds.objectSpaceRadius * glm::max(glm::max(scene->objects.scales[i].x,scene->objects.scales[i].y), scene->objects.scales[i].z), {1,0,0});
+        auto lookup = scene->transforms._transform_lookup[i];
+        glm::mat4 model = scene->transforms.worldMatrices[lookup.depth][lookup.index];
+        debugDrawCross(model * glm::vec4(glm::vec3(bounds.objectSpacePos), 1.0), bounds.objectSpaceRadius * scalefactor, {1,0,0});
+        glm::vec3 corner1 = scene->backing_meshes[scene->objects.meshIndices[i]].boundsCorners[0];
+        glm::vec3 corner2 = scene->backing_meshes[scene->objects.meshIndices[i]].boundsCorners[1];
+        debugDrawCross(model * glm::vec4(corner1, 1.0), 1.0, {1,1,0.5});
+        debugDrawCross(model * glm::vec4(corner2, 1.0), 1.0, {1,1,0.5});
     }
     
 
@@ -1557,7 +1565,7 @@ void HelloTriangleApplication::recordCommandBufferOpaquePass(VkCommandBuffer com
 }
 #pragma endregion
 
-void HelloTriangleApplication::createCommandBuffers()
+void vulkanRenderer::createCommandBuffers()
 {
     for (int i = 0; i < FramesInFlightData.size(); i++)
     {
@@ -1577,14 +1585,14 @@ void HelloTriangleApplication::createCommandBuffers()
     }
 }
 
-bool HelloTriangleApplication::hasStencilComponent(VkFormat format)
+bool vulkanRenderer::hasStencilComponent(VkFormat format)
 {
     return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
 }
 
 #pragma region depth
 
-void HelloTriangleApplication::createDepthResources()
+void vulkanRenderer::createDepthResources()
 {
     depthFormat = Capabilities::findDepthFormat(getHandles());
 
@@ -1601,9 +1609,8 @@ void HelloTriangleApplication::createDepthResources()
 
 
 
-void HelloTriangleApplication::createGraphicsPipeline(const char* shaderName, PipelineDataObject* descriptorsetdata,  PipelineDataObject::graphicsPipelineSettings settings, bool compute, size_t pconstantSize)
-{
-    VkPipeline newGraphicsPipeline; 
+void vulkanRenderer::createGraphicsPipeline(const char* shaderName, PipelineDataObject* descriptorsetdata,  PipelineDataObject::graphicsPipelineSettings settings, bool compute, size_t pconstantSize)
+{ 
     auto shaders = shaderLoader->compiledShaders[shaderName];
     if (!compute)
     descriptorsetdata->createGraphicsPipeline(shaders, settings, pconstantSize);
@@ -1620,10 +1627,11 @@ void HelloTriangleApplication::createGraphicsPipeline(const char* shaderName, Pi
 
 
 
+
 #pragma region perFrameUpdate
 
 
-void HelloTriangleApplication::mainLoop()
+void vulkanRenderer::mainLoop()
 {
    
     SDL_Event e;
@@ -1655,7 +1663,7 @@ void HelloTriangleApplication::mainLoop()
         }
         this->T2 = SDL_GetTicks();
         uint32_t deltaTicks = this->T2 - this->T;
-        this->deltaTime = deltaTicks * 0.001;
+        this->deltaTime = deltaTicks * 0.001f;
         this->T = SDL_GetTicks();
 
 
@@ -1690,8 +1698,8 @@ void HelloTriangleApplication::mainLoop()
         glm::vec3 translate = glm::vec3(0);
         SDL_PumpEvents();
         const uint8_t* KeyboardState = SDL_GetKeyboardState(nullptr);
-        translate.x = 0 -KeyboardState[SDL_SCANCODE_A] + KeyboardState[SDL_SCANCODE_D];
-        translate.y = 0 +KeyboardState[SDL_SCANCODE_W] - KeyboardState[SDL_SCANCODE_S];
+        translate.x = 0.0f -KeyboardState[SDL_SCANCODE_A] + KeyboardState[SDL_SCANCODE_D];
+        translate.y = 0.0f +KeyboardState[SDL_SCANCODE_W] - KeyboardState[SDL_SCANCODE_S];
         translate *= translateSpeed;
         int x, y;
 
@@ -1749,6 +1757,8 @@ void HelloTriangleApplication::mainLoop()
         UpdateRotations();
         scene->Update();
         updateShadowData(&perFrameArenas[currentFrame], perLightShadowData, scene, sceneCamera);
+        #include <windows.h>
+        // Sleep(300);
         drawFrame();
         debugLines.clear();
         auto t2 = SDL_GetTicks();
@@ -1757,10 +1767,10 @@ void HelloTriangleApplication::mainLoop()
 }
 
 //Placeholder "gameplay" function
-void HelloTriangleApplication::UpdateRotations()
+void vulkanRenderer::UpdateRotations()
 {
     //<Rotation update
-    glm::vec3 EulerAngles = glm::vec3(0, 1, 0.00) * deltaTime; // One revolution per second
+    glm::vec3 EulerAngles = glm::vec3(0, 1, 0.00) * deltaTime / 10.0f; // One revolution per second
     auto MyQuaternion = glm::quat(EulerAngles);
 
     // Conversion from axis-angle
@@ -1785,7 +1795,7 @@ semaphoreData getSemaphoreDataFromSemaphores(std::span<VkSemaphore> semaphores, 
     return {semaphores, flags};
     
 }
-void transitionImageForRendering(RendererHandles handles, VkCommandBuffer commandBuffer, semaphoreData waitSemaphores, std::span<VkSemaphore> signalSemaphores, VkImage image, VkImageLayout layoutIn, VkImageLayout layoutOut, VkPipelineStageFlags* waitStages, bool depth)
+void transitionImageForRendering(RendererContext handles, VkCommandBuffer commandBuffer, semaphoreData waitSemaphores, std::span<VkSemaphore> signalSemaphores, VkImage image, VkImageLayout layoutIn, VkImageLayout layoutOut, VkPipelineStageFlags* waitStages, bool depth)
 {
 
     VkCommandBufferBeginInfo beginInfo{};
@@ -1805,9 +1815,9 @@ void transitionImageForRendering(RendererHandles handles, VkCommandBuffer comman
     swapChainInSubmitInfo.commandBufferCount = 1;
     swapChainInSubmitInfo.pWaitDstStageMask = waitSemaphores.waitStages.data();
     swapChainInSubmitInfo.pCommandBuffers = &commandBuffer;
-    swapChainInSubmitInfo.waitSemaphoreCount = waitSemaphores.semaphores.size();
+    swapChainInSubmitInfo.waitSemaphoreCount = (uint32_t)waitSemaphores.semaphores.size();
     swapChainInSubmitInfo.pWaitSemaphores = waitSemaphores.semaphores.data();
-    swapChainInSubmitInfo.signalSemaphoreCount = signalSemaphores.size();
+    swapChainInSubmitInfo.signalSemaphoreCount = (uint32_t)signalSemaphores.size();
     swapChainInSubmitInfo.pSignalSemaphores = signalSemaphores.data();
 
     vkQueueSubmit(handles.commandPoolmanager->Queues.graphicsQueue, 1, &swapChainInSubmitInfo, VK_NULL_HANDLE);
@@ -1819,7 +1829,7 @@ VkPipelineStageFlags swapchainWaitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT
 VkPipelineStageFlags shadowWaitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
 
 
-framePasses preparePasses(Scene* scene, HelloTriangleApplication::cameraData* camera, MemoryArena::memoryArena* allocator, std::span<std::span<PerShadowData>> inputShadowdata, PipelineDataObject opaquePipelineData)
+framePasses preparePasses(Scene* scene, vulkanRenderer::cameraData* camera, MemoryArena::memoryArena* allocator, std::span<std::span<PerShadowData>> inputShadowdata, PipelineDataObject opaquePipelineData)
 {
 
     uint32_t PIPELINE_COUNT = opaquePipelineData.getPipelineCt();
@@ -1829,7 +1839,7 @@ framePasses preparePasses(Scene* scene, HelloTriangleApplication::cameraData* ca
     Array simplePasses =  MemoryArena::AllocSpan<simplePassInfo>(allocator, MAX_SHADOWMAPS); //These are used for both shadows and compute
     for(int i = 0; i < scene->shadowCasterCount(); i ++)
     {
-        float type = scene->lightTypes[i];
+        lightType type = (lightType)scene->lightTypes[i];
         int lightSubpasses = type == LIGHT_POINT ? 6 : type == LIGHT_DIR ? CASCADE_CT : 1; //TODO JS: look up how many a light should have per light
         for (int j = 0; j < lightSubpasses; j++)
         {
@@ -1875,7 +1885,7 @@ framePasses preparePasses(Scene* scene, HelloTriangleApplication::cameraData* ca
     //fill buckets
     for (uint32_t j = 0; j < objectsPerDraw; j++)
     {
-        bucketedPipelines[scene->objects.materials[j].pipelineidx].indices.push_back(j);
+        bucketedPipelines[scene->materials[scene->objects.materials[j]].pipelineidx].indices.push_back(j);
     }
     
     //Fill opaque pass infos
@@ -1891,7 +1901,7 @@ framePasses preparePasses(Scene* scene, HelloTriangleApplication::cameraData* ca
             batchedDraws.push_back({opaqueDrawOffset, (uint32_t)indices.size(), viewProjFromCamera(*camera).view, opaquePipelineData.getPipeline(bucketedPipelines[j].pipelineIDX), indices.getSpan()});
         }
 
-        opaqueDrawOffset += indices.size();
+        opaqueDrawOffset += (uint32_t)indices.size();
     }
 
 
@@ -1918,7 +1928,7 @@ void updateIndirectCommandBufferForPasses(Scene* scene, MemoryArena::memoryArena
             {
          
                 mappedDrawCommandBuffer[passes.shadowDraws[i].firstDraw + j] =  {
-                    (uint32_t)j, (uint32_t)scene->backing_meshes[meshIndices[j]].vertcount, 1, 0, (uint32_t)j};
+                    (uint32_t)j, (uint32_t)scene->backing_meshes[meshIndices[j]].indices.size(), 1, 0, (uint32_t)j};
             }
         drawOffset += drawCount;
     }
@@ -1933,13 +1943,13 @@ void updateIndirectCommandBufferForPasses(Scene* scene, MemoryArena::memoryArena
         for (size_t k = 0; k < indices.size(); k++)
         {
          
-            mappedDrawCommandBuffer[drawOffset + drawCt2 + k] = {indices[k], static_cast<uint32_t>(scene->backing_meshes[meshIndices[indices[k]]].vertcount), 1, 0, (uint32_t)indices[k]};
+            mappedDrawCommandBuffer[drawOffset + drawCt2 + k] = {indices[k], static_cast<uint32_t>(scene->backing_meshes[meshIndices[indices[k]]].indices.size()), 1, 0, (uint32_t)indices[k]};
         }
-        drawCt2 += indices.size();
+        drawCt2 += (uint32_t)indices.size();
     }
 }
 
-void HelloTriangleApplication::drawFrame()
+void vulkanRenderer::drawFrame()
 {
   //Update per frame data
 
@@ -1953,7 +1963,7 @@ void HelloTriangleApplication::drawFrame()
     ///    //Wait for IMAGE INDEX to be ready to present
  
 
-    updatePerFrameBuffers(currentFrame, scene->objects.matrices); // TODO JS: timing bugs if it doesn't happen after the fence
+    updatePerFrameBuffers(currentFrame, scene->transforms.worldMatrices); // TODO JS: timing bugs if it doesn't happen after the fence
 
     updateOpaqueDescriptorSets(&descriptorsetLayoutsData);
     updateShadowDescriptorSets(&descriptorsetLayoutsDataShadow, 0);
@@ -2061,20 +2071,20 @@ void HelloTriangleApplication::drawFrame()
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
-void HelloTriangleApplication::renderShadowPass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores, std::vector<VkSemaphore> signalsemaphores, std::span<simplePassInfo> passes)
+void vulkanRenderer::renderShadowPass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores, std::vector<VkSemaphore> signalsemaphores, std::span<simplePassInfo> passes)
 {
     recordCommandBufferShadowPass(FramesInFlightData[imageIndex].shadowCommandBuffers, imageIndex, passes);
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     VkPipelineStageFlags _waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-    submitInfo.waitSemaphoreCount = waitSemaphores.semaphores.size();
+    submitInfo.waitSemaphoreCount = (uint32_t)waitSemaphores.semaphores.size();
     submitInfo.pWaitSemaphores = waitSemaphores.semaphores.data();
     submitInfo.pWaitDstStageMask = waitSemaphores.waitStages.data();
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &FramesInFlightData[imageIndex].shadowCommandBuffers;
 
-    submitInfo.signalSemaphoreCount = signalsemaphores.size();
+    submitInfo.signalSemaphoreCount = (uint32_t)signalsemaphores.size();
     submitInfo.pSignalSemaphores = signalsemaphores.data();
     
     //Submit pass 
@@ -2083,7 +2093,7 @@ void HelloTriangleApplication::renderShadowPass(uint32_t currentFrame, uint32_t 
     
     
 }
-void HelloTriangleApplication::renderOpaquePass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores, std::vector<VkSemaphore> signalsemaphores, std::span<opaquePassInfo> batchedDraws)
+void vulkanRenderer::renderOpaquePass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores, std::vector<VkSemaphore> signalsemaphores, std::span<opaquePassInfo> batchedDraws)
 {   
     //Record command buffer for pass
     recordCommandBufferOpaquePass(FramesInFlightData[currentFrame].opaqueCommandBuffers, imageIndex, batchedDraws);
@@ -2092,14 +2102,14 @@ void HelloTriangleApplication::renderOpaquePass(uint32_t currentFrame, uint32_t 
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     
     VkPipelineStageFlags _waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-    submitInfo.waitSemaphoreCount = waitSemaphores.semaphores.size();
+    submitInfo.waitSemaphoreCount = (uint32_t)waitSemaphores.semaphores.size();
     submitInfo.pWaitSemaphores = waitSemaphores.semaphores.data();
     submitInfo.pWaitDstStageMask = waitSemaphores.waitStages.data();
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &FramesInFlightData[currentFrame].opaqueCommandBuffers;
     
    
-    submitInfo.signalSemaphoreCount = signalsemaphores.size();
+    submitInfo.signalSemaphoreCount = (uint32_t)signalsemaphores.size();
     submitInfo.pSignalSemaphores = signalsemaphores.data();
 
     //Submit pass 
@@ -2107,7 +2117,7 @@ void HelloTriangleApplication::renderOpaquePass(uint32_t currentFrame, uint32_t 
     
 }
 
-void HelloTriangleApplication::cleanup()
+void vulkanRenderer::cleanup()
 {
     //TODO clenaup swapchain
 
@@ -2175,104 +2185,261 @@ void HelloTriangleApplication::cleanup()
 
 #pragma endregion
 
+void printGraph(localTransform g, int depth)
+{
+    for(int i = 0; i < depth; i++)
+    {
+        printf(".");
+    }
+    printf("%s \n ", g.name.c_str());
+    if (!g.children.empty())
+    {
+        depth++;
+        for(int i =0; i < g.children.size(); i++)
+        {
+            printGraph(*g.children[i], depth);
+        }
+    }
+}
 
 //TODO move or replace
-void SET_UP_SCENE(HelloTriangleApplication* app)
+void SET_UP_SCENE(vulkanRenderer* app)
 {
     std::vector<int> randomMeshes;
     std::vector<int> randomMaterials;
 
+    //Original transform test  
+    // localTransform root1 = {{}, "ROOT 1", TRANSFORM_ID++, {0}, {}};
+    // localTransform root2 = {{}, "ROOT 2", TRANSFORM_ID++, {0}, {}};
+    // auto child = AddChild(&root1, "CHILD1",TRANSFORM_ID++, {});
+    // auto child1_1 = AddChild(child.get(), "CHILD1_CHILD1",TRANSFORM_ID++, {});
+    // AddChild(child.get(), "CHILD1_CHILD2",TRANSFORM_ID++, {});
+    // AddChild(child.get(), "CHILD1_CHILD3",TRANSFORM_ID++, {});
+    // auto child1_4 = AddChild(child.get(), "CHILD1_CHILD4",TRANSFORM_ID++, {});
+    // AddChild(child1_1.get(), "CHILD1_CHILD1_CHILD1",TRANSFORM_ID++, {});
+    // AddChild(child1_4.get(), "CHILD1_CHILD4_CHILD1",TRANSFORM_ID++, {});
+    // printf("PRE REMOVE ==== \n");
+    // printGraph(root1, 0 );
+    // rmChild(child.get(), child1_1);
+    // printf("POST REMOVE ==== \n");
+    // printGraph(root1, 0 );
+    //
+    // std::span roots = std::span(&root1, 1);
+    // flattenTransformHiearchy(roots);
+    //
+    // localTransform* walk = &root1;
+    // while(!walk->children.empty())
+    // {
+    //     printf("looking up from %s to %s \n", walk->name.c_str(), lookupflt(walk->ID)->name.c_str());
+    //     walk = walk->children[0].get();
+    // }
+  
+    // exit(10);
 
+    //NEXT STEPS:
+    //1- Way to associate objects with flattened tree matrices
+    //2- Mock up transforming something with a parent
+    //3- Feed gltf nodes in 
+    //TODO JS: Whenever we update the scene graph we'll re-flatten
+    //TODO JS: We'll do matrix calculations on the flattened version. 
+    
 
-    int placeholderTextureidx = app->scene->AddMaterial(
+    int defaultTexture = app->scene->AddTexture(TextureData(app->getHandles(), "textures/blank.png", TextureData::DIFFUSE));
+    int defaultSPec = app->scene->AddTexture(TextureData(app->getHandles(), "textures/default_roug.tga", TextureData::SPECULAR));
+    int defaultNormal = app->scene->AddTexture(TextureData(app->getHandles(), "textures/blank.png", TextureData::SPECULAR));
+
+    int placeholderMatidx;
+    auto placeholderTextureidx = app->scene->AddTextureSet(
         TextureData(app->getHandles(), "textures/pbr_cruiser-panels/space-cruiser-panels2_albedo.png",
                     TextureData::TextureType::DIFFUSE),
         TextureData(app->getHandles(), "textures/pbr_cruiser-panels/space-cruiser-panels2_roughness_metallic.tga",
                     TextureData::TextureType::SPECULAR),
         TextureData(app->getHandles(), "textures/pbr_cruiser-panels/space-cruiser-panels2_normal-dx.png",
                     TextureData::TextureType::NORMAL));
-    randomMaterials.push_back(placeholderTextureidx);
+
+    placeholderMatidx = app->scene->AddMaterial(0.2, 0, glm::vec3(1.0f), placeholderTextureidx, 1);
+    randomMaterials.push_back(placeholderMatidx);
 
 
-    placeholderTextureidx = app->scene->AddMaterial(
+    placeholderTextureidx = app->scene->AddTextureSet(
         TextureData(app->getHandles(), "textures/pbr_cruiser-panels/space-cruiser-panels2_albedo.png",
                     TextureData::TextureType::DIFFUSE),
         TextureData(app->getHandles(), "textures/pbr_cruiser-panels/space-cruiser-panels2_roughness_metallic.tga",
                     TextureData::TextureType::SPECULAR),
         TextureData(app->getHandles(), "textures/pbr_cruiser-panels/space-cruiser-panels2_normal-dx.png",
                     TextureData::TextureType::NORMAL));
-    randomMaterials.push_back(placeholderTextureidx);
+    placeholderMatidx = app->scene->AddMaterial(0.2, 0, glm::vec3(1.0f), placeholderTextureidx, 1);
+    randomMaterials.push_back(placeholderMatidx);
 
-    placeholderTextureidx = app->scene->AddMaterial(
-        TextureData(app->getHandles(), "textures/pbr_stainless-steel/used-stainless-steel2_albedo.png",
-                    TextureData::TextureType::DIFFUSE),
-        TextureData(app->getHandles(), "textures/pbr_stainless-steel/used-stainless-steel2_roughness_metallic.tga",
-                    TextureData::TextureType::SPECULAR),
-        TextureData(app->getHandles(), "textures/pbr_stainless-steel/used-stainless-steel2_normal-dx.png",
-                    TextureData::TextureType::NORMAL));
-    randomMaterials.push_back(placeholderTextureidx);
 
-    placeholderTextureidx = app->scene->AddMaterial(
-        TextureData(app->getHandles(), "textures/pbr_factory-sliding/worn-factory-siding_albedo.png",
-                    TextureData::TextureType::DIFFUSE),
-        TextureData(app->getHandles(), "textures/pbr_factory-sliding/worn-factory-siding_roughness_metallic.tga",
-                    TextureData::TextureType::SPECULAR),
-        TextureData(app->getHandles(), "textures/pbr_factory-sliding/worn-factory-siding_normal-dx.png",
-                    TextureData::TextureType::NORMAL));
-    randomMaterials.push_back(placeholderTextureidx);
+#define SPONZA
 
-    //TODO: Scene loads mesh instead? 
-    randomMeshes.push_back(app->scene->AddBackingMesh(MeshData(app->getHandles(), "Meshes/pig.glb")));
-    randomMeshes.push_back(app->scene->AddBackingMesh(MeshData(app->getHandles(), "Meshes/cubesphere.glb")));
-    randomMeshes.push_back(app->scene->AddBackingMesh(MeshData(app->getHandles(), "Meshes/monkey.obj")));
-
-    int cube = app->scene->AddBackingMesh(MeshData(app->getHandles(), "Meshes/cube.glb"));
-
-    //direciton light
-       
     //spot light
     //TODO JS: paramaterize better -- hard to set power and radius currently
     app->scene->AddSpotLight(glm::vec3(2.5, 3, 3.3), glm::vec3(0, 0, -1), glm::vec3(1, 0, 1), 45, 14000);
-
-
+    
+    
     //point lights    
     app->scene->AddPointLight(glm::vec3(1, 1, 0), glm::vec3(1, 1, 1), 55);
-    app->scene->AddDirLight(glm::vec3(0,0,1), glm::vec3(0,1,0), 3);
-    app->scene->AddDirLight(glm::vec3(0.00, 1, 0),  glm::vec3(0, 0, 1), 33);
+    app->scene->AddDirLight(glm::vec3(0,0,1), glm::vec3(1,1,1), 3);
+    app->scene->AddDirLight(glm::vec3(0.00, 1, 0),  glm::vec3(1, 1, 1), 33);
     app->scene->AddPointLight(glm::vec3(-2, 2, 0), glm::vec3(1, 0, 0), 4422 / 2);
     // app->scene->AddDirLight(glm::vec3(0,0,1), glm::vec3(0,1,0), 3);
     app->scene->AddPointLight(glm::vec3(0, 0, 0), glm::vec3(1, 1, 0), 999 / 2);
-
+    
     // app->scene->AddPointLight(glm::vec3(0, 8, -10), glm::vec3(0.2, 0, 1), 44 / 2);
+    
+    
+    
 
-  
+    #ifdef SPONZA 
+    //TODO: gltf load fn that gets back struct, then append its contents to scene 
+    auto gltf = GltfLoadMeshes(app->getHandles(), "Meshes/sponza.glb");
 
 
+    //TODO JS: to span of spans for submeshes 
+    std::span<std::span<int>> meshLUT = MemoryArena::AllocSpan<std::span<int>>(app->getHandles().perframeArena, gltf.meshes.size());
+    std::span<int> textureLUT = MemoryArena::AllocSpan<int>(app->getHandles().perframeArena, gltf.textures.size());
+    std::span<int> materialLUT = MemoryArena::AllocSpan<int>(app->getHandles().perframeArena, gltf.materials.size());
+
+
+    
+    std::span<int> parent = MemoryArena::AllocSpan<int>(app->getHandles().perframeArena, gltf.objects.size());
+    std::span<bool> created = MemoryArena::AllocSpan<bool>(app->getHandles().perframeArena, gltf.objects.size());
+    std::span<localTransform*> tforms = MemoryArena::AllocSpan<localTransform*>(app->getHandles().perframeArena, gltf.objects.size());
+    for(int i =0; i < parent.size(); i++)
+    {
+        parent[i] = -1;
+    }
+
+
+    for(int i = 0; i < gltf.meshes.size(); i++)
+    {
+        meshLUT[i] =MemoryArena::AllocSpan<int>(app->getHandles().perframeArena, gltf.meshes[i].submeshes.size());
+        for(int j = 0; j < gltf.meshes[i].submeshes.size(); j++)
+        {
+            meshLUT[i][j] = app->scene->AddBackingMesh(gltf.meshes[i].submeshes[j]);
+        }
+    }
+    for(int i =0; i < gltf.textures.size(); i++)
+    {
+       textureLUT[i] = app->scene->AddTexture(gltf.textures[i]);
+    }
+    for(int i =0; i < gltf.materials.size(); i++)
+    {
+        auto mat = gltf.materials[i];
+       textureSetIDs textures =  {mat.diffIndex >= 0 ? textureLUT[mat.diffIndex] : defaultTexture,
+            mat.specIndex >= 0 ? textureLUT[mat.specIndex] :
+            defaultSPec, mat.normIndex >= 0 ? textureLUT[mat.normIndex] : defaultNormal};
+
+        materialLUT[i] = app->scene->AddMaterial(mat.roughnessFactor, mat.metallicFactor, mat.baseColorFactor, textures, 1);
+    }
+
+    //prepass to set up parents
+    for(int i = 0; i < gltf.objects.size(); i++)
+    {
+        for(int j =0; j < gltf.objects[i].children.size(); j++)
+        {
+            parent[gltf.objects[i].children[j]] = i;
+        }
+    }
+    int addedCt = 0;
+
+    
+    //lol
+    while(addedCt < gltf.objects.size())
+    {
+        for(int i = 0; i < gltf.objects.size(); i++)
+        {
+            auto object = gltf.objects[i];
+            if (parent[i] == -1 || created[parent[i]])
+            {
+                if (created[i]) continue;
+                auto mesh  =  gltf.meshes[gltf.objects[i].meshidx];
+                for(int j = 0; j < mesh.submeshes.size(); j++)
+                {
+                    MeshData* scenemesh  = &app->scene->backing_meshes[ meshLUT[object.meshidx][j]];
+                    int gltfMatIDX = mesh.materialIndices[j];
+                    int sceneMatIDX =  materialLUT[mesh.materialIndices[j]];
+                    int objectID = 0;
+                    localTransform* parentTransform =( parent[i] != -1) ? tforms[parent[i]] : nullptr;
+                    //TODO JS: add objcet that takes matrix
+                    objectID =  app->scene->AddObject(
+                        scenemesh,
+                        sceneMatIDX,
+                        object.translation,
+                        object.rotation,
+                        object.scale,
+                        parentTransform);
+                
+                    if (j == 0)
+                    {
+                        tforms[i] = &app->scene->transforms.transformNodes[objectID]; //Only the first one can have children because these are like "fake objects"}
+                        created[i] = true;
+                    }
+                }
+                addedCt++;
+            }
+            else
+            {
+                continue;
+            }
+        }
+    }
+
+    printf("objects count: %d \n", app->scene->objects.objectsCount);
+    // #else
+    gltf = GltfLoadMeshes(app->getHandles(), "Meshes/pig.glb");
+    placeholderTextureidx = app->scene->AddTextureSet(
+    gltf.textures[gltf.materials[0].diffIndex],
+      TextureData(app->getHandles(), "textures/pbr_stainless-steel/used-stainless-steel2_roughness.png",
+                  TextureData::TextureType::SPECULAR),
+      TextureData(app->getHandles(), "textures/pbr_stainless-steel/used-stainless-steel2_normal-dx.png",
+                  TextureData::TextureType::NORMAL));
+
+    placeholderMatidx = app->scene->AddMaterial(0.2, 0, glm::vec3(1.0f), placeholderTextureidx, 1);
+    randomMaterials.push_back(placeholderMatidx);
+    
+    randomMeshes.push_back(app->scene->AddBackingMesh(gltf.meshes[0].submeshes[0]));
+    randomMeshes.push_back(app->scene->AddBackingMesh(GltfLoadMeshes(app->getHandles(), "Meshes/cubesphere.glb").meshes[0].submeshes[0]));
+    randomMeshes.push_back(app->scene->AddBackingMesh(MeshDataFromObjFile(app->getHandles(), "Meshes/monkey.obj")));
+    
+    int cube = app->scene->AddBackingMesh(GltfLoadMeshes(app->getHandles(), "Meshes/cube.glb").meshes[0].submeshes[0]);
+    
+    //direciton light
+       
+
+    
     glm::vec3 EulerAngles(0, 0, 0);
     auto MyQuaternion = glm::quat(EulerAngles);
     
+    auto root = app->scene->AddObject(
+        &app->scene->backing_meshes[randomMeshes[rand() % randomMeshes.size()]],
+        randomMaterials[1], glm::vec4(0, 0, 0, 0) * 1.2f, MyQuaternion,
+        glm::vec3(0.5));
     
+    localTransform* tform = &app->scene->transforms.transformNodes[root];
     for (int i = 0; i < 100; i++)
     {
         for (int j = i == 0 ? 1 : 0 ; j < 10; j ++)
         {
-            float rowRoughness = glm::clamp(static_cast<float>(i) / 8.0, 0.0, 1.0);
+            float rowRoughness = (float)glm::clamp(static_cast<float>(i) / 8.0, 0.0, 1.0);
             bool rowmetlalic = i % 3 == 0;
-            int textureIndex = rand() % randomMaterials.size();
+            int matIDX = rand() % randomMaterials.size();
     
             app->scene->AddObject(
                 &app->scene->backing_meshes[randomMeshes[rand() % randomMeshes.size()]],
-                randomMaterials[textureIndex], rowRoughness, false,
-                glm::vec4((j), (i / 10) * 1.0, - (i % 10), 1) * 1.2f,
-                MyQuaternion,
+                randomMaterials[matIDX], glm::vec4((j), (i / 10) * 1.0, - (i % 10), 1) * 1.2f, MyQuaternion,
                 glm::vec3(0.5));
-            textureIndex = rand() % randomMaterials.size();
+            matIDX = rand() % randomMaterials.size();
         }
     
     }
+#endif 
+    app->scene->transforms.RebuildTransformDataFromNodes(app->getHandles().arena);
 }
 
-    // add plane
+    // add planep
      // app->scene->AddObject( &app->scene->backing_meshes[cube],
      //     0,
      //     0,

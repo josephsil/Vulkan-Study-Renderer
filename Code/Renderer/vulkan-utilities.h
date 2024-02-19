@@ -16,7 +16,7 @@ namespace MemoryArena
 struct Vertex;
 class Scene;
 //Forward declaration
-struct RendererHandles;
+struct RendererContext;
 struct CommandPoolManager;
 struct TextureData;
 
@@ -36,12 +36,12 @@ namespace DescriptorSets
 
 namespace Capabilities
 {
-    VkFormat findDepthFormat(RendererHandles rendererHandles);
+    VkFormat findDepthFormat(RendererContext rendererHandles);
 
-    VkFormat findSupportedFormat(RendererHandles rendererHandles, const std::vector<VkFormat>& candidates,
+    VkFormat findSupportedFormat(RendererContext rendererHandles, const std::vector<VkFormat>& candidates,
                                  VkImageTiling tiling,
                                  VkFormatFeatureFlags features);    
-    uint32_t findMemoryType(RendererHandles rendererHandles, uint32_t typeFilter, VkMemoryPropertyFlags properties);
+    uint32_t findMemoryType(RendererContext rendererHandles, uint32_t typeFilter, VkMemoryPropertyFlags properties);
 }
 
 

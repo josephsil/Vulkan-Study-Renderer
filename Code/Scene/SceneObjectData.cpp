@@ -6,30 +6,47 @@
 #include "SceneObjectData.h"
 
 #include <algorithm>
+#include <stack>
 
-#include "../Renderer/MeshData.h" // TODO JS: I want to separate the backing data from the scene 
-#include "../Renderer/TextureData.h" // TODO JS: I want to separate the backing data from the scene 
+#include <Renderer/MeshData.h> // TODO JS: I want to separate the backing data from the scene 
+#include <Renderer/TextureData.h> // TODO JS: I want to separate the backing data from the scene 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/quaternion.hpp>
 
-#include "../General/MemoryArena.h"
+#include <General/MemoryArena.h>
 
-const int OBJECT_MAX = 3000; 
-const int LIGHT_MAX = 3000; 
-const int ASSET_MAX = 300; 
+#include "General/Array.h"
+#include "General/Array.h"
+#include "General/Array.h"
+#include "General/Array.h"
+#include "General/Array.h"
+#include "General/Array.h"
+#include "General/Array.h"
+#include "General/Array.h"
+
 
 //No scale for now
 void InitializeScene(MemoryArena::memoryArena* arena, Scene* scene)
 {
+    
     //Parallel arrays per-object
     scene->objects = {};
     scene->objects.objectsCount = 0;
     scene->objects.translations = Array(MemoryArena::AllocSpan<glm::vec3>(arena, OBJECT_MAX));
     scene->objects.rotations = Array(MemoryArena::AllocSpan<glm::quat>(arena, OBJECT_MAX));
     scene->objects.scales = Array(MemoryArena::AllocSpan<glm::vec3>(arena, OBJECT_MAX));
-    scene->objects.materials = Array(MemoryArena::AllocSpan<Material>(arena, OBJECT_MAX));
+    scene->objects.materials = Array(MemoryArena::AllocSpan<uint32_t>(arena, OBJECT_MAX));
     scene->objects.meshIndices = Array(MemoryArena::AllocSpan<uint32_t>(arena, OBJECT_MAX));
-    scene->objects.matrices = Array(MemoryArena::AllocSpan<glm::mat4>(arena, OBJECT_MAX));
+    scene->objects.transformIDs = Array(MemoryArena::AllocSpan<uint64_t>(arena, OBJECT_MAX));
+
+
+    
+    scene->transforms = {};
+    
+    scene->transforms.worldMatrices = Array(MemoryArena::AllocSpan<std::span<glm::mat4>>(arena, OBJECT_MAX));
+    scene->materials = Array(MemoryArena::AllocSpan<Material>(arena, OBJECT_MAX));
+    scene->transforms.transformNodes.reserve(OBJECT_MAX);
+    scene->transforms.rootTransformsView =  Array(MemoryArena::AllocSpan<localTransform*>(arena, OBJECT_MAX));
     // scene->objects.meshes = Array(MemoryArena::AllocSpan<MeshData*>(arena, ASSET_MAX));
     // scene->objects.meshVertCounts = Array(MemoryArena::AllocSpan<uint32_t>(arena, ASSET_MAX));
 
@@ -42,14 +59,13 @@ void InitializeScene(MemoryArena::memoryArena* arena, Scene* scene)
 
     //Non parallel arrays //TODO JS: Pack together?
     scene->backing_diffuse_textures = Array(MemoryArena::AllocSpan<TextureData>(arena, ASSET_MAX));
-    scene->backing_specular_textures = Array(MemoryArena::AllocSpan<TextureData>(arena, ASSET_MAX));
-    scene->backing_normal_textures = Array(MemoryArena::AllocSpan<TextureData>(arena, ASSET_MAX));
     scene->backing_utility_textures = Array(MemoryArena::AllocSpan<TextureData>(arena, ASSET_MAX));
 
     scene->backing_meshes =  Array(MemoryArena::AllocSpan<MeshData>(arena, ASSET_MAX));
     scene->meshBoundingSphereRad = Array(MemoryArena::AllocSpan<positionRadius>(arena, ASSET_MAX));
     
 }
+
 
 void Scene::Update()
 {
@@ -62,47 +78,75 @@ void Scene::Update()
         model = translate(model, objects.translations[i]); //TODO: These should update at a different rate than camera stuff
         model *= objectLocalRotation; //TODO JS: temporarily turned off rotation to debug shadows
         model = scale(model, objects.scales[i]);
-        objects.matrices[i] = model;
+        transforms.get(objects.transformIDs[i])->matrix = model;
     }
+
+    transforms.UpdateWorldTransforms();
 }
 
+//TODO JS PRIMS:
+//TODO JS Objects are currently what's drawn -- per object there's a mesh, materal, and translatio ninfo
+//TODO JS: Easiest thing is to add the prims as new objects, and then later break the transform data apart from the object data
+//TODO JS: not every objcet neeeds a transform -- prims should use a praent transform.
+//TODO JS: So I'll do it in two steps -- first I'll add prims as objects, then ill split "drawables" ("models"?) and "transformablse" ("objects"?)
 //So things like, get the index back from this and then index in to these vecs to update them
 //At some point in the future I can replace this with a more sophisticated reference system if I need
 //Even just returning a pointer is probably plenty, then I can sort the lists, prune stuff, etc.
-int Scene::AddObject(MeshData* mesh, int textureidx, float material_roughness, bool material_metallic,
-                     glm::vec3 position, glm::quat rotation, glm::vec3 scale)
+int Scene::AddMaterial(float roughness, float metallic, glm::vec3 color, textureSetIDs textureindex, uint32_t pipeline)
+{
+  materials.push_back(Material{
+        .pipelineidx = pipeline, .diffuseIndex = textureindex.diffuseIndex, .specIndex   = textureindex.specIndex, .normalIndex = textureindex.normIndex, .metallic = metallic, .roughness = roughness, .color = color
+    });
+    return materials.size() -1;
+}
+
+int Scene::AddObject(MeshData* mesh, int materialIndex,
+                     glm::vec3 position, glm::quat rotation, glm::vec3 scale, localTransform* parent, std::string name )
 {
     //TODD JS: version that can add
     // objects.meshes.push_back(mesh);
-    objects.materials.push_back(Material{
-        .pipelineidx = (uint32_t)(objects.objectsCount % 20 > 10 ? 0 : 1), .backingTextureidx = textureidx, .metallic = material_metallic, .roughness = material_roughness
-    });
+    objects.materials.push_back(materialIndex);
     objects.translations.push_back(position);
     objects.rotations.push_back(rotation);
     objects.scales.push_back(scale);
-    objects.matrices.push_back(glm::mat4(1.0));
+    // transforms.worldMatrices.push_back(glm::mat4(1.0));
     objects.meshIndices.push_back(mesh->id);
+    objects.transformIDs.push_back(objects.transformIDs.size()); //TODO JS: When we use real objects, we'll only create transforms with these ids
     // objects.meshVertCounts.push_back(mesh->vertcount);
+
+    if (parent != nullptr)
+    {
+        transforms.transformNodes.push_back({glm::mat4(1.0),"CHILD", objects.transformIDs[objects.objectsCount], parent->depth +1u, {}});
+        addChild(parent,&transforms.transformNodes[transforms.transformNodes.size() -1]);
+    }
+    else
+    {
+        transforms.transformNodes.push_back( {glm::mat4(1.0),name.empty() ? "default" : name, objects.transformIDs[objects.objectsCount], 0, {}});
+        transforms.rootTransformsView.push_back(&transforms.transformNodes[transforms.transformNodes.size() -1]);
+    }
+
+    
+    
     return objects.objectsCount++;
 }
 
 
 uint32_t Scene::getOffsetFromMeshID(int id)
 {
-    int indexcount = 0;
+    uint32_t indexcount = 0;
     for (int i = 0; i < id; i++)
     {
-        indexcount += backing_meshes[i].indices.size();
+        indexcount += (uint32_t)backing_meshes[i].indices.size();
     }
     return indexcount;
 }
 
 uint32_t Scene::getVertexCount()
 {
-    int indexcount = 0;
+    uint32_t indexcount = 0;
     for (int i = 0; i < meshCount; i++)
     {
-        indexcount += backing_meshes[i].indices.size();
+        indexcount += (uint32_t)backing_meshes[i].indices.size();
     }
     return indexcount;
 }
@@ -113,11 +157,6 @@ int Scene::objectsCount()
     return objects.objectsCount;
 }
 
-int Scene::materialCount()
-{
-    return textureSetCount;
-}
-
 int Scene::utilityTextureCount()
 {
     return _utilityTextureCount;
@@ -125,7 +164,7 @@ int Scene::utilityTextureCount()
 
 int Scene::materialTextureCount()
 {
-    return  textureSetCount * 3;
+    return  backing_diffuse_textures.size();
 }
 
 int Scene::AddUtilityTexture(TextureData T)
@@ -134,20 +173,24 @@ int Scene::AddUtilityTexture(TextureData T)
     return _utilityTextureCount ++;
 }
 
+int Scene::AddTexture(TextureData T)
+{
+    backing_diffuse_textures.push_back(T);
+    return backing_diffuse_textures.size() -1;
+}
 //TODO JS: we should probably CREATE from here at some point?
-int Scene::AddMaterial(TextureData D, TextureData S, TextureData N)
+textureSetIDs Scene::AddTextureSet(TextureData D, TextureData S, TextureData N)
 {
     backing_diffuse_textures.push_back(D);
-    backing_specular_textures.push_back(S);
-    backing_normal_textures.push_back(N);
-    
-    return textureSetCount++;
+    backing_diffuse_textures.push_back(S);
+    backing_diffuse_textures.push_back(N);
+    return {(uint32_t)backing_diffuse_textures.size() -3, (uint32_t)backing_diffuse_textures.size() -2, (uint32_t)backing_diffuse_textures.size() -1};
 }
 
 int Scene::AddBackingMesh(MeshData M)
 {
     backing_meshes.push_back(M);
-    meshBoundingSphereRad.push_back(M.getBoundingSphere());
+    meshBoundingSphereRad.push_back(boundingSphereFromMeshBounds(M.boundsCorners));
     return meshCount ++;
 }
 
@@ -168,7 +211,7 @@ int orderComparator(void * context, void const* elem1, void const* elem2 )
     sortData dists = *(sortData*)context;
     glm::float32_t _1 = (dists.data[*(int*)elem1]);
     glm::float32_t _2 = (dists.data[*(int*)elem2]);
-    return ( _1 - _2 );
+    return int( _1 - _2 );
 }
 
 
@@ -286,7 +329,7 @@ int Scene::AddLight(glm::vec3 position, glm::vec3 dir, glm::vec3 color, float ra
     lightposandradius.push_back(glm::vec4(position.x, position.y, position.z, radius));
     lightcolorAndIntensity.push_back(glm::vec4(color.x, color.y, color.z, intensity));
     lightDir.push_back(glm::vec4(dir, -1.0));
-    lightTypes.push_back(type);
+    lightTypes.push_back((glm::float32)type);
     lightCount ++;
     shadowmapCount += shadowMapCt;
 
@@ -325,14 +368,9 @@ int Scene::shadowCasterCount()
 
 void Scene::Cleanup()
 {
-    for (int i = 0; i < meshCount; i++)
-    {
-        backing_meshes[i].cleanup();
-    }
-    for (int i = 0; i <  materialCount(); i++)
+ 
+    for (int i = 0; i <  backing_diffuse_textures.size(); i++)
     {
         backing_diffuse_textures[i].cleanup();
-        backing_specular_textures[i].cleanup();
-        backing_normal_textures[i].cleanup();
     }
 }

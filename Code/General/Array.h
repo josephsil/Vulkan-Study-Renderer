@@ -45,6 +45,12 @@ struct Array
         return data[i];
     }
 
+    
+    void push_back()
+    {
+        assert (ct < capacity);
+        ct++; 
+    }
     void push_back(T entry)
     {
         assert (ct < capacity);

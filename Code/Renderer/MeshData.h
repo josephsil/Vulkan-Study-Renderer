@@ -7,7 +7,7 @@
 
 #include <vector>
 #include "vertex.h"
-#include "RendererHandles.h"
+#include "RendererContext.h"
 
 #pragma region forward declarations
 #include <span>
@@ -16,38 +16,25 @@
 #include "VulkanIncludes/forward-declarations-renderer.h"
 #pragma endregion
 
+//TODO JS, use this temporarily when building the mesh.... not sure what to do with it
+struct temporaryloadingMesh
+{
+    std::span<Vertex> vertices; 
+    std::span<uint32_t> indices;
+    bool tangentsLoaded = false;
+
+};
 
 struct MeshData
 {
-public:
-    VkBuffer vertBuffer;
-    VkBuffer indexBuffer;
-    RendererHandles rendererHandles; //TODO to pointer?
-    VmaAllocation vertMemory;
-    VmaAllocation indexMemory;
-    std::span<Vertex> vertices; // Span into memoryArena
-    std::span<uint32_t> indices; //Span into memoryArena
+    std::span<Vertex> vertices; 
+    std::span<uint32_t> indices; 
     std::span<glm::vec3> boundsCorners;
-    VkDevice device; //Device pointers
-    size_t vertcount;
-    int id;
-
-
-    positionRadius getBoundingSphere();
-    MeshData(RendererHandles rendererHandles, std::vector<Vertex> vertices,
-             std::vector<uint32_t> indices);
-
-    MeshData(RendererHandles rendererHandles, const char* path);
-
-    MeshData()
-    {
-    }
-
-    //TODO JS: should probably clean itself up in a destructor or whatever 
-    void cleanup();
-
-private:
-    VkBuffer meshDataCreateVertexBuffer();
-
-    VkBuffer meshDataCreateIndexBuffer();
+    int id; //TODO JS: needed?
 };
+
+positionRadius boundingSphereFromMeshBounds(std::span<glm::vec3> boundsCorners);
+MeshData MeshDataFromSpans(std::span<Vertex> vertices,
+         std::span<uint32_t> indices);
+MeshData MeshDataFromObjFile(RendererContext rendererHandles, const char* path);
+MeshData FinalizeMeshDataFromTempMesh(MemoryArena::memoryArena* outputArena, MemoryArena::memoryArena* tempArena, temporaryloadingMesh tempMesh);

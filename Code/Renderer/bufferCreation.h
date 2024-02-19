@@ -7,7 +7,7 @@
 struct Vertex;
 class Scene;
 //Forward declaration
-struct RendererHandles;
+struct RendererContext;
 struct CommandPoolManager;
 struct TextureData;
 struct Vertex;
@@ -19,21 +19,21 @@ namespace BufferUtilities
                      VkImage* pImage,
                      VmaAllocation* pAllocation, VkDeviceMemory* deviceMemory);
     
-    void stageVertexBuffer(RendererHandles rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
+    void stageVertexBuffer(RendererContext rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
                            VmaAllocation& allocation, Vertex* data);
 
-    void stageIndexBuffer(RendererHandles rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
+    void stageIndexBuffer(RendererContext rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
                           VmaAllocation& allocation, glm::uint32_t* data);
 
     //TODO JS: move to cpp file?
-    void stageMeshDataBuffer(RendererHandles rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
+    void stageMeshDataBuffer(RendererContext rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
                              VmaAllocation& allocation, void* vertices, VkBufferUsageFlags dataTypeFlag);
 
-    void copyBuffer(RendererHandles rendererHandles, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+    void copyBuffer(RendererContext rendererHandles, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
     
-    void* createDynamicBuffer(RendererHandles rendererHandles, VkDeviceSize size, VkBufferUsageFlags usage,
+    void* createDynamicBuffer(RendererContext rendererHandles, VkDeviceSize size, VkBufferUsageFlags usage,
                               VmaAllocation* allocation, VkBuffer& buffer);
-    void createStagingBuffer(RendererHandles rendererHandles, VkDeviceSize size,
+    void createStagingBuffer(RendererContext rendererHandles, VkDeviceSize size,
                                    VmaAllocation* allocation, VkBuffer& stagingBuffer);
    
 }

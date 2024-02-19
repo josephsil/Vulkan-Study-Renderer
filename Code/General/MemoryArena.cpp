@@ -46,7 +46,7 @@ void MemoryArena::setCursor(memoryArena* a)
 
 void MemoryArena::freeToCursor(memoryArena* a)
 {
-    assert(a->cursor <= 0 && a->cursor < a->head);
+    assert(a->cursor >= 0 && a->cursor < a->head);
     a->head = a->cursor;
 }
 
@@ -54,4 +54,9 @@ void MemoryArena::freeToCursor(memoryArena* a)
 void MemoryArena::freeLast(memoryArena* a)
 {
     a->head = a->last;   
+}
+
+void MemoryArena::RELEASE(memoryArena* a)
+{
+    VirtualFree(a->base, 0, MEM_RELEASE);
 }

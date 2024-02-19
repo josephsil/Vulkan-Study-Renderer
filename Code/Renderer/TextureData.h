@@ -2,8 +2,10 @@
 
 #pragma region forward declarations
 #include <cstdint>
+#include <vulkan/vulkan_core.h>
 
-#include "RendererHandles.h"
+#include "BufferAndPool.h"
+#include "RendererContext.h"
 #include "VulkanIncludes/forward-declarations-renderer.h"
 using ktxTexture2 =  struct ktxTexture2;
 using  ktxVulkanTexture = struct ktxVulkanTexture;
@@ -14,9 +16,9 @@ struct temporaryTextureInfo
 {
     VkImage textureImage;
     VmaAllocation alloc;
-    uint32_t width;
-    uint32_t height;
-    uint8_t mipCt;
+    uint64_t width;
+    uint64_t  height;
+    uint64_t  mipCt;
 };
 //TODO JS: obviously improve 
 struct TextureData
@@ -39,14 +41,17 @@ public:
     VkImage textureImage;
     VmaAllocation textureImageMemory;
 
-    //TODO JS: move out of texturedata
-    RendererHandles rendererHandles;
+    RendererContext rendererHandles;
     uint32_t maxmip = 1; //TODO JS: mutate less places
     uint32_t layerct = 1;
     bool uncompressed = false;
 
-    
-    TextureData(RendererHandles rendererHandles, const char* path, TextureType type, VkImageViewType viewType = (VkImageViewType)-1);
+    //FILEPATH PATH 
+    TextureData(RendererContext rendererHandles, const char* path, TextureType type, VkImageViewType viewType = (VkImageViewType)-1);
+    //GLTF PATH 
+	TextureData(const char* OUTPUT_PATH, const char* textureName,  VkFormat format,  VkSamplerAddressMode samplerMode, unsigned char* pixels, uint64_t width, uint64_t height, int mipCt, RendererContext handles, bufferAndPool commandbuffer);
+    TextureData(const char* OUTPUT_PATH, const char* textureName, VkFormat format, VkSamplerAddressMode samplerMode,
+                uint64_t width, uint64_t height, int mipCt, RendererContext handles, bufferAndPool commandbuffer);
     VkFormat GetOrLoadTexture(const char* path, VkFormat format, TextureType textureType, bool use_mipmaps);
 
     TextureData();
@@ -55,12 +60,12 @@ public:
 
     //TODO JS: move tou tilities?
     // 0 = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    static void createTextureSampler(VkSampler* textureSampler, RendererHandles handles, VkSamplerAddressMode mode, float bias, float maxMip, bool shadow = false);
+    static void createTextureSampler(VkSampler* textureSampler, RendererContext handles, VkSamplerAddressMode mode, float bias, uint32_t maxMip, bool shadow = false);
     VkImageView createTextureImageView(VkFormat format, VkImageViewType type);
 private:
 
 
-    void cacheKTXFromSTB(const char* path, const char* outpath, VkFormat format, TextureType textureType,
+    void cacheKTXFromTempTexture(temporaryTextureInfo staging, const char* outpath, VkFormat format, TextureType textureType,
                          bool use_mipmaps);
     
 
@@ -74,6 +79,6 @@ private:
     It's best to do this after the texture mapping works to check if the texture resources are still set up correctly.*/
 
 
-    VkFormat createImageKTX(const char* path, TextureType type, bool mips);
+    VkFormat createImageKTX(const char* path, TextureType type, bool mips, bool useExistingBuffer = false, bufferAndPool* buffer = nullptr );
 };
 

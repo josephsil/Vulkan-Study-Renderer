@@ -8,11 +8,11 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include "./VulkanIncludes/Vulkan_Includes.h"
-#include "../General/Array.h"
+#include <General/Array.h>
 #include "rendererGlobals.h"
 #include "CommandPoolManager.h"
 #include "gpu-data-structs.h"
-#include "../General/MemoryArena.h"
+#include <General/MemoryArena.h>
 #include "PipelineDataObject.h"
 // My stuff 
 struct gpulight;
@@ -58,7 +58,7 @@ struct  semaphoreData
     std::span<VkPipelineStageFlags> waitStages;
 };
 
-class HelloTriangleApplication
+class vulkanRenderer
 {
 
     uint32_t k_timeout = 0;
@@ -86,9 +86,9 @@ public:
     };
     
     Scene* scene;
-    RendererHandles getHandles();
+    RendererContext getHandles();
     void updateShadowImageViews(int frame);
-    HelloTriangleApplication();
+    vulkanRenderer();
 
 
 private:
@@ -171,7 +171,7 @@ private:
     PipelineDataObject descriptorsetLayoutsDataCompute;
 
     
-    void createDescriptorSetPool(RendererHandles handles, VkDescriptorPool* pool);
+    void createDescriptorSetPool(RendererContext handles, VkDescriptorPool* pool);
     void updateOpaqueDescriptorSets(PipelineDataObject* layoutData);
     std::span<descriptorUpdateData> createOpaqueDescriptorUpdates(uint32_t frame, MemoryArena::memoryArena* arena, std::span<VkDescriptorSetLayoutBinding> layoutBindings);
     std::span<descriptorUpdateData> createShadowDescriptorUpdates(MemoryArena::memoryArena* arena, uint32_t frame, uint32_t shadowIndex, std::span<VkDescriptorSetLayoutBinding>
@@ -266,7 +266,7 @@ private:
     void updateUniformBuffer(uint32_t currentImage, glm::mat4 model);
     void updateCamera(inputData input);
     //Globals per pass, ubos, and lights are updated every frame
-    void updatePerFrameBuffers(unsigned currentFrame, Array<glm::mat4> models);
+    void updatePerFrameBuffers(unsigned currentFrame, Array<std::span<glm::mat4>> models);
     void recordCommandBufferShadowPass(VkCommandBuffer commandBuffer, uint32_t imageIndex, std::span<simplePassInfo> passes);
 
 

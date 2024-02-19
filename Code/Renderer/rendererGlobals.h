@@ -2,10 +2,10 @@
 #include <glm/glm.hpp>
 #include <span>
 #include "VulkanIncludes/forward-declarations-renderer.h"
-struct RendererHandles;
+struct RendererContext;
 const static int MAX_SHADOWCASTERS = 8;
 const static int CASCADE_CT = 4;
-#define MAX_SHADOWMAPS (MAX_SHADOWCASTERS * 6)
+#define MAX_SHADOWMAPS (MAX_SHADOWCASTERS * 8)
 const static int MAX_CAMERAS = 1;
 
 const static int MAX_FRAMES_IN_FLIGHT = 3;
@@ -43,7 +43,7 @@ struct dataBuffer
 
     VkDescriptorBufferInfo getBufferInfo();
     void updateMappedMemory(void* data, size_t size);
-    void allocateVulkanMemory(RendererHandles h, VmaAllocation* allocation, VkBufferUsageFlags usage);
+    void allocateVulkanMemory(RendererContext h, VmaAllocation* allocation, VkBufferUsageFlags usage);
 };
 
 template < typename T >
@@ -78,7 +78,7 @@ uint32_t dataBufferObject<T>::count()
     return _buffer.size / sizeof(T); 
 }
 
-template<typename T> dataBufferObject<T> createDataBuffer(RendererHandles* h, uint32_t size, VkBufferUsageFlags usage)
+template<typename T> dataBufferObject<T> createDataBuffer(RendererContext* h, uint32_t size, VkBufferUsageFlags usage)
 {
 
   dataBufferObject<T> buffer{};
@@ -104,9 +104,11 @@ struct Transform
 struct Material
 {
 public:
-
     uint32_t pipelineidx;
-    int backingTextureidx;
-    bool metallic;
+    uint32_t diffuseIndex;
+    uint32_t specIndex;
+    uint32_t normalIndex;
+    float metallic;
     float roughness;
+    glm::vec3 color;
 };

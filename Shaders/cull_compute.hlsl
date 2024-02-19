@@ -44,15 +44,15 @@ void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
 	objectData object = _objectData[objIndex];
 	float4x4 modelView = mul(globals.view, object.Model);
 	// float4x4 mvp = mul(globals.proj, modelView);
-	float4 center = mul(modelView,float4(0,0,0,1));
+	float4 center = mul(modelView,float4(0,0,0,1) + object.objectSpaceboundsCenter);
 	// center.z = center.z * -1;
-	float radius = object.objectSpaceboundsRadius; // TODO JS 
+	float radius = object.objectSpaceboundsRadius; // TODO JS needs to be scaled! 
  
 	bool visible = true;
 
 	for(int i = 0 ; i < 6; i++)
 	{
-		visible = visible && dot(frustumData[i + globals.frustumOffset], float4(center.xyz,1)) > -(radius/2);
+		visible = visible && dot(frustumData[i + globals.frustumOffset], float4(center.xyz,1)) > -(radius);
 	}
 
 	// visible = 0;

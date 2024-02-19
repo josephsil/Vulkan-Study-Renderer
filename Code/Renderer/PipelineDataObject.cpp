@@ -10,7 +10,7 @@
 #include <span>
 
 #include "gpu-data-structs.h"
-#include "../General/MemoryArena.h"
+#include <General/MemoryArena.h>
 
 
 VkDescriptorSetLayoutCreateInfo createInfoFromSpan( std::span<VkDescriptorSetLayoutBinding> bindings)
@@ -23,7 +23,7 @@ VkDescriptorSetLayoutCreateInfo createInfoFromSpan( std::span<VkDescriptorSetLay
 
     return _createInfo;
 }
-PipelineDataObject::PipelineDataObject(RendererHandles handles, VkDescriptorPool pool, std::span<VkDescriptorSetLayoutBinding> opaqueLayout)
+PipelineDataObject::PipelineDataObject(RendererContext handles, VkDescriptorPool pool, std::span<VkDescriptorSetLayoutBinding> opaqueLayout)
 {
     device = handles.device;
     createLayout(handles , opaqueLayout);
@@ -31,14 +31,14 @@ PipelineDataObject::PipelineDataObject(RendererHandles handles, VkDescriptorPool
     
 }
 
-void PipelineDataObject::createLayout(RendererHandles handles,  std::span<VkDescriptorSetLayoutBinding> layout )
+void PipelineDataObject::createLayout(RendererContext handles,  std::span<VkDescriptorSetLayoutBinding> layout )
 {
     VkDescriptorSetLayoutCreateInfo perSceneLaout = createInfoFromSpan(layout);
 
 
     VkDescriptorBindingFlags binding_flags = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT_EXT; 
     VkDescriptorSetLayoutBindingFlagsCreateInfoEXT extended_info = {VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO_EXT};
-    extended_info.bindingCount = layout.size(); 
+    extended_info.bindingCount = (uint32_t)layout.size(); 
 
     std::span<VkDescriptorBindingFlagsEXT> extFlags = MemoryArena::AllocSpan<VkDescriptorBindingFlagsEXT>(handles.perframeArena, layout.size());
 
@@ -110,7 +110,7 @@ void PipelineDataObject::updateDescriptorSetsForPipeline(std::span<descriptorUpd
     
     assert(writeDescriptorSets.size() == perPipelineData->slots.size());
 
-    vkUpdateDescriptorSets(device, writeDescriptorSets.size(), writeDescriptorSets.data(), 0, nullptr);
+    vkUpdateDescriptorSets(device, (uint32_t)writeDescriptorSets.size(), writeDescriptorSets.data(), 0, nullptr);
 }
 
 //updates descriptor sets based on vector of descriptorupdatedata, with some light validation that we're binding the right stuff
@@ -146,7 +146,7 @@ uint32_t PipelineDataObject::getPipelineCt()
 {
     //TODO JS
     // assert(pipelinesInitialized && pipelineLayoutInitialized);
-    return pipelines.size();
+    return (uint32_t)pipelines.size();
 }
 
 void PipelineDataObject::createPipelineLayoutForPipeline(perPipelineData* perPipelineData, size_t pconstantSize, bool compute)
@@ -162,7 +162,7 @@ void PipelineDataObject::createPipelineLayoutForPipeline(perPipelineData* perPip
     
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutInfo.setLayoutCount = layouts.size(); // Optional
+    pipelineLayoutInfo.setLayoutCount = (uint32_t)layouts.size(); // Optional
     pipelineLayoutInfo.pSetLayouts = layouts.data();
 
    
@@ -171,7 +171,7 @@ void PipelineDataObject::createPipelineLayoutForPipeline(perPipelineData* perPip
     //this push constant range starts at the beginning
     push_constant.offset = 0;
     //this push constant range takes up the size of a MeshPushConstants struct
-    push_constant.size = pconstantSize;
+    push_constant.size = (uint32_t)pconstantSize;
     
     push_constant.stageFlags = compute ? VK_SHADER_STAGE_COMPUTE_BIT : VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 
@@ -268,7 +268,7 @@ void PipelineDataObject::createGraphicsPipeline(std::vector<VkPipelineShaderStag
     
     VkGraphicsPipelineCreateInfo pipelineInfo{};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    pipelineInfo.stageCount = shaders.size(); //TODO JS?
+    pipelineInfo.stageCount = (uint32_t)shaders.size(); //TODO JS?
     pipelineInfo.pStages = shaders.data();
 
     pipelineInfo.pVertexInputState = &vertexInputInfo;

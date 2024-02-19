@@ -1,5 +1,5 @@
 #include "ShaderLoading.h"
-#include "../VulkanIncludes/Vulkan_Includes.h"
+#include <Renderer/VulkanIncludes/Vulkan_Includes.h>
 #include <Windows.h>
 #include "dxcapi.h"
 #include <d3dcompiler.h>
@@ -11,9 +11,9 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#include "../../General/Array.h"
-#include "../../General/FileCaching.h"
-#include "../../General/MemoryArena.h"
+#include <General/Array.h>
+#include <General/FileCaching.h>
+#include <General/MemoryArena.h>
 #ifndef WIN32
 #include <unistd.h>
 #endif
@@ -118,7 +118,7 @@ std::span<std::span<wchar_t>> parseShaderIncludeStrings(MemoryArena::memoryArena
 void copySubstring(std::span<wchar_t> sourceA, std::span<wchar_t> sourceB, std::span<wchar_t> tgt)
 {
     assert (tgt.size() <= sourceA.size() + sourceB.size());
-    uint32_t headLength = sourceA.size();
+    size_t headLength = sourceA.size();
     //Copy head
     for (int j = 0; j < headLength; j++)
     {
@@ -142,7 +142,7 @@ std::span<std::span<wchar_t>>  findShaderIncludes(MemoryArena::memoryArena* allo
 {
    
     size_t filenameStart = 0;
-    for(int i = shaderPath.length();i > 0; i --)
+    for(int i = (int)shaderPath.length();i > 0; i --)
     {
         if (shaderPath[i] == L'\\' || shaderPath[i] == L'/') //At last delimeter
         {
@@ -253,7 +253,7 @@ struct loadedBlob
 
     loadedBlob(SIZE_T size, std::unique_ptr<uint32_t[]> _buffer)
     {
-        this->size = size; //TODO JS: magic number i dont understand
+        this->size = (uint32_t)size; //TODO JS: magic number i dont understand
         this->buffer = std::move(_buffer);
     }
 };

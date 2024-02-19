@@ -83,7 +83,7 @@ VSOutput Vert(VSInput input,  [[vk::builtin("BaseInstance")]]  uint InstanceInde
     output.InstanceID = InstanceIndex;
 
 
-    output.Color = 1.0;
+    output.Color = ubo.color;
     return output;
 }
 
@@ -135,10 +135,6 @@ FSOutput Frag(VSOutput input)
    
     float4 specMap = bindless_textures[SPECULAR_INDEX].Sample(bindless_samplers[TEXTURESAMPLERINDEX], input.Texture_ST);
     float metallic = specMap.a;
-
-    objectData ubo = uboarr[OBJECTINDEX];
-
-    float4x4 model = ubo.Model;
     // albedo = 0.33;
     
     normalMap = normalize((2.0 * normalMap) - 1.0);
@@ -150,7 +146,7 @@ FSOutput Frag(VSOutput input)
 
     float3 F0 = 0.04;
     F0 = lerp(F0, albedo, metallic);
-    float roughness = specMap.r;
+    float roughness = 1.0 - specMap.r;
     float3 F = FresnelSchlickRoughness(max(dot(normalMap, V), 0.0), F0, roughness);
 
     float3 kS = F;
@@ -175,18 +171,20 @@ FSOutput Frag(VSOutput input)
 //
     if (getMode())
     {
-        output.Color = getLighting(model, diff, normalMap, input.worldPos, F0, roughness, metallic);
+        output.Color = getLighting( diff, normalMap, input.worldPos, F0, roughness, metallic);
     }
     else
     {
-        output.Color = ambient + getLighting(model, diff, normalMap, input.worldPos, F0, roughness, metallic);
+        output.Color = ambient + getLighting( diff, normalMap, input.worldPos, F0, roughness, metallic);
     }
 
-    //
+  
 
+    //
+    output.Color *= input.Color;
     
     output.Color = output.Color / (output.Color + 1.0);
-
+   
     // output.Color = getLighting(model, diff, input.Normal, input.worldPos, F0, roughness, metallic) / 10;
     //TODO: pcf
     //TODO: cascade

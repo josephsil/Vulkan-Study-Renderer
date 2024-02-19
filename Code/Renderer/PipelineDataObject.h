@@ -5,12 +5,12 @@
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
-#include "RendererHandles.h"
+#include "RendererContext.h"
 #include "VulkanIncludes/forward-declarations-renderer.h"
 
 struct Vertex;
 //Forward declaration
-struct RendererHandles;
+struct RendererContext;
 struct CommandPoolManager;
 struct TextureData;
 struct descriptorUpdateData;
@@ -37,7 +37,7 @@ struct descriptorUpdateData;
         
         PipelineDataObject()
         {}
-        PipelineDataObject(RendererHandles handles, VkDescriptorPool pool, std::span<VkDescriptorSetLayoutBinding> opaqueLayout);
+        PipelineDataObject(RendererContext handles, VkDescriptorPool pool, std::span<VkDescriptorSetLayoutBinding> opaqueLayout);
 
         //Initialization
         
@@ -100,7 +100,7 @@ struct descriptorUpdateData;
 
  
 
-        void createLayout(RendererHandles handles, std::span<VkDescriptorSetLayoutBinding> layout);
+        void createLayout(RendererContext handles, std::span<VkDescriptorSetLayoutBinding> layout);
 
 
      

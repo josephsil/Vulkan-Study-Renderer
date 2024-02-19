@@ -5,8 +5,8 @@
 #define LIGHT_SPOT 2
 #define LIGHTCOUNT   globals.lightcount_mode_shadowct_padding.r
 #define VERTEXOFFSET uboarr[InstanceIndex].indexInfo.g
-#define TEXTURESAMPLERINDEX uboarr[InstanceIndex].indexInfo.b
-#define NORMALSAMPLERINDEX TEXTURESAMPLERINDEX +2 //TODO JS: temporary!
+#define TEXTURESAMPLERINDEX  uboarr[InstanceIndex].textureIndexInfo.g
+#define NORMALSAMPLERINDEX  uboarr[InstanceIndex].textureIndexInfo.b //TODO JS: temporary!
 #define OBJECTINDEX  uboarr[InstanceIndex].indexInfo.a
 #define SKYBOXLUTINDEX globals.lutIDX_lutSamplerIDX_padding_padding.x
 #define SKYBOXLUTSAMPLERINDEX globals.lutIDX_lutSamplerIDX_padding_padding.y
@@ -71,9 +71,9 @@ RWStructuredBuffer<perShadowData> shadowMatrices;
 
 
 
-#define  DIFFUSE_INDEX  (TEXTURESAMPLERINDEX * 3) + 0
-#define  SPECULAR_INDEX  (TEXTURESAMPLERINDEX * 3) + 1
-#define  NORMAL_INDEX  (TEXTURESAMPLERINDEX * 3) + 2
+#define  DIFFUSE_INDEX  uboarr[InstanceIndex].textureIndexInfo.r
+#define  SPECULAR_INDEX  uboarr[InstanceIndex].textureIndexInfo.g
+#define  NORMAL_INDEX uboarr[InstanceIndex].textureIndexInfo.b
 
 float3 GET_SPOT_LIGHT_DIR(MyLightStructure light)
 {
@@ -238,7 +238,7 @@ float3 getShadow(int index, float3 fragPos)
         return -1;
 }
 
-float3 getLighting(float4x4 model, float3 albedo, float3 inNormal, float3 FragPos, float3 F0, float3 roughness, float metallic)
+float3 getLighting(float3 albedo, float3 inNormal, float3 FragPos, float3 F0, float3 roughness, float metallic)
 {
     float PI = 3.14159265359;
     float3 viewDir = normalize(globals.viewPos - FragPos);

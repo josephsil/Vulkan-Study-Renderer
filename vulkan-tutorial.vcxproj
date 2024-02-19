@@ -60,6 +60,7 @@
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
+    <EnableASAN>false</EnableASAN>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
@@ -121,12 +122,14 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>.\vkbootstrap;C:\VulkanSDK\1.3.239.0\Include;C:\Program Files\Microsoft Visual Studio\2022\Community\libraries\glfw-3.3.8\include;C:\Program Files\Microsoft Visual Studio\2022\Community\libraries\stb-master;C:\VulkanSDK\1.3.239.0\Include\vma;C:\Program Files\Microsoft Visual Studio\2022\Community\libraries\tinyobjloader-release;C:\VulkanSDK\KTX-Software\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\vkbootstrap;C:\VulkanSDK\1.3.239.0\Include;C:\Program Files\Microsoft Visual Studio\2022\Community\libraries\glfw-3.3.8\include;C:\Program Files\Microsoft Visual Studio\2022\Community\libraries\stb-master;C:\VulkanSDK\1.3.239.0\Include\vma;C:\Program Files\Microsoft Visual Studio\2022\Community\libraries\tinyobjloader-release;C:\VulkanSDK\KTX-Software\include;.\Code;.\tinygltf;.\External;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <TreatWarningAsError>false</TreatWarningAsError>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <GenerateDebugInformation>DebugFastLink</GenerateDebugInformation>
       <AdditionalLibraryDirectories>C:\VulkanSDK\1.3.239.0\Lib;C:\Program Files\Microsoft Visual Studio\2022\Community\libraries\glfw-3.3.8\lib-vc2022;C:\VulkanSDK\KTX-Software\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>vulkan-1.lib;dxcompiler.lib;SDL2.lib;SDL2main.lib;ktx.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
@@ -139,65 +142,65 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_DEPRECATE;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\VulkanSDK\KTX-Software\bin;.\vkbootstrap;C:\VulkanSDK\1.3.239.0\Include;C:\Program Files\Microsoft Visual Studio\2022\Community\libraries\glfw-3.3.8\include;C:\Program Files\Microsoft Visual Studio\2022\Community\libraries\stb-master;C:\VulkanSDK\1.3.239.0\Include\vma;C:\Program Files\Microsoft Visual Studio\2022\Community\libraries\tinyobjloader-release;C:\VulkanSDK\KTX-Software\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\vkbootstrap;C:\VulkanSDK\1.3.239.0\Include;C:\Program Files\Microsoft Visual Studio\2022\Community\libraries\glfw-3.3.8\include;C:\Program Files\Microsoft Visual Studio\2022\Community\libraries\stb-master;C:\VulkanSDK\1.3.239.0\Include\vma;C:\Program Files\Microsoft Visual Studio\2022\Community\libraries\tinyobjloader-release;C:\VulkanSDK\KTX-Software\include;.\Code;.\tinygltf;.\External;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <GenerateDebugInformation>DebugFastLink</GenerateDebugInformation>
       <AdditionalLibraryDirectories>C:\VulkanSDK\1.3.239.0\Lib;C:\Program Files\Microsoft Visual Studio\2022\Community\libraries\glfw-3.3.8\lib-vc2022;C:\VulkanSDK\KTX-Software\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>vulkan-1.lib;dxcompiler.lib;SDL2.lib;SDL2main.lib;ktx.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Code\General\FileCaching.cpp">
-     
     </ClCompile>
     <ClCompile Include="Code\General\MemoryArena.cpp">
-     
     </ClCompile>
     <ClCompile Include="Code\Renderer\bufferCreation.cpp">
-     
     </ClCompile>
     <ClCompile Include="Code\Renderer\CommandPoolManager.cpp">
-     
+    </ClCompile>
+    <ClCompile Include="Code\Renderer\gltf\gltfLoading.cpp" />
+    <ClCompile Include="Code\Renderer\gltf\gltf_impl.cpp">
+      <Optimization Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">MaxSpeed</Optimization>
+      <BasicRuntimeChecks Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+      </BasicRuntimeChecks>
     </ClCompile>
     <ClCompile Include="Code\Renderer\MeshData.cpp">
-     
     </ClCompile>
+    <ClCompile Include="Code\Renderer\MikkTImpl.cpp" />
     <ClCompile Include="Code\Renderer\PipelineDataObject.cpp">
-     
     </ClCompile>
     <ClCompile Include="Code\Renderer\Shaders\ShaderLoading.cpp">
-     
     </ClCompile>
     <ClCompile Include="Code\Renderer\textureCreation.cpp">
-     
     </ClCompile>
     <ClCompile Include="Code\Renderer\TextureData.cpp">
-     
     </ClCompile>
     <ClCompile Include="Code\Renderer\Vertex.cpp">
-     
     </ClCompile>
     <ClCompile Include="Code\Renderer\vulkan-utilities.cpp">
-     
     </ClCompile>
     <ClCompile Include="Code\Renderer\VulkanIncludes\vmaImplementation.cpp" />
     <ClCompile Include="Code\Renderer\VulkanIncludes\VulkanMemory.cpp" />
     <ClCompile Include="Code\Renderer\vulkanRenderer.cpp">
-     
     </ClCompile>
     <ClCompile Include="Code\Scene\SceneObjectData.cpp">
-     
     </ClCompile>
-    <ClCompile Include="ImageLibraryImplementations.cpp" />
-    <ClCompile Include="MeshLibraryImplementations.cpp" />
-    <ClCompile Include="mikktspace.c" />
+    <ClCompile Include="Code\Scene\Transforms.cpp" />
+    <ClCompile Include="External\ImageLibraryImplementations.cpp" />
+    <ClCompile Include="External\MeshLibraryImplementations.cpp" />
+    <ClCompile Include="External\mikktspace.c">
+      <Optimization Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">MaxSpeed</Optimization>
+      <BasicRuntimeChecks Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+      </BasicRuntimeChecks>
+    </ClCompile>
     <ClCompile Include="vkbootstrap\VkBootstrap.cpp" />
     <ClCompile Include="vulkan-tutorial.cpp" />
     <ClInclude Include="Code\General\Array.h" />
@@ -206,11 +209,14 @@
     <ClInclude Include="Code\Renderer\BufferAndPool.h" />
     <ClInclude Include="Code\Renderer\bufferCreation.h" />
     <ClInclude Include="Code\Renderer\CommandPoolManager.h" />
+    <ClInclude Include="Code\Renderer\gltf\gltfLoading.h" />
+    <ClInclude Include="Code\Renderer\gltf\gltf_impl.h" />
     <ClInclude Include="Code\Renderer\gpu-data-structs.h" />
     <ClInclude Include="Code\Renderer\MeshData.h" />
+    <ClInclude Include="Code\Renderer\MikkTImpl.h" />
     <ClInclude Include="Code\Renderer\PipelineDataObject.h" />
     <ClInclude Include="Code\Renderer\rendererGlobals.h" />
-    <ClInclude Include="Code\Renderer\RendererHandles.h" />
+    <ClInclude Include="Code\Renderer\RendererContext.h" />
     <ClInclude Include="Code\Renderer\Shaders\ShaderLoading.h" />
     <ClInclude Include="Code\Renderer\textureCreation.h" />
     <ClInclude Include="Code\Renderer\TextureData.h" />
@@ -222,9 +228,10 @@
     <ClInclude Include="Code\Renderer\VulkanIncludes\Vulkan_Includes.h" />
     <ClInclude Include="Code\Renderer\vulkanRenderer.h" />
     <ClInclude Include="Code\Scene\SceneObjectData.h" />
+    <ClInclude Include="Code\Scene\Transforms.h" />
     <ClInclude Include="ImageLibraryImplementations.h" />
     <ClInclude Include="MeshLibraryImplementations.h" />
-    <ClCompile Include="weldmesh.c" />
+    <ClCompile Include="External\weldmesh.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="mikktspace.h" />
@@ -234,7 +241,7 @@
     <ClInclude Include="vkbootstrap\VkBootstrap.h" />
     <ClInclude Include="vkbootstrap\VkBootstrapDispatch.h" />
     <ClInclude Include="vulkan-tutorial.h" />
-    <ClInclude Include="weldmesh.h" />
+    <ClInclude Include="External\weldmesh.h" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="viking_room.obj.txt" />

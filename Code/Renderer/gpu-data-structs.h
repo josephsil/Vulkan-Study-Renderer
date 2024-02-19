@@ -14,8 +14,10 @@ struct __VkDrawIndirectCommand {
 
 struct objectProperties
 {
-    alignas(16) glm::vec4 indexInfo; //Light count, vertex offset, texture index, ubo index
+    alignas(16) glm::vec4 indexInfo; //Light count, vertex offset, UNUSED, ubo index
+    alignas(16) glm::vec4 textureInfo; //diffuse idnex, spec index, normal index, UNUSED
     alignas(16) glm::vec4 materialprops; //roughness, metalness, padding, padding
+    alignas(16) glm::vec4 color; //rgba
 };
 
 struct positionRadius

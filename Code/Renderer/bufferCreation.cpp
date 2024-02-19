@@ -5,10 +5,10 @@
 
 #include "VulkanIncludes/VulkanMemory.h"
 #include "VulkanIncludes/vmaImplementation.h"
-#include "RendererHandles.h"
+#include "RendererContext.h"
 #include "CommandPoolManager.h"
 
-void createBuffer(RendererHandles rendererHandles, VkDeviceSize size, VkBufferUsageFlags usage, VmaAllocationCreateFlags  flags,
+void createBuffer(RendererContext rendererHandles, VkDeviceSize size, VkBufferUsageFlags usage, VmaAllocationCreateFlags  flags,
                                    VmaAllocation* allocation, VkBuffer& buffer, VmaAllocationInfo* outAllocInfo)
 {
 
@@ -26,7 +26,7 @@ void createBuffer(RendererHandles rendererHandles, VkDeviceSize size, VkBufferUs
     vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, allocation, outAllocInfo);
 }
 
-void BufferUtilities::copyBuffer(RendererHandles rendererHandles, VkBuffer srcBuffer, VkBuffer dstBuffer,
+void BufferUtilities::copyBuffer(RendererContext rendererHandles, VkBuffer srcBuffer, VkBuffer dstBuffer,
                                  VkDeviceSize size)
 {
     VkCommandBuffer commandBuffer = rendererHandles.commandPoolmanager->beginSingleTimeCommands_transfer();
@@ -38,7 +38,7 @@ void BufferUtilities::copyBuffer(RendererHandles rendererHandles, VkBuffer srcBu
     rendererHandles.commandPoolmanager->endSingleTimeCommands(commandBuffer);
 }
 
-void BufferUtilities::stageVertexBuffer(RendererHandles rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
+void BufferUtilities::stageVertexBuffer(RendererContext rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
                                    VmaAllocation& allocation, Vertex* data)
 {
     BufferUtilities::stageMeshDataBuffer(rendererHandles,
@@ -49,7 +49,7 @@ void BufferUtilities::stageVertexBuffer(RendererHandles rendererHandles, VkDevic
     
 }
 
-void BufferUtilities::stageIndexBuffer(RendererHandles rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
+void BufferUtilities::stageIndexBuffer(RendererContext rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
                                    VmaAllocation& allocation, uint32_t* data)
 {
     BufferUtilities::stageMeshDataBuffer(rendererHandles,
@@ -60,7 +60,7 @@ void BufferUtilities::stageIndexBuffer(RendererHandles rendererHandles, VkDevice
     
 }
 
-void BufferUtilities::stageMeshDataBuffer(RendererHandles rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
+void BufferUtilities::stageMeshDataBuffer(RendererContext rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
                                    VmaAllocation& allocation, void* vertices, VkBufferUsageFlags dataTypeFlag)
 {
     VkBuffer stagingBuffer;
@@ -84,7 +84,7 @@ void BufferUtilities::stageMeshDataBuffer(RendererHandles rendererHandles, VkDev
     vmaDestroyBuffer(rendererHandles.allocator, stagingBuffer, stagingallocation);
 }
 
-void* BufferUtilities::createDynamicBuffer(RendererHandles rendererHandles, VkDeviceSize size, VkBufferUsageFlags usage,
+void* BufferUtilities::createDynamicBuffer(RendererContext rendererHandles, VkDeviceSize size, VkBufferUsageFlags usage,
                                            VmaAllocation* allocation, VkBuffer& buffer)
 {
     VmaAllocationInfo allocInfo;
@@ -107,7 +107,7 @@ void* BufferUtilities::createDynamicBuffer(RendererHandles rendererHandles, VkDe
     exit(-1);
     }
 }
-void BufferUtilities::createStagingBuffer(RendererHandles rendererHandles, VkDeviceSize size,
+void BufferUtilities::createStagingBuffer(RendererContext rendererHandles, VkDeviceSize size,
                                    VmaAllocation* allocation, VkBuffer& stagingBuffer)
 {
     createBuffer(rendererHandles, size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,

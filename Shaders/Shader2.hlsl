@@ -159,11 +159,11 @@ FSOutput Frag(VSOutput input)
 
     if (getMode())
     {
-        output.Color = getLighting(ubo.Model, albedo, normalMap, input.worldPos, F0, roughness, metallic);
+        output.Color = getLighting(albedo, normalMap, input.worldPos, F0, roughness, metallic);
     }
     else
     {
-        output.Color = ambient + getLighting(ubo.Model, albedo, normalMap, input.worldPos, F0, roughness, metallic);
+        output.Color = ambient + getLighting(albedo, normalMap, input.worldPos, F0, roughness, metallic);
     }
     //
 
