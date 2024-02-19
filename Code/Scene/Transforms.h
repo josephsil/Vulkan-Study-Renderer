@@ -11,6 +11,7 @@
 #include <glm/glm.hpp>
 
 #include "General/Array.h"
+#include "General/MemoryArena.h"
 
 
 class Scene;
@@ -78,7 +79,7 @@ struct objectTransforms
 
     //world matrices we upload to gpu
     //Add validation to make sure they've been updated?
-    Array<glm::mat4> worldMatrices;
+    Array<std::span<glm::mat4>> worldMatrices;
 
     //Representation we use every frame to calc transforms
     //TODO: Flatten more, use contiguous memory
@@ -91,5 +92,5 @@ struct objectTransforms
     
     void set (uint64_t ID, glm::mat4 mat);
     void UpdateWorldTransforms();
-    void RebuildTransformDataFromNodes();
+    void RebuildTransformDataFromNodes(MemoryArena::memoryArena* arena);
 };

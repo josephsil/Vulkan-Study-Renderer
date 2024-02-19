@@ -24,6 +24,8 @@
 #include "VkBootstrap.h"
 #include "vulkan-utilities.h"
 #include "gltf/gltfLoading.h"
+#include "Scene/SceneObjectData.h"
+#include "Scene/SceneObjectData.h"
 #include "Scene/Transforms.h"
 #include "VulkanIncludes/VulkanMemory.h"
 
@@ -1147,7 +1149,7 @@ glm::vec4 normalizePlane(glm::vec4 p)
     return p / length(glm::vec3(p));
 }
 
-void vulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<glm::mat4> models)
+void vulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<std::span<glm::mat4>> models)
 {
     //TODO JS: to ring buffer?
     auto tempArena = getHandles().perframeArena;
@@ -1216,8 +1218,9 @@ void vulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<glm::mat
 
     for (int i = 0; i < ubos.size(); i++)
     {
-        glm::mat4* model = &models[i];
-        ubos[i].model = models[i];
+        auto lookup = scene->transforms._transform_lookup[i];
+        glm::mat4* model = &models[lookup.depth][lookup.index];
+        ubos[i].model = *model;
         ubos[i].Normal = transpose(inverse(glm::mat3(*model)));
 
 
@@ -1519,11 +1522,13 @@ void vulkanRenderer::recordCommandBufferOpaquePass(VkCommandBuffer commandBuffer
         auto scalefactor = glm::max(glm::max(abs(scene->objects.scales[i].x),abs(scene->objects.scales[i].y)), abs(scene->objects.scales[i].z));
 
         positionRadius bounds = scene->meshBoundingSphereRad[scene->objects.meshIndices[i]];
-        debugDrawCross(scene->transforms.worldMatrices[i] * glm::vec4(glm::vec3(bounds.objectSpacePos), 1.0), bounds.objectSpaceRadius * scalefactor, {1,0,0});
+        auto lookup = scene->transforms._transform_lookup[i];
+        glm::mat4 model = scene->transforms.worldMatrices[lookup.depth][lookup.index];
+        debugDrawCross(model * glm::vec4(glm::vec3(bounds.objectSpacePos), 1.0), bounds.objectSpaceRadius * scalefactor, {1,0,0});
         glm::vec3 corner1 = scene->backing_meshes[scene->objects.meshIndices[i]].boundsCorners[0];
         glm::vec3 corner2 = scene->backing_meshes[scene->objects.meshIndices[i]].boundsCorners[1];
-        debugDrawCross(scene->transforms.worldMatrices[i] * glm::vec4(corner1, 1.0), 1.0, {1,1,0.5});
-        debugDrawCross(scene->transforms.worldMatrices[i] * glm::vec4(corner2, 1.0), 1.0, {1,1,0.5});
+        debugDrawCross(model * glm::vec4(corner1, 1.0), 1.0, {1,1,0.5});
+        debugDrawCross(model * glm::vec4(corner2, 1.0), 1.0, {1,1,0.5});
     }
     
 
@@ -2287,9 +2292,9 @@ void SET_UP_SCENE(vulkanRenderer* app)
     
     
 
-#ifdef SPONZA 
+    #ifdef SPONZA 
     //TODO: gltf load fn that gets back struct, then append its contents to scene 
-    auto gltf = GltfLoadMeshes(app->getHandles(), "Meshes/sponza.glb");
+    auto gltf = GltfLoadMeshes(app->getHandles(), "Meshes/test.glb");
 
 
     //TODO JS: to span of spans for submeshes 
@@ -2339,14 +2344,16 @@ void SET_UP_SCENE(vulkanRenderer* app)
     }
     int addedCt = 0;
 
+    
     //lol
-   while(addedCt < gltf.objects.size())
+    while(addedCt < gltf.objects.size())
     {
         for(int i = 0; i < gltf.objects.size(); i++)
         {
             auto object = gltf.objects[i];
             if (parent[i] == -1 || created[parent[i]])
             {
+                if (created[i]) continue;
                 auto mesh  =  gltf.meshes[gltf.objects[i].meshidx];
                 for(int j = 0; j < mesh.submeshes.size(); j++)
                 {
@@ -2356,20 +2363,24 @@ void SET_UP_SCENE(vulkanRenderer* app)
                     int objectID = 0;
                     localTransform* parentTransform =( parent[i] != -1) ? tforms[parent[i]] : nullptr;
                     //TODO JS: add objcet that takes matrix
-                        objectID =  app->scene->AddObject(
-                            scenemesh,
-                            sceneMatIDX,
-                            gltf.materials[gltfMatIDX].roughnessFactor,
-                            gltf.materials[gltfMatIDX].metallicFactor,
-                            object.translation,
-                            object.rotation,
-                            object.scale * 1.0f, 
-                            parentTransform, 
-                            1);
+                    objectID =  app->scene->AddObject(
+                        scenemesh,
+                        sceneMatIDX,
+                        gltf.materials[gltfMatIDX].roughnessFactor,
+                        gltf.materials[gltfMatIDX].metallicFactor,
+                        object.translation,
+                        object.rotation, //TODO JS: These imported rotations are zeroing out the update rot fn... how?
+                        object.scale, 
+                        parentTransform, 
+                        1);
                 
-                    if (j == 0) tforms[i] = &app->scene->transforms.transformNodes[objectID]; //Only the first one can have children because these are like "fake objects"
+                    if (j == 0)
+                    {
+                        tforms[i] = &app->scene->transforms.transformNodes[objectID]; //Only the first one can have children because these are like "fake objects"}
+                        created[i] = true;
+                    }
                 }
-                    addedCt++;
+                addedCt++;
             }
             else
             {
@@ -2378,8 +2389,8 @@ void SET_UP_SCENE(vulkanRenderer* app)
         }
     }
 
-printf("objects count: %d \n", app->scene->objects.objectsCount);
-// #else
+    printf("objects count: %d \n", app->scene->objects.objectsCount);
+    // #else
     gltf = GltfLoadMeshes(app->getHandles(), "Meshes/pig.glb");
     placeholderTextureidx = app->scene->AddMaterial(
     gltf.textures[gltf.materials[0].diffIndex],
@@ -2428,7 +2439,7 @@ printf("objects count: %d \n", app->scene->objects.objectsCount);
     
     }
 #endif 
-    app->scene->transforms.RebuildTransformDataFromNodes();
+    app->scene->transforms.RebuildTransformDataFromNodes(app->getHandles().arena);
 }
 
     // add planep

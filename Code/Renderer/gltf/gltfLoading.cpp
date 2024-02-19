@@ -407,7 +407,7 @@ gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
     std::span<gltfMesh> meshes = MemoryArena::AllocSpan<gltfMesh>(permanentArena, meshCt);
     std::span<TextureData> textures = MemoryArena::AllocSpan<TextureData>(permanentArena, imageCt); //These are what I call textures, what vulkan calls images
     std::span<material> materials = MemoryArena::AllocSpan<material>(permanentArena, matCt); //These are what I call textures, what vulkan calls images
-    std::span<gltfNode> gltfNodes = MemoryArena::AllocSpan<gltfNode>(permanentArena, nodeCt); //These are what I call textures, what vulkan calls images 
+    std::span<gltfNode> gltfNodes = MemoryArena::AllocSpan<gltfNode>(permanentArena, nodeCt); //These are what I call textures, what vulkan calls images
     if (!warn.empty())
     {
         printf("GLTF LOADER WARNING: %s\n", warn.data());
@@ -502,7 +502,15 @@ gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
 	    glm::vec3 translation = glm::vec3(0);
 	    
 		tinygltf::Node node = model.nodes[i];
-		auto childIndices = node.children;
+        std::span<int> childIndices = MemoryArena::AllocSpan<int>(permanentArena, node.children.size());
+	    if (node.children.size() > 0)
+	    {
+	        for(int i = 0; i < node.children.size(); i++)
+	        {
+	            childIndices[i] = node.children[i];
+	        }
+	    }
+	    //TODO JS: leaking some extra gltf loading data for now
 	    glm::mat4 xform = {};
 	    if(node.matrix.size() == 16)
 	    {
@@ -521,7 +529,7 @@ gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
 	        if (node.rotation.size() ==4) rotation = glm::make_quat(node.rotation.data());
 	        //
 	    }
-	    gltfNodes[i] = {node.mesh, std::span(node.children),  scale, rotation, translation};
+	    gltfNodes[i] = {node.mesh, childIndices,  scale, rotation, translation};
 	}
 
     FileCaching::saveAssetChangedTime(gltfpath);

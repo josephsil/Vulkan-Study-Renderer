@@ -33,8 +33,8 @@ void InitializeScene(MemoryArena::memoryArena* arena, Scene* scene)
 
     
     scene->transforms = {};
-    scene->transforms.worldMatrices = Array(MemoryArena::AllocSpan<glm::mat4>(arena, OBJECT_MAX));
-    scene->transforms.transformNodes.resize(OBJECT_MAX);
+    scene->transforms.worldMatrices = Array(MemoryArena::AllocSpan<std::span<glm::mat4>>(arena, OBJECT_MAX));
+    scene->transforms.transformNodes.reserve(OBJECT_MAX);
     scene->transforms.rootTransformsView =  Array(MemoryArena::AllocSpan<localTransform*>(arena, OBJECT_MAX));
     // scene->objects.meshes = Array(MemoryArena::AllocSpan<MeshData*>(arena, ASSET_MAX));
     // scene->objects.meshVertCounts = Array(MemoryArena::AllocSpan<uint32_t>(arena, ASSET_MAX));
@@ -84,7 +84,7 @@ void Scene::Update()
 //At some point in the future I can replace this with a more sophisticated reference system if I need
 //Even just returning a pointer is probably plenty, then I can sort the lists, prune stuff, etc.
 int Scene::AddObject(MeshData* mesh, int textureidx, float material_roughness, bool material_metallic,
-                     glm::vec3 position, glm::quat rotation, glm::vec3 scale, localTransform* parent, int pipelineidx)
+                     glm::vec3 position, glm::quat rotation, glm::vec3 scale, localTransform* parent, int pipelineidx, std::string name )
 {
     //TODD JS: version that can add
     // objects.meshes.push_back(mesh);
@@ -94,21 +94,20 @@ int Scene::AddObject(MeshData* mesh, int textureidx, float material_roughness, b
     objects.translations.push_back(position);
     objects.rotations.push_back(rotation);
     objects.scales.push_back(scale);
-    transforms.worldMatrices.push_back(glm::mat4(1.0));
+    // transforms.worldMatrices.push_back(glm::mat4(1.0));
     objects.meshIndices.push_back(mesh->id);
     objects.transformIDs.push_back(objects.transformIDs.size()); //TODO JS: When we use real objects, we'll only create transforms with these ids
     // objects.meshVertCounts.push_back(mesh->vertcount);
 
     if (parent != nullptr)
     {
-        transforms.transformNodes[objects.objectsCount] = {transforms.worldMatrices[objects.objectsCount],"default", objects.transformIDs[objects.objectsCount], parent->depth +1u, {}};
+        transforms.transformNodes.push_back({glm::mat4(1.0),"CHILD", objects.transformIDs[objects.objectsCount], parent->depth +1u, {}});
         addChild(parent,&transforms.transformNodes[transforms.transformNodes.size() -1]);
     }
     else
     {
-        auto span = transforms.worldMatrices.getSpan();
-        transforms.transformNodes[objects.objectsCount]= {span[objects.objectsCount],"default", objects.transformIDs[objects.objectsCount], 0, {}};
-        transforms.rootTransformsView.push_back(&transforms.transformNodes[objects.objectsCount]);
+        transforms.transformNodes.push_back( {glm::mat4(1.0),name.empty() ? "default" : name, objects.transformIDs[objects.objectsCount], 0, {}});
+        transforms.rootTransformsView.push_back(&transforms.transformNodes[transforms.transformNodes.size() -1]);
     }
 
     

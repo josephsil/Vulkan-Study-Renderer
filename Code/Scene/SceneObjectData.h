@@ -91,7 +91,7 @@ public:
     void Update();
     //Returns the index to the object in the vectors
     int AddObject(MeshData* mesh, int textureidx, float material_roughness, bool material_metallic, glm::vec3 position,
-                  glm::quat rotation, glm::vec3 scale = glm::vec3(1), localTransform* parent = nullptr, int pipelineidx = -1);
+                  glm::quat rotation, glm::vec3 scale = glm::vec3(1), localTransform* parent = nullptr, int pipelineidx = -1,std::string name = "");
     uint32_t getVertexCount();
     int objectsCount();
     uint32_t getOffsetFromMeshID(int id);

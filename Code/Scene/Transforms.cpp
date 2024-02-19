@@ -2,6 +2,7 @@
 #include <stack>
 
 #include "SceneObjectData.h"
+#include "General/MemoryArena.h"
 
 //TODO P0:
 /*
@@ -68,6 +69,7 @@ void objectTransforms::set(uint64_t ID, glm::mat4 mat)
 
 void objectTransforms::UpdateWorldTransforms()
 {
+
     uint32_t idx = 0;
     for(int i =0; i < _local_transform_hiearchy.size(); i++)
     {
@@ -76,11 +78,11 @@ void objectTransforms::UpdateWorldTransforms()
             auto transform = _local_transform_hiearchy[i][j];
             if (i != 0)
             {
-                worldMatrices[idx] = _local_transform_hiearchy[i-1][transform.parent].matrix * transform.matrix;
+                worldMatrices[i][j] = worldMatrices[i-1][transform.parent] * transform.matrix;
             }
             else
             {
-                worldMatrices[idx] = transform.matrix;
+                worldMatrices[i][j] = transform.matrix;
             }
             idx++;
             
@@ -89,12 +91,13 @@ void objectTransforms::UpdateWorldTransforms()
 }
 
 //This is probably insane, i have a cold and can't remember how trees work
-void objectTransforms::RebuildTransformDataFromNodes()
+void objectTransforms::RebuildTransformDataFromNodes(MemoryArena::memoryArena* arena)
 {
+    printf("Repeatedly rebuilding transform data leaks memory! todo! \n"); //TODO JS
 
     _local_transform_hiearchy.clear();
     _transform_lookup.clear();
-    _transform_lookup.resize(worldMatrices.size());
+    _transform_lookup.resize(1200); //TODO JS
     _local_transform_hiearchy.push_back({});
 
     std::stack<stackEntry> queue = {};
@@ -123,11 +126,19 @@ void objectTransforms::RebuildTransformDataFromNodes()
                 _local_transform_hiearchy.push_back({});
             }
             //Create new flattened transform and lut entry
+            assert(t->entry[i]->depth > 0);
             _local_transform_hiearchy[t->entry[i]->depth]
                 .push_back({t->entry[i]->matrix, t->entry[i]->name, (uint8_t)(_local_transform_hiearchy[t->entry[i]->depth -1].size() -1)});
             _transform_lookup[t->entry[i]->ID] = {t->entry[i]->depth, (uint32_t)_local_transform_hiearchy[t->entry[i]->depth].size() -1 }; //look up from TFORM ID into flattened hiearchy
 
             t->visited++;
         }
+    }
+
+    //Allocate memory for matrices -- TODO leaks the old ones 
+    for(int i = 0; i < _local_transform_hiearchy.size(); i++)
+    {
+        worldMatrices.push_back();
+        worldMatrices[i] = MemoryArena::AllocSpan<glm::mat4>(arena, _local_transform_hiearchy[i].size());
     }
 }
