@@ -12,7 +12,7 @@
 #include <ImageLibraryImplementations.h>
 #include <General/Array.h>
 #include <General/MemoryArena.h>
-
+#include <windows.h>
 #include "bufferCreation.h"
 #include "CommandPoolManager.h"
 #include "gpu-data-structs.h"
@@ -529,10 +529,9 @@ VkDescriptorImageInfo imageInfoFromImageData(
 
 
 //TODO JS: this is replacing a function that used to be in scene -- need to feed its arguments from scene's backing arrays
-std::span<VkDescriptorImageInfo> getBindlessTextureInfos(MemoryArena::memoryArena* allocator, std::span<TextureData> diffuse, std::span<TextureData> spec, std::span<TextureData> norm, std::span<TextureData> utility)
+std::span<VkDescriptorImageInfo> getBindlessTextureInfos(MemoryArena::memoryArena* allocator, std::span<TextureData> diffuse, std::span<TextureData> utility)
 {
-    assert(spec.size() == diffuse.size());
-    assert(spec.size() == norm.size());
+
     //TODO JS: Don't do this every frame
     Array<VkDescriptorImageInfo> imageInfos = MemoryArena::AllocSpan<VkDescriptorImageInfo>(allocator, (diffuse.size() * 3) + utility.size());
     // std::vector<VkDescriptorImageInfo> samplerInfos;
@@ -542,14 +541,6 @@ std::span<VkDescriptorImageInfo> getBindlessTextureInfos(MemoryArena::memoryAren
         auto imageInfo = imageInfoFromImageData(
             diffuse[texture_i]);
         imageInfos.push_back(imageInfo);
-
-        auto imageInfo2 = imageInfoFromImageData(
-            spec[texture_i]);
-        imageInfos.push_back(imageInfo2);
-
-        auto imageInfo3 = imageInfoFromImageData(
-            norm[texture_i]);
-        imageInfos.push_back(imageInfo3);
     }
 
     for (int texture_i = 0; texture_i < utility.size(); texture_i++)
@@ -577,8 +568,6 @@ std::span<descriptorUpdateData> vulkanRenderer::createOpaqueDescriptorUpdates(ui
     std::span imageInfos = getBindlessTextureInfos(
         arena,
         std::span(scene->backing_diffuse_textures.data, scene->backing_diffuse_textures.ct ),
-        std::span(scene->backing_specular_textures.data, scene->backing_specular_textures.ct ),
-        std::span(scene->backing_normal_textures.data, scene->backing_normal_textures.ct ),
         std::span(scene->backing_utility_textures.data, scene->backing_utility_textures.ct ));
 
     std::span cubeImageInfos= DescriptorSets::ImageInfoFromImageDataVec(arena,{
@@ -1226,13 +1215,15 @@ void vulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<std::spa
 
         
         // int i = drawIndices[j];
-        Material material = scene->objects.materials[i];
+        Material material = scene->materials[scene->objects.materials[i]];
         
-        //Light count, vert offset, texture index, and object data index
-        ubos[i].props.indexInfo = glm::vec4(material.backingTextureidx, (scene->getOffsetFromMeshID(scene->objects.meshIndices[i])),
-                                       material.backingTextureidx, 44);
+        ubos[i].props.indexInfo = glm::vec4(material.diffuseIndex, (scene->getOffsetFromMeshID(scene->objects.meshIndices[i])),
+                                       material.diffuseIndex, 44);
 
-        ubos[i].props.materialprops = glm::vec4(material.roughness, scene->objects.materials[i].metallic, 0, 0);
+        ubos[i].props.textureInfo = glm::vec4(material.diffuseIndex, material.specIndex, material.normalIndex, -1.0);
+
+        ubos[i].props.materialprops = glm::vec4(material.roughness, material.roughness, 0, 0);
+        ubos[i].props.color = glm::vec4(material.color,1.0f);
 
         positionRadius objectBounds = scene->meshBoundingSphereRad[scene->objects.meshIndices[i]];
         objectBounds.objectSpaceRadius *= glm::max(glm::max(scene->objects.scales[i].x, scene->objects.scales[i].y), scene->objects.scales[i].z); //TODO JS move earlier in the frame
@@ -1766,6 +1757,8 @@ void vulkanRenderer::mainLoop()
         UpdateRotations();
         scene->Update();
         updateShadowData(&perFrameArenas[currentFrame], perLightShadowData, scene, sceneCamera);
+        #include <windows.h>
+        // Sleep(300);
         drawFrame();
         debugLines.clear();
         auto t2 = SDL_GetTicks();
@@ -1892,7 +1885,7 @@ framePasses preparePasses(Scene* scene, vulkanRenderer::cameraData* camera, Memo
     //fill buckets
     for (uint32_t j = 0; j < objectsPerDraw; j++)
     {
-        bucketedPipelines[scene->objects.materials[j].pipelineidx].indices.push_back(j);
+        bucketedPipelines[scene->materials[scene->objects.materials[j]].pipelineidx].indices.push_back(j);
     }
     
     //Fill opaque pass infos
@@ -2251,25 +2244,32 @@ void SET_UP_SCENE(vulkanRenderer* app)
     //TODO JS: We'll do matrix calculations on the flattened version. 
     
 
+    int defaultTexture = app->scene->AddTexture(TextureData(app->getHandles(), "textures/blank.png", TextureData::DIFFUSE));
+    int defaultSPec = app->scene->AddTexture(TextureData(app->getHandles(), "textures/default_roug.tga", TextureData::SPECULAR));
+    int defaultNormal = app->scene->AddTexture(TextureData(app->getHandles(), "textures/testtexture_normal.png", TextureData::SPECULAR));
 
-    int placeholderTextureidx = app->scene->AddMaterial(
+    int placeholderMatidx;
+    auto placeholderTextureidx = app->scene->AddTextureSet(
         TextureData(app->getHandles(), "textures/pbr_cruiser-panels/space-cruiser-panels2_albedo.png",
                     TextureData::TextureType::DIFFUSE),
         TextureData(app->getHandles(), "textures/pbr_cruiser-panels/space-cruiser-panels2_roughness_metallic.tga",
                     TextureData::TextureType::SPECULAR),
         TextureData(app->getHandles(), "textures/pbr_cruiser-panels/space-cruiser-panels2_normal-dx.png",
                     TextureData::TextureType::NORMAL));
-    randomMaterials.push_back(placeholderTextureidx);
+
+    placeholderMatidx = app->scene->AddMaterial(0.2, 0, glm::vec3(1.0f), placeholderTextureidx, 1);
+    randomMaterials.push_back(placeholderMatidx);
 
 
-    placeholderTextureidx = app->scene->AddMaterial(
+    placeholderTextureidx = app->scene->AddTextureSet(
         TextureData(app->getHandles(), "textures/pbr_cruiser-panels/space-cruiser-panels2_albedo.png",
                     TextureData::TextureType::DIFFUSE),
         TextureData(app->getHandles(), "textures/pbr_cruiser-panels/space-cruiser-panels2_roughness_metallic.tga",
                     TextureData::TextureType::SPECULAR),
         TextureData(app->getHandles(), "textures/pbr_cruiser-panels/space-cruiser-panels2_normal-dx.png",
                     TextureData::TextureType::NORMAL));
-    randomMaterials.push_back(placeholderTextureidx);
+    placeholderMatidx = app->scene->AddMaterial(0.2, 0, glm::vec3(1.0f), placeholderTextureidx, 1);
+    randomMaterials.push_back(placeholderMatidx);
 
 
 #define SPONZA
@@ -2294,11 +2294,12 @@ void SET_UP_SCENE(vulkanRenderer* app)
 
     #ifdef SPONZA 
     //TODO: gltf load fn that gets back struct, then append its contents to scene 
-    auto gltf = GltfLoadMeshes(app->getHandles(), "Meshes/test.glb");
+    auto gltf = GltfLoadMeshes(app->getHandles(), "Meshes/sponza.glb");
 
 
     //TODO JS: to span of spans for submeshes 
     std::span<std::span<int>> meshLUT = MemoryArena::AllocSpan<std::span<int>>(app->getHandles().perframeArena, gltf.meshes.size());
+    std::span<int> textureLUT = MemoryArena::AllocSpan<int>(app->getHandles().perframeArena, gltf.textures.size());
     std::span<int> materialLUT = MemoryArena::AllocSpan<int>(app->getHandles().perframeArena, gltf.materials.size());
 
 
@@ -2311,8 +2312,6 @@ void SET_UP_SCENE(vulkanRenderer* app)
         parent[i] = -1;
     }
 
-    TextureData DEFAULTSPEC = TextureData(app->getHandles(), "textures/pbr_factory-sliding/worn-factory-siding_roughness_metallic.tga", TextureData::TextureType::SPECULAR);
-    TextureData DEFAULTNORM =   TextureData(app->getHandles(), "textures/pbr_factory-sliding/worn-factory-siding_normal-dx.png",  TextureData::TextureType::NORMAL);
 
     for(int i = 0; i < gltf.meshes.size(); i++)
     {
@@ -2322,16 +2321,18 @@ void SET_UP_SCENE(vulkanRenderer* app)
             meshLUT[i][j] = app->scene->AddBackingMesh(gltf.meshes[i].submeshes[j]);
         }
     }
+    for(int i =0; i < gltf.textures.size(); i++)
+    {
+       textureLUT[i] = app->scene->AddTexture(gltf.textures[i]);
+    }
     for(int i =0; i < gltf.materials.size(); i++)
     {
         auto mat = gltf.materials[i];
-        
-        //TODO JS: in the default case, re-use an existing texture data, don't copy a new texture.
-        //TODO JS: Pick good defalt textures (blank color)
-        
-        materialLUT[i] = app->scene->AddMaterial(mat.diffIndex >= 0 ? gltf.textures[mat.diffIndex] : DEFAULTSPEC,
-            mat.specIndex >= 0 ? gltf.textures[mat.specIndex] :
-            DEFAULTSPEC, mat.normIndex >= 0 ? gltf.textures[mat.normIndex] : DEFAULTNORM);
+       textureSetIDs textures =  {mat.diffIndex >= 0 ? textureLUT[mat.diffIndex] : defaultTexture,
+            mat.specIndex >= 0 ? textureLUT[mat.specIndex] :
+            defaultSPec, mat.normIndex >= 0 ? textureLUT[mat.normIndex] : defaultNormal};
+
+        materialLUT[i] = app->scene->AddMaterial(mat.roughnessFactor, mat.metallicFactor, mat.baseColorFactor, textures, 1);
     }
 
     //prepass to set up parents
@@ -2366,13 +2367,10 @@ void SET_UP_SCENE(vulkanRenderer* app)
                     objectID =  app->scene->AddObject(
                         scenemesh,
                         sceneMatIDX,
-                        gltf.materials[gltfMatIDX].roughnessFactor,
-                        gltf.materials[gltfMatIDX].metallicFactor,
                         object.translation,
-                        object.rotation, //TODO JS: These imported rotations are zeroing out the update rot fn... how?
-                        object.scale, 
-                        parentTransform, 
-                        1);
+                        object.rotation,
+                        object.scale,
+                        parentTransform);
                 
                     if (j == 0)
                     {
@@ -2392,13 +2390,16 @@ void SET_UP_SCENE(vulkanRenderer* app)
     printf("objects count: %d \n", app->scene->objects.objectsCount);
     // #else
     gltf = GltfLoadMeshes(app->getHandles(), "Meshes/pig.glb");
-    placeholderTextureidx = app->scene->AddMaterial(
+    placeholderTextureidx = app->scene->AddTextureSet(
     gltf.textures[gltf.materials[0].diffIndex],
-      TextureData(app->getHandles(), "textures/pbr_factory-sliding/worn-factory-siding_roughness_metallic.tga",
+      TextureData(app->getHandles(), "textures/pbr_stainless-steel/used-stainless-steel2_roughness.png",
                   TextureData::TextureType::SPECULAR),
-      TextureData(app->getHandles(), "textures/pbr_factory-sliding/worn-factory-siding_normal-dx.png",
+      TextureData(app->getHandles(), "textures/pbr_stainless-steel/used-stainless-steel2_normal-dx.png",
                   TextureData::TextureType::NORMAL));
-    randomMaterials.push_back(placeholderTextureidx);
+
+    placeholderMatidx = app->scene->AddMaterial(0.2, 0, glm::vec3(1.0f), placeholderTextureidx, 1);
+    randomMaterials.push_back(placeholderMatidx);
+    
     randomMeshes.push_back(app->scene->AddBackingMesh(gltf.meshes[0].submeshes[0]));
     randomMeshes.push_back(app->scene->AddBackingMesh(GltfLoadMeshes(app->getHandles(), "Meshes/cubesphere.glb").meshes[0].submeshes[0]));
     randomMeshes.push_back(app->scene->AddBackingMesh(MeshDataFromObjFile(app->getHandles(), "Meshes/monkey.obj")));
@@ -2413,11 +2414,9 @@ void SET_UP_SCENE(vulkanRenderer* app)
     auto MyQuaternion = glm::quat(EulerAngles);
     
     auto root = app->scene->AddObject(
-              &app->scene->backing_meshes[randomMeshes[rand() % randomMeshes.size()]],
-              randomMaterials[1], 0, false,
-              glm::vec4(0, 0, 0, 0) * 1.2f,
-              MyQuaternion,
-              glm::vec3(0.5));
+        &app->scene->backing_meshes[randomMeshes[rand() % randomMeshes.size()]],
+        randomMaterials[1], glm::vec4(0, 0, 0, 0) * 1.2f, MyQuaternion,
+        glm::vec3(0.5));
     
     localTransform* tform = &app->scene->transforms.transformNodes[root];
     for (int i = 0; i < 100; i++)
@@ -2426,15 +2425,13 @@ void SET_UP_SCENE(vulkanRenderer* app)
         {
             float rowRoughness = (float)glm::clamp(static_cast<float>(i) / 8.0, 0.0, 1.0);
             bool rowmetlalic = i % 3 == 0;
-            int textureIndex = rand() % randomMaterials.size();
+            int matIDX = rand() % randomMaterials.size();
     
             app->scene->AddObject(
                 &app->scene->backing_meshes[randomMeshes[rand() % randomMeshes.size()]],
-                randomMaterials[textureIndex], rowRoughness, false,
-                glm::vec4((j), (i / 10) * 1.0, - (i % 10), 1) * 1.2f,
-                MyQuaternion,
+                randomMaterials[matIDX], glm::vec4((j), (i / 10) * 1.0, - (i % 10), 1) * 1.2f, MyQuaternion,
                 glm::vec3(0.5));
-            textureIndex = rand() % randomMaterials.size();
+            matIDX = rand() % randomMaterials.size();
         }
     
     }

@@ -6,10 +6,12 @@ struct objectData
     //objectProperties
     //Formerly push constants
     float4 indexInfo;
+    float4 textureIndexInfo;
     float roughness;
     float metallic;
     float _f1;
     float _f2;
+    float4 color;
     
     //Culling info
     //This data is really per model, not per object, but I'm lazy

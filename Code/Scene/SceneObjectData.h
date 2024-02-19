@@ -18,6 +18,12 @@ namespace MemoryArena
     struct memoryArena;
 }
 
+struct textureSetIDs
+{
+    uint32_t diffuseIndex;
+    uint32_t specIndex;
+    uint32_t normIndex;
+};
 //Objects have like, transformation info, ref to their mesh, ref to their material
 //Not sure on ref to material. Really I only have one shader right now
 struct TextureData;
@@ -38,7 +44,6 @@ private:
     //No scale for now
 public:
     int utilityTextureCount();
-    int materialCount();
     int materialTextureCount();
 
     void OrderedObjectIndices(::MemoryArena::memoryArena* allocator, glm::vec3 eyePos, std::span<int> indices, bool invert);
@@ -52,13 +57,14 @@ public:
         Array<glm::quat> rotations;
         Array<glm::vec3> scales;
         Array<uint32_t> meshIndices;
-        Array<Material> materials;
+        Array<uint32_t> materials;
         Array<uint64_t> transformIDs;
 
       
     };
 
     Objects objects;
+    Array<Material> materials;
     objectTransforms transforms;
 
     // arallel arrays per Light
@@ -73,10 +79,7 @@ public:
     
 
     //Non parallel arrays //TODO JS: Pack together?
-    int textureSetCount = 0;
     Array<TextureData> backing_diffuse_textures;
-    Array<TextureData> backing_specular_textures;
-    Array<TextureData> backing_normal_textures;
 
     int _utilityTextureCount = 0;
     Array<TextureData> backing_utility_textures;
@@ -90,15 +93,17 @@ public:
     Scene(MemoryArena::memoryArena* memoryArena);
     void Update();
     //Returns the index to the object in the vectors
-    int AddObject(MeshData* mesh, int textureidx, float material_roughness, bool material_metallic, glm::vec3 position,
-                  glm::quat rotation, glm::vec3 scale = glm::vec3(1), localTransform* parent = nullptr, int pipelineidx = -1,std::string name = "");
+    int AddMaterial(float roughness, float metallic, glm::vec3 color, textureSetIDs textureindex, uint32_t pipeline);
+    int AddObject(::MeshData* mesh, int materialIndex, glm::vec3 position,
+                  glm::quat rotation, glm::vec3 scale = glm::vec3(1), localTransform* parent = nullptr, std::string name = "");
     uint32_t getVertexCount();
     int objectsCount();
     uint32_t getOffsetFromMeshID(int id);
 
     //TODO JS: these are temporary
     int AddUtilityTexture(TextureData T);
-    int AddMaterial(TextureData D, TextureData S, TextureData N);
+    int AddTexture(TextureData T);
+    textureSetIDs AddTextureSet(TextureData D, TextureData S, TextureData N);
     int AddBackingMesh(MeshData M);
     positionRadius GetBoundingSphere(int idx);
 

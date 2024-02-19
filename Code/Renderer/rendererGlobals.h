@@ -104,9 +104,11 @@ struct Transform
 struct Material
 {
 public:
-
     uint32_t pipelineidx;
-    int backingTextureidx;
-    bool metallic;
+    uint32_t diffuseIndex;
+    uint32_t specIndex;
+    uint32_t normalIndex;
+    float metallic;
     float roughness;
+    glm::vec3 color;
 };
