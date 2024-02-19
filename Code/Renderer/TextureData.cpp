@@ -89,7 +89,7 @@ TextureData::TextureData(RendererContext rendererHandles, const char* path, Text
 
 //TODO JS: these constructors suck and are error prone, was just easier refactor
 //FROM LOADED GLTF 
-TextureData::TextureData(const char* OUTPUT_PATH, const char* textureName, VkFormat format, VkSamplerAddressMode samplerMode, unsigned char* pixels, uint64_t width, uint64_t height, int mipCt, RendererContext handles)
+TextureData::TextureData(const char* OUTPUT_PATH, const char* textureName, VkFormat format, VkSamplerAddressMode samplerMode, unsigned char* pixels, uint64_t width, uint64_t height, int mipCt, RendererContext handles, bufferAndPool commandbuffer)
 {
 	this->rendererHandles = handles;
 
@@ -101,7 +101,7 @@ TextureData::TextureData(const char* OUTPUT_PATH, const char* textureName, VkFor
 	cacheKTXFromTempTexture(staging, OUTPUT_PATH, format, TextureType::DIFFUSE, mipCt != 0);
 
 
-	VkFormat loadedFormat = createImageKTX(OUTPUT_PATH, TextureType::DIFFUSE, true);
+	VkFormat loadedFormat = createImageKTX(OUTPUT_PATH, TextureType::DIFFUSE, true, true, &commandbuffer);
 	
 	textureImageView = createTextureImageView(loadedFormat, VK_IMAGE_VIEW_TYPE_2D);
 	assert(textureImageView != VK_NULL_HANDLE);
@@ -111,11 +111,11 @@ TextureData::TextureData(const char* OUTPUT_PATH, const char* textureName, VkFor
 }
 
 //FROM CACHED GLTF 
-TextureData::TextureData(const char* OUTPUT_PATH, const char* textureName, VkFormat format, VkSamplerAddressMode samplerMode, uint64_t width, uint64_t height, int mipCt, RendererContext handles)
+TextureData::TextureData(const char* OUTPUT_PATH, const char* textureName, VkFormat format, VkSamplerAddressMode samplerMode, uint64_t width, uint64_t height, int mipCt, RendererContext handles, bufferAndPool commandBuffer)
 {
 
 	this->rendererHandles = handles;
-	VkFormat loadedFormat = createImageKTX(OUTPUT_PATH, TextureType::DIFFUSE, true);
+	VkFormat loadedFormat = createImageKTX(OUTPUT_PATH, TextureType::DIFFUSE, true, true, &commandBuffer);
 	
 	textureImageView = createTextureImageView(loadedFormat, VK_IMAGE_VIEW_TYPE_2D);
 	assert(textureImageView != VK_NULL_HANDLE);
@@ -573,7 +573,7 @@ static temporaryTextureInfo createtempTextureFromPath(RendererContext rendererHa
 }
 
 
-VkFormat TextureData::createImageKTX(const char* path, TextureType type, bool mips)
+VkFormat TextureData::createImageKTX(const char* path, TextureType type, bool mips, bool useExistingBuffer, bufferAndPool* buffer)
 {
 	ktxVulkanDeviceInfo vdi;
 	ktxVulkanTexture texture;
@@ -581,8 +581,13 @@ VkFormat TextureData::createImageKTX(const char* path, TextureType type, bool mi
 	ktxTexture2* kTexture;
 	KTX_error_code ktxresult;
 
-	bufferAndPool workingTextureBuffer = rendererHandles.commandPoolmanager->beginSingleTimeCommands(false ); //TODO JS: Transfer pool doesnt work since ktx saving wor-- why?
-
+	bufferAndPool workingTextureBuffer;
+	if (!useExistingBuffer)
+	{
+		workingTextureBuffer = rendererHandles.commandPoolmanager->beginSingleTimeCommands(false ); //TODO JS: Transfer pool doesnt work since ktx saving wor-- why?
+	}
+	else
+		workingTextureBuffer = *buffer;
 	ktxVulkanDeviceInfo_Construct(&vdi, rendererHandles.physicalDevice, rendererHandles.device,
 								  workingTextureBuffer.queue, workingTextureBuffer.pool, nullptr);
 
@@ -596,7 +601,8 @@ VkFormat TextureData::createImageKTX(const char* path, TextureType type, bool mi
 	bool debugnomips = false;
 	VkFormat outputFormat;
 
-	//If it's a basis texture, we need to transcode (and also can't generate mipmaps) 
+	//If it's a basis texture, we need to transcode (and also can't generate mipmaps)
+	//TODO JS: paralellize, i think this is the main bottleneck for texture loading
 	if (ktxTexture2_NeedsTranscoding(kTexture))
 	{
 		ktx_transcode_fmt_e transcodeFormat;
@@ -647,8 +653,11 @@ VkFormat TextureData::createImageKTX(const char* path, TextureType type, bool mi
 	
 	layerct = texture.layerCount;
 	textureImage = texture.image;
-	
-	rendererHandles.commandPoolmanager->endSingleTimeCommands(workingTextureBuffer);
+
+	if (!useExistingBuffer)
+	{
+		rendererHandles.commandPoolmanager->endSingleTimeCommands(workingTextureBuffer);
+	}
 
 #ifdef DEBUG
 	if (KTX_SUCCESS != ktxresult)

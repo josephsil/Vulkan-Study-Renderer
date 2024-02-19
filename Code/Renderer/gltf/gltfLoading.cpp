@@ -11,7 +11,8 @@
 #include <glm/gtc/type_ptr.hpp>
 #define TINYGLTF_NO_STB_IMAGE
 #include "gltf_impl.h"
-
+#include <Renderer/BufferAndPool.h>
+#include <Renderer/CommandPoolManager.h>
 
 //Default tinyobj load image fn
 bool LoadImageData(tinygltf::Image *image, const int image_idx, std::string *err,
@@ -454,6 +455,7 @@ gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
 		materials[i].occlusionStrength = gltfmaterial.occlusionTexture.strength;
 	}
 
+    auto textureImportCommandBuffer =  handles.commandPoolmanager->beginSingleTimeCommands(true);
     for (int i = 0; i < imageCt; i++)
     {
         tinygltf::Image image = model.images[i];
@@ -480,18 +482,21 @@ gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
         cachetexture = false;
         }
 
+        
         if (cachetexture)
         {
             assert(image.component == 4);
             assert(image.pixel_type == TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE);
             assert(image.bits == 8);
 
-            textures[i] = TextureData(cachedImagePath.data(),name.data(),  (VkFormat)VK_FORMAT_R8G8B8A8_SRGB,   VK_SAMPLER_ADDRESS_MODE_REPEAT, image.image.data(), image.width, image.height, 6,  handles);
+            textures[i] = TextureData(cachedImagePath.data(),name.data(),  (VkFormat)VK_FORMAT_R8G8B8A8_SRGB,   VK_SAMPLER_ADDRESS_MODE_REPEAT, image.image.data(), image.width, image.height, 6,  handles, textureImportCommandBuffer);
         }
         else
-        textures[i] = TextureData(cachedImagePath.data(),name.data(),  (VkFormat)VK_FORMAT_R8G8B8A8_SRGB,   VK_SAMPLER_ADDRESS_MODE_REPEAT,  image.width, image.height, 6,  handles);
+        textures[i] = TextureData(cachedImagePath.data(),name.data(),  (VkFormat)VK_FORMAT_R8G8B8A8_SRGB,   VK_SAMPLER_ADDRESS_MODE_REPEAT,  image.width, image.height, 6,  handles, textureImportCommandBuffer);
 
     }
+
+    handles.commandPoolmanager->endSingleTimeCommands(textureImportCommandBuffer);
 
 	for(int i = 0; i < nodeCt; i++)
 	{

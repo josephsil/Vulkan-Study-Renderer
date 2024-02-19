@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <vulkan/vulkan_core.h>
 
+#include "BufferAndPool.h"
 #include "RendererContext.h"
 #include "VulkanIncludes/forward-declarations-renderer.h"
 using ktxTexture2 =  struct ktxTexture2;
@@ -48,9 +49,9 @@ public:
     //FILEPATH PATH 
     TextureData(RendererContext rendererHandles, const char* path, TextureType type, VkImageViewType viewType = (VkImageViewType)-1);
     //GLTF PATH 
-	TextureData(const char* OUTPUT_PATH, const char* textureName,  VkFormat format,  VkSamplerAddressMode samplerMode, unsigned char* pixels, uint64_t width, uint64_t height, int mipCt, RendererContext handles);
+	TextureData(const char* OUTPUT_PATH, const char* textureName,  VkFormat format,  VkSamplerAddressMode samplerMode, unsigned char* pixels, uint64_t width, uint64_t height, int mipCt, RendererContext handles, bufferAndPool commandbuffer);
     TextureData(const char* OUTPUT_PATH, const char* textureName, VkFormat format, VkSamplerAddressMode samplerMode,
-                uint64_t width, uint64_t height, int mipCt, RendererContext handles);
+                uint64_t width, uint64_t height, int mipCt, RendererContext handles, bufferAndPool commandbuffer);
     VkFormat GetOrLoadTexture(const char* path, VkFormat format, TextureType textureType, bool use_mipmaps);
 
     TextureData();
@@ -78,6 +79,6 @@ private:
     It's best to do this after the texture mapping works to check if the texture resources are still set up correctly.*/
 
 
-    VkFormat createImageKTX(const char* path, TextureType type, bool mips);
+    VkFormat createImageKTX(const char* path, TextureType type, bool mips, bool useExistingBuffer = false, bufferAndPool* buffer = nullptr );
 };
 
