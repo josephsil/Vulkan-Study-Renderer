@@ -967,6 +967,7 @@ std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocato
       
     case LIGHT_DIR:
         {
+
             outputSpan = MemoryArena::AllocSpan<PerShadowData>(allocator, CASCADE_CT ); //TODO JS: cascades
 
             glm::mat4 invCam = glm::inverse(vp.proj * vp.view);
@@ -998,7 +999,7 @@ std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocato
                 float p = (i + 1) / static_cast<float>(CASCADE_CT);
                 float log = minZ * std::pow(ratio, p);
                 float uniform = minZ + range * p;
-                float d = 0.98f * (log - uniform) + uniform;
+                float d = 0.99f * (log - uniform) + uniform;
                 cascadeSplits[i] = (d - cam.nearPlane) / clipRange;
             }
 
@@ -1007,21 +1008,21 @@ std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocato
                 float splitDist = cascadeSplits[i];
                 float lastSplitDist = i == 0 ? 0 : cascadeSplits[i-1]; 
                 
-                glm::vec3 frustumCornersCascadeSpace[8] = {};
+                glm::vec3 frustumCornersWorldSpacev3[8] = {}; //TODO JS: is this named correctly?
                 for(int j = 0; j < 8; j++)
                 {
-                    frustumCornersCascadeSpace[j] = glm::vec3(frustumCornersWorldSpace[j]);
+                    frustumCornersWorldSpacev3[j] = glm::vec3(frustumCornersWorldSpace[j]);
                 }
                 for(int j = 0; j < 4; j++)
                 {
-                    glm::vec3 dist = frustumCornersCascadeSpace[j + 4] - frustumCornersCascadeSpace[j];
-                    frustumCornersCascadeSpace[j + 4] = frustumCornersCascadeSpace[j] + (dist * splitDist);
-                    frustumCornersCascadeSpace[j] = frustumCornersCascadeSpace[j] + (dist * lastSplitDist);
+                    glm::vec3 dist = frustumCornersWorldSpacev3[j + 4] - frustumCornersWorldSpacev3[j];
+                    frustumCornersWorldSpacev3[j + 4] = frustumCornersWorldSpacev3[j] + (dist * splitDist);
+                    frustumCornersWorldSpacev3[j] = frustumCornersWorldSpacev3[j] + (dist * lastSplitDist);
                 }
 
                 glm::vec3 frustumCenter = glm::vec3(0.0f);
                 for (uint32_t j = 0; j < 8; j++) {
-                    frustumCenter += frustumCornersCascadeSpace[j];
+                    frustumCenter += frustumCornersWorldSpacev3[j];
                 }
                 frustumCenter /= 8.0f;
 
@@ -1031,18 +1032,31 @@ std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocato
    
                 float radius = 0.0f;
                 for (uint32_t i = 0; i < 8; i++) {
-                    float distance = glm::length(glm::vec3(frustumCornersCascadeSpace[i]) - frustumCenter);
+                    float distance = glm::length(glm::vec3(frustumCornersWorldSpacev3[i]) - frustumCenter);
                     radius = glm::max<float>(radius, distance);
                 }
                 
                 radius = std::ceil(radius * 16.0f) / 16.0f;
+                float offset = 12.0;
 
+
+                //Texel clamping
+                glm::mat4 texelScalar = glm::mat4(1);
+                texelScalar = glm::scale(texelScalar, glm::vec3((float)SHADOW_MAP_SIZE / (radius * 2.0f)));
                 glm::vec3 maxExtents = glm::vec3(radius);
                 glm::vec3 minExtents = -maxExtents;
+                glm::mat4 baseLightvew = glm::lookAt(normalize(-dir), glm::vec3(0),  up);
+                glm::mat4 texelLightview = texelScalar * baseLightvew ;
+                glm::mat4 texelInverse = (inverse(texelLightview));
+                glm::vec4 transformedCenter = texelLightview * glm::vec4(frustumCenter, 1.0);
+                transformedCenter.x = floor(transformedCenter.x);
+                transformedCenter.y = floor(transformedCenter.y);
+                transformedCenter = texelInverse * transformedCenter ;
 
-                lightViewMatrix = glm::lookAt(glm::vec3(frustumCenter)  + (dir * (maxExtents.z)), frustumCenter, up);
 
-                glm::mat4 lightOrthoMatrix = glm::ortho(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, 0.0f, maxExtents.z - minExtents.z);
+                //Compute output matrices
+                lightViewMatrix = glm::lookAt(glm::vec3(transformedCenter)  + ((dir * maxExtents) * offset), glm::vec3(transformedCenter), up);
+                glm::mat4 lightOrthoMatrix = glm::ortho(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, 0.0f, (maxExtents.z - minExtents.z) * offset);
 
                 lightProjection =  lightOrthoMatrix;
                 outputSpan[i] = {lightViewMatrix, lightProjection,  (cam.nearPlane + splitDist * clipRange) * -1.0f};
@@ -1144,6 +1158,7 @@ void vulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<std::spa
     auto tempArena = getHandles().perframeArena;
 
     updateGlobals(sceneCamera, scene, cubemaplut_utilitytexture_index, FramesInFlightData[currentFrame].opaqueShaderGlobalsBuffer);
+    
 
     //Lights
     auto lights = MemoryArena::AllocSpan<gpulight>(tempArena, scene->lightCount);
@@ -2295,15 +2310,12 @@ void SET_UP_SCENE(vulkanRenderer* app)
     #ifdef SPONZA 
     //TODO: gltf load fn that gets back struct, then append its contents to scene 
     auto gltf = GltfLoadMeshes(app->getHandles(), "Meshes/sponza.glb");
+    //TODO JS: to span of spans for submeshes
 
-
-    //TODO JS: to span of spans for submeshes 
+#pragma region gltf adding stuff --- todo move to fn 
     std::span<std::span<int>> meshLUT = MemoryArena::AllocSpan<std::span<int>>(app->getHandles().perframeArena, gltf.meshes.size());
     std::span<int> textureLUT = MemoryArena::AllocSpan<int>(app->getHandles().perframeArena, gltf.textures.size());
     std::span<int> materialLUT = MemoryArena::AllocSpan<int>(app->getHandles().perframeArena, gltf.materials.size());
-
-
-    
     std::span<int> parent = MemoryArena::AllocSpan<int>(app->getHandles().perframeArena, gltf.objects.size());
     std::span<bool> created = MemoryArena::AllocSpan<bool>(app->getHandles().perframeArena, gltf.objects.size());
     std::span<localTransform*> tforms = MemoryArena::AllocSpan<localTransform*>(app->getHandles().perframeArena, gltf.objects.size());
@@ -2387,6 +2399,7 @@ void SET_UP_SCENE(vulkanRenderer* app)
         }
     }
 
+#pragma endregion 
     printf("objects count: %d \n", app->scene->objects.objectsCount);
     // #else
     gltf = GltfLoadMeshes(app->getHandles(), "Meshes/pig.glb");

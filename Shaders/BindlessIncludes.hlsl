@@ -176,8 +176,8 @@ int findCascadeLevel(int lightIndex, float3 worldPixel)
 {
     float4 fragPosViewSpace = mul( mul(globals.projection,  globals.view), float4(worldPixel, 1.0));
     float depthValue = fragPosViewSpace.z;
-    int cascadeLevel = 3;
-    for (int i = 0; i < 4; i++) //4 == cascade count
+    int cascadeLevel = 0;
+    for (int i = 0; i < 6; i++) //6 == cascade count
         {
         if (depthValue <   -shadowMatrices[lightIndex + i].depth)
         {
