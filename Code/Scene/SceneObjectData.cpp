@@ -57,9 +57,7 @@ void InitializeScene(MemoryArena::memoryArena* arena, Scene* scene)
     scene->lightDir = Array(MemoryArena::AllocSpan<glm::vec4>(arena, LIGHT_MAX));
     scene->lightTypes = Array(MemoryArena::AllocSpan<glm::float32>(arena, LIGHT_MAX));
 
-    //Non parallel arrays //TODO JS: Pack together?
     scene->backing_diffuse_textures = Array(MemoryArena::AllocSpan<TextureData>(arena, ASSET_MAX));
-    scene->backing_utility_textures = Array(MemoryArena::AllocSpan<TextureData>(arena, ASSET_MAX));
 
     scene->backing_meshes =  Array(MemoryArena::AllocSpan<MeshData>(arena, ASSET_MAX));
     scene->meshBoundingSphereRad = Array(MemoryArena::AllocSpan<positionRadius>(arena, ASSET_MAX));
@@ -75,8 +73,8 @@ void Scene::Update()
     {
         model = glm::mat4(1.0f);
         glm::mat4 objectLocalRotation = glm::toMat4(objects.rotations[i]);
-        model = translate(model, objects.translations[i]); //TODO: These should update at a different rate than camera stuff
-        model *= objectLocalRotation; //TODO JS: temporarily turned off rotation to debug shadows
+        model = translate(model, objects.translations[i]); 
+        model *= objectLocalRotation;
         model = scale(model, objects.scales[i]);
         transforms.get(objects.transformIDs[i])->matrix = model;
     }
@@ -157,28 +155,18 @@ int Scene::objectsCount()
     return objects.objectsCount;
 }
 
-int Scene::utilityTextureCount()
-{
-    return _utilityTextureCount;
-}
 
 int Scene::materialTextureCount()
 {
     return  backing_diffuse_textures.size();
 }
 
-int Scene::AddUtilityTexture(TextureData T)
-{
-    backing_utility_textures.push_back(T);
-    return _utilityTextureCount ++;
-}
 
 int Scene::AddTexture(TextureData T)
 {
     backing_diffuse_textures.push_back(T);
     return backing_diffuse_textures.size() -1;
 }
-//TODO JS: we should probably CREATE from here at some point?
 textureSetIDs Scene::AddTextureSet(TextureData D, TextureData S, TextureData N)
 {
     backing_diffuse_textures.push_back(D);
@@ -325,7 +313,7 @@ void Scene::lightSort()
 int Scene::AddLight(glm::vec3 position, glm::vec3 dir, glm::vec3 color, float radius, float intensity, lightType type)
 {
     int shadowMapCt = type == LIGHT_POINT ? 6 : type == LIGHT_DIR ? CASCADE_CT : 1;
-    lightshadowMapCount.push_back( shadowMapCt); //TODO JS
+    lightshadowMapCount.push_back( shadowMapCt); 
     lightposandradius.push_back(glm::vec4(position.x, position.y, position.z, radius));
     lightcolorAndIntensity.push_back(glm::vec4(color.x, color.y, color.z, intensity));
     lightDir.push_back(glm::vec4(dir, -1.0));

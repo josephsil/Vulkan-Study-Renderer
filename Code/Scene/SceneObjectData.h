@@ -43,7 +43,6 @@ private:
   
     //No scale for now
 public:
-    int utilityTextureCount();
     int materialTextureCount();
 
     void OrderedObjectIndices(::MemoryArena::memoryArena* allocator, glm::vec3 eyePos, std::span<int> indices, bool invert);
@@ -81,8 +80,6 @@ public:
     //Non parallel arrays //TODO JS: Pack together?
     Array<TextureData> backing_diffuse_textures;
 
-    int _utilityTextureCount = 0;
-    Array<TextureData> backing_utility_textures;
 
     int meshCount = 0;
     Array<MeshData> backing_meshes;
@@ -101,7 +98,6 @@ public:
     uint32_t getOffsetFromMeshID(int id);
 
     //TODO JS: these are temporary
-    int AddUtilityTexture(TextureData T);
     int AddTexture(TextureData T);
     textureSetIDs AddTextureSet(TextureData D, TextureData S, TextureData N);
     int AddBackingMesh(MeshData M);
