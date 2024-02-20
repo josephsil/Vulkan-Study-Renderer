@@ -42,7 +42,7 @@ SamplerState bindless_samplers[];
 [[vk::binding(5,0)]]
 SamplerState cubeSamplers[];
 [[vk::binding(6, 0)]]
-SamplerComparisonState shadowmapSampler[];
+SamplerState shadowmapSampler[];
 
 
 
@@ -105,6 +105,7 @@ float3 fresnelSchlick(float cosTheta, float3 F0)
 {
     return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
 }
+
 
 float DistributionGGX(float3 N, float3 H, float roughness)
 {
@@ -222,18 +223,43 @@ float3 getShadow(int index, float3 fragPos)
         float3 shadowUV = shadowProjection   * 0.5 + 0.5;
         shadowUV.z = ARRAY_INDEX;
         // shadowProjection.y *= -1;
-        return shadowmap[index].SampleCmpLevelZero(shadowmapSampler[0], shadowUV.xyz, shadowProjection.z).r; //TODO JS: dont sample on branch?
+        return shadowmap[index].Sample(shadowmapSampler[0], shadowUV.xyz).r >  shadowProjection.z; //TODO JS: dont sample on branch?
     }
     if (getLightType(light) == LIGHT_DIR)
     {
+
+        float SHADOW_MAP_SIZE = 1024;
+        float2 vTexelSize = float2( 1.0/SHADOW_MAP_SIZE , 1.0/SHADOW_MAP_SIZE  );
         int lightIndex = getShadowMatrixIndex(light);
         int cascadeLevel =  findCascadeLevel(lightIndex, fragPos);
             float4 fragPosShadowSpace = mul(mul(shadowMatrices[lightIndex + cascadeLevel].proj, shadowMatrices[lightIndex + cascadeLevel].view),  float4(fragPos, 1.0));
             float3 shadowProjection = (fragPosShadowSpace.xyz / fragPosShadowSpace.w);
             float3 shadowUV = shadowProjection   * 0.5 + 0.5;
             shadowUV.z = cascadeLevel;
-            // shadowProjection.y *= -1;
-            return shadowmap[index].SampleCmpLevelZero(shadowmapSampler[0], shadowUV.xyz, shadowProjection.z).r; //TODO JS: dont sample on branch?
+
+        //Poisson lookup
+        //Version from https://web.engr.oregonstate.edu/~mjb/cs519/Projects/Papers/ShaderTricks.pdf -- placheolder
+
+        const int SAMPLECOUNT = 12;
+        float2 vTaps[SAMPLECOUNT] = {float2(-0.326212,-0.40581),float2(-0.840144,-0.07358),
+        float2(-0.695914,0.457137),float2(-0.203345,0.620716),
+        float2(0.96234,-0.194983),float2(0.473434,-0.480026),
+        float2(0.519456,0.767022),float2(0.185461,-0.893124),
+        float2(0.507431,0.064425),float2(0.89642,0.412458),
+        float2(-0.32194,-0.932615),float2(-0.791559,-0.59771)};
+
+        float cSampleAccum = 0;
+        // Take a sample at the disc’s center
+        cSampleAccum += shadowmap[index].Sample( shadowmapSampler[0], shadowUV.xyz)  > shadowProjection.z;
+        // Take 12 samples in disc
+        for ( int nTapIndex = 0; nTapIndex < SAMPLECOUNT; nTapIndex++ )
+        {
+            float2 vTapCoord = vTexelSize * vTaps[nTapIndex] * 2.5;
+            
+            // Accumulate samples
+            cSampleAccum += (shadowmap[index].Sample( shadowmapSampler[0],  shadowUV.xyz + float3(vTapCoord.x, vTapCoord.y, 0)).r > shadowProjection.z);
+        }
+        return saturate((cSampleAccum) / (SAMPLECOUNT + 1));
         }
         return -1;
 }
