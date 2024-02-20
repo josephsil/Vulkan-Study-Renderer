@@ -28,6 +28,7 @@ using VmaAllocator = struct VmaAllocator_T*;
 
 const uint32_t SHADOW_MAP_SIZE = 1024;
 
+
 struct simplePassInfo
 {
     uint32_t firstDraw = 0;
