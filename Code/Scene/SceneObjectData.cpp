@@ -4,8 +4,6 @@
 #define GLM_GTC_quaternion
 
 #include "SceneObjectData.h"
-
-#include <algorithm>
 #include <stack>
 
 #include <Renderer/MeshData.h> // TODO JS: I want to separate the backing data from the scene 
@@ -16,14 +14,6 @@
 #include <General/MemoryArena.h>
 
 #include "General/Array.h"
-#include "General/Array.h"
-#include "General/Array.h"
-#include "General/Array.h"
-#include "General/Array.h"
-#include "General/Array.h"
-#include "General/Array.h"
-#include "General/Array.h"
-
 
 //No scale for now
 void InitializeScene(MemoryArena::memoryArena* arena, Scene* scene)
@@ -109,7 +99,9 @@ int Scene::AddObject(MeshData* mesh, int materialIndex,
     objects.scales.push_back(scale);
     // transforms.worldMatrices.push_back(glm::mat4(1.0));
     objects.meshIndices.push_back(mesh->id);
-    objects.transformIDs.push_back(objects.transformIDs.size()); //TODO JS: When we use real objects, we'll only create transforms with these ids
+    objects.transformIDs.push_back(objects.transformIDs.size());
+
+    //TODO JS: When we use real objects, we'll only create transforms with these ids
     // objects.meshVertCounts.push_back(mesh->vertcount);
 
     if (parent != nullptr)

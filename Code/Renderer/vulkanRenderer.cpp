@@ -6,13 +6,11 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_vulkan.h>
 ////
-#include <cstdlib>
 #include <span>
 #include "Vertex.h"
 #include <ImageLibraryImplementations.h>
 #include <General/Array.h>
 #include <General/MemoryArena.h>
-#include <windows.h>
 #include "bufferCreation.h"
 #include "CommandPoolManager.h"
 #include "gpu-data-structs.h"
@@ -24,8 +22,6 @@
 #include "VkBootstrap.h"
 #include "vulkan-utilities.h"
 #include "gltf/gltfLoading.h"
-#include "Scene/SceneObjectData.h"
-#include "Scene/SceneObjectData.h"
 #include "Scene/Transforms.h"
 #include "VulkanIncludes/VulkanMemory.h"
 
@@ -1737,8 +1733,6 @@ void vulkanRenderer::mainLoop()
         UpdateRotations();
         scene->Update();
         updateShadowData(&perFrameArenas[currentFrame], perLightShadowData, scene, sceneCamera);
-        #include <windows.h>
-        // Sleep(300);
         drawFrame();
         debugLines.clear();
         auto t2 = SDL_GetTicks();
