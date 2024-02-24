@@ -4,7 +4,14 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <vector>
-
+struct __VkDrawINDEXEDIndirectCommand
+{
+    uint32_t    indexCount;
+    uint32_t    instanceCount;
+    uint32_t    firstIndex;
+    int32_t     vertexOffset;
+    uint32_t    firstInstance;
+};
 struct __VkDrawIndirectCommand {
     uint32_t    vertexCount;
     uint32_t    instanceCount;
@@ -53,7 +60,7 @@ struct drawCommandData
     uint32_t objectIndex;
     // VkDrawIndirectCommand
     // alignas(16) glm::vec4 debugdata;
-    __VkDrawIndirectCommand command;
+    __VkDrawINDEXEDIndirectCommand command;
 };
 
 

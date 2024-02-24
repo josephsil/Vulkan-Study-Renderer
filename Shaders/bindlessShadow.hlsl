@@ -51,7 +51,7 @@ VSOutput Vert(VSInput input,  [[vk::builtin("BaseInstance")]]  uint InstanceInde
     
     float4x4 mvp2 = mul(viewProjection, ubo.Model);
 
-    float4 vertPos = positions[indices[VertexIndex + VERTEXOFFSET]];
+    float4 vertPos = positions[VertexIndex];
     vertPos.a = 1.0;
     output.Pos = mul(mvp2, vertPos);
     return output;

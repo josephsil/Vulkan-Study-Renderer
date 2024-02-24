@@ -433,7 +433,7 @@ void vulkanRenderer::populateMeshBuffers()
 
     //TODO JS: to ring buffer?
     //TODO JS: Use main arena? 
-    auto gpuVerts = MemoryArena::AllocSpan<gpuvertex>(getHandles().arena, indexCt);
+    auto gpuVerts = MemoryArena::AllocSpan<gpuvertex>(getHandles().arena, vertCt);
     auto Positoins = MemoryArena::AllocSpan<glm::vec4>(getHandles().arena, vertCt);
     auto Indices = MemoryArena::AllocSpan<uint32_t>(getHandles().arena, indexCt);
     size_t vert = 0;
@@ -444,21 +444,24 @@ void vulkanRenderer::populateMeshBuffers()
         MeshData mesh = scene->backing_meshes[j];
         for (int i = 0; i < mesh.indices.size(); i++)
         {
-            glm::vec4 pos = mesh.vertices[mesh.indices[i]].pos;
-            glm::vec4 col = mesh.vertices[mesh.indices[i]].color;
-            glm::vec4 uv = mesh.vertices[mesh.indices[i]].texCoord;
-            glm::vec4 norm = mesh.vertices[mesh.indices[i]].normal;
-            glm::vec4 tangent = mesh.vertices[mesh.indices[i]].tangent;
-
-            Indices[vert]  = mesh.indices[i] + meshoffset;
+         
+            Indices[vert++]  = mesh.indices[i] + meshoffset;
             // Positoins[vert] = pos;
-              gpuVerts[vert++] = {
-                uv, norm, glm::vec4(tangent.x, tangent.y, tangent.z, tangent.w)
-            };
+         
         
         }
         for(int i =0; i < mesh.vertices.size(); i++)
         {
+
+            glm::vec4 col = mesh.vertices[i].color;
+            glm::vec4 uv = mesh.vertices[i].texCoord;
+            glm::vec4 norm = mesh.vertices[i].normal;
+            glm::vec4 tangent = mesh.vertices[i].tangent;
+
+            gpuVerts[_vert] = {
+                uv, norm, glm::vec4(tangent.x, tangent.y, tangent.z, tangent.w)
+            };
+            
             Positoins[_vert++] = mesh.vertices[i].pos;
         }
         meshoffset += mesh.vertices.size();
@@ -466,7 +469,7 @@ void vulkanRenderer::populateMeshBuffers()
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        FramesInFlightData[i].meshBuffers.updateMappedMemory({gpuVerts.data(), scene->getIndexCount()});
+        FramesInFlightData[i].meshBuffers.updateMappedMemory({gpuVerts.data(),vertCt});
         FramesInFlightData[i].verts.updateMappedMemory({Positoins.data(),vertCt});
         FramesInFlightData[i].indices.updateMappedMemory({Indices.data(), scene->getIndexCount()});
     }
@@ -499,7 +502,7 @@ void vulkanRenderer::createUniformBuffers()
 
         FramesInFlightData[i].opaqueShaderGlobalsBuffer = createDataBuffer<ShaderGlobals>(&handles, 1, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
         FramesInFlightData[i].uniformBuffers = createDataBuffer<UniformBufferObject>(&handles, scene->objectsCount(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT); //
-        FramesInFlightData[i].meshBuffers = createDataBuffer<gpuvertex>(&handles,scene->getIndexCount(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+        FramesInFlightData[i].meshBuffers = createDataBuffer<gpuvertex>(&handles,scene->getVertexCount(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
         FramesInFlightData[i].verts = createDataBuffer<glm::vec4>(&handles,scene->getVertexCount(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT); //TODO JS: use index buffer, get vertex count
         FramesInFlightData[i].indices = createDataBuffer<uint32_t>(&handles,scene->getIndexCount(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
         FramesInFlightData[i].lightBuffers = createDataBuffer<gpulight>(&handles, scene->lightCount, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
@@ -1314,6 +1317,7 @@ void vulkanRenderer::recordCommandBufferShadowPass(VkCommandBuffer commandBuffer
     VkPipelineLayout layout = descriptorsetLayoutsDataShadow.pipelineData.bindlessPipelineLayout;
     
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, descriptorsetLayoutsDataShadow.getPipeline(0));
+    vkCmdBindIndexBuffer(commandBuffer, FramesInFlightData[currentFrame].indices._buffer.data,0,VK_INDEX_TYPE_UINT32);
     
     for(uint32_t i = 0; i < passes.size(); i ++)
     {
@@ -1383,7 +1387,7 @@ void vulkanRenderer::recordCommandBufferShadowPass(VkCommandBuffer commandBuffer
             int meshct =  scene->objectsCount();
             uint32_t offset_base = passes[i].firstDraw  *  sizeof(drawCommandData);
             uint32_t offset_into_struct = offsetof(drawCommandData, command);
-            vkCmdDrawIndirect(commandBuffer,  FramesInFlightData[currentFrame].drawBuffers._buffer.data, offset_base + offset_into_struct, meshct, sizeof(drawCommandData));
+            vkCmdDrawIndexedIndirect(commandBuffer,  FramesInFlightData[currentFrame].drawBuffers._buffer.data, offset_base + offset_into_struct, meshct, sizeof(drawCommandData));
             FramesInFlightData[currentFrame].currentDrawOffset += meshct;
             vkCmdEndRendering(commandBuffer);
         // }
@@ -1563,6 +1567,7 @@ void vulkanRenderer::recordCommandBufferOpaquePass(VkCommandBuffer commandBuffer
    
     descriptorsetLayoutsData.bindToCommandBuffer(commandBuffer, currentFrame);
     VkPipelineLayout layout = descriptorsetLayoutsData.pipelineData.bindlessPipelineLayout;
+    vkCmdBindIndexBuffer(commandBuffer, FramesInFlightData[currentFrame].indices._buffer.data,0,VK_INDEX_TYPE_UINT32);
     
     int meshct = scene->objectsCount();
     
@@ -1589,7 +1594,7 @@ void vulkanRenderer::recordCommandBufferOpaquePass(VkCommandBuffer commandBuffer
             vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.pipeline);
             uint32_t offset_base = (FramesInFlightData[currentFrame].currentDrawOffset * sizeof(drawCommandData)) + (sizeof(drawCommandData) * draw.start);
             uint32_t offset_into_struct = offsetof(drawCommandData, command);
-            vkCmdDrawIndirect(commandBuffer,    FramesInFlightData[currentFrame].drawBuffers._buffer.data, offset_base + offset_into_struct, draw.ct, sizeof(drawCommandData));
+            vkCmdDrawIndexedIndirect(commandBuffer,    FramesInFlightData[currentFrame].drawBuffers._buffer.data, offset_base + offset_into_struct, draw.ct, sizeof(drawCommandData));
        
     }
     FramesInFlightData[currentFrame].currentDrawOffset +=( meshct );
@@ -1973,9 +1978,16 @@ void updateIndirectCommandBufferForPasses(Scene* scene, MemoryArena::memoryArena
     uint32_t objectsPerDraw = scene->objectsCount();
     uint32_t drawOffset = 0;
     std::span<uint32_t> meshIndices = MemoryArena::AllocSpan<uint32_t>(allocator, objectsPerDraw);
+    std::span<uint32_t> indicesOffsets = MemoryArena::AllocSpan<uint32_t>(allocator, scene->backing_meshes.size());
+    uint32_t indexCtoffset = 0;
     for(size_t i = 0; i < objectsPerDraw; i++)
     {
         meshIndices[i] = scene->objects.meshIndices[i];
+    }
+    for(size_t i = 0; i < scene->backing_meshes.size(); i++)
+    {
+        indicesOffsets[i] = indexCtoffset;
+        indexCtoffset += scene->backing_meshes[i].indices.size();
     }
 
     //draw commands for shadows
@@ -1984,9 +1996,9 @@ void updateIndirectCommandBufferForPasses(Scene* scene, MemoryArena::memoryArena
         uint32_t drawCount = passes.shadowDraws[i].ct;
             for (size_t j = 0; j < drawCount; j++)
             {
-         
+            auto objectIndex = j;
                 mappedDrawCommandBuffer[passes.shadowDraws[i].firstDraw + j] =  {
-                    (uint32_t)j, (uint32_t)scene->backing_meshes[meshIndices[j]].indices.size(), 1, 0, (uint32_t)j};
+                    (uint32_t)objectIndex, (uint32_t)scene->backing_meshes[meshIndices[objectIndex]].indices.size(), 1, indicesOffsets[meshIndices[objectIndex]], 0, (uint32_t)objectIndex};
             }
         drawOffset += drawCount;
     }
@@ -2000,8 +2012,8 @@ void updateIndirectCommandBufferForPasses(Scene* scene, MemoryArena::memoryArena
         std::span<uint32_t> indices = passes.opaqueDraw[i].overrideIndices;
         for (size_t k = 0; k < indices.size(); k++)
         {
-         
-            mappedDrawCommandBuffer[drawOffset + drawCt2 + k] = {indices[k], static_cast<uint32_t>(scene->backing_meshes[meshIndices[indices[k]]].indices.size()), 1, 0, (uint32_t)indices[k]};
+         auto objectIndex = indices[k];
+            mappedDrawCommandBuffer[drawOffset + drawCt2 + k] = {objectIndex, (uint32_t)scene->backing_meshes[meshIndices[objectIndex]].indices.size(), 1, indicesOffsets[meshIndices[objectIndex]], 0,  (uint32_t)objectIndex};
         }
         drawCt2 += (uint32_t)indices.size();
     }
