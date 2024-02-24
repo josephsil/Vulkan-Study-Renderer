@@ -19,6 +19,7 @@ struct FSOutput
 struct pconstant
 {
     float indexInfo_2;
+    float4x4 mat;
 };
 
 [[vk::push_constant]]
@@ -42,20 +43,17 @@ struct VSOutput
 
 VSOutput Vert(VSInput input,  [[vk::builtin("BaseInstance")]]  uint InstanceIndex : BaseInstance, uint VertexIndex : SV_VertexID)
 {
-#ifdef USE_RW
-    MyVertexStructure myVertex = BufferTable[VertexIndex + VERTEXOFFSET];
-#else
- 	MyVertexStructure myVertex = BufferTable.Load<MyVertexStructure>((VERTEXOFFSET + VertexIndex) * sizeof(MyVertexStructure));
-#endif
     objectData ubo = uboarr[InstanceIndex];
     VSOutput output = (VSOutput)0;
     float4x4 viewProjection;
 ///
-        viewProjection = mul(shadowMatrices[MATRIXOFFSET].proj, shadowMatrices[MATRIXOFFSET].view);
+    viewProjection = mul(shadowMatrices[MATRIXOFFSET].proj, shadowMatrices[MATRIXOFFSET].view);
     
     float4x4 mvp2 = mul(viewProjection, ubo.Model);
-    
-    output.Pos = mul(mvp2, half4(myVertex.position.xyz, 1.0));
+
+    float4 vertPos = positions[indices[VertexIndex + VERTEXOFFSET]];
+    vertPos.a = 1.0;
+    output.Pos = mul(mvp2, vertPos);
     return output;
 }
 

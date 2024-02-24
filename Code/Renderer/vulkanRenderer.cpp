@@ -291,7 +291,7 @@ void vulkanRenderer::initVulkan()
     swapChainColorFormat = vkb_swapchain.image_format;
 
     uint32_t shadowmapsize = SHADOW_MAP_SIZE;
-    shadowFormat = VK_FORMAT_D32_SFLOAT;
+    shadowFormat = VK_FORMAT_D16_UNORM;
     //Create shadow image(s) -- TODO JS: don't do this every frame
     shadowImages.resize(MAX_FRAMES_IN_FLIGHT);
     shadowSamplers.resize(MAX_FRAMES_IN_FLIGHT);
@@ -350,7 +350,7 @@ void vulkanRenderer::initVulkan()
 
     createDescriptorSetPool(getHandles(), &descriptorPool);
 
-    Array opaqueLayout = MemoryArena::AllocSpan<VkDescriptorSetLayoutBinding>(&rendererArena, 11);
+    Array opaqueLayout = MemoryArena::AllocSpan<VkDescriptorSetLayoutBinding>(&rendererArena, 13);
     uint32_t i =0;
     opaqueLayout.push_back({i++, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL, VK_NULL_HANDLE}); //Globals
     opaqueLayout.push_back({i++, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, MAX_TEXTURES, VK_SHADER_STAGE_FRAGMENT_BIT,  VK_NULL_HANDLE});
@@ -363,14 +363,21 @@ void vulkanRenderer::initVulkan()
     opaqueLayout.push_back({i++, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1,  VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE} ); //light
     opaqueLayout.push_back({i++, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1,  VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE} ); //ubo
     opaqueLayout.push_back({i++, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE} ); //shadow matrices
+    
+    opaqueLayout.push_back({i++, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE} ); //vert positoins
+    opaqueLayout.push_back({i++, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE} ); //vert indices
 
 
-    Array shadowLayout = MemoryArena::AllocSpan<VkDescriptorSetLayoutBinding>(&rendererArena, 5);
-    shadowLayout.push_back({6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE}); //Vertices
-    shadowLayout.push_back({7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE});
+    Array shadowLayout = MemoryArena::AllocSpan<VkDescriptorSetLayoutBinding>(&rendererArena, 6);
+    shadowLayout.push_back({6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE});
+    // shadowLayout.push_back({7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE});  //Vertices
     shadowLayout.push_back({8, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE}); //light
     shadowLayout.push_back({9, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE}); //ubo
     shadowLayout.push_back({10, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE}); //shadow matrices
+
+    shadowLayout.push_back({11, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE}); //vert positoins
+    shadowLayout.push_back({12, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE}); //vert indices
+
 
     Array computeLayout = MemoryArena::AllocSpan<VkDescriptorSetLayoutBinding>(&rendererArena, 3);
     computeLayout.push_back({0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}); //frustum data //todo do these need to bestorage?
@@ -416,17 +423,22 @@ void vulkanRenderer::initVulkan()
 
 void vulkanRenderer::populateMeshBuffers()
 {
+    size_t indexCt = 0;
     size_t vertCt = 0;
     for (int i = 0; i < scene->meshCount; i++)
     {
-        vertCt += scene->backing_meshes[i].indices.size();
+        indexCt += scene->backing_meshes[i].indices.size();
+        vertCt += scene->backing_meshes[i].vertices.size();
     }
 
     //TODO JS: to ring buffer?
     //TODO JS: Use main arena? 
-    auto gpuVerts = MemoryArena::AllocSpan<gpuvertex>(getHandles().arena, vertCt);
-
+    auto gpuVerts = MemoryArena::AllocSpan<gpuvertex>(getHandles().arena, indexCt);
+    auto Positoins = MemoryArena::AllocSpan<glm::vec4>(getHandles().arena, vertCt);
+    auto Indices = MemoryArena::AllocSpan<uint32_t>(getHandles().arena, indexCt);
     size_t vert = 0;
+    size_t _vert = 0;
+    size_t meshoffset = 0;
     for (int j = 0; j < scene->meshCount; j++)
     {
         MeshData mesh = scene->backing_meshes[j];
@@ -437,15 +449,26 @@ void vulkanRenderer::populateMeshBuffers()
             glm::vec4 uv = mesh.vertices[mesh.indices[i]].texCoord;
             glm::vec4 norm = mesh.vertices[mesh.indices[i]].normal;
             glm::vec4 tangent = mesh.vertices[mesh.indices[i]].tangent;
+
+            Indices[vert]  = mesh.indices[i] + meshoffset;
+            // Positoins[vert] = pos;
               gpuVerts[vert++] = {
-                glm::vec4(pos.x, pos.y, pos.z, 1), uv, norm, glm::vec4(tangent.x, tangent.y, tangent.z, tangent.w)
+                uv, norm, glm::vec4(tangent.x, tangent.y, tangent.z, tangent.w)
             };
         
         }
+        for(int i =0; i < mesh.vertices.size(); i++)
+        {
+            Positoins[_vert++] = mesh.vertices[i].pos;
+        }
+        meshoffset += mesh.vertices.size();
     }
+
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        FramesInFlightData[i].meshBuffers.updateMappedMemory({gpuVerts.data(), scene->getVertexCount()});
+        FramesInFlightData[i].meshBuffers.updateMappedMemory({gpuVerts.data(), scene->getIndexCount()});
+        FramesInFlightData[i].verts.updateMappedMemory({Positoins.data(),vertCt});
+        FramesInFlightData[i].indices.updateMappedMemory({Indices.data(), scene->getIndexCount()});
     }
 }
 
@@ -457,7 +480,7 @@ void vulkanRenderer::createUniformBuffers()
 {
     VkDeviceSize globalsSize = sizeof(ShaderGlobals);
     VkDeviceSize ubosSize = sizeof(UniformBufferObject) * scene->objectsCount();
-    VkDeviceSize vertsSize = sizeof(gpuvertex) * scene->getVertexCount();
+    VkDeviceSize vertsSize = sizeof(gpuvertex) * scene->getIndexCount();
     VkDeviceSize lightdataSize = sizeof(gpulight) * scene->lightCount;
     VkDeviceSize shadowDataSize = sizeof(PerShadowData) * scene->lightCount * 10; //times six is plenty right?
 
@@ -476,7 +499,9 @@ void vulkanRenderer::createUniformBuffers()
 
         FramesInFlightData[i].opaqueShaderGlobalsBuffer = createDataBuffer<ShaderGlobals>(&handles, 1, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
         FramesInFlightData[i].uniformBuffers = createDataBuffer<UniformBufferObject>(&handles, scene->objectsCount(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT); //
-        FramesInFlightData[i].meshBuffers = createDataBuffer<gpuvertex>(&handles,scene->getVertexCount(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+        FramesInFlightData[i].meshBuffers = createDataBuffer<gpuvertex>(&handles,scene->getIndexCount(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+        FramesInFlightData[i].verts = createDataBuffer<glm::vec4>(&handles,scene->getVertexCount(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT); //TODO JS: use index buffer, get vertex count
+        FramesInFlightData[i].indices = createDataBuffer<uint32_t>(&handles,scene->getIndexCount(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
         FramesInFlightData[i].lightBuffers = createDataBuffer<gpulight>(&handles, scene->lightCount, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
         FramesInFlightData[i].shadowDataBuffers = createDataBuffer<gpuPerShadowData>(&handles, scene->lightCount * 10, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 
@@ -612,12 +637,16 @@ std::span<descriptorUpdateData> vulkanRenderer::createOpaqueDescriptorUpdates(ui
     *uniformbufferinfo = FramesInFlightData[frame].uniformBuffers._buffer.getBufferInfo();
     VkDescriptorBufferInfo* shaderglobalsinfo =  MemoryArena::Alloc<VkDescriptorBufferInfo>(arena);
     *shaderglobalsinfo = FramesInFlightData[frame].opaqueShaderGlobalsBuffer._buffer.getBufferInfo();
-    
     VkDescriptorBufferInfo* shadowBuffersInfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
     *shadowBuffersInfo = FramesInFlightData[frame].shadowDataBuffers._buffer.getBufferInfo();
+    
+    VkDescriptorBufferInfo* vertBufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
+    *vertBufferinfo = FramesInFlightData[frame].verts._buffer.getBufferInfo();
+    VkDescriptorBufferInfo* indexBufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
+    *indexBufferinfo = FramesInFlightData[frame].indices._buffer.getBufferInfo();
 
 
-    Array<descriptorUpdateData> descriptorUpdates = MemoryArena::AllocSpan<descriptorUpdateData>(arena, 11);
+    Array<descriptorUpdateData> descriptorUpdates = MemoryArena::AllocSpan<descriptorUpdateData>(arena, 13);
     //Update descriptor sets with data
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, shaderglobalsinfo});
 
@@ -634,6 +663,9 @@ std::span<descriptorUpdateData> vulkanRenderer::createOpaqueDescriptorUpdates(ui
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, uniformbufferinfo});
     
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, shadowBuffersInfo});
+
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, vertBufferinfo});
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, indexBufferinfo});
 
     assert(descriptorUpdates.ct == layoutBindings.size());
     for(int i = 0; i < descriptorUpdates.ct; i++)
@@ -661,16 +693,25 @@ std::span<descriptorUpdateData> vulkanRenderer::createShadowDescriptorUpdates(Me
     *lightbufferinfo = getDescriptorBufferInfo(FramesInFlightData[frame].lightBuffers);
     VkDescriptorBufferInfo* shadowBuffersInfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
     *shadowBuffersInfo = getDescriptorBufferInfo(FramesInFlightData[frame].shadowDataBuffers);
+    
+    VkDescriptorBufferInfo* vertBufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
+    *vertBufferinfo = FramesInFlightData[frame].verts._buffer.getBufferInfo();
+    VkDescriptorBufferInfo* indexBufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
+    *indexBufferinfo = FramesInFlightData[frame].indices._buffer.getBufferInfo();
 
-    Array<descriptorUpdateData> descriptorUpdates = MemoryArena::AllocSpan<descriptorUpdateData>(arena, 5);
+
+    Array<descriptorUpdateData> descriptorUpdates = MemoryArena::AllocSpan<descriptorUpdateData>(arena, 6);
     //Update descriptor sets with data
  
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, shaderglobalsinfo});
-    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, meshBufferinfo});
+    // descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, meshBufferinfo});
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, lightbufferinfo});
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, uniformbufferinfo});
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, shadowBuffersInfo});
 
+
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, vertBufferinfo});
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, indexBufferinfo});
     assert(descriptorUpdates.ct == layoutBindings.size());
     for(int i = 0; i < descriptorUpdates.ct; i++)
     {
@@ -1271,14 +1312,16 @@ void vulkanRenderer::recordCommandBufferShadowPass(VkCommandBuffer commandBuffer
  
     descriptorsetLayoutsDataShadow.bindToCommandBuffer(commandBuffer, currentFrame);
     VkPipelineLayout layout = descriptorsetLayoutsDataShadow.pipelineData.bindlessPipelineLayout;
-
+    
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, descriptorsetLayoutsDataShadow.getPipeline(0));
+    
     for(uint32_t i = 0; i < passes.size(); i ++)
     {
         
             uint32_t shadowMapIndex = i;
             const VkRenderingAttachmentInfoKHR dynamicRenderingDepthAttatchment {
                 .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
-                .imageView = shadowMapRenderingImageViews[imageIndex][shadowMapIndex],
+                .imageView = shadowMapRenderingImageViews[currentFrame][shadowMapIndex],
                 .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR,
                 .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
                 .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
@@ -1336,7 +1379,7 @@ void vulkanRenderer::recordCommandBufferShadowPass(VkCommandBuffer commandBuffer
                                sizeof(shadowPushConstants), &constants);
 
             //TODO JS: Something other than hardcoded index 0 for shadow pipeline
-            vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, descriptorsetLayoutsDataShadow.getPipeline(0));
+        
             int meshct =  scene->objectsCount();
             uint32_t offset_base = passes[i].firstDraw  *  sizeof(drawCommandData);
             uint32_t offset_into_struct = offsetof(drawCommandData, command);
@@ -1530,11 +1573,11 @@ void vulkanRenderer::recordCommandBufferOpaquePass(VkCommandBuffer commandBuffer
         positionRadius bounds = scene->meshBoundingSphereRad[scene->objects.meshIndices[i]];
         auto lookup = scene->transforms._transform_lookup[i];
         glm::mat4 model = scene->transforms.worldMatrices[lookup.depth][lookup.index];
-        debugDrawCross(model * glm::vec4(glm::vec3(bounds.objectSpacePos), 1.0), bounds.objectSpaceRadius * scalefactor, {1,0,0});
+        // debugDrawCross(model * glm::vec4(glm::vec3(bounds.objectSpacePos), 1.0), bounds.objectSpaceRadius * scalefactor, {1,0,0});
         glm::vec3 corner1 = scene->backing_meshes[scene->objects.meshIndices[i]].boundsCorners[0];
         glm::vec3 corner2 = scene->backing_meshes[scene->objects.meshIndices[i]].boundsCorners[1];
-        debugDrawCross(model * glm::vec4(corner1, 1.0), 1.0, {1,1,0.5});
-        debugDrawCross(model * glm::vec4(corner2, 1.0), 1.0, {1,1,0.5});
+        // debugDrawCross(model * glm::vec4(corner1, 1.0), 1.0, {1,1,0.5});
+        // debugDrawCross(model * glm::vec4(corner2, 1.0), 1.0, {1,1,0.5});
     }
     
 
@@ -1778,7 +1821,7 @@ void vulkanRenderer::mainLoop()
         debugLines.clear();
         auto t2 = SDL_GetTicks();
     }
-    vkDeviceWaitIdle(device);
+    // vkDeviceWaitIdle(device);
 }
 
 //Placeholder "gameplay" function
@@ -2006,7 +2049,7 @@ void vulkanRenderer::drawFrame()
     getHandles(),
     FramesInFlightData[currentFrame].shadowTransitionInCommandBuffer,
      {},
-   {&FramesInFlightData[imageIndex].shadowtransitionedInSemaphores, 1},
+   {&FramesInFlightData[currentFrame].shadowtransitionedInSemaphores, 1},
     shadowImages[currentFrame],
     VK_IMAGE_LAYOUT_UNDEFINED,
     VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, shadowWaitStages, true);
@@ -2031,7 +2074,7 @@ void vulkanRenderer::drawFrame()
 
 
     
-    renderShadowPass(currentFrame,currentFrame,  getSemaphoreDataFromSemaphores(shadowPassWaitSemaphores, &perFrameArenas[currentFrame]),shadowpasssignalSemaphores, renderPassInformation.shadowDraws);
+    renderShadowPass(currentFrame,imageIndex,  getSemaphoreDataFromSemaphores(shadowPassWaitSemaphores, &perFrameArenas[currentFrame]),shadowpasssignalSemaphores, renderPassInformation.shadowDraws);
 
     //Transition shadow maps for reading
     waitSemaphores = getSemaphoreDataFromSemaphores(shadowpasssignalSemaphores, &perFrameArenas[currentFrame]);
@@ -2039,7 +2082,7 @@ void vulkanRenderer::drawFrame()
     getHandles(),
     FramesInFlightData[currentFrame].shadowTransitionOutCommandBuffer,
     waitSemaphores,
-   {&FramesInFlightData[imageIndex].shadowtransitionedOutSemaphores, 1},
+   {&FramesInFlightData[currentFrame].shadowtransitionedOutSemaphores, 1},
     shadowImages[currentFrame],
     VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, shadowWaitStages, true);
@@ -2052,7 +2095,7 @@ void vulkanRenderer::drawFrame()
 
    
     //Opaque
-    renderOpaquePass(currentFrame,currentFrame, getSemaphoreDataFromSemaphores(opaquePassWaitSemaphores, &perFrameArenas[currentFrame]),opaquepasssignalSemaphores, renderPassInformation.opaqueDraw);
+    renderOpaquePass(currentFrame,imageIndex, getSemaphoreDataFromSemaphores(opaquePassWaitSemaphores, &perFrameArenas[currentFrame]),opaquepasssignalSemaphores, renderPassInformation.opaqueDraw);
 
 
 
@@ -2063,7 +2106,7 @@ void vulkanRenderer::drawFrame()
     getHandles(),
     FramesInFlightData[currentFrame].swapchainTransitionOutCommandBuffer,
     waitSemaphores,
-   {&FramesInFlightData[imageIndex].swapchaintransitionedOutSemaphores, 1},
+   {&FramesInFlightData[currentFrame].swapchaintransitionedOutSemaphores, 1},
     swapChainImages[currentFrame],
     VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
     VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, swapchainWaitStages, false);
@@ -2073,7 +2116,7 @@ void vulkanRenderer::drawFrame()
     VkPresentInfoKHR presentInfo{};
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
     presentInfo.waitSemaphoreCount = 1;
-    presentInfo.pWaitSemaphores = &FramesInFlightData[imageIndex].swapchaintransitionedOutSemaphores;
+    presentInfo.pWaitSemaphores = &FramesInFlightData[currentFrame].swapchaintransitionedOutSemaphores;
     presentInfo.swapchainCount = 1;
     presentInfo.pSwapchains = {&swapChain};
     presentInfo.pImageIndices = &imageIndex;
@@ -2088,7 +2131,7 @@ void vulkanRenderer::drawFrame()
 
 void vulkanRenderer::renderShadowPass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores, std::vector<VkSemaphore> signalsemaphores, std::span<simplePassInfo> passes)
 {
-    recordCommandBufferShadowPass(FramesInFlightData[imageIndex].shadowCommandBuffers, imageIndex, passes);
+    recordCommandBufferShadowPass(FramesInFlightData[currentFrame].shadowCommandBuffers, imageIndex, passes);
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -2097,7 +2140,7 @@ void vulkanRenderer::renderShadowPass(uint32_t currentFrame, uint32_t imageIndex
     submitInfo.pWaitSemaphores = waitSemaphores.semaphores.data();
     submitInfo.pWaitDstStageMask = waitSemaphores.waitStages.data();
     submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &FramesInFlightData[imageIndex].shadowCommandBuffers;
+    submitInfo.pCommandBuffers = &FramesInFlightData[currentFrame].shadowCommandBuffers;
 
     submitInfo.signalSemaphoreCount = (uint32_t)signalsemaphores.size();
     submitInfo.pSignalSemaphores = signalsemaphores.data();

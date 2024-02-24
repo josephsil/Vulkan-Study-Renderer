@@ -60,6 +60,7 @@ struct drawCommandData
 struct shadowPushConstants
 {
     alignas(16) glm::float32_t shadowIndex; //a is light index for shadows
+    glm::mat4 shadowMatrix;
 };
 
 
@@ -100,7 +101,6 @@ struct cullPConstants
 
 struct gpuvertex
 {
-    alignas(16) glm::vec4 pos;
     alignas(16) glm::vec4 texCoord;
     alignas(16) glm::vec4 normal;
     alignas(16) glm::vec4 tangent;

@@ -222,9 +222,12 @@ private:
       
   
 
- 
+
+        dataBufferObject<glm::vec4> verts;
+        dataBufferObject<uint32_t> indices;
+        
         dataBufferObject<UniformBufferObject> uniformBuffers;
-         dataBufferObject<gpuvertex> meshBuffers;
+        dataBufferObject<gpuvertex> meshBuffers;
         //Basic data about the light used in all passes 
         dataBufferObject<gpulight> lightBuffers;
         dataBufferObject<gpuPerShadowData> shadowDataBuffers;
