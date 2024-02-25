@@ -37,7 +37,6 @@ struct perShadowData
 
 struct MyVertexStructure
 {
-    float4 position;
     float4 uv0;
     float4 normal;
     float4 Tangent;

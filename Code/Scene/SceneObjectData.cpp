@@ -131,7 +131,7 @@ uint32_t Scene::getOffsetFromMeshID(int id)
     return indexcount;
 }
 
-uint32_t Scene::getVertexCount()
+uint32_t Scene::getIndexCount()
 {
     uint32_t indexcount = 0;
     for (int i = 0; i < meshCount; i++)
@@ -139,6 +139,16 @@ uint32_t Scene::getVertexCount()
         indexcount += (uint32_t)backing_meshes[i].indices.size();
     }
     return indexcount;
+}
+
+uint32_t Scene::getVertexCount()
+{
+    uint32_t vertexCount = 0;
+    for (int i = 0; i < meshCount; i++)
+    {
+        vertexCount += (uint32_t)backing_meshes[i].vertices.size();
+    }
+    return vertexCount;
 }
 
 

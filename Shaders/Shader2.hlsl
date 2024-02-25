@@ -32,22 +32,25 @@ struct VSOutput
 VSOutput Vert(VSInput input,  [[vk::builtin("BaseInstance")]]  uint InstanceIndex : BaseInstance, uint VertexIndex : SV_VertexID)
 {
 #ifdef USE_RW
-    MyVertexStructure myVertex = BufferTable[VertexIndex + VERTEXOFFSET];
+    MyVertexStructure myVertex = BufferTable[VertexIndex];
 #else
 	//Interesting buffer load perf numbers
 	// https://github.com/sebbbi/perfindexInfo
 	// https://github.com/microsoft/DirectXShaderCompiler/issues/2193 	
  	MyVertexStructure myVertex = BufferTable.Load<MyVertexStructure>((VERTEXOFFSET + VertexIndex) * sizeof(MyVertexStructure));
 #endif
+    float4 vertPos = positions[VertexIndex];
+vertPos.a = 1.0;
     objectData ubo = uboarr[InstanceIndex];
     VSOutput output = (VSOutput)0;
     float4x4 modelView = mul(globals.view, ubo.Model);
     float4x4 mvp = mul(globals.projection, modelView);
-    output.Pos = mul(mvp, half4(myVertex.position.xyz, 1.0));
+
+    output.Pos = mul(mvp, vertPos);
     output.Texture_ST = myVertex.uv0.xy;
     output.Color = myVertex.normal.xyz;
     output.Normal = myVertex.normal.xyz;
-    output.worldPos = mul(ubo.Model, half4(myVertex.position.xyz, 1.0));
+    output.worldPos = mul(ubo.Model, vertPos);
 
     float3x3 normalMatrix = ubo.NormalMat; // ?????
     //bitangent = fSign * cross(vN, tangent);

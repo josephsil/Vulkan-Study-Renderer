@@ -4,7 +4,14 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <vector>
-
+struct __VkDrawINDEXEDIndirectCommand
+{
+    uint32_t    indexCount;
+    uint32_t    instanceCount;
+    uint32_t    firstIndex;
+    int32_t     vertexOffset;
+    uint32_t    firstInstance;
+};
 struct __VkDrawIndirectCommand {
     uint32_t    vertexCount;
     uint32_t    instanceCount;
@@ -53,13 +60,14 @@ struct drawCommandData
     uint32_t objectIndex;
     // VkDrawIndirectCommand
     // alignas(16) glm::vec4 debugdata;
-    __VkDrawIndirectCommand command;
+    __VkDrawINDEXEDIndirectCommand command;
 };
 
 
 struct shadowPushConstants
 {
     alignas(16) glm::float32_t shadowIndex; //a is light index for shadows
+    glm::mat4 shadowMatrix;
 };
 
 
@@ -100,7 +108,6 @@ struct cullPConstants
 
 struct gpuvertex
 {
-    alignas(16) glm::vec4 pos;
     alignas(16) glm::vec4 texCoord;
     alignas(16) glm::vec4 normal;
     alignas(16) glm::vec4 tangent;

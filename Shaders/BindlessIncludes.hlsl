@@ -65,6 +65,14 @@ RWStructuredBuffer<objectData> uboarr;
 RWStructuredBuffer<perShadowData> shadowMatrices;
 // #endif 
 
+// #ifdef SHADOWPASS
+[[vk::binding(11, 0)]]
+RWStructuredBuffer<float4> positions;
+// #endif 
+
+// #ifdef SHADOWPASS
+// #endif 
+
 
 
 
@@ -223,7 +231,7 @@ float3 getShadow(int index, float3 fragPos)
         float3 shadowUV = shadowProjection   * 0.5 + 0.5;
         shadowUV.z = ARRAY_INDEX;
         // shadowProjection.y *= -1;
-        return shadowmap[index].Sample(shadowmapSampler[0], shadowUV.xyz).r >  shadowProjection.z; //TODO JS: dont sample on branch?
+        return shadowmap[index].Sample(shadowmapSampler[0], shadowUV.xyz).r <  shadowProjection.z; //TODO JS: dont sample on branch?
     }
     if (getLightType(light) == LIGHT_DIR)
     {

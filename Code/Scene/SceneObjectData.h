@@ -93,6 +93,7 @@ public:
     int AddMaterial(float roughness, float metallic, glm::vec3 color, textureSetIDs textureindex, uint32_t pipeline);
     int AddObject(::MeshData* mesh, int materialIndex, glm::vec3 position,
                   glm::quat rotation, glm::vec3 scale = glm::vec3(1), localTransform* parent = nullptr, std::string name = "");
+    uint32_t getIndexCount();
     uint32_t getVertexCount();
     int objectsCount();
     uint32_t getOffsetFromMeshID(int id);

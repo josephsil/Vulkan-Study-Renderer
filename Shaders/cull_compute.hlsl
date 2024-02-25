@@ -8,7 +8,7 @@ struct cullComputeGLobals
 	//TODO JS: frustum should just go in here
 };
 
-struct drawCommandData
+struct drawCommandData_OLD
 {
 	uint objectIndex;
 	// float4 debugData;
@@ -17,6 +17,15 @@ struct drawCommandData
 	uint instanceCount;
 	uint firstVertex;
 	uint firstInstance;
+};
+struct drawCommandData
+{
+	uint objectIndex;
+	uint    indexCount;
+	uint    instanceCount;
+	uint    firstIndex;
+	int     vertexOffset;
+	uint    firstInstance;
 };
 
 [[vk::push_constant]]
