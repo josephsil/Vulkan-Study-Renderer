@@ -12,7 +12,6 @@
 #include <ImageLibraryImplementations.h>
 #include <General/Array.h>
 #include <General/MemoryArena.h>
-#include <windows.h>
 #include "bufferCreation.h"
 #include "CommandPoolManager.h"
 #include "gpu-data-structs.h"
@@ -24,8 +23,6 @@
 #include "VkBootstrap.h"
 #include "vulkan-utilities.h"
 #include "gltf/gltfLoading.h"
-#include "Scene/SceneObjectData.h"
-#include "Scene/SceneObjectData.h"
 #include "Scene/Transforms.h"
 #include "VulkanIncludes/VulkanMemory.h"
 
@@ -292,7 +289,7 @@ void vulkanRenderer::initVulkan()
 
     uint32_t shadowmapsize = SHADOW_MAP_SIZE;
     shadowFormat = VK_FORMAT_D16_UNORM;
-    //Create shadow image(s) -- TODO JS: don't do this every frame
+    //Create shadow image(s) 
     shadowImages.resize(MAX_FRAMES_IN_FLIGHT);
     shadowSamplers.resize(MAX_FRAMES_IN_FLIGHT);
     shadowMemory.resize(MAX_FRAMES_IN_FLIGHT);
@@ -326,7 +323,6 @@ void vulkanRenderer::initVulkan()
 
    
     //shadows
-    //TODO JS: Will radically simplify things if I enforce point lights being first in light list?
     for(int i = 0; i < MAX_FRAMES_IN_FLIGHT ; i++)
     {
         TextureUtilities::createImage(getHandles(),shadowmapsize, shadowmapsize,shadowFormat,VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
@@ -337,7 +333,7 @@ void vulkanRenderer::initVulkan()
     }
 
     //Initialize scene-ish objects we don't have a place for yet 
-    cubemaplut_utilitytexture_index = scene->AddUtilityTexture(
+    cubemaplut_utilitytexture_index = scene->AddTexture(
         TextureData(getHandles(), "textures/outputLUT.png", TextureData::DATA_DONT_COMPRESS));
     cube_irradiance = TextureData(getHandles(), "textures/output_cubemap2_diff8.ktx2", TextureData::TextureType::CUBE);
     cube_specular = TextureData(getHandles(), "textures/output_cubemap2_spec8.ktx2", TextureData::TextureType::CUBE);
@@ -378,9 +374,9 @@ void vulkanRenderer::initVulkan()
 
 
     Array computeLayout = MemoryArena::AllocSpan<VkDescriptorSetLayoutBinding>(&rendererArena, 3);
-    computeLayout.push_back({0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}); //frustum data //todo do these need to bestorage?
+    computeLayout.push_back({0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}); //frustum data
     computeLayout.push_back({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}); //draws 
-    computeLayout.push_back({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}); //objectData  //todo do these need to bestorage?
+    computeLayout.push_back({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}); //objectData 
 
     for(int i = 0; i < MAX_FRAMES_IN_FLIGHT ; i++)
     {
@@ -419,6 +415,7 @@ void vulkanRenderer::initVulkan()
 
 }
 
+    //TODO JS: Support changing meshes at runtime
 void vulkanRenderer::populateMeshBuffers()
 {
     size_t indexCt = 0;
@@ -429,8 +426,6 @@ void vulkanRenderer::populateMeshBuffers()
         vertCt += scene->backing_meshes[i].vertices.size();
     }
 
-    //TODO JS: to ring buffer?
-    //TODO JS: Use main arena? 
     auto gpuVerts = MemoryArena::AllocSpan<gpuvertex>(getHandles().arena, vertCt);
     auto Positoins = MemoryArena::AllocSpan<glm::vec4>(getHandles().arena, vertCt);
     auto Indices = MemoryArena::AllocSpan<uint32_t>(getHandles().arena, indexCt);
@@ -475,7 +470,6 @@ void vulkanRenderer::populateMeshBuffers()
 
 #pragma region descriptor sets
 
-//TODO JS: Move?
 //TODO JS: https://gpuopen-librariesandsdks.github.io/VulkanMemoryAllocator/html/usage_patterns.html advanced
 void vulkanRenderer::createUniformBuffers()
 {
@@ -554,25 +548,16 @@ VkDescriptorImageInfo imageInfoFromImageData(
 }
 
 
-//TODO JS: this is replacing a function that used to be in scene -- need to feed its arguments from scene's backing arrays
-std::span<VkDescriptorImageInfo> getBindlessTextureInfos(MemoryArena::memoryArena* allocator, std::span<TextureData> diffuse, std::span<TextureData> utility)
+std::span<VkDescriptorImageInfo> getBindlessTextureInfos(MemoryArena::memoryArena* allocator, std::span<TextureData> textures)
 {
 
     //TODO JS: Don't do this every frame
-    Array<VkDescriptorImageInfo> imageInfos = MemoryArena::AllocSpan<VkDescriptorImageInfo>(allocator, (diffuse.size() * 3) + utility.size());
-    // std::vector<VkDescriptorImageInfo> samplerInfos;
+    Array<VkDescriptorImageInfo> imageInfos = MemoryArena::AllocSpan<VkDescriptorImageInfo>(allocator, (textures.size()));
     //Material textures
-    for (int texture_i = 0; texture_i < diffuse.size(); texture_i++)
+    for (int texture_i = 0; texture_i < textures.size(); texture_i++)
     {
         auto imageInfo = imageInfoFromImageData(
-            diffuse[texture_i]);
-        imageInfos.push_back(imageInfo);
-    }
-
-    for (int texture_i = 0; texture_i < utility.size(); texture_i++)
-    {
-        auto imageInfo = imageInfoFromImageData(
-            utility[texture_i]);
+            textures[texture_i]);
         imageInfos.push_back(imageInfo);
     }
 
@@ -593,9 +578,7 @@ std::span<descriptorUpdateData> vulkanRenderer::createOpaqueDescriptorUpdates(ui
     //Get data
     std::span imageInfos = getBindlessTextureInfos(
         arena,
-        std::span(scene->backing_diffuse_textures.data, scene->backing_diffuse_textures.ct ),
-        std::span(scene->backing_utility_textures.data, scene->backing_utility_textures.ct ));
-
+        std::span(scene->backing_diffuse_textures.data, scene->backing_diffuse_textures.ct ));
     std::span cubeImageInfos= DescriptorSets::ImageInfoFromImageDataVec(arena,{
         cube_irradiance, cube_specular});
 
@@ -721,8 +704,6 @@ std::span<descriptorUpdateData> vulkanRenderer::createShadowDescriptorUpdates(Me
 
     return descriptorUpdates.getSpan();
 }
-//TODO JS: Need to use separate descriptors  
-//TODO JS: Probably want to duplicate less code
 void vulkanRenderer::updateShadowDescriptorSets(PipelineDataObject* layoutData, uint32_t shadowIndex)
 {
     layoutData->
@@ -1006,7 +987,7 @@ std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocato
     case LIGHT_DIR:
         {
 
-            outputSpan = MemoryArena::AllocSpan<PerShadowData>(allocator, CASCADE_CT ); //TODO JS: cascades
+            outputSpan = MemoryArena::AllocSpan<PerShadowData>(allocator, CASCADE_CT ); 
 
             glm::mat4 invCam = glm::inverse(vp.proj * vp.view);
 
@@ -1017,11 +998,6 @@ std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocato
         
             debugDrawFrustum(frustumCornersWorldSpace);
 
-            //TODO JS: direciton lights only currently
-          
-
-         
-
             float clipRange = cam.farPlane - cam.nearPlane;
             float minZ =  cam.nearPlane;
             float maxZ =  cam.nearPlane + clipRange;
@@ -1029,8 +1005,6 @@ std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocato
             float range = maxZ - minZ;
             float ratio = maxZ / minZ;
 
-            //TODO JS: Cascade generation is wrong
-            
             //cascades
             float cascadeSplits[CASCADE_CT] = {};
             for (uint32_t i = 0; i < CASCADE_CT; i++) {
@@ -1098,7 +1072,6 @@ std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocato
 
                 lightProjection =  lightOrthoMatrix;
                 outputSpan[i] = {lightViewMatrix, lightProjection,  (cam.nearPlane + splitDist * clipRange) * -1.0f};
-                // OUTPUTPOSITION =  (cam.nearPlane + splitDist * clipRange) * -1.0f; //todo js
             }
             return  outputSpan.subspan(0,CASCADE_CT);
         }
@@ -1166,12 +1139,10 @@ void updateGlobals(vulkanRenderer::cameraData camera, Scene* scene, int cubeMapL
     globals.viewPos = glm::vec4(camera.eyePos.x, camera.eyePos.y, camera.eyePos.z, 1);
     globals.lightcountx_modey_shadowcountz_padding_w = glm::vec4(scene->lightCount, SHADER_MODE, MAX_SHADOWCASTERS, 0);
     globals.cubemaplutidx_cubemaplutsampleridx_paddingzw = glm::vec4(
-        scene->materialTextureCount() + cubeMapLutIndex,
-        scene->materialTextureCount() + cubeMapLutIndex, 0, 0);
+        cubeMapLutIndex,
+        cubeMapLutIndex, 0, 0);
     
     globalsBuffer.updateMappedMemory({&globals, 1});
-
-    //TODO JS: move when we add the other cameras 
 
 }
 
@@ -1221,7 +1192,7 @@ void vulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<std::spa
         }
     }
     
-    FramesInFlightData[currentFrame].lightBuffers.updateMappedMemory(std::span(lights.data(), lights.size()));//TODO JS: could probably bump the index in the shader too on the point path rather than rebinding. 
+    FramesInFlightData[currentFrame].lightBuffers.updateMappedMemory(std::span(lights.data(), lights.size()));
     FramesInFlightData[currentFrame].shadowDataBuffers.updateMappedMemory(std::span(flattenedPerShadowData.data, flattenedPerShadowData.capacity));
 
     // frustums
@@ -1295,7 +1266,7 @@ void vulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<std::spa
 #pragma region draw 
 void vulkanRenderer::recordCommandBufferShadowPass(VkCommandBuffer commandBuffer, uint32_t imageIndex, std::span<simplePassInfo> passes)
 {
-     uint32_t shadowSize = SHADOW_MAP_SIZE; //TODO JS: make const
+     uint32_t shadowSize = SHADOW_MAP_SIZE; 
      VkCommandBufferBeginInfo beginInfo{};
      beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
      beginInfo.flags = 0; // Optional
@@ -1303,10 +1274,7 @@ void vulkanRenderer::recordCommandBufferShadowPass(VkCommandBuffer commandBuffer
      //Transition swapchain for rendering
     
      VK_CHECK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
-
-
-    uint32_t SHADOW_INDEX = 0; //TODO JS: loop over shadowcasters
- 
+    
     descriptorsetLayoutsDataShadow.bindToCommandBuffer(commandBuffer, currentFrame);
     VkPipelineLayout layout = descriptorsetLayoutsDataShadow.pipelineData.bindlessPipelineLayout;
     
@@ -1420,7 +1388,7 @@ void vulkanRenderer::recordCommandBufferCompute(VkCommandBuffer commandBuffer, u
     MemoryArena::memoryArena* arena = &perFrameArenas[currentFrame];
 
     VkDescriptorBufferInfo* frustumData =  MemoryArena::Alloc<VkDescriptorBufferInfo>(&perFrameArenas[currentFrame], 1);
-    *frustumData = getDescriptorBufferInfo(FramesInFlightData[currentFrame].frustumsForCullBuffers); //TODO JS: pass frustums
+    *frustumData = getDescriptorBufferInfo(FramesInFlightData[currentFrame].frustumsForCullBuffers);
     
     VkDescriptorBufferInfo* computeDrawBuffer = MemoryArena::Alloc<VkDescriptorBufferInfo>(&perFrameArenas[currentFrame], 1); 
     *computeDrawBuffer = getDescriptorBufferInfo(FramesInFlightData[currentFrame].drawBuffers);
@@ -1440,7 +1408,6 @@ void vulkanRenderer::recordCommandBufferCompute(VkCommandBuffer commandBuffer, u
     
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, descriptorsetLayoutsDataCompute.getPipeline(0));
 
-    //TODO JS: get a flattened list of light matrices -- loop over them -- bump offset by meshct each time -- move this before shadow pass -- set up semaphores -- then you're done?
     int offset = 0;
 
     ShaderGlobals* globals = (ShaderGlobals*)FramesInFlightData[currentFrame].opaqueShaderGlobalsBuffer._buffer.mapped;
@@ -1448,7 +1415,7 @@ void vulkanRenderer::recordCommandBufferCompute(VkCommandBuffer commandBuffer, u
     {
         cullPConstants constants = *MemoryArena::Alloc<cullPConstants>(&perFrameArenas[currentFrame]);
         constants.view = passes[i].viewMatrix;
-        constants.firstDraw = offset * scene->objectsCount(); //TODO JS: IMPROVE
+        constants.firstDraw = offset * scene->objectsCount();
         constants.frustumIndex = (offset) * 6;
         constants.objectCount = scene->objectsCount();
 
@@ -1815,8 +1782,6 @@ void vulkanRenderer::mainLoop()
         UpdateRotations();
         scene->Update();
         updateShadowData(&perFrameArenas[currentFrame], perLightShadowData, scene, sceneCamera);
-        #include <windows.h>
-        // Sleep(300);
         drawFrame();
         debugLines.clear();
         auto t2 = SDL_GetTicks();
@@ -2186,8 +2151,6 @@ void vulkanRenderer::cleanup()
 {
     //TODO clenaup swapchain
 
-    //TODO JS: might be moving somewhere?
-
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
        VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].uniformBuffers._buffer.data, FramesInFlightData[i].uniformBuffers.allocation);
@@ -2210,7 +2173,6 @@ void vulkanRenderer::cleanup()
         vkDestroySemaphore(device, FramesInFlightData[i].swapchaintransitionedOutSemaphores, nullptr);
         vkDestroySemaphore(device, FramesInFlightData[i].swapchaintransitionedInSemaphores, nullptr);
 
-        //TODO JS: for each 
         vkDestroySemaphore(device, FramesInFlightData[i].shadowtransitionedOutSemaphores, nullptr);
         vkDestroySemaphore(device, FramesInFlightData[i].shadowtransitionedInSemaphores, nullptr);
         
