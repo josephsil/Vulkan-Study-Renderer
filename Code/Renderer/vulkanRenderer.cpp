@@ -17,6 +17,7 @@
 #include "gpu-data-structs.h"
 #include "meshData.h"
 #include <Scene/SceneObjectData.h>
+#include "engineGlobals.h"
 #include "Shaders/ShaderLoading.h"
 #include "textureCreation.h"
 #include "TextureData.h"
@@ -140,8 +141,6 @@ vulkanRenderer::vulkanRenderer()
     initWindow();
     initVulkan();
     pastTimes.resize(9999);
-    mainLoop();
-    cleanup();
 }
 
 
@@ -1664,9 +1663,6 @@ void vulkanRenderer::mainLoop()
 
     float translateSpeed = 3.0;
     float mouseSpeed = 1.0;
-    while (!bQuit)
-    {
-
         if (!firstTime[currentFrame])
         {
             vkWaitForFences(device, 1, &FramesInFlightData[currentFrame].inFlightFences, VK_TRUE, UINT64_MAX);
@@ -1785,7 +1781,8 @@ void vulkanRenderer::mainLoop()
         drawFrame();
         debugLines.clear();
         auto t2 = SDL_GetTicks();
-    }
+
+    if(bQuit)     QUIT = true;
     // vkDeviceWaitIdle(device);
 }
 
@@ -2464,34 +2461,3 @@ void SET_UP_SCENE(vulkanRenderer* app)
     app->scene->transforms.RebuildTransformDataFromNodes(app->getHandles().arena);
 }
 
-    // add planep
-     // app->scene->AddObject( &app->scene->backing_meshes[cube],
-     //     0,
-     //     0,
-     //     false,
-     //     glm::vec4(0, 9.35, 0, 1),
-     //     glm::quat(),
-     //     glm::vec3(20,0.05,30)); // basically a plane
-
-    // add plane
-     // app->scene->AddObject( &app->scene->backing_meshes[cube],
-     //     0,
-     //     0,
-     //     false,
-     //     glm::vec4(5, 9.35, 5, 1),
-     //     glm::quat(),
-     //     glm::vec3(0.055,30,10)); // basically a plane
-     // app->scene->AddObject( &app->scene->backing_meshes[cube],
-     //     0,
-     //     0,
-     //     false,
-     //     glm::vec4(-5, 9.35, 5, 1),
-     //     glm::quat(),
-     //     glm::vec3(20,30,0.05)); // basically a plane
-    // app->scene->AddObject( &app->scene->backing_meshes[cube],
-    //   0,
-    //   0,
-    //   false,
-    //   glm::vec4(-5, 9.35, -5, 1),
-    //   glm::quat(),
-    //   glm::vec3(20,30,0.05)); // basically a plan

@@ -91,6 +91,10 @@ public:
     void updateShadowImageViews(int frame);
     vulkanRenderer();
 
+    
+    void mainLoop();
+    void cleanup();
+
 
 private:
 
@@ -304,7 +308,6 @@ private:
 
     int _selectedShader{0};
 
-    void mainLoop();
 
     void UpdateRotations();
 
@@ -316,7 +319,7 @@ private:
     void renderOpaquePass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores, std::vector<VkSemaphore>
                           signalsemaphores, std::span<opaquePassInfo> batchedDraws);
 
-    void cleanup();
+
 
 #pragma region debug info
     static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(

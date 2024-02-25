@@ -203,6 +203,7 @@
     </ClCompile>
     <ClCompile Include="vkbootstrap\VkBootstrap.cpp" />
     <ClCompile Include="vulkan-tutorial.cpp" />
+    <ClInclude Include="Code\engineGlobals.h" />
     <ClInclude Include="Code\General\Array.h" />
     <ClInclude Include="Code\General\FileCaching.h" />
     <ClInclude Include="Code\General\MemoryArena.h" />
