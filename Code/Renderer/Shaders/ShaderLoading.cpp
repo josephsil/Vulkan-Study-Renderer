@@ -415,7 +415,8 @@ void ShaderLoader::shaderCompile(std::wstring shaderFilename, shaderType stagety
         L"-I", L"./Shaders/Includes",
         // Compile to SPIRV
         L"-spirv",
-        L"-fvk-support-nonzero-base-instance"
+        L"-fvk-support-nonzero-base-instance",
+        L"-Zi", L"-Od"
     };
 
     // Compile shader
