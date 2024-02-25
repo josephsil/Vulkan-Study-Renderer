@@ -71,8 +71,6 @@ RWStructuredBuffer<float4> positions;
 // #endif 
 
 // #ifdef SHADOWPASS
-[[vk::binding(12, 0)]]
-RWStructuredBuffer<uint> indices;
 // #endif 
 
 

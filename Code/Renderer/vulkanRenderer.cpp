@@ -350,7 +350,7 @@ void vulkanRenderer::initVulkan()
 
     createDescriptorSetPool(getHandles(), &descriptorPool);
 
-    Array opaqueLayout = MemoryArena::AllocSpan<VkDescriptorSetLayoutBinding>(&rendererArena, 13);
+    Array opaqueLayout = MemoryArena::AllocSpan<VkDescriptorSetLayoutBinding>(&rendererArena, 12);
     uint32_t i =0;
     opaqueLayout.push_back({i++, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL, VK_NULL_HANDLE}); //Globals
     opaqueLayout.push_back({i++, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, MAX_TEXTURES, VK_SHADER_STAGE_FRAGMENT_BIT,  VK_NULL_HANDLE});
@@ -365,10 +365,9 @@ void vulkanRenderer::initVulkan()
     opaqueLayout.push_back({i++, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE} ); //shadow matrices
     
     opaqueLayout.push_back({i++, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE} ); //vert positoins
-    opaqueLayout.push_back({i++, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE} ); //vert indices
 
 
-    Array shadowLayout = MemoryArena::AllocSpan<VkDescriptorSetLayoutBinding>(&rendererArena, 6);
+    Array shadowLayout = MemoryArena::AllocSpan<VkDescriptorSetLayoutBinding>(&rendererArena, 5);
     shadowLayout.push_back({6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE});
     // shadowLayout.push_back({7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE});  //Vertices
     shadowLayout.push_back({8, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE}); //light
@@ -376,7 +375,6 @@ void vulkanRenderer::initVulkan()
     shadowLayout.push_back({10, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE}); //shadow matrices
 
     shadowLayout.push_back({11, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE}); //vert positoins
-    shadowLayout.push_back({12, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE}); //vert indices
 
 
     Array computeLayout = MemoryArena::AllocSpan<VkDescriptorSetLayoutBinding>(&rendererArena, 3);
@@ -504,7 +502,7 @@ void vulkanRenderer::createUniformBuffers()
         FramesInFlightData[i].uniformBuffers = createDataBuffer<UniformBufferObject>(&handles, scene->objectsCount(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT); //
         FramesInFlightData[i].meshBuffers = createDataBuffer<gpuvertex>(&handles,scene->getVertexCount(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
         FramesInFlightData[i].verts = createDataBuffer<glm::vec4>(&handles,scene->getVertexCount(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT); //TODO JS: use index buffer, get vertex count
-        FramesInFlightData[i].indices = createDataBuffer<uint32_t>(&handles,scene->getIndexCount(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+        FramesInFlightData[i].indices = createDataBuffer<uint32_t>(&handles,scene->getIndexCount(), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
         FramesInFlightData[i].lightBuffers = createDataBuffer<gpulight>(&handles, scene->lightCount, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
         FramesInFlightData[i].shadowDataBuffers = createDataBuffer<gpuPerShadowData>(&handles, scene->lightCount * 10, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 
@@ -645,11 +643,10 @@ std::span<descriptorUpdateData> vulkanRenderer::createOpaqueDescriptorUpdates(ui
     
     VkDescriptorBufferInfo* vertBufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
     *vertBufferinfo = FramesInFlightData[frame].verts._buffer.getBufferInfo();
-    VkDescriptorBufferInfo* indexBufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
-    *indexBufferinfo = FramesInFlightData[frame].indices._buffer.getBufferInfo();
+   
 
 
-    Array<descriptorUpdateData> descriptorUpdates = MemoryArena::AllocSpan<descriptorUpdateData>(arena, 13);
+    Array<descriptorUpdateData> descriptorUpdates = MemoryArena::AllocSpan<descriptorUpdateData>(arena, 12);
     //Update descriptor sets with data
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, shaderglobalsinfo});
 
@@ -668,7 +665,6 @@ std::span<descriptorUpdateData> vulkanRenderer::createOpaqueDescriptorUpdates(ui
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, shadowBuffersInfo});
 
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, vertBufferinfo});
-    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, indexBufferinfo});
 
     assert(descriptorUpdates.ct == layoutBindings.size());
     for(int i = 0; i < descriptorUpdates.ct; i++)
@@ -699,11 +695,9 @@ std::span<descriptorUpdateData> vulkanRenderer::createShadowDescriptorUpdates(Me
     
     VkDescriptorBufferInfo* vertBufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
     *vertBufferinfo = FramesInFlightData[frame].verts._buffer.getBufferInfo();
-    VkDescriptorBufferInfo* indexBufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
-    *indexBufferinfo = FramesInFlightData[frame].indices._buffer.getBufferInfo();
 
 
-    Array<descriptorUpdateData> descriptorUpdates = MemoryArena::AllocSpan<descriptorUpdateData>(arena, 6);
+    Array<descriptorUpdateData> descriptorUpdates = MemoryArena::AllocSpan<descriptorUpdateData>(arena, 5);
     //Update descriptor sets with data
  
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, shaderglobalsinfo});
@@ -714,7 +708,7 @@ std::span<descriptorUpdateData> vulkanRenderer::createShadowDescriptorUpdates(Me
 
 
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, vertBufferinfo});
-    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, indexBufferinfo});
+    
     assert(descriptorUpdates.ct == layoutBindings.size());
     for(int i = 0; i < descriptorUpdates.ct; i++)
     {
@@ -1637,6 +1631,7 @@ void vulkanRenderer::createCommandBuffers()
         allocInfo.commandPool = commandPoolmanager.commandPool;
         allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
         allocInfo.commandBufferCount = 1;
+        
 
         VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, &FramesInFlightData[i].opaqueCommandBuffers));
         VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, &FramesInFlightData[i].computeCommandBuffers));
@@ -2024,9 +2019,9 @@ void vulkanRenderer::drawFrame()
   //Update per frame data
 
     //Prepare for pass
-    uint32_t imageIndex; 
+    uint32_t swapChainImageIndex; 
     vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, FramesInFlightData[currentFrame].imageAvailableSemaphores, VK_NULL_HANDLE,
-                          &imageIndex);
+                          &swapChainImageIndex);
     ///////////////////////// Transition swapChain  />
     ///
     ///
@@ -2051,7 +2046,7 @@ void vulkanRenderer::drawFrame()
         FramesInFlightData[currentFrame].swapchainTransitionInCommandBuffer,
         waitSemaphores,
         std::span<VkSemaphore>(&FramesInFlightData[currentFrame].swapchaintransitionedInSemaphores, 1),
-        swapChainImages[currentFrame],
+        swapChainImages[swapChainImageIndex],
         VK_IMAGE_LAYOUT_UNDEFINED,
         VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, swapchainWaitStages, false);
     ///////////////////////// Transition swapChain  />
@@ -2086,7 +2081,7 @@ void vulkanRenderer::drawFrame()
 
 
     
-    renderShadowPass(currentFrame,imageIndex,  getSemaphoreDataFromSemaphores(shadowPassWaitSemaphores, &perFrameArenas[currentFrame]),shadowpasssignalSemaphores, renderPassInformation.shadowDraws);
+    renderShadowPass(currentFrame,swapChainImageIndex,  getSemaphoreDataFromSemaphores(shadowPassWaitSemaphores, &perFrameArenas[currentFrame]),shadowpasssignalSemaphores, renderPassInformation.shadowDraws);
 
     //Transition shadow maps for reading
     waitSemaphores = getSemaphoreDataFromSemaphores(shadowpasssignalSemaphores, &perFrameArenas[currentFrame]);
@@ -2107,7 +2102,7 @@ void vulkanRenderer::drawFrame()
 
    
     //Opaque
-    renderOpaquePass(currentFrame,imageIndex, getSemaphoreDataFromSemaphores(opaquePassWaitSemaphores, &perFrameArenas[currentFrame]),opaquepasssignalSemaphores, renderPassInformation.opaqueDraw);
+    renderOpaquePass(currentFrame,swapChainImageIndex, getSemaphoreDataFromSemaphores(opaquePassWaitSemaphores, &perFrameArenas[currentFrame]),opaquepasssignalSemaphores, renderPassInformation.opaqueDraw);
 
 
 
@@ -2119,7 +2114,7 @@ void vulkanRenderer::drawFrame()
     FramesInFlightData[currentFrame].swapchainTransitionOutCommandBuffer,
     waitSemaphores,
    {&FramesInFlightData[currentFrame].swapchaintransitionedOutSemaphores, 1},
-    swapChainImages[currentFrame],
+    swapChainImages[swapChainImageIndex],
     VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
     VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, swapchainWaitStages, false);
     ///////////////////////// Transition swapChain  />
@@ -2131,7 +2126,7 @@ void vulkanRenderer::drawFrame()
     presentInfo.pWaitSemaphores = &FramesInFlightData[currentFrame].swapchaintransitionedOutSemaphores;
     presentInfo.swapchainCount = 1;
     presentInfo.pSwapchains = {&swapChain};
-    presentInfo.pImageIndices = &imageIndex;
+    presentInfo.pImageIndices = &swapChainImageIndex;
     presentInfo.pResults = nullptr; // Optional
 
     //Present frame
