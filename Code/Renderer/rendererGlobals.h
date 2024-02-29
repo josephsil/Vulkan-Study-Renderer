@@ -115,3 +115,22 @@ public:
     float roughness;
     glm::vec3 color;
 };
+
+struct extent
+{
+    uint32_t width;
+    uint32_t height;
+};
+struct cameraData
+{
+    glm::vec3 eyePos = glm::vec3(-4.0f, 0.4f, 1.0f);
+    glm::vec2 eyeRotation = glm::vec2(55.0f, -22.0f); //yaw, pitch
+    float nearPlane = 0.01f;
+    float farPlane = 35.0f;
+
+    extent extent;
+    float fov = 70;
+        
+    glm::mat4 debug_frozen_culling_v;
+    glm::mat4 debug_frozen_culling_p;
+};

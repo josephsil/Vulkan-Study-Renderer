@@ -18,17 +18,18 @@
 #include "meshData.h"
 #include <Scene/SceneObjectData.h>
 #include "engineGlobals.h"
+#include "RendererInterface.h"
 #include "Shaders/ShaderLoading.h"
 #include "textureCreation.h"
 #include "TextureData.h"
 #include "VkBootstrap.h"
 #include "vulkan-utilities.h"
+#include "General/InputHandling.h"
 #include "gltf/gltfLoading.h"
 #include "Scene/Transforms.h"
 #include "VulkanIncludes/VulkanMemory.h"
 
 struct gpuPerShadowData;
-int SHADER_MODE;
 VkSurfaceKHR surface;
 
 #pragma region vkb setup
@@ -310,10 +311,11 @@ void vulkanRenderer::initVulkan()
     //Command buffer stuff
     createCommandBuffers();
 
+
     //Initialize scene
-    sceneCamera.extent = {swapChainExtent.width, swapChainExtent.height};
     scene = MemoryArena::Alloc<Scene>(&rendererArena);
     InitializeScene(&rendererArena, scene);
+    scene->sceneCamera.extent = {swapChainExtent.width, swapChainExtent.height};
     SET_UP_SCENE(this);
 
     
@@ -756,7 +758,7 @@ glm::quat OrientationFromYawPitch(glm::vec2 yawPitch )
     return yawQuat * pitchQUat;
 }
 
-Transform getCameraTransform(vulkanRenderer::cameraData camera)
+Transform getCameraTransform(cameraData camera)
 {
     
     Transform output{};
@@ -827,13 +829,13 @@ std::vector<linePair> debugLines;
 //TODO JS: this sucks!
 void vulkanRenderer::updateCamera(inputData input)
 {
-    sceneCamera.eyeRotation += (input.mouseRot *  30000.0f *  deltaTime);  // 30000 degrees per full screen rotation per second
-    if(sceneCamera.eyeRotation.y > 89.0f)
-        sceneCamera.eyeRotation.y = 89.0f;
-    if(sceneCamera.eyeRotation.y < -89.0f)
-        sceneCamera.eyeRotation.y = -89.0f;
+    scene->sceneCamera.eyeRotation += (input.mouseRot *  30000.0f *  deltaTime);  // 30000 degrees per full screen rotation per second
+    if(scene->sceneCamera.eyeRotation.y > 89.0f)
+        scene->sceneCamera.eyeRotation.y = 89.0f;
+    if(scene->sceneCamera.eyeRotation.y < -89.0f)
+        scene->sceneCamera.eyeRotation.y = -89.0f;
 
-    glm::quat Orientation = OrientationFromYawPitch(sceneCamera.eyeRotation);
+    glm::quat Orientation = OrientationFromYawPitch(scene->sceneCamera.eyeRotation);
  
     glm::quat forwardQuat = Orientation * glm::quat(0, 0, 0, -1) * glm::conjugate(Orientation);
     glm::vec3 UP = glm::vec3(0,1,0);
@@ -843,7 +845,7 @@ void vulkanRenderer::updateCamera(inputData input)
     glm::vec3 translateFWD = Front * input.keyboardMove.y;
     glm::vec3 translateSIDE = RIGHT * input.keyboardMove.x;
 
-    sceneCamera.eyePos +=  (translateFWD + translateSIDE) * deltaTime;
+    scene->sceneCamera.eyePos +=  (translateFWD + translateSIDE) * deltaTime;
 }
 
 void debugDrawFrustum(std::span<glm::vec4> frustum)
@@ -950,7 +952,7 @@ struct viewProj
     glm::mat4 proj;
 };
 
-viewProj viewProjFromCamera( vulkanRenderer::cameraData camera)
+viewProj viewProjFromCamera( cameraData camera)
 {
     Transform cameraTform = getCameraTransform(camera);
     glm::mat4 view = cameraTform.rot * cameraTform.translation;
@@ -964,7 +966,7 @@ viewProj viewProjFromCamera( vulkanRenderer::cameraData camera)
     return {view, proj};
 }
 
-std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocator, vulkanRenderer::cameraData cam, glm::vec3 lightPos, glm::vec3 spotDir, float spotRadius, lightType type)
+std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocator, cameraData cam, glm::vec3 lightPos, glm::vec3 spotDir, float spotRadius, lightType type)
 {
     viewProj vp = viewProjFromCamera(cam);
     
@@ -1129,14 +1131,14 @@ std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocato
 }
 
 
-void updateGlobals(vulkanRenderer::cameraData camera, Scene* scene, int cubeMapLutIndex, dataBufferObject<ShaderGlobals> globalsBuffer)
+void updateGlobals(cameraData camera, Scene* scene, int cubeMapLutIndex, dataBufferObject<ShaderGlobals> globalsBuffer)
 {
     ShaderGlobals globals{};
     viewProj vp = viewProjFromCamera(camera);
     globals.view = vp.view;
     globals.proj = vp.proj;
     globals.viewPos = glm::vec4(camera.eyePos.x, camera.eyePos.y, camera.eyePos.z, 1);
-    globals.lightcountx_modey_shadowcountz_padding_w = glm::vec4(scene->lightCount, SHADER_MODE, MAX_SHADOWCASTERS, 0);
+    globals.lightcountx_modey_shadowcountz_padding_w = glm::vec4(scene->lightCount, debug_shader_bool_1, MAX_SHADOWCASTERS, 0);
     globals.cubemaplutidx_cubemaplutsampleridx_paddingzw = glm::vec4(
         cubeMapLutIndex,
         cubeMapLutIndex, 0, 0);
@@ -1145,7 +1147,7 @@ void updateGlobals(vulkanRenderer::cameraData camera, Scene* scene, int cubeMapL
 
 }
 
-void updateShadowData(MemoryArena::memoryArena* allocator, std::span<std::span<PerShadowData>> perLightShadowData, Scene* scene, vulkanRenderer::cameraData camera)
+void updateShadowData(MemoryArena::memoryArena* allocator, std::span<std::span<PerShadowData>> perLightShadowData, Scene* scene, cameraData camera)
 {
     for(int i =0; i <scene->lightCount; i++)
     {
@@ -1165,7 +1167,7 @@ void vulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<std::spa
     //TODO JS: to ring buffer?
     auto tempArena = getHandles().perframeArena;
 
-    updateGlobals(sceneCamera, scene, cubemaplut_utilitytexture_index, FramesInFlightData[currentFrame].opaqueShaderGlobalsBuffer);
+    updateGlobals(scene->sceneCamera, scene, cubemaplut_utilitytexture_index, FramesInFlightData[currentFrame].opaqueShaderGlobalsBuffer);
     
 
     //Lights
@@ -1203,7 +1205,7 @@ void vulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<std::spa
     {
         for (int j = 0; j < perLightShadowData[i].size(); j++)
         {
-            viewProj vp = viewProjFromCamera(sceneCamera);
+            viewProj vp = viewProjFromCamera(scene->sceneCamera);
             glm::mat4  projT =   transpose(perLightShadowData[i][j].proj)  ;
             frustums[offset + 0] = projT[3] + projT[0];
             frustums[offset + 1] = projT[3] - projT[0];
@@ -1215,7 +1217,7 @@ void vulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<std::spa
         }
     }
 
-    viewProj vp = viewProjFromCamera(sceneCamera);
+    viewProj vp = viewProjFromCamera(scene->sceneCamera);
     glm::mat4  projT =   transpose(vp.proj);
     frustums[offset + 0] = projT[3] + projT[0];
     frustums[offset + 1] = projT[3] - projT[0];
@@ -1517,7 +1519,6 @@ void vulkanRenderer::recordCommandBufferOpaquePass(VkCommandBuffer commandBuffer
     scissor.extent = swapChainExtent;
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-    uint32_t debugpipelineindexoverride = _selectedShader == 0 ? 0 : 1;
 // #define DEBUG_SHADERS
     
     //*************
@@ -1657,12 +1658,7 @@ void vulkanRenderer::createGraphicsPipeline(const char* shaderName, PipelineData
 
 void vulkanRenderer::mainLoop()
 {
-   
-    SDL_Event e;
-    bool bQuit = false;
 
-    float translateSpeed = 3.0;
-    float mouseSpeed = 1.0;
         if (!firstTime[currentFrame])
         {
             vkWaitForFences(device, 1, &FramesInFlightData[currentFrame].inFlightFences, VK_TRUE, UINT64_MAX);
@@ -1682,107 +1678,22 @@ void vulkanRenderer::mainLoop()
         {
             firstTime[currentFrame] = false;
         }
-        this->T2 = SDL_GetTicks();
-        uint32_t deltaTicks = this->T2 - this->T;
-        this->deltaTime = deltaTicks * 0.001f;
-        this->T = SDL_GetTicks();
 
 
-
-    
-        
-        //Handle events on queue
-        while (SDL_PollEvent(&e) != 0)
-        {
-            //close the window when user clicks the X button or alt-f4s
-            if (e.type == SDL_QUIT) bQuit = true;
-            else if (e.type == SDL_KEYDOWN)
-            {
-                if (e.key.keysym.sym == SDLK_SPACE)
-                {
-                    _selectedShader += 1;
-                    if (_selectedShader > 1)
-                    {
-                        _selectedShader = 0;
-                    }
-                }
-
-                if (e.key.keysym.sym == SDLK_z)
-                {
-                    SHADER_MODE = SHADER_MODE ? 0 : 1; //debug toggle float we can bool off of on shader
-                }
-                
-            }
-          
-        }
-
-        glm::vec3 translate = glm::vec3(0);
-        SDL_PumpEvents();
-        const uint8_t* KeyboardState = SDL_GetKeyboardState(nullptr);
-        translate.x = 0.0f -KeyboardState[SDL_SCANCODE_A] + KeyboardState[SDL_SCANCODE_D];
-        translate.y = 0.0f +KeyboardState[SDL_SCANCODE_W] - KeyboardState[SDL_SCANCODE_S];
-        translate *= translateSpeed;
-        int x, y;
-
-        const uint32_t MouseButtonState = SDL_GetRelativeMouseState(&x, &y);
-
-      
-        glm::vec3 mouseRot = glm::vec3(0);
-        if (MouseButtonState & SDL_BUTTON_LMASK) // mouse down
-        {
-            float fx  = x / 1000.0f;
-            float fy  = y / 1000.0f;
-            mouseRot.x = fx;
-            mouseRot.y = fy;
-        }
-
-        
-        if (KeyboardState[SDL_SCANCODE_K])
-        {
-            if (this->T > k_timeout)
-            {
-                 this->sceneCamera.debug_cull_freeze = !this->sceneCamera.debug_cull_freeze;
-                 if (this->sceneCamera.debug_cull_freeze) printf("froze debug culling \n");
-                else printf("unfroze debug culling \n");
-                k_timeout = this->T + 200;
-            }
-        }
-
-        if (KeyboardState[SDL_SCANCODE_L])
-        {
-            if (this->T > l_timeout)
-            {
-                this->sceneCamera.debug_cull_override = !this->sceneCamera.debug_cull_override;
-                if (   this->sceneCamera.debug_cull_override)printf("enabled debug culling index: %d! \n",  this->sceneCamera.debug_cull_override_index);
-                else printf("debug culling disabled \n");
-                l_timeout = this->T + 200;
-            }
-        }
-        if (KeyboardState[SDL_SCANCODE_DOWN] || KeyboardState[SDL_SCANCODE_UP])
-        {
-            if (this->sceneCamera.debug_cull_override)
-            {
-                if (this->T > arrow_timeout)
-                {
-                    this->sceneCamera.debug_cull_override_index = (this->sceneCamera.debug_cull_override_index - (int)KeyboardState[SDL_SCANCODE_DOWN] + (int)KeyboardState[SDL_SCANCODE_UP]) % scene->shadowmapCount;
-                    arrow_timeout = this->T + 100;
-                    printf("new cull index: %d! \n",  this->sceneCamera.debug_cull_override_index);
-                }
-            }
-        }
-
-        
-        inputData input = {translate, mouseRot}; 
-        //Temp placeholder for like, object loop
+        //This stuff goes in scene
+        float translateSpeed = 3.0;
+        inputData input = {glm::vec3(INPUT_translate_x, INPUT_translate_y, 0.0f) * translateSpeed, glm::vec2(INPUT_mouse_x, INPUT_mouse_y)}; 
         updateCamera(input);
         UpdateRotations();
         scene->Update();
-        updateShadowData(&perFrameArenas[currentFrame], perLightShadowData, scene, sceneCamera);
+
+        //This stuff belongs here
+     
         drawFrame();
         debugLines.clear();
+
         auto t2 = SDL_GetTicks();
 
-    if(bQuit)     QUIT = true;
     // vkDeviceWaitIdle(device);
 }
 
@@ -1849,7 +1760,7 @@ VkPipelineStageFlags swapchainWaitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT
 VkPipelineStageFlags shadowWaitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
 
 
-framePasses preparePasses(Scene* scene, vulkanRenderer::cameraData* camera, MemoryArena::memoryArena* allocator, std::span<std::span<PerShadowData>> inputShadowdata, PipelineDataObject opaquePipelineData)
+framePasses preparePasses(Scene* scene, cameraData* camera, MemoryArena::memoryArena* allocator, std::span<std::span<PerShadowData>> inputShadowdata, PipelineDataObject opaquePipelineData)
 {
 
     uint32_t PIPELINE_COUNT = opaquePipelineData.getPipelineCt();
@@ -1869,17 +1780,17 @@ framePasses preparePasses(Scene* scene, vulkanRenderer::cameraData* camera, Memo
     }
     
     //add one more pass for opaque compute
-    if (!camera->debug_cull_override)
+    if (!debug_cull_override)
     {
         simplePasses.push_back({shadowDrawIndex * objectsPerDraw, objectsPerDraw, viewProjFromCamera(*camera).view});
     }
     else
     {
 
-            if (!camera->debug_cull_freeze)
+            if (!debug_cull_freeze)
             {
-                camera->debug_frozen_culling_v = simplePasses[camera->debug_cull_override_index].viewMatrix;
-                camera->debug_frozen_culling_p = simplePasses[camera->debug_cull_override_index].projMatrix;
+                camera->debug_frozen_culling_v = simplePasses[debug_cull_override_index].viewMatrix;
+                camera->debug_frozen_culling_p = simplePasses[debug_cull_override_index].projMatrix;
             }
         
         simplePasses.push_back({shadowDrawIndex * objectsPerDraw, objectsPerDraw,  camera->debug_frozen_culling_v});
@@ -1976,8 +1887,15 @@ void updateIndirectCommandBufferForPasses(Scene* scene, MemoryArena::memoryArena
     }
 }
 
+uint32_t internal_debug_cull_override_index = 0;
 void vulkanRenderer::drawFrame()
 {
+    if (debug_cull_override_index != internal_debug_cull_override_index)
+    {
+        debug_cull_override_index %= scene->shadowmapCount;
+        internal_debug_cull_override_index = debug_cull_override_index;
+        printf("new cull index: %d! \n",  debug_cull_override_index);
+    }
   //Update per frame data
 
     //Prepare for pass
@@ -1989,7 +1907,7 @@ void vulkanRenderer::drawFrame()
     ///
     ///    //Wait for IMAGE INDEX to be ready to present
  
-
+    updateShadowData(&perFrameArenas[currentFrame], perLightShadowData, scene, scene->sceneCamera);
     updatePerFrameBuffers(currentFrame, scene->transforms.worldMatrices); // TODO JS: timing bugs if it doesn't happen after the fence
 
     updateOpaqueDescriptorSets(&descriptorsetLayoutsData);
@@ -2027,7 +1945,7 @@ void vulkanRenderer::drawFrame()
     //Pre-rendering setup
     std::span<drawCommandData> mappedDrawCommandBuffer =  FramesInFlightData[currentFrame].drawBuffers.getMappedSpan();
 
-    framePasses renderPassInformation =  preparePasses(scene, &sceneCamera, &perFrameArenas[currentFrame],
+    framePasses renderPassInformation =  preparePasses(scene, &scene->sceneCamera, &perFrameArenas[currentFrame],
                                                    perLightShadowData, descriptorsetLayoutsData);
     updateIndirectCommandBufferForPasses(scene, &perFrameArenas[currentFrame], mappedDrawCommandBuffer, renderPassInformation);
      

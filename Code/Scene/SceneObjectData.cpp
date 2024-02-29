@@ -51,6 +51,8 @@ void InitializeScene(MemoryArena::memoryArena* arena, Scene* scene)
 
     scene->backing_meshes =  Array(MemoryArena::AllocSpan<MeshData>(arena, ASSET_MAX));
     scene->meshBoundingSphereRad = Array(MemoryArena::AllocSpan<positionRadius>(arena, ASSET_MAX));
+
+    scene->sceneCamera = {};
     
 }
 

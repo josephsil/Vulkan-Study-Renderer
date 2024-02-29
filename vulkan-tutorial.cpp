@@ -2,6 +2,7 @@
 
 #include "engineGlobals.h"
 #include "Code/Renderer/vulkanRenderer.h"
+#include "General/InputHandling.h"
 
 
 void engineLoop(vulkanRenderer* renderer);
@@ -21,6 +22,7 @@ void engineLoop(vulkanRenderer* renderer)
     
     while(!QUIT)
     {
+        InputHandler_Update();
         renderer->mainLoop(); //TODO JS: Extract non-renderer stuff out 
     }
 

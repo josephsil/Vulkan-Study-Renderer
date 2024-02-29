@@ -84,6 +84,11 @@ public:
     int meshCount = 0;
     Array<MeshData> backing_meshes;
     Array<positionRadius> meshBoundingSphereRad;
+
+    cameraData sceneCamera;
+
+
+
     
 
 

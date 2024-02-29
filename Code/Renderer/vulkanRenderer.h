@@ -62,29 +62,9 @@ struct  semaphoreData
 class vulkanRenderer
 {
 
-    uint32_t k_timeout = 0;
-    uint32_t l_timeout = 0;
-  uint32_t arrow_timeout = 0;
 public:
 
-    struct cameraData
-    {
-        glm::vec3 eyePos = glm::vec3(-4.0f, 0.4f, 1.0f);
-        glm::vec2 eyeRotation = glm::vec2(55.0f, -22.0f); //yaw, pitch
-        float nearPlane = 0.01f;
-        float farPlane = 35.0f;
 
-        VkExtent2D extent;
-        float fov = 70;
-
-
-        //FRUSTUM CULLING DEBUGGING
-        bool debug_cull_override = false;
-        bool debug_cull_freeze = false;
-        int debug_cull_override_index = 3;
-        glm::mat4 debug_frozen_culling_v;
-        glm::mat4 debug_frozen_culling_p;
-    };
     
     Scene* scene;
     RendererContext getHandles();
@@ -106,7 +86,6 @@ private:
 #pragma region SDL
     uint32_t T;
     uint32_t T2;
-    float deltaTime;
 
 
    
@@ -116,12 +95,6 @@ private:
     struct SDL_Window* _window{nullptr};
 
 #pragma endregion
-
-  
-
-    cameraData sceneCamera;
-
-
     glm::mat4 freezeView = {};
     
     VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
@@ -305,9 +278,6 @@ private:
 
     int firstframe = true;
     void createInstance();
-
-    int _selectedShader{0};
-
 
     void UpdateRotations();
 

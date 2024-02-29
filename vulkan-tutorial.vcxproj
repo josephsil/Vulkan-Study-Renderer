@@ -160,6 +160,7 @@
   <ItemGroup>
     <ClCompile Include="Code\General\FileCaching.cpp">
     </ClCompile>
+    <ClCompile Include="Code\General\InputHandling.cpp" />
     <ClCompile Include="Code\General\MemoryArena.cpp">
     </ClCompile>
     <ClCompile Include="Code\Renderer\bufferCreation.cpp">
@@ -206,6 +207,7 @@
     <ClInclude Include="Code\engineGlobals.h" />
     <ClInclude Include="Code\General\Array.h" />
     <ClInclude Include="Code\General\FileCaching.h" />
+    <ClInclude Include="Code\General\InputHandling.h" />
     <ClInclude Include="Code\General\MemoryArena.h" />
     <ClInclude Include="Code\Renderer\BufferAndPool.h" />
     <ClInclude Include="Code\Renderer\bufferCreation.h" />
@@ -218,6 +220,7 @@
     <ClInclude Include="Code\Renderer\PipelineDataObject.h" />
     <ClInclude Include="Code\Renderer\rendererGlobals.h" />
     <ClInclude Include="Code\Renderer\RendererContext.h" />
+    <ClInclude Include="Code\Renderer\RendererInterface.h" />
     <ClInclude Include="Code\Renderer\Shaders\ShaderLoading.h" />
     <ClInclude Include="Code\Renderer\textureCreation.h" />
     <ClInclude Include="Code\Renderer\TextureData.h" />
