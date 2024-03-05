@@ -110,7 +110,7 @@ vkb::Device GET_DEVICE(vkb::PhysicalDevice gpu)
 {
     vkb::DeviceBuilder device_builder{gpu};
 
-      auto devicebuilderResult =  device_builder.build();
+    auto devicebuilderResult = device_builder.build();
 
     if (!devicebuilderResult)
     {

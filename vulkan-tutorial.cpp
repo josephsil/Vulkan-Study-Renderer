@@ -4,6 +4,21 @@
 #include "Code/Renderer/vulkanRenderer.h"
 #include "General/InputHandling.h"
 
+//RENDERER TODOS:
+/*
+ * -Submeshes
+ * -Split "Render Scene" (backing data) from "Scene" (Object Data)
+ * -LODs
+ *      -And compacted vert buffer for binding to final draw
+ * -Finer grained culling
+ *      -Depth? Clusters?
+ */
+
+//GENERAL TODOS
+/*
+ * -Dear IMGUI
+ * -Physics?
+ */
 
 void engineLoop(vulkanRenderer* renderer);
 

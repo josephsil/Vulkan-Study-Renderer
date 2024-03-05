@@ -198,30 +198,6 @@ struct sortData
     uint32_t ct;
 };
 
-int orderComparator(void * context, void const* elem1, void const* elem2 )
-{
-    sortData dists = *(sortData*)context;
-    glm::float32_t _1 = (dists.data[*(int*)elem1]);
-    glm::float32_t _2 = (dists.data[*(int*)elem2]);
-    return int( _1 - _2 );
-}
-
-
-void Scene::OrderedObjectIndices(MemoryArena::memoryArena* allocator, glm::vec3 eyePos, std::span<int> indices, bool invert)
-{
-    auto dists = MemoryArena::AllocSpan<glm::float32_t>(allocator, indices.size());
-    for(int i = 0; i < dists.size(); i++)
-    {
-        dists[i] = glm::distance2(objects.translations[i], eyePos);
-    }
-    assert(indices.size() == objects.translations.ct);
-    sortData s = {dists.data(), (uint32_t)dists.size()};
-
-    qsort_s(indices.data(), indices.size(), sizeof(int), orderComparator, &s);
-
-    return;
-}
-
 //very dumb/brute force for now
 void Scene::lightSort()
 {
