@@ -5,16 +5,20 @@
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 
-#include <vector>
 #include "vertex.h"
-#include "RendererContext.h"
 
 #pragma region forward declarations
 #include <span>
 
 #include "gpu-data-structs.h"
-#include "VulkanIncludes/forward-declarations-renderer.h"
 #pragma endregion
+
+namespace MemoryArena
+{
+    struct memoryArena;
+}
+
+struct RendererContext;
 
 //TODO JS, use this temporarily when building the mesh.... not sure what to do with it
 struct temporaryloadingMesh

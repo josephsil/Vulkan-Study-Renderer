@@ -14,10 +14,10 @@
 #include "gpu-data-structs.h"
 #include <General/MemoryArena.h>
 #include "PipelineDataObject.h"
+#include "Scene/Scene.h"
 // My stuff 
 struct gpulight;
 struct gpuvertex;
-class Scene;
 struct PerShadowData;
 struct MeshData; //Forward Declaration
 struct Vertex; //Forward Declaration
@@ -62,34 +62,18 @@ struct  semaphoreData
 class vulkanRenderer
 {
 
-    uint32_t k_timeout = 0;
-    uint32_t l_timeout = 0;
-  uint32_t arrow_timeout = 0;
 public:
 
-    struct cameraData
-    {
-        glm::vec3 eyePos = glm::vec3(-4.0f, 0.4f, 1.0f);
-        glm::vec2 eyeRotation = glm::vec2(55.0f, -22.0f); //yaw, pitch
-        float nearPlane = 0.01f;
-        float farPlane = 35.0f;
-
-        VkExtent2D extent;
-        float fov = 70;
-
-
-        //FRUSTUM CULLING DEBUGGING
-        bool debug_cull_override = false;
-        bool debug_cull_freeze = false;
-        int debug_cull_override_index = 3;
-        glm::mat4 debug_frozen_culling_v;
-        glm::mat4 debug_frozen_culling_p;
-    };
-    
-    Scene* scene;
+    VkExtent2D swapChainExtent;
+    RendererLoadedAssetData* rendererSceneData;
     RendererContext getHandles();
-    void updateShadowImageViews(int frame);
+    void updateShadowImageViews(int frame, Scene* scene);
     vulkanRenderer();
+    void initializeRendererForScene(Scene* scene);
+
+    
+    void Update(Scene* scene);
+    void cleanup();
 
 
 private:
@@ -102,7 +86,6 @@ private:
 #pragma region SDL
     uint32_t T;
     uint32_t T2;
-    float deltaTime;
 
 
    
@@ -112,12 +95,6 @@ private:
     struct SDL_Window* _window{nullptr};
 
 #pragma endregion
-
-  
-
-    cameraData sceneCamera;
-
-
     glm::mat4 freezeView = {};
     
     VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
@@ -142,7 +119,7 @@ private:
 
     VkSwapchainKHR swapChain;
     VkFormat swapChainColorFormat;
-    VkExtent2D swapChainExtent;
+  
     std::vector<VkImageView> swapChainImageViews;
     std::vector<VkImage> swapChainImages;
 
@@ -174,7 +151,8 @@ private:
     
     void createDescriptorSetPool(RendererContext handles, VkDescriptorPool* pool);
     void updateOpaqueDescriptorSets(PipelineDataObject* layoutData);
-    std::span<descriptorUpdateData> createOpaqueDescriptorUpdates(uint32_t frame, MemoryArena::memoryArena* arena, std::span<VkDescriptorSetLayoutBinding> layoutBindings);
+    std::span<descriptorUpdateData> createOpaqueDescriptorUpdates(uint32_t frame, int shadowCasterCount, MemoryArena::memoryArena* arena, std::span<VkDescriptorSetLayoutBinding>
+                                                                  layoutBindings);
     std::span<descriptorUpdateData> createShadowDescriptorUpdates(MemoryArena::memoryArena* arena, uint32_t frame, uint32_t shadowIndex, std::span<VkDescriptorSetLayoutBinding>
                                                                   layoutBindings);
 
@@ -265,12 +243,11 @@ private:
 
     void updateLightBuffers(uint32_t currentImage);
     void populateMeshBuffers();
-    void createUniformBuffers();
+    void createUniformBuffers(int objectsCount, int lightCount);
 
     void updateUniformBuffer(uint32_t currentImage, glm::mat4 model);
-    void updateCamera(inputData input);
     //Globals per pass, ubos, and lights are updated every frame
-    void updatePerFrameBuffers(unsigned currentFrame, Array<std::span<glm::mat4>> models);
+    void updatePerFrameBuffers(unsigned currentFrame, Array<std::span<glm::mat4>> models, Scene* scene);
     void recordCommandBufferShadowPass(VkCommandBuffer commandBuffer, uint32_t imageIndex, std::span<simplePassInfo> passes);
 
 
@@ -284,7 +261,7 @@ private:
     void recordCommandBufferCompute(VkCommandBuffer commandBuffer, uint32_t currentFrame, std::span<simplePassInfo> passes);
     void submitComputePass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores,
                            std::vector<VkSemaphore> signalsemaphores, std::span<simplePassInfo> passes);
-    void recordCommandBufferOpaquePass(VkCommandBuffer commandBuffer, uint32_t imageIndex, std::span<opaquePassInfo> batchedDraws);
+    void recordCommandBufferOpaquePass(Scene* scene, VkCommandBuffer commandBuffer, uint32_t imageIndex, std::span<opaquePassInfo> batchedDraws);
 
     void createGraphicsCommandPool();
     void createTransferCommandPool();
@@ -302,21 +279,15 @@ private:
     int firstframe = true;
     void createInstance();
 
-    int _selectedShader{0};
-
-    void mainLoop();
-
-    void UpdateRotations();
-
-    void drawFrame();
+    void drawFrame(Scene* scene);
 
 
     void renderShadowPass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores,
                           std::vector<VkSemaphore> signalsemaphores, std::span<simplePassInfo> passes);
     void renderOpaquePass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores, std::vector<VkSemaphore>
-                          signalsemaphores, std::span<opaquePassInfo> batchedDraws);
+                          signalsemaphores, std::span<opaquePassInfo> batchedDraws, Scene* scene);
 
-    void cleanup();
+
 
 #pragma region debug info
     static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(

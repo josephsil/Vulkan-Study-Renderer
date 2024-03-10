@@ -14,7 +14,7 @@
 #include "General/MemoryArena.h"
 
 
-class Scene;
+class RendererLoadedAssetData;
 //Basic idea: loop over each level of the hiearchy and compute all the matrices
 //In theory each level could be done in parallel
 //so like
@@ -41,15 +41,6 @@ void rmChild(localTransform* tgt, localTransform* remove);
 
 
 //Flat representation for updating
-//TODO when I flatten I'll just also build a LUT to the flattened indices by ID
-//TODO Objects cna be in ID order
-
-
-
-
-
-
-
 
 //Non node stuff
 struct flT_lookup
@@ -64,10 +55,6 @@ struct flatlocalTransform
     std::string name;
     uint8_t parent; // Parent is always one level up 
 };
-
-
-
-
 //Data the scene uses for transforms
 struct objectTransforms
 {

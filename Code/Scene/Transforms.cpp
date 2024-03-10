@@ -1,7 +1,7 @@
 #include "Transforms.h"
 #include <stack>
 
-#include "SceneObjectData.h"
+#include "RendererLoadedAssetData.h"
 #include "General/MemoryArena.h"
 
 //TODO P0:

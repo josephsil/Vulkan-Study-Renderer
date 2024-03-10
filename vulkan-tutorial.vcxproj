@@ -132,6 +132,7 @@
       <GenerateDebugInformation>DebugFastLink</GenerateDebugInformation>
       <AdditionalLibraryDirectories>C:\VulkanSDK\1.3.239.0\Lib;C:\Program Files\Microsoft Visual Studio\2022\Community\libraries\glfw-3.3.8\lib-vc2022;C:\VulkanSDK\KTX-Software\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>vulkan-1.lib;dxcompiler.lib;SDL2.lib;SDL2main.lib;ktx.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <ShowProgress>LinkVerbose</ShowProgress>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -158,10 +159,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Code\game.cpp" />
     <ClCompile Include="Code\General\FileCaching.cpp">
     </ClCompile>
+    <ClCompile Include="Code\General\InputHandling.cpp" />
     <ClCompile Include="Code\General\MemoryArena.cpp">
     </ClCompile>
+    <ClCompile Include="Code\glm_misc.cpp" />
     <ClCompile Include="Code\Renderer\bufferCreation.cpp">
     </ClCompile>
     <ClCompile Include="Code\Renderer\CommandPoolManager.cpp">
@@ -191,7 +195,8 @@
     <ClCompile Include="Code\Renderer\VulkanIncludes\VulkanMemory.cpp" />
     <ClCompile Include="Code\Renderer\vulkanRenderer.cpp">
     </ClCompile>
-    <ClCompile Include="Code\Scene\SceneObjectData.cpp">
+    <ClCompile Include="Code\Scene\Scene.cpp" />
+    <ClCompile Include="Code\Scene\RendererLoadedAssetData.cpp">
     </ClCompile>
     <ClCompile Include="Code\Scene\Transforms.cpp" />
     <ClCompile Include="External\ImageLibraryImplementations.cpp" />
@@ -203,9 +208,13 @@
     </ClCompile>
     <ClCompile Include="vkbootstrap\VkBootstrap.cpp" />
     <ClCompile Include="vulkan-tutorial.cpp" />
+    <ClInclude Include="Code\engineGlobals.h" />
+    <ClInclude Include="Code\game.h" />
     <ClInclude Include="Code\General\Array.h" />
     <ClInclude Include="Code\General\FileCaching.h" />
+    <ClInclude Include="Code\General\InputHandling.h" />
     <ClInclude Include="Code\General\MemoryArena.h" />
+    <ClInclude Include="Code\glm_misc.h" />
     <ClInclude Include="Code\Renderer\BufferAndPool.h" />
     <ClInclude Include="Code\Renderer\bufferCreation.h" />
     <ClInclude Include="Code\Renderer\CommandPoolManager.h" />
@@ -217,6 +226,7 @@
     <ClInclude Include="Code\Renderer\PipelineDataObject.h" />
     <ClInclude Include="Code\Renderer\rendererGlobals.h" />
     <ClInclude Include="Code\Renderer\RendererContext.h" />
+    <ClInclude Include="Code\Renderer\RendererInterface.h" />
     <ClInclude Include="Code\Renderer\Shaders\ShaderLoading.h" />
     <ClInclude Include="Code\Renderer\textureCreation.h" />
     <ClInclude Include="Code\Renderer\TextureData.h" />
@@ -227,7 +237,8 @@
     <ClInclude Include="Code\Renderer\VulkanIncludes\VulkanMemory.h" />
     <ClInclude Include="Code\Renderer\VulkanIncludes\Vulkan_Includes.h" />
     <ClInclude Include="Code\Renderer\vulkanRenderer.h" />
-    <ClInclude Include="Code\Scene\SceneObjectData.h" />
+    <ClInclude Include="Code\Scene\Scene.h" />
+    <ClInclude Include="Code\Scene\RendererLoadedAssetData.h" />
     <ClInclude Include="Code\Scene\Transforms.h" />
     <ClInclude Include="ImageLibraryImplementations.h" />
     <ClInclude Include="MeshLibraryImplementations.h" />
