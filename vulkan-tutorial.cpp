@@ -1,9 +1,13 @@
 #include <cstdlib>
-
+#include "glm/glm.hpp"
 #include "engineGlobals.h"
-#include "Code/Renderer/vulkanRenderer.h"
-#include "General/InputHandling.h"
 
+#include "General/InputHandling.h"
+#include "Renderer/meshData.h"
+#include "Renderer/TextureData.h"
+#include "Renderer/gltf/gltfLoading.h"
+#include "Scene/Scene.h"
+#include "Code/Renderer/vulkanRenderer.h"
 //RENDERER TODOS:
 /*
  * -Submeshes
@@ -20,27 +24,36 @@
  * -Physics?
  */
 
-void engineLoop(vulkanRenderer* renderer);
+void engineLoop(vulkanRenderer* renderer, Scene* scene);
 
 
 int main()
 {
     printf("NEW ENTRY");
-    vulkanRenderer app;
-    engineLoop(&app);
+    vulkanRenderer app = {};
+
+    MemoryArena::memoryArena sceneArena = {};
+    MemoryArena::initialize(&sceneArena, 24 * 1000000);
+    Scene scene = {};
+    InitializeScene(&sceneArena,&scene);
+    app.PrepareForScene(&scene);
+    engineLoop(&app, &scene);
 
     return EXIT_SUCCESS;
 }
 
-void engineLoop(vulkanRenderer* renderer)
+void engineLoop(vulkanRenderer* renderer, Scene* scene)
 {
     
     while(!QUIT)
     {
         InputHandler_Update();
-        renderer->mainLoop(); //TODO JS: Extract non-renderer stuff out 
+      
+        scene->Update();
+        renderer->Update(scene); //TODO JS: Extract non-renderer stuff out 
     }
 
     renderer->cleanup();
     
 }
+

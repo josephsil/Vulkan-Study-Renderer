@@ -41,7 +41,7 @@ extern "C" {
  * tangent spaces, for a given mesh, in any tool in which it is used.
  * This is done by performing an internal welding step and subsequently an order-independent evaluation
  * of tangent space for meshes consisting of triangles and quads.
- * This means faces can be received in any order and the same is true for
+ * This means faces can be received in any order and the same is true forvu
  * the order of vertices of each face. The generated result will not be affected
  * by such reordering. Additionally, whether degenerate (vertices or texture coordinates)
  * primitives are present or not will not affect the generated results either.

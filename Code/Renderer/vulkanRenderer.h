@@ -14,10 +14,10 @@
 #include "gpu-data-structs.h"
 #include <General/MemoryArena.h>
 #include "PipelineDataObject.h"
+#include "Scene/Scene.h"
 // My stuff 
 struct gpulight;
 struct gpuvertex;
-class Scene;
 struct PerShadowData;
 struct MeshData; //Forward Declaration
 struct Vertex; //Forward Declaration
@@ -64,15 +64,15 @@ class vulkanRenderer
 
 public:
 
-
-    
-    Scene* scene;
+    VkExtent2D swapChainExtent;
+    RendererSceneData* rendererSceneData;
     RendererContext getHandles();
-    void updateShadowImageViews(int frame);
+    void updateShadowImageViews(int frame, Scene* scene);
     vulkanRenderer();
+    void PrepareForScene(Scene* scene);
 
     
-    void mainLoop();
+    void Update(Scene* scene);
     void cleanup();
 
 
@@ -119,7 +119,7 @@ private:
 
     VkSwapchainKHR swapChain;
     VkFormat swapChainColorFormat;
-    VkExtent2D swapChainExtent;
+  
     std::vector<VkImageView> swapChainImageViews;
     std::vector<VkImage> swapChainImages;
 
@@ -151,7 +151,8 @@ private:
     
     void createDescriptorSetPool(RendererContext handles, VkDescriptorPool* pool);
     void updateOpaqueDescriptorSets(PipelineDataObject* layoutData);
-    std::span<descriptorUpdateData> createOpaqueDescriptorUpdates(uint32_t frame, MemoryArena::memoryArena* arena, std::span<VkDescriptorSetLayoutBinding> layoutBindings);
+    std::span<descriptorUpdateData> createOpaqueDescriptorUpdates(uint32_t frame, int shadowCasterCount, MemoryArena::memoryArena* arena, std::span<VkDescriptorSetLayoutBinding>
+                                                                  layoutBindings);
     std::span<descriptorUpdateData> createShadowDescriptorUpdates(MemoryArena::memoryArena* arena, uint32_t frame, uint32_t shadowIndex, std::span<VkDescriptorSetLayoutBinding>
                                                                   layoutBindings);
 
@@ -242,13 +243,12 @@ private:
 
     void updateLightBuffers(uint32_t currentImage);
     void populateMeshBuffers();
-    void createUniformBuffers();
+    void createUniformBuffers(int objectsCount, int lightCount);
 
     void updateUniformBuffer(uint32_t currentImage, glm::mat4 model);
-    void updateCamera(inputData input);
     //Globals per pass, ubos, and lights are updated every frame
-    void updatePerFrameBuffers(unsigned currentFrame, Array<std::span<glm::mat4>> models);
-    void recordCommandBufferShadowPass(VkCommandBuffer commandBuffer, uint32_t imageIndex, std::span<simplePassInfo> passes);
+    void updatePerFrameBuffers(unsigned currentFrame, Array<std::span<glm::mat4>> models, Scene* scene);
+    void recordCommandBufferShadowPass(VkCommandBuffer commandBuffer, uint32_t imageIndex, std::span<simplePassInfo> passes, int objectCount);
 
 
     void createDescriptorSetLayout(VkDescriptorSetLayoutCreateInfo layoutinfo, VkDescriptorSetLayout* layout);
@@ -258,10 +258,10 @@ private:
     void createSyncObjects();
 
     void createCommandBuffers();
-    void recordCommandBufferCompute(VkCommandBuffer commandBuffer, uint32_t currentFrame, std::span<simplePassInfo> passes);
+    void recordCommandBufferCompute(VkCommandBuffer commandBuffer, uint32_t currentFrame, std::span<simplePassInfo> passes, Scene* scene);
     void submitComputePass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores,
-                           std::vector<VkSemaphore> signalsemaphores, std::span<simplePassInfo> passes);
-    void recordCommandBufferOpaquePass(VkCommandBuffer commandBuffer, uint32_t imageIndex, std::span<opaquePassInfo> batchedDraws);
+                           std::vector<VkSemaphore> signalsemaphores, std::span<simplePassInfo> passes, Scene* scene);
+    void recordCommandBufferOpaquePass(Scene* scene, VkCommandBuffer commandBuffer, uint32_t imageIndex, std::span<opaquePassInfo> batchedDraws);
 
     void createGraphicsCommandPool();
     void createTransferCommandPool();
@@ -279,15 +279,13 @@ private:
     int firstframe = true;
     void createInstance();
 
-    void UpdateRotations();
-
-    void drawFrame();
+    void drawFrame(Scene* scene);
 
 
     void renderShadowPass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores,
-                          std::vector<VkSemaphore> signalsemaphores, std::span<simplePassInfo> passes);
+                          std::vector<VkSemaphore> signalsemaphores, std::span<simplePassInfo> passes, int drawCount);
     void renderOpaquePass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores, std::vector<VkSemaphore>
-                          signalsemaphores, std::span<opaquePassInfo> batchedDraws);
+                          signalsemaphores, std::span<opaquePassInfo> batchedDraws, Scene* scene);
 
 
 

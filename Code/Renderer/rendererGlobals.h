@@ -1,4 +1,9 @@
 #pragma once
+#define GLM_FORCE_RADIANS	
+#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#define GLM_GTC_quaternion
+
 #include <glm/glm.hpp>
 #include <span>
 #include "VulkanIncludes/forward-declarations-renderer.h"
@@ -134,3 +139,4 @@ struct cameraData
     glm::mat4 debug_frozen_culling_v;
     glm::mat4 debug_frozen_culling_p;
 };
+
