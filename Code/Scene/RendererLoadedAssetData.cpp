@@ -3,7 +3,7 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define GLM_GTC_quaternion
 #include "glm/glm.hpp"
-#include "RendererSceneData.h"
+#include "RendererLoadedAssetData.h"
 #include <Renderer/MeshData.h> // TODO JS: I want to separate the backing data from the scene 
 #include <Renderer/TextureData.h> // TODO JS: I want to separate the backing data from the scene 
 #include <General/MemoryArena.h>
@@ -11,7 +11,7 @@
 #include "General/Array.h"
 
 //No scale for now
-void InitializeRendererSceneData(MemoryArena::memoryArena* arena, RendererSceneData* scene)
+void InitializeRendererSceneData(MemoryArena::memoryArena* arena, RendererLoadedAssetData* scene)
 {
 
     // arallel arrays per Light
@@ -33,19 +33,19 @@ void InitializeRendererSceneData(MemoryArena::memoryArena* arena, RendererSceneD
 //So things like, get the index back from this and then index in to these vecs to update them
 //At some point in the future I can replace this with a more sophisticated reference system if I need
 //Even just returning a pointer is probably plenty, then I can sort the lists, prune stuff, etc.
-int RendererSceneData::AddMaterial(float roughness, float metallic, glm::vec3 color, textureSetIDs textureindex, uint32_t pipeline)
+int RendererLoadedAssetData::AddMaterial(float roughness, float metallic, glm::vec3 color, textureSetIDs textureindex, uint32_t pipeline)
 {
   materials.push_back(Material{
         .pipelineidx = pipeline, .diffuseIndex = textureindex.diffuseIndex, .specIndex   = textureindex.specIndex, .normalIndex = textureindex.normIndex, .metallic = metallic, .roughness = roughness, .color = color
     });
     return materials.size() -1;
 }
-void RendererSceneData::Update()
+void RendererLoadedAssetData::Update()
 {
     //noop
 }
 
-uint32_t RendererSceneData::getOffsetFromMeshID(int id)
+uint32_t RendererLoadedAssetData::getOffsetFromMeshID(int id)
 {
     uint32_t indexcount = 0;
     for (int i = 0; i < id; i++)
@@ -55,7 +55,7 @@ uint32_t RendererSceneData::getOffsetFromMeshID(int id)
     return indexcount;
 }
 
-uint32_t RendererSceneData::getIndexCount()
+uint32_t RendererLoadedAssetData::getIndexCount()
 {
     uint32_t indexcount = 0;
     for (int i = 0; i < meshCount; i++)
@@ -65,7 +65,7 @@ uint32_t RendererSceneData::getIndexCount()
     return indexcount;
 }
 
-uint32_t RendererSceneData::getVertexCount()
+uint32_t RendererLoadedAssetData::getVertexCount()
 {
     uint32_t vertexCount = 0;
     for (int i = 0; i < meshCount; i++)
@@ -79,18 +79,18 @@ uint32_t RendererSceneData::getVertexCount()
 
 
 
-int RendererSceneData::materialTextureCount()
+int RendererLoadedAssetData::materialTextureCount()
 {
     return  backing_diffuse_textures.size();
 }
 
 
-int RendererSceneData::AddTexture(TextureData T)
+int RendererLoadedAssetData::AddTexture(TextureData T)
 {
     backing_diffuse_textures.push_back(T);
     return backing_diffuse_textures.size() -1;
 }
-textureSetIDs RendererSceneData::AddTextureSet(TextureData D, TextureData S, TextureData N)
+textureSetIDs RendererLoadedAssetData::AddTextureSet(TextureData D, TextureData S, TextureData N)
 {
     backing_diffuse_textures.push_back(D);
     backing_diffuse_textures.push_back(S);
@@ -98,7 +98,7 @@ textureSetIDs RendererSceneData::AddTextureSet(TextureData D, TextureData S, Tex
     return {(uint32_t)backing_diffuse_textures.size() -3, (uint32_t)backing_diffuse_textures.size() -2, (uint32_t)backing_diffuse_textures.size() -1};
 }
 
-int RendererSceneData::AddBackingMesh(MeshData M)
+int RendererLoadedAssetData::AddBackingMesh(MeshData M)
 {
     backing_meshes.push_back(M);
     meshBoundingSphereRad.push_back(boundingSphereFromMeshBounds(M.boundsCorners));
@@ -106,7 +106,7 @@ int RendererSceneData::AddBackingMesh(MeshData M)
 }
 
 //TODO JS: 
-positionRadius RendererSceneData::GetBoundingSphere(int idx)
+positionRadius RendererLoadedAssetData::GetBoundingSphere(int idx)
 {
     printf("NOT IMPLEMENTED: NEED TO USE CORRECT INDEX FOR GETBOUNDINGSPHERE\n");
     return meshBoundingSphereRad[idx];
@@ -119,7 +119,7 @@ struct sortData
 };
 
 
-void RendererSceneData::Cleanup()
+void RendererLoadedAssetData::Cleanup()
 {
  
     for (int i = 0; i <  backing_diffuse_textures.size(); i++)

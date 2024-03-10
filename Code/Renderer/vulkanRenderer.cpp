@@ -16,7 +16,7 @@
 #include "CommandPoolManager.h"
 #include "gpu-data-structs.h"
 #include "meshData.h"
-#include <Scene/RendererSceneData.h>
+#include <Scene/RendererLoadedAssetData.h>
 #include "glm_misc.h"
 #include "RendererInterface.h"
 #include "Shaders/ShaderLoading.h"
@@ -308,7 +308,7 @@ void vulkanRenderer::initVulkan()
     createCommandBuffers();
         
     //Initialize sceneData
-    rendererSceneData = MemoryArena::Alloc<RendererSceneData>(&rendererArena);
+    rendererSceneData = MemoryArena::Alloc<RendererLoadedAssetData>(&rendererArena);
     InitializeRendererSceneData(&rendererArena, rendererSceneData);
     
 }
@@ -1708,7 +1708,7 @@ VkPipelineStageFlags swapchainWaitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT
 VkPipelineStageFlags shadowWaitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
 
 
-framePasses preparePasses(Scene* scene, RendererSceneData* rendererData, cameraData* camera, MemoryArena::memoryArena* allocator, std::span<std::span<PerShadowData>> inputShadowdata, PipelineDataObject opaquePipelineData)
+framePasses preparePasses(Scene* scene, RendererLoadedAssetData* rendererData, cameraData* camera, MemoryArena::memoryArena* allocator, std::span<std::span<PerShadowData>> inputShadowdata, PipelineDataObject opaquePipelineData)
 {
 
     uint32_t PIPELINE_COUNT = opaquePipelineData.getPipelineCt();
@@ -1788,7 +1788,7 @@ framePasses preparePasses(Scene* scene, RendererSceneData* rendererData, cameraD
 
 }
 
-void updateIndirectCommandBufferForPasses(Scene* scene, RendererSceneData* rendererData, MemoryArena::memoryArena* allocator, std::span<drawCommandData> mappedDrawCommandBuffer, framePasses passes)
+void updateIndirectCommandBufferForPasses(Scene* scene, RendererLoadedAssetData* rendererData, MemoryArena::memoryArena* allocator, std::span<drawCommandData> mappedDrawCommandBuffer, framePasses passes)
 {
    
     uint32_t objectsPerDraw = scene->objectsCount();

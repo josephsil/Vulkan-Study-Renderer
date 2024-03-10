@@ -14,7 +14,7 @@
 #include "General/MemoryArena.h"
 
 
-class RendererSceneData;
+class RendererLoadedAssetData;
 //Basic idea: loop over each level of the hiearchy and compute all the matrices
 //In theory each level could be done in parallel
 //so like

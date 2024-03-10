@@ -21,11 +21,11 @@ struct textureSetIDs
 struct TextureData;
 struct MeshData;
 struct VkDescriptorImageInfo;
-class RendererSceneData;
+class RendererLoadedAssetData;
 
 
-void InitializeRendererSceneData(MemoryArena::memoryArena* arena, RendererSceneData* scene);
-class RendererSceneData
+void InitializeRendererSceneData(MemoryArena::memoryArena* arena, RendererLoadedAssetData* scene);
+class RendererLoadedAssetData
 {
 public:
     int materialTextureCount();
@@ -38,9 +38,9 @@ public:
 #pragma region RendererData
 
     
+    int meshCount = 0;
     Array<Material> materials;
     Array<TextureData> backing_diffuse_textures;
-    int meshCount = 0;
     Array<MeshData> backing_meshes;
     Array<positionRadius> meshBoundingSphereRad;
     

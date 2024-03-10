@@ -196,7 +196,7 @@
     <ClCompile Include="Code\Renderer\vulkanRenderer.cpp">
     </ClCompile>
     <ClCompile Include="Code\Scene\Scene.cpp" />
-    <ClCompile Include="Code\Scene\RendererSceneData.cpp">
+    <ClCompile Include="Code\Scene\RendererLoadedAssetData.cpp">
     </ClCompile>
     <ClCompile Include="Code\Scene\Transforms.cpp" />
     <ClCompile Include="External\ImageLibraryImplementations.cpp" />
@@ -238,7 +238,7 @@
     <ClInclude Include="Code\Renderer\VulkanIncludes\Vulkan_Includes.h" />
     <ClInclude Include="Code\Renderer\vulkanRenderer.h" />
     <ClInclude Include="Code\Scene\Scene.h" />
-    <ClInclude Include="Code\Scene\RendererSceneData.h" />
+    <ClInclude Include="Code\Scene\RendererLoadedAssetData.h" />
     <ClInclude Include="Code\Scene\Transforms.h" />
     <ClInclude Include="ImageLibraryImplementations.h" />
     <ClInclude Include="MeshLibraryImplementations.h" />

@@ -65,7 +65,7 @@ class vulkanRenderer
 public:
 
     VkExtent2D swapChainExtent;
-    RendererSceneData* rendererSceneData;
+    RendererLoadedAssetData* rendererSceneData;
     RendererContext getHandles();
     void updateShadowImageViews(int frame, Scene* scene);
     vulkanRenderer();

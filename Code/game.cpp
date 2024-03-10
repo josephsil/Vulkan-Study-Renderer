@@ -4,10 +4,10 @@
 #include "Renderer/meshData.h"
 #include "Renderer/TextureData.h"
 #include "Renderer/gltf/gltfLoading.h"
-#include "Scene/RendererSceneData.h"
+#include "Scene/RendererLoadedAssetData.h"
 #include "Scene/Scene.h"
 
-void Add_Scene_Content(RendererContext rendererContext, RendererSceneData* rendererData, Scene* scene)
+void Add_Scene_Content(RendererContext rendererContext, RendererLoadedAssetData* rendererData, Scene* scene)
 {
     std::vector<int> randomMeshes;
     std::vector<int> randomMaterials;

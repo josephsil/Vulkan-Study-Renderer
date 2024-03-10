@@ -14,7 +14,7 @@ namespace MemoryArena
 }
 
 struct Vertex;
-class RendererSceneData;
+class RendererLoadedAssetData;
 //Forward declaration
 struct RendererContext;
 struct CommandPoolManager;

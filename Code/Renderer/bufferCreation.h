@@ -5,7 +5,7 @@
 #include "VulkanIncludes/forward-declarations-renderer.h"
 
 struct Vertex;
-class RendererSceneData;
+class RendererLoadedAssetData;
 //Forward declaration
 struct RendererContext;
 struct CommandPoolManager;
