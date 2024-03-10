@@ -23,12 +23,9 @@ void InitializeScene(MemoryArena::memoryArena* arena, Scene* scene)
     scene->lightposandradius = Array(MemoryArena::AllocSpan<glm::vec4>(arena, LIGHT_MAX));
     scene->lightcolorAndIntensity = Array(MemoryArena::AllocSpan<glm::vec4>(arena, LIGHT_MAX));
     scene->lightDir = Array(MemoryArena::AllocSpan<glm::vec4>(arena, LIGHT_MAX));
-    scene->lightTypes = Array(MemoryArena::AllocSpan<glm::float32>(arena, LIGHT_MAX));
+    scene->lightTypes = Array(MemoryArena::AllocSpan<lightType>(arena, LIGHT_MAX));
     scene->sceneCamera = {};
     scene->lightCount = 0;
-    assert(scene->lightDir.capacity == LIGHT_MAX);
-    printf("%d ??? \n",scene->lightDir.capacity);
-
 
     //Transforms (TODO)
     scene->transforms = {};
@@ -36,6 +33,11 @@ void InitializeScene(MemoryArena::memoryArena* arena, Scene* scene)
     scene->transforms.worldMatrices = Array(MemoryArena::AllocSpan<std::span<glm::mat4>>(arena, OBJECT_MAX));
     scene->transforms.transformNodes.reserve(OBJECT_MAX);
     scene->transforms.rootTransformsView =  Array(MemoryArena::AllocSpan<localTransform*>(arena, OBJECT_MAX));
+}
+
+int shadowCountFromLightType(lightType t)
+{
+  return t == LIGHT_POINT ? 6 : t== LIGHT_DIR ? CASCADE_CT : 1;
 }
 
 //TODO JS: this sucks!
@@ -170,7 +172,7 @@ void Scene::lightSort()
     std::span<glm::vec4> tempPos;
     std::span<glm::vec4> tempCol;
     std::span<glm::vec4> tempDir;
-    std::span<glm::float32> tempType;
+    std::span<lightType> tempType;
 
     //if there's room, use the back half of the existing arrays
     if (lightCount < LIGHT_MAX / 2)
@@ -178,7 +180,7 @@ void Scene::lightSort()
     tempPos = std::span<glm::vec4>(lightposandradius.data, LIGHT_MAX).subspan(LIGHT_MAX / 2, LIGHT_MAX / 2);
     tempCol =  std::span<glm::vec4>(lightcolorAndIntensity.data, LIGHT_MAX).subspan(LIGHT_MAX / 2, LIGHT_MAX / 2);   
     tempDir =  std::span<glm::vec4>(lightDir.data, LIGHT_MAX).subspan(LIGHT_MAX / 2, LIGHT_MAX / 2);   
-    tempType = std::span<glm::float32>(lightTypes.data, LIGHT_MAX).subspan(LIGHT_MAX / 2, LIGHT_MAX / 2);    
+    tempType = std::span<lightType>(lightTypes.data, LIGHT_MAX).subspan(LIGHT_MAX / 2, LIGHT_MAX / 2);    
     }
     else
     {
@@ -187,7 +189,7 @@ void Scene::lightSort()
         // tempPos = MemoryArena::AllocSpan<glm::vec4>(allocator, lightCount);
         // tempCol = MemoryArena::AllocSpan<glm::vec4>(allocator, lightCount);
         // tempDir = MemoryArena::AllocSpan<glm::vec4>(allocator, lightCount);
-        // tempType = MemoryArena::AllocSpan<glm::float32>(allocator, lightCount);
+        // tempType = MemoryArena::AllocSpan<lightType>(allocator, lightCount);
     }
 
     for(int i =0; i < lightCount; i++)
@@ -231,8 +233,8 @@ int Scene::getShadowDataIndex(int idx)
     int output = 0;
     for(int i = 0; i < idx; i++)
     {
-        float type = lightTypes[i];
-        output +=   type == LIGHT_POINT ? 6 : type == LIGHT_DIR ? CASCADE_CT : 1;
+        lightType type = lightTypes[i];
+        output +=   shadowCountFromLightType(type);
     }
     return output;
 }
@@ -242,7 +244,7 @@ int Scene::AddLight(glm::vec3 position, glm::vec3 dir, glm::vec3 color, float ra
     lightposandradius.push_back(glm::vec4(position.x, position.y, position.z, radius));
     lightcolorAndIntensity.push_back(glm::vec4(color.x, color.y, color.z, intensity));
     lightDir.push_back(glm::vec4(dir, -1.0));
-    lightTypes.push_back((glm::float32)type);
+    lightTypes.push_back(type);
     lightCount ++;
     lightSort();
     return 0; 

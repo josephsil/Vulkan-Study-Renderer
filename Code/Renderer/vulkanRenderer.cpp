@@ -204,7 +204,7 @@ void vulkanRenderer::updateShadowImageViews(int frame, Scene* scene)
         if (j < glm::min(scene->lightCount, MAX_SHADOWCASTERS))
         {
             VkImageViewType type = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
-            int ct = scene->lightTypes[j] == LIGHT_POINT ? 6 : type == LIGHT_DIR ? CASCADE_CT : 1;
+            int ct = shadowCountFromLightType(scene->lightTypes[j]);
             if ((lightType)scene->lightTypes[j] == LIGHT_POINT)
             {
                 type = VK_IMAGE_VIEW_TYPE_CUBE;
@@ -1945,7 +1945,7 @@ framePasses preparePasses(Scene* scene, RendererSceneData* rendererData, cameraD
     for(int i = 0; i < glm::min(scene->lightCount, MAX_SHADOWCASTERS); i ++)
     {
         lightType type = (lightType)scene->lightTypes[i];
-        int lightSubpasses = type == LIGHT_POINT ? 6 : type == LIGHT_DIR ? CASCADE_CT : 1; //TODO JS: look up how many a light should have per light
+        int lightSubpasses = shadowCountFromLightType(type);
         for (int j = 0; j < lightSubpasses; j++)
         {
             simplePasses.push_back({ shadowDrawIndex * objectsPerDraw, objectsPerDraw, inputShadowdata[i][j].view, inputShadowdata[i][j].proj});

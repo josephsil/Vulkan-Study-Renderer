@@ -49,7 +49,7 @@ struct Objects
     Array<glm::vec4> lightposandradius;
     Array<glm::vec4> lightcolorAndIntensity;
     Array<glm::vec4> lightDir;
-    Array<glm::float32> lightTypes;
+    Array<lightType> lightTypes;
 
    
     int AddObject(int meshIndexTODO, int materialIndex, glm::vec3 position,
@@ -67,3 +67,5 @@ private:
 };
 //No scale for now
 void InitializeScene(MemoryArena::memoryArena* arena, Scene* scene);
+
+int shadowCountFromLightType(lightType t);
