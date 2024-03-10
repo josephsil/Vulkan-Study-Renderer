@@ -69,7 +69,7 @@ public:
     RendererContext getHandles();
     void updateShadowImageViews(int frame, Scene* scene);
     vulkanRenderer();
-    void PrepareForScene(Scene* scene);
+    void initializeRendererForScene(Scene* scene);
 
     
     void Update(Scene* scene);

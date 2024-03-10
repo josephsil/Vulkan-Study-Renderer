@@ -1,6 +1,7 @@
 #include <cstdlib>
 #include "glm/glm.hpp"
 #include "engineGlobals.h"
+#include "game.h"
 
 #include "General/InputHandling.h"
 #include "Renderer/meshData.h"
@@ -35,8 +36,9 @@ int main()
     MemoryArena::memoryArena sceneArena = {};
     MemoryArena::initialize(&sceneArena, 3 * 1000000);
     Scene scene = {};
-    InitializeScene(&sceneArena,&scene);
-    app.PrepareForScene(&scene);
+    InitializeScene(&sceneArena, &scene);
+    Add_Scene_Content(app.getHandles(), app.rendererSceneData, &scene);
+    app.initializeRendererForScene(&scene);
     engineLoop(&app, &scene);
 
     return EXIT_SUCCESS;

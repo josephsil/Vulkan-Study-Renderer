@@ -13,6 +13,7 @@
 #include "gltf_impl.h"
 #include <Renderer/BufferAndPool.h>
 #include <Renderer/CommandPoolManager.h>
+#include <Renderer/RendererContext.h>
 
 //Default tinyobj load image fn
 bool LoadImageData(tinygltf::Image *image, const int image_idx, std::string *err,

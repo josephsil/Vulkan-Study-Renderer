@@ -11,6 +11,7 @@
 
 #include "gpu-data-structs.h"
 #include <General/MemoryArena.h>
+#include <Renderer/RendererContext.h>
 
 
 VkDescriptorSetLayoutCreateInfo createInfoFromSpan( std::span<VkDescriptorSetLayoutBinding> bindings)

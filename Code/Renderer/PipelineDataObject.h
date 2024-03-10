@@ -5,9 +5,6 @@
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
-#include "RendererContext.h"
-#include "VulkanIncludes/forward-declarations-renderer.h"
-
 struct Vertex;
 //Forward declaration
 struct RendererContext;

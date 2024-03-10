@@ -7,10 +7,9 @@
 #include <span>
 #include <glm/glm.hpp>
 #include<glm/gtc/quaternion.hpp>
-#include <Renderer/RendererContext.h>
 
 
-
+struct RendererContext;
 struct TextureData;
 struct MeshData;
 

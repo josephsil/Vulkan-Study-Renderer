@@ -159,6 +159,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Code\game.cpp" />
     <ClCompile Include="Code\General\FileCaching.cpp">
     </ClCompile>
     <ClCompile Include="Code\General\InputHandling.cpp" />
@@ -208,6 +209,7 @@
     <ClCompile Include="vkbootstrap\VkBootstrap.cpp" />
     <ClCompile Include="vulkan-tutorial.cpp" />
     <ClInclude Include="Code\engineGlobals.h" />
+    <ClInclude Include="Code\game.h" />
     <ClInclude Include="Code\General\Array.h" />
     <ClInclude Include="Code\General\FileCaching.h" />
     <ClInclude Include="Code\General\InputHandling.h" />
