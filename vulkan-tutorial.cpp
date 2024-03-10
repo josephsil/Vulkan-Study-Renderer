@@ -33,7 +33,7 @@ int main()
     vulkanRenderer app = {};
 
     MemoryArena::memoryArena sceneArena = {};
-    MemoryArena::initialize(&sceneArena, 24 * 1000000);
+    MemoryArena::initialize(&sceneArena, 3 * 1000000);
     Scene scene = {};
     InitializeScene(&sceneArena,&scene);
     app.PrepareForScene(&scene);
@@ -48,7 +48,6 @@ void engineLoop(vulkanRenderer* renderer, Scene* scene)
     while(!QUIT)
     {
         InputHandler_Update();
-      
         scene->Update();
         renderer->Update(scene); //TODO JS: Extract non-renderer stuff out 
     }

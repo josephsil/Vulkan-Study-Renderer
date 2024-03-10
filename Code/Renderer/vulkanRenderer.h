@@ -248,7 +248,7 @@ private:
     void updateUniformBuffer(uint32_t currentImage, glm::mat4 model);
     //Globals per pass, ubos, and lights are updated every frame
     void updatePerFrameBuffers(unsigned currentFrame, Array<std::span<glm::mat4>> models, Scene* scene);
-    void recordCommandBufferShadowPass(VkCommandBuffer commandBuffer, uint32_t imageIndex, std::span<simplePassInfo> passes, int objectCount);
+    void recordCommandBufferShadowPass(VkCommandBuffer commandBuffer, uint32_t imageIndex, std::span<simplePassInfo> passes);
 
 
     void createDescriptorSetLayout(VkDescriptorSetLayoutCreateInfo layoutinfo, VkDescriptorSetLayout* layout);
@@ -258,9 +258,9 @@ private:
     void createSyncObjects();
 
     void createCommandBuffers();
-    void recordCommandBufferCompute(VkCommandBuffer commandBuffer, uint32_t currentFrame, std::span<simplePassInfo> passes, Scene* scene);
+    void recordCommandBufferCompute(VkCommandBuffer commandBuffer, uint32_t currentFrame, std::span<simplePassInfo> passes);
     void submitComputePass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores,
-                           std::vector<VkSemaphore> signalsemaphores, std::span<simplePassInfo> passes, Scene* scene);
+                           std::vector<VkSemaphore> signalsemaphores, std::span<simplePassInfo> passes);
     void recordCommandBufferOpaquePass(Scene* scene, VkCommandBuffer commandBuffer, uint32_t imageIndex, std::span<opaquePassInfo> batchedDraws);
 
     void createGraphicsCommandPool();
@@ -283,7 +283,7 @@ private:
 
 
     void renderShadowPass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores,
-                          std::vector<VkSemaphore> signalsemaphores, std::span<simplePassInfo> passes, int drawCount);
+                          std::vector<VkSemaphore> signalsemaphores, std::span<simplePassInfo> passes);
     void renderOpaquePass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores, std::vector<VkSemaphore>
                           signalsemaphores, std::span<opaquePassInfo> batchedDraws, Scene* scene);
 

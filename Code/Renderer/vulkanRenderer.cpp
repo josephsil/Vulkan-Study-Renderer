@@ -1463,7 +1463,7 @@ void vulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<std::spa
 
 #pragma endregion
 #pragma region draw 
-void vulkanRenderer::recordCommandBufferShadowPass(VkCommandBuffer commandBuffer, uint32_t imageIndex, std::span<simplePassInfo> passes, int objectCount)
+void vulkanRenderer::recordCommandBufferShadowPass(VkCommandBuffer commandBuffer, uint32_t imageIndex, std::span<simplePassInfo> passes)
 {
      uint32_t shadowSize = SHADOW_MAP_SIZE; 
      VkCommandBufferBeginInfo beginInfo{};
@@ -1545,10 +1545,11 @@ void vulkanRenderer::recordCommandBufferShadowPass(VkCommandBuffer commandBuffer
 
             //TODO JS: Something other than hardcoded index 0 for shadow pipeline
         
-            int meshct =  objectCount; uint32_t offset_base = passes[i].firstDraw  *  sizeof(drawCommandData);
+            int meshct =  passes[i].ct;
+            uint32_t offset_base = passes[i].firstDraw  *  sizeof(drawCommandData);
             uint32_t offset_into_struct = offsetof(drawCommandData, command);
-            vkCmdDrawIndexedIndirect(commandBuffer,  FramesInFlightData[currentFrame].drawBuffers._buffer.data, offset_base + offset_into_struct, objectCount, sizeof(drawCommandData));
-            FramesInFlightData[currentFrame].currentDrawOffset += objectCount;
+            vkCmdDrawIndexedIndirect(commandBuffer,  FramesInFlightData[currentFrame].drawBuffers._buffer.data, offset_base + offset_into_struct, meshct, sizeof(drawCommandData));
+            FramesInFlightData[currentFrame].currentDrawOffset += meshct;
             vkCmdEndRendering(commandBuffer);
         // }
     }
@@ -1573,7 +1574,7 @@ struct pipelineBucket
     Array<uint32_t> indices; 
 };
 
-void vulkanRenderer::recordCommandBufferCompute(VkCommandBuffer commandBuffer, uint32_t currentFrame, std::span<simplePassInfo> passes,Scene* scene)
+void vulkanRenderer::recordCommandBufferCompute(VkCommandBuffer commandBuffer, uint32_t currentFrame, std::span<simplePassInfo> passes)
 {
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -1613,15 +1614,15 @@ void vulkanRenderer::recordCommandBufferCompute(VkCommandBuffer commandBuffer, u
     {
         cullPConstants constants = *MemoryArena::Alloc<cullPConstants>(&perFrameArenas[currentFrame]);
         constants.view = passes[i].viewMatrix;
-        constants.firstDraw = offset * scene->objectsCount();
+        constants.firstDraw = passes[i].firstDraw;
         constants.frustumIndex = (offset) * 6;
-        constants.objectCount = scene->objectsCount();
+        constants.objectCount = passes[i].ct;
 
         vkCmdPushConstants(commandBuffer, descriptorsetLayoutsDataCompute.pipelineData.bindlessPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0,
                            sizeof(cullPConstants), &constants);
 
-        const uint32_t dispatch_x = scene->objectsCount() != 0
-                                        ? 1 + static_cast<uint32_t>((scene->objectsCount() - 1) / 16)
+        const uint32_t dispatch_x = passes[i].ct != 0
+                                        ? 1 + static_cast<uint32_t>((passes[i].ct - 1) / 16)
                                         : 1;
         vkCmdDispatch(commandBuffer, dispatch_x, 1, 1);
         offset ++;
@@ -1638,9 +1639,9 @@ void vulkanRenderer::recordCommandBufferCompute(VkCommandBuffer commandBuffer, u
 }//
 
 
-void vulkanRenderer::submitComputePass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores, std::vector<VkSemaphore> signalsemaphores, std::span<simplePassInfo> passes, Scene* scene)
+void vulkanRenderer::submitComputePass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores, std::vector<VkSemaphore> signalsemaphores, std::span<simplePassInfo> passes)
 {
-    recordCommandBufferCompute(FramesInFlightData[imageIndex].computeCommandBuffers, imageIndex, passes,scene);
+    recordCommandBufferCompute(FramesInFlightData[imageIndex].computeCommandBuffers, imageIndex, passes);
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -2125,7 +2126,7 @@ void vulkanRenderer::drawFrame(Scene* scene)
      
 
     //Compute
-    submitComputePass(currentFrame, currentFrame, {}, {FramesInFlightData[currentFrame].computeFinishedSemaphores}, renderPassInformation.computeDraws,scene);
+    submitComputePass(currentFrame, currentFrame, {}, {FramesInFlightData[currentFrame].computeFinishedSemaphores}, renderPassInformation.computeDraws);
    
 
 
@@ -2135,7 +2136,7 @@ void vulkanRenderer::drawFrame(Scene* scene)
 
 
     
-    renderShadowPass(currentFrame,swapChainImageIndex,  getSemaphoreDataFromSemaphores(shadowPassWaitSemaphores, &perFrameArenas[currentFrame]),shadowpasssignalSemaphores, renderPassInformation.shadowDraws,scene->objectsCount());
+    renderShadowPass(currentFrame,swapChainImageIndex,  getSemaphoreDataFromSemaphores(shadowPassWaitSemaphores, &perFrameArenas[currentFrame]),shadowpasssignalSemaphores, renderPassInformation.shadowDraws);
 
     //Transition shadow maps for reading
     waitSemaphores = getSemaphoreDataFromSemaphores(shadowpasssignalSemaphores, &perFrameArenas[currentFrame]);
@@ -2191,9 +2192,9 @@ void vulkanRenderer::drawFrame(Scene* scene)
 }
 
 //TODO JS: Can i replace drawcount with info in the simplepassinfo? 
-void vulkanRenderer::renderShadowPass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores, std::vector<VkSemaphore> signalsemaphores, std::span<simplePassInfo> passes, int drawCount)
+void vulkanRenderer::renderShadowPass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores, std::vector<VkSemaphore> signalsemaphores, std::span<simplePassInfo> passes)
 {
-    recordCommandBufferShadowPass(FramesInFlightData[currentFrame].shadowCommandBuffers, imageIndex, passes,drawCount);
+    recordCommandBufferShadowPass(FramesInFlightData[currentFrame].shadowCommandBuffers, imageIndex, passes);
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;

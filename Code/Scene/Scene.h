@@ -18,7 +18,7 @@ namespace MemoryArena
     struct memoryArena;
 }
 
-//"Gameplay"/engine scene -- repalcing "sceneobjectdata" which had both the renderer data and the "scene"
+//"Gameplay"/engine scene -- extracted from the renderer scene, needs to get cleaner separation 
 struct Scene
 {
 struct Objects
