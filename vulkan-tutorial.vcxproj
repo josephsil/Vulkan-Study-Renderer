@@ -24,6 +24,7 @@
     <None Include="Shaders\**" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include=".gitmodules" />
     <Content Include="Textures\**">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
