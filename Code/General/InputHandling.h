@@ -8,4 +8,4 @@ inline int32_t INPUT_translate_x;
 inline int32_t INPUT_translate_y;
 inline float INPUT_mouse_x;
 inline float INPUT_mouse_y;
-void InputHandler_Update();
+void InputHandler_Update(bool disableMouse);

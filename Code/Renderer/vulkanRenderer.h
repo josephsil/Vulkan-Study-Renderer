@@ -66,6 +66,7 @@ public:
 
     VkExtent2D swapChainExtent;
     RendererLoadedAssetData* rendererSceneData;
+    void initDearImgui();
     RendererContext getHandles();
     void updateShadowImageViews(int frame, Scene* scene);
     vulkanRenderer();
@@ -141,6 +142,7 @@ private:
 
 #pragma region  descriptor sets 
     VkDescriptorPool descriptorPool;
+    VkDescriptorPool imgui_descriptorPool;
     VkDescriptorSetLayout pushDescriptorSetLayout;
     VkDescriptorSetLayout perMaterialSetLayout;
     

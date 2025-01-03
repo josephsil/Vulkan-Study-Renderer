@@ -18,12 +18,15 @@
 #include "meshData.h"
 #include <Scene/RendererLoadedAssetData.h>
 #include "glm_misc.h"
+#include "imgui.h"
 #include "RendererInterface.h"
 #include "Shaders/ShaderLoading.h"
 #include "textureCreation.h"
 #include "TextureData.h"
 #include "VkBootstrap.h"
 #include "vulkan-utilities.h"
+#include "backends/imgui_impl_sdl2.h"
+#include "backends/imgui_impl_vulkan.h"
 #include "Scene/Scene.h"
 #include "Scene/Transforms.h"
 #include "VulkanIncludes/VulkanMemory.h"
@@ -133,12 +136,11 @@ unsigned int MAX_TEXTURES = 120;
 
 
 
-
-
 vulkanRenderer::vulkanRenderer()
 {
     initWindow();
     initVulkan();
+    initDearImgui();
     pastTimes.resize(9999);
 }
 
@@ -168,6 +170,62 @@ vkb::PhysicalDevice vkb_physicalDevice;
 vkb::Device vkb_device;
 vkb::Swapchain vkb_swapchain;
 
+
+
+
+void vulkanRenderer::initDearImgui()
+{
+
+    VkDescriptorPoolSize pool_sizes[] = { { VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
+    { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
+    { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
+    { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
+    { VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 },
+    { VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 },
+    { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 },
+    { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 },
+    { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
+    { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
+    { VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 } };
+
+    VkDescriptorPoolCreateInfo pool_info = {};
+    pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+    pool_info.maxSets = 1000;
+    pool_info.poolSizeCount = (uint32_t)std::size(pool_sizes);
+    pool_info.pPoolSizes = pool_sizes;
+
+    VK_CHECK(vkCreateDescriptorPool(device, &pool_info, nullptr, &imgui_descriptorPool));
+
+    
+    ImGui_ImplSDL2_InitForVulkan(_window);
+    ImGui_ImplVulkan_InitInfo init_info = {};
+    init_info.Instance = instance;
+    init_info.PhysicalDevice = physicalDevice;
+    init_info.Device = device;
+    init_info.QueueFamily = commandPoolmanager.Queues.graphicsQueueFamily;
+    init_info.Queue = commandPoolmanager.Queues.graphicsQueue;
+    // init_info.PipelineCache = HOPEFULLY OPTIONAL??;
+    init_info.DescriptorPool = imgui_descriptorPool;
+    init_info.Subpass = 0;
+    init_info.MinImageCount = 2;
+    init_info.ImageCount = 2;
+    init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+    init_info.UseDynamicRendering = true;
+    //dynamic rendering parameters for imgui to use
+    init_info.PipelineRenderingCreateInfo = {.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO};
+    init_info.PipelineRenderingCreateInfo.colorAttachmentCount = 1;
+    init_info.PipelineRenderingCreateInfo.pColorAttachmentFormats = &swapChainColorFormat;
+    init_info.PipelineRenderingCreateInfo.depthAttachmentFormat = depthFormat;
+    //init_info.Allocator = nullptr; //
+    //init_info.CheckVkResultFn = check_vk_result;
+    ImGui_ImplVulkan_Init(&init_info);
+    ImGui_ImplVulkan_CreateFontsTexture();
+    // (this gets a bit more complicated, see example app for full reference)
+    // ImGui_ImplVulkan_CreateFontsTexture(YOUR_COMMAND_BUFFER);
+    // (your code submit a queue)
+    //ImGui_ImplVulkan_DestroyFontUploadObjects(); //TODO JS: destroy queue
+}
 
 RendererContext vulkanRenderer::getHandles()
 {
@@ -264,6 +322,7 @@ void vulkanRenderer::initVulkan()
 
     // vkCopyImageToMemoryEXT = (PFN_vkCopyImageToMemoryEXT)VkGetCopy(device, "vkCopyImageToMemoryEXT");
     allocator = VulkanMemory::GetAllocator(device, physicalDevice, instance);
+    
     
     //Get queues and queue families and command pools
     commandPoolmanager = CommandPoolManager(vkb_device);
@@ -1552,6 +1611,11 @@ void vulkanRenderer::recordCommandBufferOpaquePass(Scene* scene, VkCommandBuffer
         vkCmdDraw(commandBuffer, 2, 1, 0, 0);
     }
 
+
+    //temp home for imgui
+    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), FramesInFlightData[currentFrame].opaqueCommandBuffers);
+
+    
     vkCmdEndRendering(commandBuffer);
 
     VK_CHECK(vkEndCommandBuffer(commandBuffer));
@@ -1630,6 +1694,11 @@ void vulkanRenderer::createGraphicsPipeline(const char* shaderName, PipelineData
 
 void vulkanRenderer::Update(Scene* scene)
 {
+
+   
+    //make imgui calculate internal draw structures
+    ImGui::Render();
+
 
         if (!firstTime[currentFrame])
         {
@@ -1932,7 +2001,7 @@ void vulkanRenderer::drawFrame(Scene* scene)
     //Opaque
     renderOpaquePass(currentFrame,swapChainImageIndex, getSemaphoreDataFromSemaphores(opaquePassWaitSemaphores, &perFrameArenas[currentFrame]),opaquepasssignalSemaphores, renderPassInformation.opaqueDraw,scene);
 
-
+   
 
     //Transition swapchain for rendering
 
@@ -2013,6 +2082,11 @@ void vulkanRenderer::renderOpaquePass(uint32_t currentFrame, uint32_t imageIndex
 
 void vulkanRenderer::cleanup()
 {
+
+    ImGui_ImplVulkan_Shutdown();
+    ImGui_ImplSDL2_Shutdown();
+    ImGui::DestroyContext();
+    
     //TODO clenaup swapchain
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
@@ -2071,6 +2145,7 @@ void vulkanRenderer::cleanup()
     destroy_instance(vkb_instance);
     SDL_DestroyWindow(_window);
 
+ 
    
 }
 

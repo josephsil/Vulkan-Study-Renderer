@@ -2,6 +2,9 @@
 #include "glm/glm.hpp"
 #include "engineGlobals.h"
 #include "game.h"
+#include "imgui.h"
+#include "backends/imgui_impl_sdl2.h"
+#include "backends/imgui_impl_vulkan.h"
 
 #include "General/InputHandling.h"
 #include "Renderer/meshData.h"
@@ -31,8 +34,19 @@ void engineLoop(vulkanRenderer* renderer, Scene* scene);
 int main()
 {
     printf("NEW ENTRY");
+    
+    // Setup Dear ImGui context
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableSetMousePos;
+    //io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+    //io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;         // IF using Docking Branch
+    
+    
     vulkanRenderer app = {};
-
+    
     MemoryArena::memoryArena sceneArena = {};
     MemoryArena::initialize(&sceneArena, 3 * 1000000);
     Scene scene = {};
@@ -43,13 +57,32 @@ int main()
 
     return EXIT_SUCCESS;
 }
+void updateImgui(bool* captureMouse)
+{
+    ImGui_ImplVulkan_NewFrame();
+    ImGui_ImplSDL2_NewFrame();
+    ImGui::NewFrame();
 
+    //some imgui UI to test
+    //ImGui::ShowDemoWindow();
+    ImGui::Begin("js");
+    ImGui::Text("TEST TEST");
+
+    *captureMouse = ImGui::GetIO().WantCaptureMouse;
+    ImGui::End();
+
+
+}
 void engineLoop(vulkanRenderer* renderer, Scene* scene)
 {
     
     while(!QUIT)
     {
-        InputHandler_Update();
+
+
+        bool imguiCaptureMouse = false;
+        updateImgui(&imguiCaptureMouse);
+        InputHandler_Update(imguiCaptureMouse);
         scene->Update();
         renderer->Update(scene); //TODO JS: Extract non-renderer stuff out 
     }
@@ -57,4 +90,6 @@ void engineLoop(vulkanRenderer* renderer, Scene* scene)
     renderer->cleanup();
     
 }
+
+
 

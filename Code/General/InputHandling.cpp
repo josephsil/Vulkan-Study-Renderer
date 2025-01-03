@@ -3,6 +3,7 @@
 #include <SDL2/SDL_events.h>
 #include <SDL2/SDL_timer.h>
 #include "engineGlobals.h"
+#include "backends/imgui_impl_sdl2.h"
 #include "Renderer/RendererInterface.h"
 
 uint32_t T2;
@@ -12,7 +13,7 @@ uint32_t T;
 uint32_t k_timeout;
 uint32_t l_timeout;
 uint32_t arrow_timeout = 0;
-void InputHandler_Update()
+void InputHandler_Update(bool disableMouse)
 {
         SDL_Event e;
         bool bQuit = false;
@@ -29,6 +30,7 @@ void InputHandler_Update()
         //Handle events on queue
         while (SDL_PollEvent(&e) != 0)
         {
+            ImGui_ImplSDL2_ProcessEvent(&e);
             //close the window when user clicks the X button or alt-f4s
             if (e.type == SDL_QUIT) bQuit = true;
             if (bQuit) QUIT = true;
@@ -40,15 +42,18 @@ void InputHandler_Update()
             INPUT_translate_y = 0 + KeyboardState[SDL_SCANCODE_W] - KeyboardState[SDL_SCANCODE_S];
             int x, y;
 
-            const uint32_t MouseButtonState = SDL_GetRelativeMouseState(&x, &y);
-
-
-            if (MouseButtonState & SDL_BUTTON_LMASK) // mouse down
+            if (!disableMouse)
             {
-                float fx = x * mouseScaleFactor;
-                float fy = y * mouseScaleFactor;
-                INPUT_mouse_x = fx;
-                INPUT_mouse_y = fy;
+                const uint32_t MouseButtonState = SDL_GetRelativeMouseState(&x, &y);
+
+
+                if (MouseButtonState & SDL_BUTTON_LMASK) // mouse down
+                    {
+                    float fx = x * mouseScaleFactor;
+                    float fy = y * mouseScaleFactor;
+                    INPUT_mouse_x = fx;
+                    INPUT_mouse_y = fy;
+                    }
             }
 
 

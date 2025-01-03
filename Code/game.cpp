@@ -72,15 +72,15 @@ void Add_Scene_Content(RendererContext rendererContext, RendererLoadedAssetData*
 
     //spot light
     //TODO JS: paramaterize better -- hard to set power and radius currently
-    scene->AddSpotLight(glm::vec3(2.5, 3, 3.3), glm::vec3(0, 0, -1), glm::vec3(1, 0, 1), 45, 14000);
+    scene->AddSpotLight(glm::vec3(2.5, 3, 3.3), glm::vec3(0, 0, -1), glm::vec3(0.5, 0.5, 1), 45, 14000);
     
     
     //point lights    
-    scene->AddPointLight(glm::vec3(1, 1, 0), glm::vec3(1, 1, 1), 55);
-    scene->AddDirLight(glm::vec3(0,0,1), glm::vec3(1,1,1), 3);
+    // scene->AddPointLight(glm::vec3(1, 1, 0), glm::vec3(1, 1, 1), 55);
+    // scene->AddDirLight(glm::vec3(0,0,1), glm::vec3(1,1,1), 3);
     scene->AddDirLight(glm::vec3(0.00, 1, 0),  glm::vec3(1, 1, 1), 33);
-    scene->AddPointLight(glm::vec3(-2, 2, 0), glm::vec3(1, 0, 0), 4422 / 2);
-    scene->AddPointLight(glm::vec3(0, 0, 0), glm::vec3(1, 1, 0), 999 / 2);
+    // scene->AddPointLight(glm::vec3(-2, 2, 0), glm::vec3(1, 0, 0), 4422 / 2);
+    // scene->AddPointLight(glm::vec3(0, 0, 0), glm::vec3(1, 1, 0), 999 / 2);
 
     #ifdef SPONZA 
     //TODO: gltf load fn that gets back struct, then append its contents to scene 
