@@ -61,7 +61,7 @@ public:
     //TODO JS: move tou tilities?
     // 0 = VK_SAMPLER_ADDRESS_MODE_REPEAT;
     static void createTextureSampler(VkSampler* textureSampler, RendererContext handles, VkSamplerAddressMode mode, float bias, uint32_t maxMip, bool shadow = false);
-    VkImageView createTextureImageView(VkFormat format, VkImageViewType type);
+    VkImageView createTextureImageView(RendererContext handles, VkFormat format, VkImageViewType type);
 private:
 
 

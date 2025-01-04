@@ -183,6 +183,7 @@
     <ClCompile Include="Code\Renderer\MikkTImpl.cpp" />
     <ClCompile Include="Code\Renderer\PipelineDataObject.cpp">
     </ClCompile>
+    <ClCompile Include="Code\Renderer\rendererGlobals.cpp" />
     <ClCompile Include="Code\Renderer\Shaders\ShaderLoading.cpp">
     </ClCompile>
     <ClCompile Include="Code\Renderer\textureCreation.cpp">

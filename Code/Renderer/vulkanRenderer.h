@@ -9,7 +9,7 @@
 #include <glm/gtc/quaternion.hpp>
 #include "./VulkanIncludes/Vulkan_Includes.h"
 #include <General/Array.h>
-#include "rendererGlobals.h"
+// #include "rendererGlobals.h"
 #include "CommandPoolManager.h"
 #include "gpu-data-structs.h"
 #include <General/MemoryArena.h>
@@ -63,9 +63,10 @@ class vulkanRenderer
 {
 
 public:
-
+    std::unordered_map<VkImageView, VkDescriptorSet> imguiRegisteredTextures;
     VkExtent2D swapChainExtent;
     RendererLoadedAssetData* rendererSceneData;
+    VkDescriptorSet GetOrRegisterImguiTextureHandle(VkSampler sampler, VkImageView imageView);
     void initDearImgui();
     RendererContext getHandles();
     void updateShadowImageViews(int frame, Scene* scene);
@@ -91,8 +92,8 @@ private:
 
    
     //GLFWwindow* window;
-    int WIDTH = 1280;
-    int HEIGHT = 720;
+    int WIDTH = 1280  * 1.5;
+    int HEIGHT = 720 * 1.5;
     struct SDL_Window* _window{nullptr};
 
 #pragma endregion
@@ -169,6 +170,17 @@ private:
 
 #pragma endregion
 
+#pragma region deletionQueue
+
+    
+
+    VmaAllocation validateVMADeleteableResource(deleteableResource d);
+    void runDeletionQueue(std::span<deleteableResource> queue);
+
+    Array<deleteableResource> deletionQueue;
+#pragma endregion;
+
+    
     struct per_frame_data
     {
         //Below is all vulkan stuff

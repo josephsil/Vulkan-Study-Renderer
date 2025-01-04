@@ -55,6 +55,7 @@ void PipelineDataObject::createLayout(RendererContext handles,  std::span<VkDesc
 
     
     VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &perSceneLaout, nullptr, &this->pipelineData.perSceneDescriptorSetLayout));
+    setDebugObjectName(handles.device, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, "PDO layout",(uint64_t)this->pipelineData.perSceneDescriptorSetLayout );
     this->pipelineData.slots = layout;
 }
 
@@ -129,7 +130,7 @@ void PipelineDataObject::createDescriptorSets(VkDescriptorPool pool, int MAX_FRA
     pipelineData.perSceneDescriptorSetForFrame.resize(MAX_FRAMES_IN_FLIGHT);
     for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        if ( pipelineData.perSceneDescriptorSetLayout != nullptr) DescriptorSets::AllocateDescriptorSet(device, pool,  & pipelineData.perSceneDescriptorSetLayout, & pipelineData.perSceneDescriptorSetForFrame[i]);
+        if ( pipelineData.perSceneDescriptorSetLayout != nullptr) DescriptorSets::AllocateDescriptorSet(device, pool,  &pipelineData.perSceneDescriptorSetLayout, & pipelineData.perSceneDescriptorSetForFrame[i]);
     }
     pipelineData.descriptorSetsInitialized = true;
             

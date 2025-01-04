@@ -29,20 +29,21 @@
  */
 
 void engineLoop(vulkanRenderer* renderer, Scene* scene);
-
+std::vector<VkDescriptorSet> ImGuiExposedTextures;
 
 int main()
 {
     printf("NEW ENTRY");
     
-    // Setup Dear ImGui context
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO();
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableSetMousePos;
+     // Setup Dear ImGui context
+     IMGUI_CHECKVERSION();
+     ImGui::CreateContext();
+     ImGuiIO& io = ImGui::GetIO();
+     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+     io.ConfigFlags |= ImGuiConfigFlags_NavEnableSetMousePos;
+     ImGuiExposedTextures = {};
     //io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
-    //io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;         // IF using Docking Branch
+    // io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;         // IF using Docking Branch
     
     
     vulkanRenderer app = {};
@@ -84,7 +85,8 @@ void engineLoop(vulkanRenderer* renderer, Scene* scene)
         updateImgui(&imguiCaptureMouse);
         InputHandler_Update(imguiCaptureMouse);
         scene->Update();
-        renderer->Update(scene); //TODO JS: Extract non-renderer stuff out 
+        renderer->Update(scene); //TODO JS: Extract non-renderer stuff out
+        // renderer->cleanup();
     }
 
     renderer->cleanup();

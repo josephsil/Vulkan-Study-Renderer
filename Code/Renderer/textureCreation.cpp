@@ -1,5 +1,6 @@
 #include "textureCreation.h"
 
+#include <atldef.h>
 #include <cassert>
 #include <cstdio>
 #include <cstdlib>
@@ -8,9 +9,10 @@
 #include "RendererContext.h"
 #include "bufferCreation.h"
 #include "CommandPoolManager.h"
+#include "rendererGlobals.h"
 #include "VulkanIncludes/Vulkan_Includes.h"
 
-VkImageView TextureUtilities::createImageView(VkDevice device, VkImage image, VkFormat format,
+VkImageView TextureUtilities::createImageView(RendererContext handles, VkImage image, VkFormat format,
                                               VkImageAspectFlags aspectFlags,
                                               VkImageViewType type, uint32_t miplevels, uint32_t layerCount, uint32_t layer)
 {
@@ -28,8 +30,10 @@ VkImageView TextureUtilities::createImageView(VkDevice device, VkImage image, Vk
     viewInfo.subresourceRange.layerCount = layerCount;
 
     VkImageView imageView;
-    VK_CHECK(vkCreateImageView(device, &viewInfo, nullptr, &imageView));
-
+    VK_CHECK(vkCreateImageView(handles.device, &viewInfo, nullptr, &imageView));
+    
+    handles.rendererdeletionqueue->push_back(deleteableResource{deletionType::ImageView, imageView});
+    setDebugObjectName(handles.device, VK_OBJECT_TYPE_IMAGE_VIEW, "TextureCreation image view", (uint64_t)imageView);
     return imageView;
 }
 
@@ -42,6 +46,7 @@ void TextureUtilities::createImage(RendererContext rendererHandles, uint64_t wid
 
     //TODO JS: Properties flags to vma 
     VkImageCreateInfo imageInfo{};
+
     imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     imageInfo.imageType = VK_IMAGE_TYPE_2D ;
     imageInfo.extent.width = (uint32_t)width;
@@ -63,7 +68,7 @@ void TextureUtilities::createImage(RendererContext rendererHandles, uint64_t wid
             imageInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT ; 
         }
     }
-    BufferUtilities::CreateImage(rendererHandles.allocator, &imageInfo, &image, &allocation, nullptr);
+    BufferUtilities::CreateImage(rendererHandles, &imageInfo, &image, &allocation, nullptr);
 }
 
 void TextureUtilities::transitionImageLayout(RendererContext rendererHandles, VkImage image, VkFormat format,
@@ -86,7 +91,6 @@ void TextureUtilities::transitionImageLayout(RendererContext rendererHandles, Vk
 
     barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-
     barrier.image = image;
     barrier.subresourceRange.aspectMask = depth ?  VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
     barrier.subresourceRange.baseMipLevel = 0; //TODO JS! 
@@ -260,6 +264,7 @@ void TextureUtilities::copyBufferToImage(CommandPoolManager* commandPoolManager,
                                          VkCommandBuffer workingBuffer)
 {
     bool endNow = false;
+    printf("x%p\n", image);
     if (workingBuffer == nullptr)
     {
         //Optional buffer for if the caller wants to submit the command to an existing buffer and manually end it later

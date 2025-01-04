@@ -9,10 +9,10 @@ struct TextureData;
 namespace TextureUtilities
 {
     //TODO JS: this -1 stuff is sketchy
-    VkImageView createImageView(VkDevice device, VkImage image,
-                                VkFormat format, VkImageAspectFlags aspectFlags = -1,
-                                VkImageViewType type = (VkImageViewType)-1, uint32_t miplevels = 1,
-                                uint32_t layerCount = 1, uint32_t layer = 0);
+    VkImageView createImageView(RendererContext handles,
+                                VkImage image, VkFormat format,
+                                VkImageAspectFlags aspectFlags = -1, VkImageViewType type = (VkImageViewType)-1,
+                                uint32_t miplevels = 1, uint32_t layerCount = 1, uint32_t layer = 0);
 
     void createImage(RendererContext rendererHandles, uint64_t width, uint64_t height, VkFormat format,
                      VkImageTiling tiling,

@@ -29,6 +29,7 @@
 #include "backends/imgui_impl_vulkan.h"
 #include "Scene/Scene.h"
 #include "Scene/Transforms.h"
+#include "VulkanIncludes/vmaImplementation.h"
 #include "VulkanIncludes/VulkanMemory.h"
 
 struct gpuPerShadowData;
@@ -40,7 +41,7 @@ vkb::Instance GET_INSTANCE()
     vkb::InstanceBuilder instance_builder;
     auto instanceBuilderResult = instance_builder
                                   // .request_validation_layers()
-                                 .use_default_debug_messenger()
+                                 .use_default_debug_messenger().enable_extension(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)
                                  .require_api_version(1, 3, 255)
                                  .build();
     if (!instanceBuilderResult)
@@ -58,7 +59,7 @@ vkb::PhysicalDevice GET_GPU(vkb::Instance instance)
 {
 
     const std::vector<const char*> deviceExtensions = {
-         VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_MAINTENANCE_4_EXTENSION_NAME, VK_KHR_MAINTENANCE_3_EXTENSION_NAME, VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME, VK_EXT_MUTABLE_DESCRIPTOR_TYPE_EXTENSION_NAME,
+       VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_MAINTENANCE_4_EXTENSION_NAME, VK_KHR_MAINTENANCE_3_EXTENSION_NAME, VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME, VK_EXT_MUTABLE_DESCRIPTOR_TYPE_EXTENSION_NAME,
         //for image copy:
         // VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, VK_KHR_COPY_COMMANDS_2_EXTENSION_NAME, VK_KHR_FORMAT_FEATURE_FLAGS_2_EXTENSION_NAME,
     };
@@ -171,8 +172,21 @@ vkb::Device vkb_device;
 vkb::Swapchain vkb_swapchain;
 
 
-
-
+//could be static utility, move
+//Throw a bunch of VUID-vkCmdDrawIndexed-viewType-07752 errors due to image format, but renders fine
+ VkDescriptorSet vulkanRenderer::GetOrRegisterImguiTextureHandle(VkSampler sampler, VkImageView imageView)
+{
+        if (imguiRegisteredTextures.contains(imageView))
+        {
+            return imguiRegisteredTextures.at(imageView);
+        }
+  
+    //auto img = ImGui_ImplVulkan_AddTexture(shadowSamplers[shadowIndex], shadowMapSamplingImageViews[shadowIndex][0], VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL);
+     VkDescriptorSet set = ImGui_ImplVulkan_AddTexture(sampler, imageView,VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+     imguiRegisteredTextures.emplace(imageView, set);
+     return set;
+    
+}
 void vulkanRenderer::initDearImgui()
 {
 
@@ -196,8 +210,8 @@ void vulkanRenderer::initDearImgui()
     pool_info.pPoolSizes = pool_sizes;
 
     VK_CHECK(vkCreateDescriptorPool(device, &pool_info, nullptr, &imgui_descriptorPool));
+    deletionQueue.push_back({deletionType::descriptorPool, imgui_descriptorPool});
 
-    
     ImGui_ImplSDL2_InitForVulkan(_window);
     ImGui_ImplVulkan_InitInfo init_info = {};
     init_info.Instance = instance;
@@ -227,9 +241,11 @@ void vulkanRenderer::initDearImgui()
     //ImGui_ImplVulkan_DestroyFontUploadObjects(); //TODO JS: destroy queue
 }
 
+
+
 RendererContext vulkanRenderer::getHandles()
 {
-    return RendererContext{physicalDevice, device, &commandPoolmanager, allocator, &rendererArena, &perFrameArenas[currentFrame], HAS_HOST_IMAGE_COPY};
+    return RendererContext{physicalDevice, device, &commandPoolmanager, allocator, &rendererArena, &perFrameArenas[currentFrame], &deletionQueue, HAS_HOST_IMAGE_COPY};
 }
 
 
@@ -243,7 +259,7 @@ void vulkanRenderer::updateShadowImageViews(int frame, Scene* scene)
     for (int j = 0; j < MAX_SHADOWMAPS; j++)
     {
         shadowMapRenderingImageViews[i][j] = TextureUtilities::createImageView(
-            device, shadowImages[i], shadowFormat,
+            getHandles(), shadowImages[i], shadowFormat,
             VK_IMAGE_ASPECT_DEPTH_BIT,
             (VkImageViewType)  VK_IMAGE_TYPE_2D,
             1,
@@ -264,7 +280,7 @@ void vulkanRenderer::updateShadowImageViews(int frame, Scene* scene)
             }
            
             shadowMapSamplingImageViews[i][j] = TextureUtilities::createImageView(
-                device, shadowImages[i], shadowFormat,
+                getHandles(), shadowImages[i], shadowFormat,
                 VK_IMAGE_ASPECT_DEPTH_BIT,
                 (VkImageViewType)  type,
                 1,
@@ -279,7 +295,6 @@ void vulkanRenderer::updateShadowImageViews(int frame, Scene* scene)
     }
 }
 
-//Need a better name for this, or to breka this concept up
 
 
 
@@ -288,11 +303,12 @@ void vulkanRenderer::initVulkan()
 {
     this->rendererArena = {};
     MemoryArena::initialize(&rendererArena, 1000000 * 200); // 200mb
-
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
         MemoryArena::initialize(&perFrameArenas[i], 100000 * 50); // 5mb each //TODO JS: Could be much smaller if I used stable memory for per frame verts and stuff
     }
+
+    this->deletionQueue = MemoryArena::AllocSpan<deleteableResource>(&rendererArena, 1200); //big
     FramesInFlightData.resize(MAX_FRAMES_IN_FLIGHT);
     //Get instance
     vkb_instance = GET_INSTANCE();
@@ -317,7 +333,8 @@ void vulkanRenderer::initVulkan()
     vkb_device = GET_DEVICE(vkb_physicalDevice);
     device = vkb_device.device;
 
-
+    //TODO JS: organize FPs somewhere
+    registerDebugUtilsFn((PFN_vkSetDebugUtilsObjectNameEXT)vkGetDeviceProcAddr(device, "vkSetDebugUtilsObjectNameEXT"));
    
 
     // vkCopyImageToMemoryEXT = (PFN_vkCopyImageToMemoryEXT)VkGetCopy(device, "vkCopyImageToMemoryEXT");
@@ -326,6 +343,8 @@ void vulkanRenderer::initVulkan()
     
     //Get queues and queue families and command pools
     commandPoolmanager = CommandPoolManager(vkb_device);
+    deletionQueue.push_back({deletionType::CommandPool, commandPoolmanager.commandPool});
+    deletionQueue.push_back({deletionType::CommandPool, commandPoolmanager.transferCommandPool});
 
     //Swapchain
     vkb::SwapchainBuilder swapchain_builder{vkb_device};
@@ -340,6 +359,11 @@ void vulkanRenderer::initVulkan()
     swapChain = vkb_swapchain.swapchain;
     swapChainImages = vkb_swapchain.get_images().value();
     swapChainImageViews = vkb_swapchain.get_image_views().value();
+
+    for(int i =0; i < swapChainImageViews.size(); i++)
+    {
+        deletionQueue.push_back({deletionType::ImageView, swapChainImageViews[i]});
+    }
     swapChainExtent = vkb_swapchain.extent;
     swapChainColorFormat = vkb_swapchain.image_format;
 
@@ -386,7 +410,8 @@ void vulkanRenderer::initializeRendererForScene(Scene* scene)
         TextureUtilities::createImage(getHandles(),SHADOW_MAP_SIZE, SHADOW_MAP_SIZE,shadowFormat,VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
                VK_IMAGE_USAGE_SAMPLED_BIT,0,shadowImages[i],shadowMemory[i],1, MAX_SHADOWMAPS, true);
         TextureData::createTextureSampler(&shadowSamplers[i], getHandles(), VK_SAMPLER_ADDRESS_MODE_REPEAT, 0, 1, true);
-        
+        setDebugObjectName(device, VK_OBJECT_TYPE_IMAGE, "SHADOW IMAGE", (uint64_t)(shadowImages[i]));
+        setDebugObjectName(device, VK_OBJECT_TYPE_SAMPLER, "SHADOW IMAGE SAMPLER", (uint64_t)(shadowSamplers[i]));
         updateShadowImageViews(i, scene);
     }
 
@@ -549,6 +574,7 @@ void vulkanRenderer::createUniformBuffers(int objectsCount, int lightCount)
 
        
 
+        
         FramesInFlightData[i].opaqueShaderGlobalsBuffer = createDataBuffer<ShaderGlobals>(&handles, 1, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
         FramesInFlightData[i].uniformBuffers = createDataBuffer<UniformBufferObject>(&handles, objectsCount, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT); //
         FramesInFlightData[i].meshBuffers = createDataBuffer<gpuvertex>(&handles,rendererSceneData->getVertexCount(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
@@ -556,14 +582,14 @@ void vulkanRenderer::createUniformBuffers(int objectsCount, int lightCount)
         FramesInFlightData[i].indices = createDataBuffer<uint32_t>(&handles,rendererSceneData->getIndexCount(), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
         FramesInFlightData[i].lightBuffers = createDataBuffer<gpulight>(&handles,lightCount, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
         FramesInFlightData[i].shadowDataBuffers = createDataBuffer<gpuPerShadowData>(&handles,lightCount * 10, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-
       
+        
         FramesInFlightData[i].drawBuffers = createDataBuffer<drawCommandData>(&handles, MAX_DRAWINDIRECT_COMMANDS, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
         FramesInFlightData[i].frustumsForCullBuffers = createDataBuffer<glm::vec4>(&handles, (MAX_SHADOWMAPS + MAX_CAMERAS) * 6, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-     
 
     }
 }
+
 
 #pragma endregion
 
@@ -590,6 +616,7 @@ void vulkanRenderer::createDescriptorSetPool(RendererContext handles, VkDescript
     
     pool_info.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * 4 * 3; //4 here is the number of descriptorsets  * 3 pipelines
     VK_CHECK( vkCreateDescriptorPool(handles.device, &pool_info, nullptr, pool));
+    deletionQueue.push_back({deletionType::descriptorPool,*pool});
     
 }
 
@@ -770,9 +797,15 @@ void vulkanRenderer::updateShadowDescriptorSets(PipelineDataObject* layoutData, 
 }
 #pragma endregion
 
-
+void createSemaphore(VkDevice device,  VkSemaphoreCreateInfo* info, VkSemaphore* semaphorePtr, Array<deleteableResource>* deletionQueue)
+{
+    VK_CHECK(vkCreateSemaphore(device, info, nullptr, semaphorePtr));
+    deletionQueue->push_back({deletionType::Semaphore,*semaphorePtr});
+    
+}
 void vulkanRenderer::createSyncObjects()
 {
+
     VkSemaphoreCreateInfo semaphoreInfo{};
     semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
@@ -782,22 +815,23 @@ void vulkanRenderer::createSyncObjects()
     for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
         per_frame_data* frame = &FramesInFlightData[i];
-        VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &frame->imageAvailableSemaphores));
-        VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &frame->renderFinishedSemaphores));
+        createSemaphore(device, &semaphoreInfo, &frame->imageAvailableSemaphores, &deletionQueue);
+        createSemaphore(device, &semaphoreInfo, &frame->renderFinishedSemaphores, &deletionQueue);
 
-        VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &frame->computeFinishedSemaphores));
+        createSemaphore(device, &semaphoreInfo, &frame->computeFinishedSemaphores, &deletionQueue);
         
-        VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &frame->shadowAvailableSemaphores));
-        VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &frame->shadowFinishedSemaphores));
+        createSemaphore(device, &semaphoreInfo, &frame->shadowAvailableSemaphores, &deletionQueue);
+        createSemaphore(device, &semaphoreInfo, &frame->shadowFinishedSemaphores, &deletionQueue);
 
-        VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &frame->swapchaintransitionedOutSemaphores));
-        VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &frame->swapchaintransitionedInSemaphores));
+        createSemaphore(device, &semaphoreInfo, &frame->swapchaintransitionedOutSemaphores, &deletionQueue);
+        createSemaphore(device, &semaphoreInfo, &frame->swapchaintransitionedInSemaphores, &deletionQueue);
      
 
-        VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &frame->shadowtransitionedOutSemaphores));
-        VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &frame->shadowtransitionedInSemaphores));
+        createSemaphore(device, &semaphoreInfo, &frame->shadowtransitionedOutSemaphores, &deletionQueue);
+        createSemaphore(device, &semaphoreInfo, &frame->shadowtransitionedInSemaphores, &deletionQueue);
 
         VK_CHECK(vkCreateFence(device, &fenceInfo, nullptr, &FramesInFlightData[i].inFlightFences));
+        deletionQueue.push_back({deletionType::Fence, FramesInFlightData[i].inFlightFences });
     }
    
 
@@ -1663,7 +1697,7 @@ void vulkanRenderer::createDepthResources()
                                   depthImage,
                                   depthImageMemory);
     depthImageView =
-        TextureUtilities::createImageView(this->device, depthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
+        TextureUtilities::createImageView(getHandles(), depthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
 }
 
 #pragma endregion
@@ -1695,8 +1729,16 @@ void vulkanRenderer::createGraphicsPipeline(const char* shaderName, PipelineData
 void vulkanRenderer::Update(Scene* scene)
 {
 
-   
+
+    ImGui::Begin("RENDERER Buffer preview window");
+    ImGui::Text("TODO");
+    int shadowIndex =1;
+    VkDescriptorSet img = GetOrRegisterImguiTextureHandle(shadowSamplers[shadowIndex],shadowMapSamplingImageViews[shadowIndex][3]);
+    ImGui::Image(ImTextureID(img), ImVec2{480, 480});
+    ImGui::End();
+    
     //make imgui calculate internal draw structures
+    //Note -- we're not just submitting imgu icalls here, some are from the higher level of the app
     ImGui::Render();
 
 
@@ -1745,7 +1787,6 @@ semaphoreData getSemaphoreDataFromSemaphores(std::span<VkSemaphore> semaphores, 
 }
 void transitionImageForRendering(RendererContext handles, VkCommandBuffer commandBuffer, semaphoreData waitSemaphores, std::span<VkSemaphore> signalSemaphores, VkImage image, VkImageLayout layoutIn, VkImageLayout layoutOut, VkPipelineStageFlags* waitStages, bool depth)
 {
-
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     beginInfo.flags = 0; // Optional
@@ -2080,70 +2121,152 @@ void vulkanRenderer::renderOpaquePass(uint32_t currentFrame, uint32_t imageIndex
     
 }
 
+VmaAllocation vulkanRenderer::validateVMADeleteableResource(deleteableResource d)
+{
+    assert(d.type == deletionType::vmaBuffer || d.type == deletionType::VmaImage);
+    return d.vmaAllocation;
+}
+void vulkanRenderer::runDeletionQueue(std::span<deleteableResource> queue)
+{
+    for(int i = queue.size() -1; i >= 0; i--)
+    {
+    printf("%d\n", i);
+        deleteableResource resource = queue[i];
+        switch (resource.type)
+        {
+        case deletionType::vmaBuffer:
+            {
+                auto alloc = validateVMADeleteableResource(resource);
+                VulkanMemory::DestroyBuffer(allocator,(VkBuffer)(resource.handle), alloc);
+                break;
+            }
+        case deletionType::descriptorPool:
+            {
+                vkDestroyDescriptorPool(device, (VkDescriptorPool)resource.handle, nullptr);
+                break;
+            }
+        case deletionType::Semaphore:
+            {
+                vkDestroySemaphore(device, (VkSemaphore)resource.handle, nullptr);
+                break;
+            }
+        case deletionType::Fence:
+           {
+                vkDestroyFence(device, (VkFence)(resource.handle), nullptr);
+                break;
+           }
+        case deletionType::CommandPool:
+            {
+                vkDestroyCommandPool(device,  (VkCommandPool)(resource.handle), nullptr);
+                break;
+            }
+        case deletionType::ImageView:
+            {
+                vkDestroyImageView(device,  (VkImageView)(resource.handle), nullptr);
+                break;
+            }
+        case deletionType::Image:
+            {
+                vkDestroyImage(device, (VkImage)(resource.handle), nullptr);
+                break;
+            }
+        case deletionType::VkMemory:
+            {
+                vkFreeMemory(device, (VkDeviceMemory)(resource.handle), nullptr);
+                break;
+            }
+        case deletionType::VmaImage:
+          {
+               
+                auto alloc = validateVMADeleteableResource(resource);
+                VulkanMemory::DestroyImage(allocator, (VkImage)(resource.handle), alloc);
+                break;
+          }
+        case deletionType::Sampler:
+            {
+                vkDestroySampler(device, (VkSampler)(resource.handle), nullptr);
+                break;
+            }
+        }
+        
+    }
+}
+
 void vulkanRenderer::cleanup()
 {
 
+    for(int i =0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    {
+        vkWaitForFences(device, 1, &FramesInFlightData[i].inFlightFences, VK_TRUE, UINT64_MAX);
+    }
+    //
     ImGui_ImplVulkan_Shutdown();
     ImGui_ImplSDL2_Shutdown();
     ImGui::DestroyContext();
-    
-    //TODO clenaup swapchain
+    //
 
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-    {
-       VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].uniformBuffers._buffer.data, FramesInFlightData[i].uniformBuffers.allocation);
-       VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].meshBuffers._buffer.data, FramesInFlightData[i].meshBuffers.allocation);
-       VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].lightBuffers._buffer.data, FramesInFlightData[i].lightBuffers.allocation);
-       VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].shadowDataBuffers._buffer.data, FramesInFlightData[i].shadowDataBuffers.allocation);
-       VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].drawBuffers._buffer.data, FramesInFlightData[i].drawBuffers.allocation);
-    }
+    //TODO JS: Switcing everything over to this, need to do images to get rid of tons of validation errors 
+    runDeletionQueue(deletionQueue.getSpan());
 
-    vkDestroyDescriptorPool(device, descriptorPool, nullptr);
+    // for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    // {
+    //    VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].uniformBuffers._buffer.data, FramesInFlightData[i].uniformBuffers.allocation);
+    //    VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].meshBuffers._buffer.data, FramesInFlightData[i].meshBuffers.allocation);
+    //    VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].lightBuffers._buffer.data, FramesInFlightData[i].lightBuffers.allocation);
+    //    VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].shadowDataBuffers._buffer.data, FramesInFlightData[i].shadowDataBuffers.allocation);
+    //    VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].drawBuffers._buffer.data, FramesInFlightData[i].drawBuffers.allocation);
+    // }
 
+    // vkDestroyDescriptorPool(device, descriptorPool, nullptr);
     descriptorsetLayoutsData.cleanup();
+    descriptorsetLayoutsDataShadow.cleanup();
+    descriptorsetLayoutsDataCompute.cleanup();
+    rendererSceneData->Cleanup(); //noop currently
+    // for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    // {
+    //     vkDestroySemaphore(device, FramesInFlightData[i].renderFinishedSemaphores, nullptr);
+    //     vkDestroySemaphore(device, FramesInFlightData[i].imageAvailableSemaphores, nullptr);
+    //     vkDestroySemaphore(device, FramesInFlightData[i].swapchaintransitionedOutSemaphores, nullptr);
+    //     vkDestroySemaphore(device, FramesInFlightData[i].swapchaintransitionedInSemaphores, nullptr);
+    //
+    //     vkDestroySemaphore(device, FramesInFlightData[i].shadowtransitionedOutSemaphores, nullptr);
+    //     vkDestroySemaphore(device, FramesInFlightData[i].shadowtransitionedInSemaphores, nullptr);
+    //     
+    //
+    //     vkDestroyFence(device, FramesInFlightData[i].inFlightFences, nullptr);
+    // }
 
+    // vkDestroyCommandPool(device, commandPoolmanager.commandPool, nullptr);
+    // vkDestroyCommandPool(device, commandPoolmanager.transferCommandPool, nullptr);
 
-    rendererSceneData->Cleanup();
+    // for (auto imageView : swapChainImageViews)
+    // {
+    //     vkDestroyImageView(device, imageView, nullptr);
+    // }
+
+    //todo 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        vkDestroySemaphore(device, FramesInFlightData[i].renderFinishedSemaphores, nullptr);
-        vkDestroySemaphore(device, FramesInFlightData[i].imageAvailableSemaphores, nullptr);
-        vkDestroySemaphore(device, FramesInFlightData[i].swapchaintransitionedOutSemaphores, nullptr);
-        vkDestroySemaphore(device, FramesInFlightData[i].swapchaintransitionedInSemaphores, nullptr);
-
-        vkDestroySemaphore(device, FramesInFlightData[i].shadowtransitionedOutSemaphores, nullptr);
-        vkDestroySemaphore(device, FramesInFlightData[i].shadowtransitionedInSemaphores, nullptr);
-        
-
-        vkDestroyFence(device, FramesInFlightData[i].inFlightFences, nullptr);
-    }
-
-    vkDestroyCommandPool(device, commandPoolmanager.commandPool, nullptr);
-    vkDestroyCommandPool(device, commandPoolmanager.transferCommandPool, nullptr);
-
-    for (auto imageView : swapChainImageViews)
-    {
-        vkDestroyImageView(device, imageView, nullptr);
-    }
-
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-    {
-        VulkanMemory::DestroyImage(allocator, shadowImages[i], shadowMemory[i]);
-        vkDestroySampler(device, shadowSamplers[i], nullptr);
+        // VulkanMemory::DestroyImage(allocator, shadowImages[i], shadowMemory[i]);
+        // vkDestroySampler(device, shadowSamplers[i], nullptr);
         for(int j = 0; j < MAX_SHADOWMAPS; j++)
         {
-            vkDestroyImageView(device, shadowMapRenderingImageViews[i][j], nullptr);
-            vkDestroyImageView(device, shadowMapSamplingImageViews[i][j], nullptr);
+            // vkDestroyImageView(device, shadowMapRenderingImageViews[i][j], nullptr);
+            // vkDestroyImageView(device, shadowMapSamplingImageViews[i][j], nullptr);
         }
     }
+
 
      // vkb::destroy_surface(vkb_surface);
     destroy_swapchain(vkb_swapchain);
    
     vkDestroySurfaceKHR(instance, surface, nullptr);
-    destroy_device(vkb_device);
-    destroy_instance(vkb_instance);
-    SDL_DestroyWindow(_window);
+
+   vkDeviceWaitIdle(vkb_device.device);
+   vmaDestroyAllocator(allocator);
+   destroy_device(vkb_device);
+   destroy_instance(vkb_instance);
+   SDL_DestroyWindow(_window);
 
  
    

@@ -1,5 +1,6 @@
 #include "bufferCreation.h"
 
+#include <atldef.h>
 #include <cstdio>
 #include <cstring>
 
@@ -7,9 +8,11 @@
 #include "VulkanIncludes/vmaImplementation.h"
 #include "RendererContext.h"
 #include "CommandPoolManager.h"
+#include "rendererGlobals.h"
+#include "General/MemoryArena.h"
 
 void createBuffer(RendererContext rendererHandles, VkDeviceSize size, VkBufferUsageFlags usage, VmaAllocationCreateFlags  flags,
-                                   VmaAllocation* allocation, VkBuffer& buffer, VmaAllocationInfo* outAllocInfo)
+                  VmaAllocation* allocation, VkBuffer* buffer, VmaAllocationInfo* outAllocInfo)
 {
 
     VkBufferCreateInfo bufferInfo{};
@@ -22,8 +25,7 @@ void createBuffer(RendererContext rendererHandles, VkDeviceSize size, VkBufferUs
     VmaAllocationCreateInfo allocInfo = {};
     allocInfo.usage = VMA_MEMORY_USAGE_AUTO; //TODO JS: Pass in Properties flags?
     allocInfo.flags = flags;
-
-    vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, allocation, outAllocInfo);
+    vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, buffer, allocation, outAllocInfo);
 }
 
 void BufferUtilities::copyBuffer(RendererContext rendererHandles, VkBuffer srcBuffer, VkBuffer dstBuffer,
@@ -38,7 +40,7 @@ void BufferUtilities::copyBuffer(RendererContext rendererHandles, VkBuffer srcBu
     rendererHandles.commandPoolmanager->endSingleTimeCommands(commandBuffer);
 }
 
-void BufferUtilities::stageVertexBuffer(RendererContext rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
+void BufferUtilities::stageVertexBufferAndRegisterDeletion(RendererContext rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
                                    VmaAllocation& allocation, Vertex* data)
 {
     BufferUtilities::stageMeshDataBuffer(rendererHandles,
@@ -46,10 +48,13 @@ void BufferUtilities::stageVertexBuffer(RendererContext rendererHandles, VkDevic
                                          buffer,
                                          allocation,
                                          data, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+
+    //register permanent buffer to deletion queue
+    rendererHandles.rendererdeletionqueue->push_back({deletionType::vmaBuffer, buffer, allocation});
     
 }
 
-void BufferUtilities::stageIndexBuffer(RendererContext rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
+void BufferUtilities::stageIndexBufferAndRegisterDeletion(RendererContext rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
                                    VmaAllocation& allocation, uint32_t* data)
 {
     BufferUtilities::stageMeshDataBuffer(rendererHandles,
@@ -57,6 +62,9 @@ void BufferUtilities::stageIndexBuffer(RendererContext rendererHandles, VkDevice
                                          buffer,
                                          allocation,
                                          data, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+
+    //register permanent buffer to deletion queue
+    rendererHandles.rendererdeletionqueue->push_back({deletionType::vmaBuffer, buffer, allocation});
     
 }
 
@@ -68,7 +76,7 @@ void BufferUtilities::stageMeshDataBuffer(RendererContext rendererHandles, VkDev
     VmaAllocation stagingallocation = {};
   
     createBuffer(rendererHandles, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-                                  &stagingallocation, stagingBuffer, nullptr);
+                                  &stagingallocation, &stagingBuffer, nullptr);
 
 
     void* data;
@@ -77,11 +85,15 @@ void BufferUtilities::stageMeshDataBuffer(RendererContext rendererHandles, VkDev
     VulkanMemory::UnmapMemory(rendererHandles.allocator, stagingallocation);
 
     createBuffer(rendererHandles, bufferSize,
-                                  VK_BUFFER_USAGE_TRANSFER_DST_BIT | dataTypeFlag, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT, &allocation, buffer, nullptr);
+                                  VK_BUFFER_USAGE_TRANSFER_DST_BIT | dataTypeFlag, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT, &allocation, &buffer, nullptr);
 
     copyBuffer(rendererHandles, stagingBuffer, buffer, bufferSize);
 
+    //delete temp buffer
     vmaDestroyBuffer(rendererHandles.allocator, stagingBuffer, stagingallocation);
+    vmaFreeMemory(rendererHandles.allocator, stagingallocation);
+
+ 
 }
 
 void* BufferUtilities::createDynamicBuffer(RendererContext rendererHandles, VkDeviceSize size, VkBufferUsageFlags usage,
@@ -91,7 +103,7 @@ void* BufferUtilities::createDynamicBuffer(RendererContext rendererHandles, VkDe
     createBuffer(rendererHandles, size, usage, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
                  VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT |
                  VMA_ALLOCATION_CREATE_MAPPED_BIT,
-                 allocation, buffer, &allocInfo);
+                 allocation, &buffer, &allocInfo);
 
 
     VkMemoryPropertyFlags memPropFlags;
@@ -112,11 +124,12 @@ void BufferUtilities::createStagingBuffer(RendererContext rendererHandles, VkDev
 {
     createBuffer(rendererHandles, size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
    VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, allocation,
-                                 stagingBuffer, nullptr);
+                                 &stagingBuffer, nullptr);
+    setDebugObjectName(rendererHandles.device, VK_OBJECT_TYPE_BUFFER, "Bufferutiltiies create staging buffer buffer", (uint64_t)stagingBuffer);
     
 }
 
-void BufferUtilities::CreateImage( VmaAllocator allocator,
+void BufferUtilities::CreateImage( RendererContext handles,
     VkImageCreateInfo* pImageCreateInfo,
     VkImage* pImage,
     VmaAllocation* pAllocation,
@@ -125,9 +138,13 @@ void BufferUtilities::CreateImage( VmaAllocator allocator,
     
     VmaAllocationCreateInfo allocInfo = {};
     VmaAllocationInfo AllocationInfo;
-    allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
-    
-    vmaCreateImage(allocator, pImageCreateInfo, &allocInfo, pImage, pAllocation, &AllocationInfo);
+    auto s =  MemoryArena::AllocSpan<char>(handles.arena, *"test");
+    printf("buffer creation texture input:%p\n", (uint64_t)*pImage);
+    vmaCreateImage(handles.allocator, pImageCreateInfo, &allocInfo, pImage, pAllocation, &AllocationInfo);
+    vmaSetAllocationName(handles.allocator, *pAllocation, "TEST" );
+    handles.rendererdeletionqueue->push_back({deletionType::VmaImage, *pImage, *pAllocation});
+    setDebugObjectName(handles.device, VK_OBJECT_TYPE_IMAGE, "Bufferutiltiies create image vkimage", (uint64_t)*pImage);
+    printf("buffer creation texture:%p\n", (uint64_t)*pImage);
     deviceMemory = &AllocationInfo.deviceMemory;
 }
 

@@ -6,6 +6,10 @@
 
 #include <glm/glm.hpp>
 #include <span>
+#include <string_view>
+
+#include "PipelineDataObject.h"
+#include "RendererContext.h"
 #include "VulkanIncludes/forward-declarations-renderer.h"
 struct RendererContext;
 const static int MAX_SHADOWCASTERS = 8;
@@ -18,6 +22,31 @@ const static int SWAPCHAIN_SIZE = 3;
 const static int MAX_DRAWINDIRECT_COMMANDS = 200000; //Draw commands per frmae
 const static int MAX_DRAWS_PER_PIPELINE = 2000; //whatever, probably could be dynamic, will fix later 
 const static int MAX_PIPELINES = 80; //whatever, probably could be dynamic, will fix later
+
+//deletio nqueue stuff
+
+enum class deletionType
+{
+    vmaBuffer,
+    descriptorPool,
+    Semaphore,
+    Fence,
+    CommandPool,
+    ImageView,
+    Image,
+    VkMemory,
+    VmaImage,
+    Sampler,
+    
+};
+
+    
+struct deleteableResource
+{
+    deletionType type;
+    void* handle;
+    VmaAllocation vmaAllocation; // usually not defined 
+};
 
 // const static VkIndexType INDEX_BUFFER_FORMAT = VK_INDEX_TYPE_UINT32;
 
@@ -32,8 +61,6 @@ struct RenderTextureFormat
     VkFormat ColorFormat;
     VkFormat DepthFormat;
 };
-
-
 
 struct descriptorUpdateData
 {
@@ -63,6 +90,27 @@ struct dataBufferObject //todo js: name
     void updateMappedMemory(std::span<T> source);
     uint32_t count();
 };
+
+struct dataBufferAllocationsView
+{
+    dataBuffer _buffer;
+    VmaAllocation allocation;
+};
+
+
+template < typename T >
+VmaAllocation dataBuffer_getAllocation(dataBufferObject<T> d)
+{
+    return d.allocation;
+}
+
+template < typename T >
+VkBuffer dataBuffer_getVKBuffer(dataBufferObject<T> d)
+{
+    return d._buffer.data;
+}
+
+
 template < typename T >
 VkDescriptorBufferInfo getDescriptorBufferInfo(dataBufferObject<T> d)
 {
@@ -92,6 +140,9 @@ template<typename T> dataBufferObject<T> createDataBuffer(RendererContext* h, ui
   dataBufferObject<T> buffer{};
   buffer._buffer.size = sizeof(T) * size;
   buffer._buffer.allocateVulkanMemory(*h, &buffer.allocation,usage);
+
+    //add to deletion queue
+   
   return buffer;
 }
 
@@ -139,4 +190,8 @@ struct cameraData
     glm::mat4 debug_frozen_culling_v;
     glm::mat4 debug_frozen_culling_p;
 };
+
+
+void registerDebugUtilsFn(PFN_vkSetDebugUtilsObjectNameEXT ptr);
+void setDebugObjectName(VkDevice device, VkObjectType type, std::string name, uint64_t handle);
 

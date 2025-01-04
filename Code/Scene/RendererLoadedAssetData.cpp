@@ -121,9 +121,4 @@ struct sortData
 
 void RendererLoadedAssetData::Cleanup()
 {
- 
-    for (int i = 0; i <  backing_diffuse_textures.size(); i++)
-    {
-        backing_diffuse_textures[i].cleanup();
-    }
 }

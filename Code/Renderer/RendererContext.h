@@ -1,8 +1,9 @@
 #pragma once
 
+#include "General/Array.h"
 #include "VulkanIncludes/forward-declarations-renderer.h"
 struct CommandPoolManager;
-
+struct deleteableResource;
 namespace  MemoryArena
 {
     struct memoryArena;
@@ -18,5 +19,6 @@ struct RendererContext
     VmaAllocator allocator;
     MemoryArena::memoryArena* arena;
     MemoryArena::memoryArena* perframeArena;
+    Array<deleteableResource>* rendererdeletionqueue;
     bool canWriteKTX;
 };

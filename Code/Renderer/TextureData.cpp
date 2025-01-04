@@ -82,7 +82,7 @@ TextureData::TextureData(RendererContext rendererHandles, const char* path, Text
 	{
 		viewType =   textureType == CUBE ? VK_IMAGE_VIEW_TYPE_CUBE : VK_IMAGE_VIEW_TYPE_2D;
 	}
-    textureImageView = createTextureImageView(loadedFormat,viewType);
+    textureImageView = createTextureImageView(rendererHandles, loadedFormat, viewType);
     createTextureSampler(&textureSampler, rendererHandles, mode, 0, maxmip);
 }
 
@@ -103,7 +103,7 @@ TextureData::TextureData(const char* OUTPUT_PATH, const char* textureName, VkFor
 
 	VkFormat loadedFormat = createImageKTX(OUTPUT_PATH, TextureType::DIFFUSE, true, true, &commandbuffer);
 	
-	textureImageView = createTextureImageView(loadedFormat, VK_IMAGE_VIEW_TYPE_2D);
+	textureImageView = createTextureImageView(handles, loadedFormat, VK_IMAGE_VIEW_TYPE_2D);
 	assert(textureImageView != VK_NULL_HANDLE);
 	createTextureSampler(&textureSampler, handles, samplerMode, 0, mipCt);
 	rendererHandles = handles;
@@ -117,7 +117,7 @@ TextureData::TextureData(const char* OUTPUT_PATH, const char* textureName, VkFor
 	this->rendererHandles = handles;
 	VkFormat loadedFormat = createImageKTX(OUTPUT_PATH, TextureType::DIFFUSE, true, true, &commandBuffer);
 	
-	textureImageView = createTextureImageView(loadedFormat, VK_IMAGE_VIEW_TYPE_2D);
+	textureImageView = createTextureImageView(handles, loadedFormat, VK_IMAGE_VIEW_TYPE_2D);
 	assert(textureImageView != VK_NULL_HANDLE);
 	createTextureSampler(&textureSampler, handles, samplerMode, 0, mipCt);
 	rendererHandles = handles;
@@ -417,11 +417,10 @@ void TextureData::createTextureSampler(VkSampler* textureSampler, RendererContex
     samplerInfo.mipLodBias = bias;
 
 
-    if (vkCreateSampler(handles.device, &samplerInfo, nullptr, textureSampler) != VK_SUCCESS)
-    {
-       std::cerr << ("failed to create texture sampler!");
-    exit(-1);
-    }
+    VK_CHECK(vkCreateSampler(handles.device, &samplerInfo, nullptr, textureSampler));
+	handles.rendererdeletionqueue->push_back({deletionType::Sampler, *textureSampler});
+    
+	
 }
 //
 
@@ -491,10 +490,14 @@ void TextureData::cacheKTXFromTempTexture(temporaryTextureInfo staging, const ch
 	VulkanMemory::DestroyImage(rendererHandles.allocator, staging.textureImage, staging.alloc); 
 }
 
-VkImageView TextureData::createTextureImageView(VkFormat format, VkImageViewType type)
+VkImageView TextureData::createTextureImageView(RendererContext handles, VkFormat format, VkImageViewType type)
 {
-    return TextureUtilities::createImageView(rendererHandles.device, textureImage, format,
+   VkImageView view =  TextureUtilities::createImageView(rendererHandles, textureImage, format,
                                                          VK_IMAGE_ASPECT_COLOR_BIT, type, maxmip, layerct);
+	// handles.rendererdeletionqueue->push_back(deleteableResource{deletionType::ImageView, view});
+	
+
+	return view;
 }
 
 static temporaryTextureInfo createTextureImage(RendererContext rendererHandles, const unsigned char* pixels, uint64_t texWidth, uint64_t texHeight, VkFormat format, bool mips)
@@ -556,6 +559,9 @@ static temporaryTextureInfo createTextureImage(RendererContext rendererHandles, 
 	vkTransitionImageLayoutEXT(rendererHandles.device,1, {&transtionInfo});
 
 
+	setDebugObjectName(rendererHandles.device, VK_OBJECT_TYPE_IMAGE, "temporary texture info image", (uint64_t)_textureImage);
+	setDebugObjectName(rendererHandles.device, VK_OBJECT_TYPE_BUFFER, "temporary texture info buffer", (uint64_t)stagingBuffer);
+	setDebugObjectName(rendererHandles.device, VK_OBJECT_TYPE_BUFFER, "temporary texture info buffer", (uint64_t)stagingBuffer);
 	VulkanMemory::DestroyBuffer(rendererHandles.allocator, stagingBuffer, bufferAlloc); // destroy temp buffer
 	
     return temporaryTextureInfo(_textureImage, _textureImageAlloc, texWidth, texHeight, fullMipPyramid);
@@ -622,29 +628,19 @@ VkFormat TextureData::createImageKTX(const char* path, TextureType type, bool mi
 	uint32_t fullMipPyramid = static_cast<uint32_t>(std::floor(std::log2(glm::max(kTexture->baseWidth, kTexture->baseHeight)))) + 1;
 	uint32_t mipCount = kTexture->generateMipmaps ? fullMipPyramid : kTexture->numLevels;
 	
-	VkImageCreateInfo vkimageinfo = {};
-	// VkImageCreateFlags       flags;
-	vkimageinfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-	vkimageinfo.imageType = kTexture->isCubemap ? VK_IMAGE_TYPE_3D : VK_IMAGE_TYPE_2D;
-	vkimageinfo.format = (VkFormat)kTexture->vkFormat;
-	vkimageinfo.extent = {kTexture->baseWidth, kTexture->baseHeight, kTexture->baseDepth};
-	vkimageinfo.mipLevels = kTexture->isCubemap ? cubeMips : mipCount;
-	vkimageinfo.arrayLayers = kTexture->numLayers;
-	vkimageinfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-	vkimageinfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT;
-	vkimageinfo.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
-	vkimageinfo.samples = VK_SAMPLE_COUNT_1_BIT;
-	
-    BufferUtilities::CreateImage(rendererHandles.allocator, &vkimageinfo, &texture.image, &textureImageMemory, &texture.deviceMemory);
-	
 	outputFormat = (VkFormat)kTexture->vkFormat;
 	ktxresult = ktxTexture2_VkUploadEx(kTexture, &vdi, &texture,
 									  VK_IMAGE_TILING_OPTIMAL,
 									  VK_IMAGE_USAGE_SAMPLED_BIT,
 									  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	
+	setDebugObjectName(rendererHandles.device, VK_OBJECT_TYPE_IMAGE, "KTX texture", (uint64_t)texture.image);
 
-
+	rendererHandles.rendererdeletionqueue->push_back({deletionType::Image, texture.image});
+	rendererHandles.rendererdeletionqueue->push_back({deletionType::VkMemory, texture.deviceMemory});
 	ktxTexture_Destroy((ktxTexture*)kTexture);
+
+	
 	
 	if (type != CUBE)
 	{
@@ -663,7 +659,6 @@ VkFormat TextureData::createImageKTX(const char* path, TextureType type, bool mi
 	if (KTX_SUCCESS != ktxresult)
 	{
 		std::cerr << "ktxTexture_VkUpload failed: " << ktxErrorString(ktxresult);
-		;
 	}
 
 #endif

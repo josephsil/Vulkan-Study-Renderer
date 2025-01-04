@@ -14,15 +14,15 @@ struct Vertex;
 
 namespace BufferUtilities
 {
-    void CreateImage(VmaAllocator allocator,
-                     VkImageCreateInfo* pImageCreateInfo,
-                     VkImage* pImage,
-                     VmaAllocation* pAllocation, VkDeviceMemory* deviceMemory);
+    void CreateImage(
+        RendererContext handles,
+        VkImageCreateInfo* pImageCreateInfo,
+        VkImage* pImage, VmaAllocation* pAllocation, VkDeviceMemory* deviceMemory);
     
-    void stageVertexBuffer(RendererContext rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
+    void stageVertexBufferAndRegisterDeletion(RendererContext rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
                            VmaAllocation& allocation, Vertex* data);
 
-    void stageIndexBuffer(RendererContext rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
+    void stageIndexBufferAndRegisterDeletion(RendererContext rendererHandles, VkDeviceSize bufferSize, VkBuffer& buffer,
                           VmaAllocation& allocation, glm::uint32_t* data);
 
     //TODO JS: move to cpp file?
