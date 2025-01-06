@@ -29,7 +29,11 @@ vkb::PhysicalDevice getPhysicalDevice(vkb::Instance instance,     VkSurfaceKHR s
 {
 
     const std::vector<const char*> deviceExtensions = {
-       VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_MAINTENANCE_4_EXTENSION_NAME, VK_KHR_MAINTENANCE_3_EXTENSION_NAME, VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME, VK_EXT_MUTABLE_DESCRIPTOR_TYPE_EXTENSION_NAME, VK_EXT_HOST_IMAGE_COPY_EXTENSION_NAME
+       VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_MAINTENANCE_4_EXTENSION_NAME, VK_KHR_MAINTENANCE_3_EXTENSION_NAME, VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME, VK_EXT_MUTABLE_DESCRIPTOR_TYPE_EXTENSION_NAME
+#ifndef RENDERDOC_COMPATIBILITY
+        ,
+        VK_EXT_HOST_IMAGE_COPY_EXTENSION_NAME
+#endif 
         //for image copy:
         // VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, VK_KHR_COPY_COMMANDS_2_EXTENSION_NAME, VK_KHR_FORMAT_FEATURE_FLAGS_2_EXTENSION_NAME,
     };
@@ -60,7 +64,10 @@ vkb::PhysicalDevice getPhysicalDevice(vkb::Instance instance,     VkSurfaceKHR s
     .set_required_features_13(features13)
                                        //NOTE: Not supporting gpus without dedicated queue 
                                        .require_separate_compute_queue()
-                                       .add_required_extensions(deviceExtensions).add_required_extension_features(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_IMAGE_COPY_FEATURES_EXT)
+                                       .add_required_extensions(deviceExtensions)
+#ifndef RENDERDOC_COMPATIBILITY
+                                        .add_required_extension_features(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_IMAGE_COPY_FEATURES_EXT)
+#endif 
                                        .select();
 
 
