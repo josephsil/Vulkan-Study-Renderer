@@ -4,41 +4,14 @@
 #include "Renderer/meshData.h"
 #include "Renderer/TextureData.h"
 #include "Renderer/gltf/gltfLoading.h"
-#include "Scene/RendererLoadedAssetData.h"
+#include "Scene/AssetManager.h"
 #include "Scene/Scene.h"
 
-void Add_Scene_Content(RendererContext rendererContext, RendererLoadedAssetData* rendererData, Scene* scene)
+void Add_Scene_Content(RendererContext rendererContext, AssetManager* rendererData, Scene* scene)
 {
     std::vector<int> randomMeshes;
     std::vector<int> randomMaterials;
      scene->sceneCamera.extent = {16, 10}; // ????
-    //Original transform test  
-    // localTransform root1 = {{}, "ROOT 1", TRANSFORM_ID++, {0}, {}};
-    // localTransform root2 = {{}, "ROOT 2", TRANSFORM_ID++, {0}, {}};
-    // auto child = AddChild(&root1, "CHILD1",TRANSFORM_ID++, {});
-    // auto child1_1 = AddChild(child.get(), "CHILD1_CHILD1",TRANSFORM_ID++, {});
-    // AddChild(child.get(), "CHILD1_CHILD2",TRANSFORM_ID++, {});
-    // AddChild(child.get(), "CHILD1_CHILD3",TRANSFORM_ID++, {});
-    // auto child1_4 = AddChild(child.get(), "CHILD1_CHILD4",TRANSFORM_ID++, {});
-    // AddChild(child1_1.get(), "CHILD1_CHILD1_CHILD1",TRANSFORM_ID++, {});
-    // AddChild(child1_4.get(), "CHILD1_CHILD4_CHILD1",TRANSFORM_ID++, {});
-    // printf("PRE REMOVE ==== \n");
-    // printGraph(root1, 0 );
-    // rmChild(child.get(), child1_1);
-    // printf("POST REMOVE ==== \n");
-    // printGraph(root1, 0 );
-    //
-    // std::span roots = std::span(&root1, 1);
-    // flattenTransformHiearchy(roots);
-    //
-    // localTransform* walk = &root1;
-    // while(!walk->children.empty())
-    // {
-    //     printf("looking up from %s to %s \n", walk->name.c_str(), lookupflt(walk->ID)->name.c_str());
-    //     walk = walk->children[0].get();
-    // }
-  
-    // exit(10);
 
     int defaultTexture = rendererData->AddTexture(TextureData(rendererContext, "textures/blank.png", TextureData::DIFFUSE));
     int defaultSPec = rendererData->AddTexture(TextureData(rendererContext, "textures/default_roug.tga", TextureData::SPECULAR));

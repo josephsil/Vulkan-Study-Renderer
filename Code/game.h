@@ -2,6 +2,6 @@
 //"game logic" in the sense of, code that's "content"
 
 struct Scene;
-class RendererLoadedAssetData;
+class AssetManager;
 struct RendererContext;
-void Add_Scene_Content(RendererContext rendererContext, RendererLoadedAssetData* rendererData, Scene* scene);
+void Add_Scene_Content(RendererContext rendererContext, AssetManager* rendererData, Scene* scene);

@@ -46,15 +46,15 @@ int main()
     // io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;         // IF using Docking Branch
     
     
-    vulkanRenderer app = {};
+    vulkanRenderer renderer = {};
     
     MemoryArena::memoryArena sceneArena = {};
     MemoryArena::initialize(&sceneArena, 3 * 1000000);
     Scene scene = {};
     InitializeScene(&sceneArena, &scene);
-    Add_Scene_Content(app.getHandles(), app.rendererSceneData, &scene);
-    app.initializeRendererForScene(&scene);
-    engineLoop(&app, &scene);
+    Add_Scene_Content(renderer.getHandles(), renderer.AssetDataAndMemory, &scene);
+    renderer.initializeRendererForScene(&scene);
+    engineLoop(&renderer, &scene);
 
     return EXIT_SUCCESS;
 }

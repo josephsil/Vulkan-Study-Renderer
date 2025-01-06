@@ -22,31 +22,26 @@ const static int SWAPCHAIN_SIZE = 3;
 const static int MAX_DRAWINDIRECT_COMMANDS = 200000; //Draw commands per frmae
 const static int MAX_DRAWS_PER_PIPELINE = 2000; //whatever, probably could be dynamic, will fix later 
 const static int MAX_PIPELINES = 80; //whatever, probably could be dynamic, will fix later
+const VkFormat shadowFormat = VK_FORMAT_D16_UNORM;
+
+
+#ifdef NDEBUG
+const bool enableValidationLayers = false;
+#else
+const bool enableValidationLayers = true;
+#endif
+
+
+
+const std::vector<const char*> validationLayers = {
+    "VK_LAYER_KHRONOS_validation"
+};
+const uint32_t SHADOW_MAP_SIZE = 1024;
 
 //deletio nqueue stuff
 
-enum class deletionType
-{
-    vmaBuffer,
-    descriptorPool,
-    Semaphore,
-    Fence,
-    CommandPool,
-    ImageView,
-    Image,
-    VkMemory,
-    VmaImage,
-    Sampler,
-    
-};
 
-    
-struct deleteableResource
-{
-    deletionType type;
-    void* handle;
-    VmaAllocation vmaAllocation; // usually not defined 
-};
+
 
 // const static VkIndexType INDEX_BUFFER_FORMAT = VK_INDEX_TYPE_UINT32;
 

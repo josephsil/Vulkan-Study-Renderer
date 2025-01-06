@@ -1,5 +1,6 @@
 #pragma once
 
+#include "RendererDeletionQueue.h"
 #include "General/Array.h"
 #include "VulkanIncludes/forward-declarations-renderer.h"
 struct CommandPoolManager;
@@ -19,7 +20,7 @@ struct RendererContext
     VmaAllocator allocator;
     MemoryArena::memoryArena* arena;
     MemoryArena::memoryArena* perframeArena;
-    Array<deleteableResource>* rendererdeletionqueue;
+    RendererDeletionQueue* rendererdeletionqueue;
 };
 
 struct rendererContext_NEW //gonna use this for textures -- may rename, may phase out other one
@@ -27,5 +28,5 @@ struct rendererContext_NEW //gonna use this for textures -- may rename, may phas
     VkDevice device;
     VmaAllocator allocator;
     MemoryArena::memoryArena* memoryArena;
-    Array<deleteableResource>* rendererdeletionqueue;
+    RendererDeletionQueue* rendererdeletionqueue;
 };

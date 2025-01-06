@@ -32,7 +32,7 @@ VkImageView TextureUtilities::createImageView(RendererContext handles, VkImage i
     VkImageView imageView;
     VK_CHECK(vkCreateImageView(handles.device, &viewInfo, nullptr, &imageView));
     
-    handles.rendererdeletionqueue->push_back(deleteableResource{deletionType::ImageView, imageView});
+    handles.rendererdeletionqueue->push_backVk(deletionType::ImageView, (uint64_t)imageView);
     setDebugObjectName(handles.device, VK_OBJECT_TYPE_IMAGE_VIEW, "TextureCreation image view", (uint64_t)imageView);
     return imageView;
 }
@@ -44,7 +44,7 @@ void TextureUtilities::createImage(RendererContext rendererHandles, uint64_t wid
                                    VmaAllocation& allocation, uint32_t miplevels, uint32_t araryLayers, bool cubeCompatible)
 {
 
-    //TODO JS: Properties flags to vma 
+    //TODO JS Properties flags to vma 
     VkImageCreateInfo imageInfo{};
 
     imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -157,10 +157,8 @@ void TextureUtilities::transitionImageLayout(RendererContext rendererHandles, Vk
         
 
     if (usingTempBuffer)
-        rendererHandles.commandPoolmanager->endSingleTimeCommands(tempBufferAndPool);
-    else
     {
-        
+        rendererHandles.commandPoolmanager->endSingleTimeCommands(tempBufferAndPool);
     }
 }
 

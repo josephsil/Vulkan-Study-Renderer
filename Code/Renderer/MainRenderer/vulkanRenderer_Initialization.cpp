@@ -112,7 +112,7 @@ vkb::Instance getInstance()
 }
 
 
-InitializedRenderer initializeRendererHandles(SDL_Window* _window, int WIDTH, int HEIGHT)
+rendererObjects static_initializeRendererHandles(SDL_Window* _window, int WIDTH, int HEIGHT)
 {
     //Get instance
     auto vkb_instance = getInstance();

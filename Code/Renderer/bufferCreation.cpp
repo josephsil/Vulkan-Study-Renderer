@@ -50,7 +50,7 @@ void BufferUtilities::stageVertexBufferAndRegisterDeletion(RendererContext rende
                                          data, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 
     //register permanent buffer to deletion queue
-    rendererHandles.rendererdeletionqueue->push_back({deletionType::vmaBuffer, buffer, allocation});
+    rendererHandles.rendererdeletionqueue->push_backVMA(deletionType::vmaBuffer, uint64_t(buffer), allocation);
     
 }
 
@@ -64,7 +64,7 @@ void BufferUtilities::stageIndexBufferAndRegisterDeletion(RendererContext render
                                          data, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 
     //register permanent buffer to deletion queue
-    rendererHandles.rendererdeletionqueue->push_back({deletionType::vmaBuffer, buffer, allocation});
+    rendererHandles.rendererdeletionqueue->push_backVMA(deletionType::vmaBuffer, uint64_t(buffer), allocation);
     
 }
 
@@ -142,7 +142,7 @@ void BufferUtilities::CreateImage( RendererContext handles,
     printf("buffer creation texture input:%p\n", (uint64_t)*pImage);
     vmaCreateImage(handles.allocator, pImageCreateInfo, &allocInfo, pImage, pAllocation, &AllocationInfo);
     vmaSetAllocationName(handles.allocator, *pAllocation, "TEST" );
-    handles.rendererdeletionqueue->push_back({deletionType::VmaImage, *pImage, *pAllocation});
+    handles.rendererdeletionqueue->push_backVMA(deletionType::VmaImage, uint64_t(*pImage), *pAllocation);
     setDebugObjectName(handles.device, VK_OBJECT_TYPE_IMAGE, "Bufferutiltiies create image vkimage", (uint64_t)*pImage);
     printf("buffer creation texture:%p\n", (uint64_t)*pImage);
     deviceMemory = &AllocationInfo.deviceMemory;

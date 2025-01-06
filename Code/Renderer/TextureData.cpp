@@ -418,7 +418,7 @@ void TextureData::createTextureSampler(VkSampler* textureSampler, RendererContex
 
 
     VK_CHECK(vkCreateSampler(handles.device, &samplerInfo, nullptr, textureSampler));
-	handles.rendererdeletionqueue->push_back({deletionType::Sampler, *textureSampler});
+	handles.rendererdeletionqueue->push_backVk(deletionType::Sampler, uint64_t(*textureSampler));
     
 	
 }
@@ -636,8 +636,8 @@ VkFormat TextureData::createImageKTX(const char* path, TextureType type, bool mi
 	
 	setDebugObjectName(rendererHandles.device, VK_OBJECT_TYPE_IMAGE, "KTX texture", (uint64_t)texture.image);
 
-	rendererHandles.rendererdeletionqueue->push_back({deletionType::Image, texture.image});
-	rendererHandles.rendererdeletionqueue->push_back({deletionType::VkMemory, texture.deviceMemory});
+	rendererHandles.rendererdeletionqueue->push_backVk(deletionType::Image, uint64_t(texture.image));
+	rendererHandles.rendererdeletionqueue->push_backVk(deletionType::VkMemory, uint64_t(texture.deviceMemory));
 	ktxTexture_Destroy((ktxTexture*)kTexture);
 
 	

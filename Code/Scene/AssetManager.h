@@ -21,11 +21,11 @@ struct textureSetIDs
 struct TextureData;
 struct MeshData;
 struct VkDescriptorImageInfo;
-class RendererLoadedAssetData;
+class AssetManager;
 
 
-void InitializeRendererSceneData(MemoryArena::memoryArena* arena, RendererLoadedAssetData* scene);
-class RendererLoadedAssetData
+void static_AllocateAssetMemory(MemoryArena::memoryArena* arena, AssetManager* scene);
+class AssetManager
 {
 public:
     int materialTextureCount();

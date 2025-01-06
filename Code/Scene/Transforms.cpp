@@ -1,7 +1,7 @@
 #include "Transforms.h"
 #include <stack>
 
-#include "RendererLoadedAssetData.h"
+#include "AssetManager.h"
 #include "General/MemoryArena.h"
 
 //TODO P0:

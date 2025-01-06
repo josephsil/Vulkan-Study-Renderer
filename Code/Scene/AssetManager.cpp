@@ -3,7 +3,7 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define GLM_GTC_quaternion
 #include "glm/glm.hpp"
-#include "RendererLoadedAssetData.h"
+#include "AssetManager.h"
 #include <Renderer/MeshData.h> // TODO JS: I want to separate the backing data from the scene 
 #include <Renderer/TextureData.h> // TODO JS: I want to separate the backing data from the scene 
 #include <General/MemoryArena.h>
@@ -11,7 +11,7 @@
 #include "General/Array.h"
 
 //No scale for now
-void InitializeRendererSceneData(MemoryArena::memoryArena* arena, RendererLoadedAssetData* scene)
+void static_AllocateAssetMemory(MemoryArena::memoryArena* arena, AssetManager* scene)
 {
 
     // arallel arrays per Light
@@ -33,19 +33,19 @@ void InitializeRendererSceneData(MemoryArena::memoryArena* arena, RendererLoaded
 //So things like, get the index back from this and then index in to these vecs to update them
 //At some point in the future I can replace this with a more sophisticated reference system if I need
 //Even just returning a pointer is probably plenty, then I can sort the lists, prune stuff, etc.
-int RendererLoadedAssetData::AddMaterial(float roughness, float metallic, glm::vec3 color, textureSetIDs textureindex, uint32_t pipeline)
+int AssetManager::AddMaterial(float roughness, float metallic, glm::vec3 color, textureSetIDs textureindex, uint32_t pipeline)
 {
   materials.push_back(Material{
         .pipelineidx = pipeline, .diffuseIndex = textureindex.diffuseIndex, .specIndex   = textureindex.specIndex, .normalIndex = textureindex.normIndex, .metallic = metallic, .roughness = roughness, .color = color
     });
     return materials.size() -1;
 }
-void RendererLoadedAssetData::Update()
+void AssetManager::Update()
 {
     //noop
 }
 
-uint32_t RendererLoadedAssetData::getOffsetFromMeshID(int id)
+uint32_t AssetManager::getOffsetFromMeshID(int id)
 {
     uint32_t indexcount = 0;
     for (int i = 0; i < id; i++)
@@ -55,7 +55,7 @@ uint32_t RendererLoadedAssetData::getOffsetFromMeshID(int id)
     return indexcount;
 }
 
-uint32_t RendererLoadedAssetData::getIndexCount()
+uint32_t AssetManager::getIndexCount()
 {
     uint32_t indexcount = 0;
     for (int i = 0; i < meshCount; i++)
@@ -65,7 +65,7 @@ uint32_t RendererLoadedAssetData::getIndexCount()
     return indexcount;
 }
 
-uint32_t RendererLoadedAssetData::getVertexCount()
+uint32_t AssetManager::getVertexCount()
 {
     uint32_t vertexCount = 0;
     for (int i = 0; i < meshCount; i++)
@@ -79,18 +79,18 @@ uint32_t RendererLoadedAssetData::getVertexCount()
 
 
 
-int RendererLoadedAssetData::materialTextureCount()
+int AssetManager::materialTextureCount()
 {
     return  backing_diffuse_textures.size();
 }
 
 
-int RendererLoadedAssetData::AddTexture(TextureData T)
+int AssetManager::AddTexture(TextureData T)
 {
     backing_diffuse_textures.push_back(T);
     return backing_diffuse_textures.size() -1;
 }
-textureSetIDs RendererLoadedAssetData::AddTextureSet(TextureData D, TextureData S, TextureData N)
+textureSetIDs AssetManager::AddTextureSet(TextureData D, TextureData S, TextureData N)
 {
     backing_diffuse_textures.push_back(D);
     backing_diffuse_textures.push_back(S);
@@ -98,7 +98,7 @@ textureSetIDs RendererLoadedAssetData::AddTextureSet(TextureData D, TextureData 
     return {(uint32_t)backing_diffuse_textures.size() -3, (uint32_t)backing_diffuse_textures.size() -2, (uint32_t)backing_diffuse_textures.size() -1};
 }
 
-int RendererLoadedAssetData::AddBackingMesh(MeshData M)
+int AssetManager::AddBackingMesh(MeshData M)
 {
     backing_meshes.push_back(M);
     meshBoundingSphereRad.push_back(boundingSphereFromMeshBounds(M.boundsCorners));
@@ -106,7 +106,7 @@ int RendererLoadedAssetData::AddBackingMesh(MeshData M)
 }
 
 //TODO JS: 
-positionRadius RendererLoadedAssetData::GetBoundingSphere(int idx)
+positionRadius AssetManager::GetBoundingSphere(int idx)
 {
     printf("NOT IMPLEMENTED: NEED TO USE CORRECT INDEX FOR GETBOUNDINGSPHERE\n");
     return meshBoundingSphereRad[idx];
@@ -119,6 +119,6 @@ struct sortData
 };
 
 
-void RendererLoadedAssetData::Cleanup()
+void AssetManager::Cleanup()
 {
 }

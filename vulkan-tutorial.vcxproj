@@ -259,6 +259,7 @@
     <ClCompile Include="Code\Renderer\MikkTImpl.cpp" />
     <ClCompile Include="Code\Renderer\PipelineDataObject.cpp">
     </ClCompile>
+    <ClCompile Include="Code\Renderer\RendererDeletionQueue.cpp" />
     <ClCompile Include="Code\Renderer\rendererGlobals.cpp" />
     <ClCompile Include="Code\Renderer\Shaders\ShaderLoading.cpp">
     </ClCompile>
@@ -273,7 +274,7 @@
     <ClCompile Include="Code\Renderer\VulkanIncludes\vmaImplementation.cpp" />
     <ClCompile Include="Code\Renderer\VulkanIncludes\VulkanMemory.cpp" />
     <ClCompile Include="Code\Scene\Scene.cpp" />
-    <ClCompile Include="Code\Scene\RendererLoadedAssetData.cpp">
+    <ClCompile Include="Code\Scene\AssetManager.cpp">
     </ClCompile>
     <ClCompile Include="Code\Scene\Transforms.cpp" />
     <ClCompile Include="External\ImageLibraryImplementations.cpp" />
@@ -306,10 +307,12 @@
     <ClInclude Include="Code\Renderer\gltf\gltfLoading.h" />
     <ClInclude Include="Code\Renderer\gltf\gltf_impl.h" />
     <ClInclude Include="Code\Renderer\gpu-data-structs.h" />
+    <ClInclude Include="Code\Renderer\MainRenderer\rendererStructs.h" />
     <ClInclude Include="Code\Renderer\MainRenderer\vulkanRenderer.h" />
     <ClInclude Include="Code\Renderer\MeshData.h" />
     <ClInclude Include="Code\Renderer\MikkTImpl.h" />
     <ClInclude Include="Code\Renderer\PipelineDataObject.h" />
+    <ClInclude Include="Code\Renderer\RendererDeletionQueue.h" />
     <ClInclude Include="Code\Renderer\rendererGlobals.h" />
     <ClInclude Include="Code\Renderer\RendererContext.h" />
     <ClInclude Include="Code\Renderer\RendererInterface.h" />
@@ -323,7 +326,7 @@
     <ClInclude Include="Code\Renderer\VulkanIncludes\VulkanMemory.h" />
     <ClInclude Include="Code\Renderer\VulkanIncludes\Vulkan_Includes.h" />
     <ClInclude Include="Code\Scene\Scene.h" />
-    <ClInclude Include="Code\Scene\RendererLoadedAssetData.h" />
+    <ClInclude Include="Code\Scene\AssetManager.h" />
     <ClInclude Include="Code\Scene\Transforms.h" />
     <ClInclude Include="External\imgui\backends\imgui_impl_sdl2.h" />
     <ClInclude Include="External\imgui\backends\imgui_impl_vulkan.h" />

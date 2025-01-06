@@ -115,6 +115,6 @@ void dataBuffer::allocateVulkanMemory(RendererContext h, VmaAllocation* allocati
      allocation,
     data);
 
-    h.rendererdeletionqueue->push_back({deletionType::vmaBuffer, data, *allocation});
+    h.rendererdeletionqueue->push_backVMA(deletionType::vmaBuffer, uint64_t(data), *allocation);
 }
 
