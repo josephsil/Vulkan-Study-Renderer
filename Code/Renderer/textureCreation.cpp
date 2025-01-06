@@ -168,15 +168,6 @@ void TextureUtilities::generateMipmaps(RendererContext rendererHandles, VkImage 
                                        int32_t texWidth,
                                        int32_t texHeight, uint32_t mipLevels)
 {
-    // Check if image format supports linear blitting
-    VkFormatProperties formatProperties;
-    vkGetPhysicalDeviceFormatProperties(rendererHandles.physicalDevice, imageFormat, &formatProperties);
-
-    if (!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT))
-    {
-       printf("texture image format does not support linear blitting!");
-    exit(-1);
-    }
 
     bufferAndPool bandp = rendererHandles.commandPoolmanager->beginSingleTimeCommands(false);
 

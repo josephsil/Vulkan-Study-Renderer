@@ -24,6 +24,7 @@ struct QueueData
 };
 
 
+//Not really sure I like this conceptually
 struct CommandPoolManager
 {
 public:

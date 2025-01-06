@@ -1,6 +1,4 @@
 #include "vmaImplementation.h"
-
-
 #include "VulkanMemory.h"
 
 

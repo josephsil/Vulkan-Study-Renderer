@@ -8,121 +8,34 @@
 ////
 #include <cstdlib>
 #include <span>
-#include "Vertex.h"
+#include "../Vertex.h"
 #include <ImageLibraryImplementations.h>
 #include <General/Array.h>
 #include <General/MemoryArena.h>
-#include "bufferCreation.h"
-#include "CommandPoolManager.h"
-#include "gpu-data-structs.h"
-#include "meshData.h"
+#include "../bufferCreation.h"
+#include "../CommandPoolManager.h"
+#include "../gpu-data-structs.h"
+#include "../meshData.h"
 #include <Scene/RendererLoadedAssetData.h>
 #include "glm_misc.h"
 #include "imgui.h"
-#include "RendererInterface.h"
-#include "Shaders/ShaderLoading.h"
-#include "textureCreation.h"
-#include "TextureData.h"
-#include "VkBootstrap.h"
-#include "vulkan-utilities.h"
+#include "../RendererInterface.h"
+#include "../textureCreation.h"
+#include "../TextureData.h"
+#include "../vulkan-utilities.h"
 #include "backends/imgui_impl_sdl2.h"
 #include "backends/imgui_impl_vulkan.h"
 #include "Scene/Scene.h"
 #include "Scene/Transforms.h"
-#include "VulkanIncludes/vmaImplementation.h"
-#include "VulkanIncludes/VulkanMemory.h"
+#include "../VulkanIncludes/vmaImplementation.h"
+#include "../VulkanIncludes/VulkanMemory.h"
+#include "Renderer/VulkanIncludes/Vulkan_Includes.h"
 
 struct gpuPerShadowData;
-VkSurfaceKHR surface;
+
 
 #pragma region vkb setup
-vkb::Instance GET_INSTANCE()
-{
-    vkb::InstanceBuilder instance_builder;
-    auto instanceBuilderResult = instance_builder
-                                  // .request_validation_layers()
-                                 .use_default_debug_messenger().enable_extension(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)
-                                 .require_api_version(1, 3, 255)
-                                 .build();
-    if (!instanceBuilderResult)
-    {
-        printf("Failed to create Vulkan instance. Error: %s, \n", instanceBuilderResult.error().message().data());
-        assert(false);
-    }
 
-    return instanceBuilderResult.value();
-}
-
-bool HAS_HOST_IMAGE_COPY;
-
-vkb::PhysicalDevice GET_GPU(vkb::Instance instance)
-{
-
-    const std::vector<const char*> deviceExtensions = {
-       VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_MAINTENANCE_4_EXTENSION_NAME, VK_KHR_MAINTENANCE_3_EXTENSION_NAME, VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME, VK_EXT_MUTABLE_DESCRIPTOR_TYPE_EXTENSION_NAME,
-        //for image copy:
-        // VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, VK_KHR_COPY_COMMANDS_2_EXTENSION_NAME, VK_KHR_FORMAT_FEATURE_FLAGS_2_EXTENSION_NAME,
-    };
-    VkPhysicalDeviceFeatures features{};
-    VkPhysicalDeviceVulkan11Features features11{};
-    VkPhysicalDeviceVulkan12Features features12{};
-    VkPhysicalDeviceVulkan13Features features13{};
-    features.multiDrawIndirect = VK_TRUE;
-    features.wideLines = VK_TRUE;
-    features11.shaderDrawParameters = VK_TRUE;
-    features12.descriptorIndexing = VK_TRUE;
-    features12.runtimeDescriptorArray = VK_TRUE;
-    features12.descriptorBindingPartiallyBound = VK_TRUE;
-    features13.dynamicRendering = VK_TRUE;
-    features13.synchronization2 = VK_TRUE;
-
-   
-    vkb::PhysicalDeviceSelector phys_device_selector(instance);
-    auto physicalDeviceBuilderResult = phys_device_selector
-                                       .set_minimum_version(1, 3)
-                                       .set_surface(surface)
-                                       .require_separate_transfer_queue()
-    .set_required_features(features)
-    .set_required_features_11(features11)
-                                       .set_required_features_12(features12)
-    // .set_required_features({.})
-    .set_required_features_13(features13)
-                                       //NOTE: Not supporting gpus without dedicated queue 
-                                       .require_separate_compute_queue()
-                                       .add_required_extensions(deviceExtensions)
-                                       .select();
-
-
-    if (!physicalDeviceBuilderResult)
-    {
-        printf("Failed to create Physical Device %s \n",  physicalDeviceBuilderResult.error().message().data());
-        exit(1);
-    }
-    
-    HAS_HOST_IMAGE_COPY = physicalDeviceBuilderResult.value().enable_extension_if_present(VK_EXT_HOST_IMAGE_COPY_EXTENSION_NAME);
-
-    auto a =physicalDeviceBuilderResult.value().get_extensions();
-    for(auto& v : a)
-    {
-        printf("%s \n", v.c_str());
-    }
-    return physicalDeviceBuilderResult.value();
-}
-
-vkb::Device GET_DEVICE(vkb::PhysicalDevice gpu)
-{
-    vkb::DeviceBuilder device_builder{gpu};
-
-    auto devicebuilderResult = device_builder.build();
-
-    if (!devicebuilderResult)
-    {
-        printf("Failed to create Virtual Device \n");
-        exit(1);
-    }
-
-    return devicebuilderResult.value();
-}
 
 #pragma endregion
 
@@ -130,122 +43,88 @@ vkb::Device GET_DEVICE(vkb::PhysicalDevice gpu)
 
 std::vector<unsigned int> pastTimes;
 unsigned int averageCbTime;
-
 unsigned int frames;
-
 unsigned int MAX_TEXTURES = 120;
 
-
+void /*todo*/ restofInit(InitializedRenderer initializedrenderer);
+RendererResources /*todo*/  initializeResources(InitializedRenderer initializedrenderer,  MemoryArena::memoryArena* allocationArena, Array<deleteableResource>* deletionQueue,  CommandPoolManager* commandPoolmanager);
+vulkanTextureInfo createDepthResources(InitializedRenderer initializedrenderer,  MemoryArena::memoryArena* allocationArena, Array<deleteableResource>* deletionQueue,  CommandPoolManager* commandPoolmanager);
+void allocaterendererCommandBuffers(VkDevice device, VkCommandPool pool, rendererCommandBuffers* resultCommandBuffers);
+void createSyncObjects(VkDevice device,  Array<deleteableResource>* deletionQueue, rendererSemaphores* semaphoresToCreate, VkFence* fence);
 
 vulkanRenderer::vulkanRenderer()
 {
-    initWindow();
-    initVulkan();
-    initDearImgui();
+    //Initialize memory arenas we use throughout renderer 
+    this->rendererArena = {};
+    MemoryArena::initialize(&rendererArena, 1000000 * 200); // 200mb
+    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    {
+        MemoryArena::initialize(&perFrameArenas[i], 100000 * 50); // 5mb each //TODO JS: Could be much smaller if I used stable memory for per frame verts and stuff
+    }
+
+    //Initialize the main datastructures the renderer uses 
+    this->deletionQueue = MemoryArena::AllocSpan<deleteableResource>(&rendererArena, 1200); //big
+    FramesInFlightData.resize(MAX_FRAMES_IN_FLIGHT);
+    
+    initializeWindow();
+
+    rendererVulkanObjects = initializeRendererHandles(_window, WIDTH, HEIGHT);
+    for(int i =0; i < rendererResources.swapchainImageViews.size(); i++)
+    {
+        deletionQueue.push_back({deletionType::ImageView, rendererResources.swapchainImageViews[i]});
+    }
+    
+    commandPoolmanager = CommandPoolManager(rendererVulkanObjects.vkbdevice);
+    deletionQueue.push_back({deletionType::CommandPool, commandPoolmanager.commandPool});
+    deletionQueue.push_back({deletionType::CommandPool, commandPoolmanager.transferCommandPool});
+
+    rendererResources = initializeResources(rendererVulkanObjects, &rendererArena, &deletionQueue, &commandPoolmanager );
+
+    //Command buffer stuff
+    //semaphores
+    for (int i = 0; i < FramesInFlightData.size(); i++)
+    {
+        allocaterendererCommandBuffers(rendererVulkanObjects.vkbdevice.device,  commandPoolmanager.commandPool, &(FramesInFlightData[i].commanderBuffers));
+        createSyncObjects(rendererVulkanObjects.vkbdevice.device,  &deletionQueue, &(FramesInFlightData[i].semaphores), &FramesInFlightData[i].inFlightFence);
+    }
+
+   
+        
+    //Initialize sceneData
+    rendererSceneData = MemoryArena::Alloc<RendererLoadedAssetData>(&rendererArena);
+    InitializeRendererSceneData(&rendererArena, rendererSceneData);
+
+    
+
+    //imgui
+    initializeDearIMGUI();
+
+    //finally
     pastTimes.resize(9999);
+    
 }
 
-
-void vulkanRenderer::initWindow()
-{
-    // We initialize SDL and create a window with it. 
-    SDL_Init(SDL_INIT_VIDEO);
-    auto window_flags = SDL_WINDOW_VULKAN;
-
-    //create blank SDL window for our application
-    _window = SDL_CreateWindow(
-        "Vulkan Engine", //window title
-        SDL_WINDOWPOS_UNDEFINED, //window position x (don't care)
-        SDL_WINDOWPOS_UNDEFINED, //window position y (don't care)
-        WIDTH, //window width in pixels
-        HEIGHT, //window height in pixels
-        window_flags
-    );
-}
 
 TextureData cube_irradiance;
 TextureData cube_specular;
 
-vkb::Instance vkb_instance;
-vkb::PhysicalDevice vkb_physicalDevice;
-vkb::Device vkb_device;
-vkb::Swapchain vkb_swapchain;
-
-
-//could be static utility, move
-//Throw a bunch of VUID-vkCmdDrawIndexed-viewType-07752 errors due to image format, but renders fine
- VkDescriptorSet vulkanRenderer::GetOrRegisterImguiTextureHandle(VkSampler sampler, VkImageView imageView)
-{
-        if (imguiRegisteredTextures.contains(imageView))
-        {
-            return imguiRegisteredTextures.at(imageView);
-        }
-  
-    //auto img = ImGui_ImplVulkan_AddTexture(shadowSamplers[shadowIndex], shadowMapSamplingImageViews[shadowIndex][0], VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL);
-     VkDescriptorSet set = ImGui_ImplVulkan_AddTexture(sampler, imageView,VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-     imguiRegisteredTextures.emplace(imageView, set);
-     return set;
-    
-}
-void vulkanRenderer::initDearImgui()
-{
-
-    VkDescriptorPoolSize pool_sizes[] = { { VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
-    { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
-    { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
-    { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
-    { VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 },
-    { VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 },
-    { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 },
-    { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 },
-    { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
-    { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
-    { VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 } };
-
-    VkDescriptorPoolCreateInfo pool_info = {};
-    pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-    pool_info.maxSets = 1000;
-    pool_info.poolSizeCount = (uint32_t)std::size(pool_sizes);
-    pool_info.pPoolSizes = pool_sizes;
-
-    VK_CHECK(vkCreateDescriptorPool(device, &pool_info, nullptr, &imgui_descriptorPool));
-    deletionQueue.push_back({deletionType::descriptorPool, imgui_descriptorPool});
-
-    ImGui_ImplSDL2_InitForVulkan(_window);
-    ImGui_ImplVulkan_InitInfo init_info = {};
-    init_info.Instance = instance;
-    init_info.PhysicalDevice = physicalDevice;
-    init_info.Device = device;
-    init_info.QueueFamily = commandPoolmanager.Queues.graphicsQueueFamily;
-    init_info.Queue = commandPoolmanager.Queues.graphicsQueue;
-    // init_info.PipelineCache = HOPEFULLY OPTIONAL??;
-    init_info.DescriptorPool = imgui_descriptorPool;
-    init_info.Subpass = 0;
-    init_info.MinImageCount = 2;
-    init_info.ImageCount = 2;
-    init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
-    init_info.UseDynamicRendering = true;
-    //dynamic rendering parameters for imgui to use
-    init_info.PipelineRenderingCreateInfo = {.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO};
-    init_info.PipelineRenderingCreateInfo.colorAttachmentCount = 1;
-    init_info.PipelineRenderingCreateInfo.pColorAttachmentFormats = &swapChainColorFormat;
-    init_info.PipelineRenderingCreateInfo.depthAttachmentFormat = depthFormat;
-    //init_info.Allocator = nullptr; //
-    //init_info.CheckVkResultFn = check_vk_result;
-    ImGui_ImplVulkan_Init(&init_info);
-    ImGui_ImplVulkan_CreateFontsTexture();
-    // (this gets a bit more complicated, see example app for full reference)
-    // ImGui_ImplVulkan_CreateFontsTexture(YOUR_COMMAND_BUFFER);
-    // (your code submit a queue)
-    //ImGui_ImplVulkan_DestroyFontUploadObjects(); //TODO JS: destroy queue
-}
-
+// VkSurfaceKHR surface; //todo js 0
+// vkb::Instance vkb_instance; //todo js 0
+// vkb::PhysicalDevice vkb_physicalDevice; //todo js 0
+// vkb::Device vkb_device; //todo js 0
+// vkb::Swapchain vkb_swapchain; //todo js 0
 
 
 RendererContext vulkanRenderer::getHandles()
 {
-    return RendererContext{physicalDevice, device, &commandPoolmanager, allocator, &rendererArena, &perFrameArenas[currentFrame], &deletionQueue, HAS_HOST_IMAGE_COPY};
+    return RendererContext{
+        .physicalDevice = rendererVulkanObjects.vkbdevice.physical_device,
+        .device =  rendererVulkanObjects.vkbdevice.device,
+        .commandPoolmanager = &commandPoolmanager,
+        .allocator =  rendererVulkanObjects.vmaAllocator,
+        .arena = &rendererArena,
+        .perframeArena = &perFrameArenas[currentFrame],
+        .rendererdeletionqueue = &deletionQueue};
 }
 
 
@@ -255,11 +134,11 @@ void vulkanRenderer::updateShadowImageViews(int frame, Scene* scene)
 {
     int i = frame;
        
-    shadowMapRenderingImageViews[i] =  MemoryArena::AllocSpan<VkImageView>(&rendererArena, MAX_SHADOWMAPS);
+    rendererResources.shadowMapRenderingImageViews[i] =  MemoryArena::AllocSpan<VkImageView>(&rendererArena, MAX_SHADOWMAPS);
     for (int j = 0; j < MAX_SHADOWMAPS; j++)
     {
-        shadowMapRenderingImageViews[i][j] = TextureUtilities::createImageView(
-            getHandles(), shadowImages[i], shadowFormat,
+        rendererResources.shadowMapRenderingImageViews[i][j] = TextureUtilities::createImageView(
+            getHandles(), rendererResources.shadowImages[i], shadowFormat,
             VK_IMAGE_ASPECT_DEPTH_BIT,
             (VkImageViewType)  VK_IMAGE_TYPE_2D,
             1,
@@ -267,7 +146,7 @@ void vulkanRenderer::updateShadowImageViews(int frame, Scene* scene)
             j);
     }
 
-    shadowMapSamplingImageViews[i] =  MemoryArena::AllocSpan<VkImageView>(&rendererArena, MAX_SHADOWCASTERS);
+    rendererResources.shadowMapSamplingImageViews[i] =  MemoryArena::AllocSpan<VkImageView>(&rendererArena, MAX_SHADOWCASTERS);
     for (int j = 0; j < MAX_SHADOWCASTERS; j++)
     {
         if (j < glm::min(scene->lightCount, MAX_SHADOWCASTERS))
@@ -279,8 +158,8 @@ void vulkanRenderer::updateShadowImageViews(int frame, Scene* scene)
                 type = VK_IMAGE_VIEW_TYPE_CUBE;
             }
            
-            shadowMapSamplingImageViews[i][j] = TextureUtilities::createImageView(
-                getHandles(), shadowImages[i], shadowFormat,
+            rendererResources.shadowMapSamplingImageViews[i][j] = TextureUtilities::createImageView(
+                getHandles(), rendererResources.shadowImages[i], shadowFormat,
                 VK_IMAGE_ASPECT_DEPTH_BIT,
                 (VkImageViewType)  type,
                 1,
@@ -290,116 +169,58 @@ void vulkanRenderer::updateShadowImageViews(int frame, Scene* scene)
         }
         else
         {
-            shadowMapSamplingImageViews[i][j] = shadowMapRenderingImageViews[i][j];
+            rendererResources.shadowMapSamplingImageViews[i][j] = rendererResources.shadowMapRenderingImageViews[i][j];
         }
     }
 }
 
-
-
-
-
-void vulkanRenderer::initVulkan()
+RendererResources /*todo*/ initializeResources(InitializedRenderer initializedrenderer,  MemoryArena::memoryArena* allocationArena, Array<deleteableResource>* deletionQueue, CommandPoolManager* commandPoolmanager)
 {
-    this->rendererArena = {};
-    MemoryArena::initialize(&rendererArena, 1000000 * 200); // 200mb
-    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-    {
-        MemoryArena::initialize(&perFrameArenas[i], 100000 * 50); // 5mb each //TODO JS: Could be much smaller if I used stable memory for per frame verts and stuff
-    }
+    std::vector<VkImage> swapchainImages = initializedrenderer.swapchain.get_images().value();
+    std::vector<VkImageView> swapchainImageViews = initializedrenderer.swapchain.get_image_views().value();
 
-    this->deletionQueue = MemoryArena::AllocSpan<deleteableResource>(&rendererArena, 1200); //big
-    FramesInFlightData.resize(MAX_FRAMES_IN_FLIGHT);
-    //Get instance
-    vkb_instance = GET_INSTANCE();
-    instance = vkb_instance.instance;
-    debugMessenger = vkb_instance.debug_messenger;
-
-    //Get surface
-    SDL_bool err = SDL_Vulkan_CreateSurface(_window, instance, &surface);
-    if (!err)
-    {
-        printf("Failed to create SDL surface \n");
-        exit(1);
-    }
-
-    SDL_Vulkan_GetDrawableSize(_window, &WIDTH, &HEIGHT);
-
-    //Get physical device
-    vkb_physicalDevice = GET_GPU(vkb_instance);
-    physicalDevice = vkb_physicalDevice.physical_device;
-
-    //Get logical device
-    vkb_device = GET_DEVICE(vkb_physicalDevice);
-    device = vkb_device.device;
-
-    //TODO JS: organize FPs somewhere
-    registerDebugUtilsFn((PFN_vkSetDebugUtilsObjectNameEXT)vkGetDeviceProcAddr(device, "vkSetDebugUtilsObjectNameEXT"));
-   
-
-    // vkCopyImageToMemoryEXT = (PFN_vkCopyImageToMemoryEXT)VkGetCopy(device, "vkCopyImageToMemoryEXT");
-    allocator = VulkanMemory::GetAllocator(device, physicalDevice, instance);
-    
-    
-    //Get queues and queue families and command pools
-    commandPoolmanager = CommandPoolManager(vkb_device);
-    deletionQueue.push_back({deletionType::CommandPool, commandPoolmanager.commandPool});
-    deletionQueue.push_back({deletionType::CommandPool, commandPoolmanager.transferCommandPool});
-
-    //Swapchain
-    vkb::SwapchainBuilder swapchain_builder{vkb_device};
-
-    vkb_swapchain = swapchain_builder
-                    .use_default_format_selection()
-                    .set_desired_present_mode(VK_PRESENT_MODE_MAILBOX_KHR)
-                    .set_desired_extent(WIDTH, HEIGHT)
-                    .build()
-                    .value();
-
-    swapChain = vkb_swapchain.swapchain;
-    swapChainImages = vkb_swapchain.get_images().value();
-    swapChainImageViews = vkb_swapchain.get_image_views().value();
-
-    for(int i =0; i < swapChainImageViews.size(); i++)
-    {
-        deletionQueue.push_back({deletionType::ImageView, swapChainImageViews[i]});
-    }
-    swapChainExtent = vkb_swapchain.extent;
-    swapChainColorFormat = vkb_swapchain.image_format;
-
-    shadowFormat = VK_FORMAT_D16_UNORM;
     //Create shadow image(s) 
+    std::vector<VkImage> shadowImages = {};
     shadowImages.resize(MAX_FRAMES_IN_FLIGHT);
+    std::vector<VkSampler> shadowSamplers = {};
     shadowSamplers.resize(MAX_FRAMES_IN_FLIGHT);
+    std::vector<VmaAllocation> shadowMemory = {};
     shadowMemory.resize(MAX_FRAMES_IN_FLIGHT);
-    shadowMapRenderingImageViews = MemoryArena::AllocSpan<std::span<VkImageView>>(&rendererArena, MAX_FRAMES_IN_FLIGHT); 
-    shadowMapSamplingImageViews = MemoryArena::AllocSpan<std::span<VkImageView>>(&rendererArena, MAX_FRAMES_IN_FLIGHT); 
+    
+    auto shadowMapRenderingImageViews = MemoryArena::AllocSpan<std::span<VkImageView>>(allocationArena, MAX_FRAMES_IN_FLIGHT); 
 
-    createDepthResources();
+    auto shadowMapSamplingImageViews = MemoryArena::AllocSpan<std::span<VkImageView>>(allocationArena, MAX_FRAMES_IN_FLIGHT); 
 
     //Load shaders
 
 
-    shaderLoader = new ShaderLoader(device);
+    auto shaderLoader =  std::make_unique<ShaderLoader>(initializedrenderer.vkbdevice.device);
     shaderLoader->AddShader("triangle", L"./Shaders/Shader1.hlsl");
     shaderLoader->AddShader("triangle_alt", L"./Shaders/shader2.hlsl");
     shaderLoader->AddShader("shadow", L"./Shaders/bindlessShadow.hlsl");
     shaderLoader->AddShader("lines", L"./Shaders/lines.hlsl");
     shaderLoader->AddShader("cull", L"./Shaders/cull_compute.hlsl", true);
 
-    //Command buffer stuff
-    createCommandBuffers();
-        
-    //Initialize sceneData
-    rendererSceneData = MemoryArena::Alloc<RendererLoadedAssetData>(&rendererArena);
-    InitializeRendererSceneData(&rendererArena, rendererSceneData);
-    
+
+    return {
+        .shaderLoader = std::move(shaderLoader),
+        .swapchainImages = swapchainImages, 
+        .swapchainImageViews = swapchainImageViews,
+        .shadowMapRenderingImageViews = (shadowMapRenderingImageViews),
+        .shadowMapSamplingImageViews =  (shadowMapSamplingImageViews),
+        .shadowSamplers = std::move(shadowSamplers),
+        .shadowImages = std::move(shadowImages),
+        .shadowMemory = std::move(shadowMemory),
+        .depthBufferInfo =  createDepthResources(initializedrenderer, allocationArena, deletionQueue, commandPoolmanager)
+    };
 }
+ 
+
 
 
 
 //TODO JS: break dependency on Scene -- add some kind of interface or something.
-void vulkanRenderer::initializeRendererForScene(Scene* scene)
+void vulkanRenderer::initializeRendererForScene(Scene* scene) //todo js make static
 {
 
     perLightShadowData = MemoryArena::AllocSpan<std::span<PerShadowData>>(&rendererArena, scene->lightCount);
@@ -408,10 +229,10 @@ void vulkanRenderer::initializeRendererForScene(Scene* scene)
     for(int i = 0; i < MAX_FRAMES_IN_FLIGHT ; i++)
     {
         TextureUtilities::createImage(getHandles(),SHADOW_MAP_SIZE, SHADOW_MAP_SIZE,shadowFormat,VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
-               VK_IMAGE_USAGE_SAMPLED_BIT,0,shadowImages[i],shadowMemory[i],1, MAX_SHADOWMAPS, true);
-        TextureData::createTextureSampler(&shadowSamplers[i], getHandles(), VK_SAMPLER_ADDRESS_MODE_REPEAT, 0, 1, true);
-        setDebugObjectName(device, VK_OBJECT_TYPE_IMAGE, "SHADOW IMAGE", (uint64_t)(shadowImages[i]));
-        setDebugObjectName(device, VK_OBJECT_TYPE_SAMPLER, "SHADOW IMAGE SAMPLER", (uint64_t)(shadowSamplers[i]));
+               VK_IMAGE_USAGE_SAMPLED_BIT,0,rendererResources.shadowImages[i],rendererResources.shadowMemory[i],1, MAX_SHADOWMAPS, true);
+        TextureData::createTextureSampler(&rendererResources.shadowSamplers[i], getHandles(), VK_SAMPLER_ADDRESS_MODE_REPEAT, 0, 1, true);
+        setDebugObjectName(rendererVulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_IMAGE, "SHADOW IMAGE", (uint64_t)(rendererResources.shadowImages[i]));
+        setDebugObjectName(rendererVulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_SAMPLER, "SHADOW IMAGE SAMPLER", (uint64_t)(rendererResources.shadowSamplers[i]));
         updateShadowImageViews(i, scene);
     }
 
@@ -422,7 +243,7 @@ void vulkanRenderer::initializeRendererForScene(Scene* scene)
     cube_specular = TextureData(getHandles(), "textures/output_cubemap2_spec8.ktx2", TextureData::TextureType::CUBE);
 
     createUniformBuffers(scene->objectsCount(),scene->lightCount);
-    createSyncObjects();
+
 
     //TODO JS: Move... Run when meshes change?
     populateMeshBuffers();
@@ -481,18 +302,18 @@ void vulkanRenderer::initializeRendererForScene(Scene* scene)
     
     descriptorsetLayoutsData = PipelineDataObject(getHandles(), descriptorPool, opaqueLayout.getSpan());
     descriptorsetLayoutsDataShadow = PipelineDataObject(getHandles(), descriptorPool, shadowLayout.getSpan());
-   
+   auto swapchainFormat = rendererVulkanObjects.swapchain.image_format;
 
 
     //opaque
-    const PipelineDataObject::graphicsPipelineSettings opaquePipelineSettings =  {std::span(&swapChainColorFormat, 1), depthFormat};
+    const PipelineDataObject::graphicsPipelineSettings opaquePipelineSettings =  {std::span(&swapchainFormat, 1), rendererResources.depthBufferInfo.format};
     createGraphicsPipeline("triangle_alt",  &descriptorsetLayoutsData, opaquePipelineSettings,false, sizeof(debugLinePConstants));
     createGraphicsPipeline("triangle",  &descriptorsetLayoutsData, opaquePipelineSettings,false, sizeof(debugLinePConstants));
-    const PipelineDataObject::graphicsPipelineSettings linePipelineSettings =  {std::span(&swapChainColorFormat, 1), depthFormat, VK_CULL_MODE_NONE, VK_PRIMITIVE_TOPOLOGY_LINE_LIST };
+    const PipelineDataObject::graphicsPipelineSettings linePipelineSettings =  {std::span(&swapchainFormat, 1), rendererResources.depthBufferInfo.format, VK_CULL_MODE_NONE, VK_PRIMITIVE_TOPOLOGY_LINE_LIST };
     createGraphicsPipeline("lines",  &descriptorsetLayoutsData, linePipelineSettings,false, sizeof(debugLinePConstants));
 
     //shadow 
-    const PipelineDataObject::graphicsPipelineSettings shadowPipelineSettings =  {std::span(&swapChainColorFormat, 0), shadowFormat, VK_CULL_MODE_NONE, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_TRUE, true };
+    const PipelineDataObject::graphicsPipelineSettings shadowPipelineSettings =  {std::span(&swapchainFormat, 0), shadowFormat, VK_CULL_MODE_NONE, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_TRUE, true };
     createGraphicsPipeline("shadow",  &descriptorsetLayoutsDataShadow, shadowPipelineSettings,false, sizeof(debugLinePConstants));
 
 }
@@ -675,14 +496,14 @@ std::span<descriptorUpdateData> vulkanRenderer::createOpaqueDescriptorUpdates(ui
         VkImageView view {};
         if (i < shadowCasterCount)
         {
-            view =  shadowMapSamplingImageViews[frame][i] ;
+            view =  rendererResources.shadowMapSamplingImageViews[frame][i] ;
         }
 
         //Fill out the remaining leftover shadow bindings with something -- using the other shadow view is arbitrary
         //TODO JS: Should have a "default" view maybe? 
         else
         {
-            view = shadowMapRenderingImageViews[frame][0];
+            view = rendererResources.shadowMapRenderingImageViews[frame][0];
         }
         
         assert( &view != VK_NULL_HANDLE);
@@ -694,7 +515,7 @@ std::span<descriptorUpdateData> vulkanRenderer::createOpaqueDescriptorUpdates(ui
 
     VkDescriptorImageInfo* shadowSamplerInfo =  MemoryArena::Alloc<VkDescriptorImageInfo>(arena);
     *shadowSamplerInfo = {
-        .sampler  = shadowSamplers[frame], .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+        .sampler  = rendererResources.shadowSamplers[frame], .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
     };
     
     VkDescriptorBufferInfo* meshBufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
@@ -803,7 +624,7 @@ void createSemaphore(VkDevice device,  VkSemaphoreCreateInfo* info, VkSemaphore*
     deletionQueue->push_back({deletionType::Semaphore,*semaphorePtr});
     
 }
-void vulkanRenderer::createSyncObjects()
+void createSyncObjects(VkDevice device,  Array<deleteableResource>* deletionQueue, rendererSemaphores* semaphoresToCreate, VkFence* fence)
 {
 
     VkSemaphoreCreateInfo semaphoreInfo{};
@@ -812,27 +633,25 @@ void vulkanRenderer::createSyncObjects()
     VkFenceCreateInfo fenceInfo{};
     fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-    for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-    {
-        per_frame_data* frame = &FramesInFlightData[i];
-        createSemaphore(device, &semaphoreInfo, &frame->imageAvailableSemaphores, &deletionQueue);
-        createSemaphore(device, &semaphoreInfo, &frame->renderFinishedSemaphores, &deletionQueue);
 
-        createSemaphore(device, &semaphoreInfo, &frame->computeFinishedSemaphores, &deletionQueue);
+        createSemaphore(device, &semaphoreInfo, &semaphoresToCreate->imageAvailableSemaphores, deletionQueue);
+        createSemaphore(device, &semaphoreInfo, &semaphoresToCreate->renderFinishedSemaphores, deletionQueue);
+
+        createSemaphore(device, &semaphoreInfo, &semaphoresToCreate->computeFinishedSemaphores, deletionQueue);
         
-        createSemaphore(device, &semaphoreInfo, &frame->shadowAvailableSemaphores, &deletionQueue);
-        createSemaphore(device, &semaphoreInfo, &frame->shadowFinishedSemaphores, &deletionQueue);
+        createSemaphore(device, &semaphoreInfo, &semaphoresToCreate->shadowAvailableSemaphores, deletionQueue);
+        createSemaphore(device, &semaphoreInfo, &semaphoresToCreate->shadowFinishedSemaphores, deletionQueue);
 
-        createSemaphore(device, &semaphoreInfo, &frame->swapchaintransitionedOutSemaphores, &deletionQueue);
-        createSemaphore(device, &semaphoreInfo, &frame->swapchaintransitionedInSemaphores, &deletionQueue);
+        createSemaphore(device, &semaphoreInfo, &semaphoresToCreate->swapchaintransitionedOutSemaphores, deletionQueue);
+        createSemaphore(device, &semaphoreInfo, &semaphoresToCreate->swapchaintransitionedInSemaphores, deletionQueue);
      
 
-        createSemaphore(device, &semaphoreInfo, &frame->shadowtransitionedOutSemaphores, &deletionQueue);
-        createSemaphore(device, &semaphoreInfo, &frame->shadowtransitionedInSemaphores, &deletionQueue);
+        createSemaphore(device, &semaphoreInfo, &semaphoresToCreate->shadowtransitionedOutSemaphores, deletionQueue);
+        createSemaphore(device, &semaphoreInfo, &semaphoresToCreate->shadowtransitionedInSemaphores, deletionQueue);
 
-        VK_CHECK(vkCreateFence(device, &fenceInfo, nullptr, &FramesInFlightData[i].inFlightFences));
-        deletionQueue.push_back({deletionType::Fence, FramesInFlightData[i].inFlightFences });
-    }
+        VK_CHECK(vkCreateFence(device, &fenceInfo, nullptr, fence));
+        deletionQueue->push_back({deletionType::Fence, *fence});
+   
    
 
 }
@@ -1352,7 +1171,7 @@ void vulkanRenderer::recordCommandBufferShadowPass(VkCommandBuffer commandBuffer
             uint32_t shadowMapIndex = i;
             const VkRenderingAttachmentInfoKHR dynamicRenderingDepthAttatchment {
                 .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
-                .imageView = shadowMapRenderingImageViews[currentFrame][shadowMapIndex],
+                .imageView = rendererResources.shadowMapRenderingImageViews[currentFrame][shadowMapIndex],
                 .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR,
                 .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
                 .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
@@ -1420,9 +1239,9 @@ void vulkanRenderer::recordCommandBufferShadowPass(VkCommandBuffer commandBuffer
         // }
     }
     std::vector<VkImageMemoryBarrier2> barriers = {};
-    for(int i = 0; i < shadowImages.size(); i++)
+    for(int i = 0; i < rendererResources.shadowImages.size(); i++)
     {
-        // barriers.push_back(imageBarrier(shadowImages[i],VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT_KHR | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT_KHR, VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT_KHR, VK_IMAGE_LAYOUT_UNDEFINED, VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT_KHR,   VK_ACCESS_2_SHADER_READ_BIT_KHR, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1));
+        // barriers.push_back(imageBarrier(rendererResources.shadowImages[i],VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT_KHR | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT_KHR, VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT_KHR, VK_IMAGE_LAYOUT_UNDEFINED, VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT_KHR,   VK_ACCESS_2_SHADER_READ_BIT_KHR, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1));
     }
 
     pipelineBarrier(commandBuffer, 0, 0, nullptr, barriers.size(), barriers.data());
@@ -1507,7 +1326,7 @@ void vulkanRenderer::recordCommandBufferCompute(VkCommandBuffer commandBuffer, u
 
 void vulkanRenderer::submitComputePass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores, std::vector<VkSemaphore> signalsemaphores, std::span<simplePassInfo> passes)
 {
-    recordCommandBufferCompute(FramesInFlightData[imageIndex].computeCommandBuffers, imageIndex, passes);
+    recordCommandBufferCompute(FramesInFlightData[imageIndex].commanderBuffers.computeCommandBuffers, imageIndex, passes);
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -1516,7 +1335,7 @@ void vulkanRenderer::submitComputePass(uint32_t currentFrame, uint32_t imageInde
     submitInfo.pWaitSemaphores = waitSemaphores.semaphores.data();
     submitInfo.pWaitDstStageMask = waitSemaphores.waitStages.data();
     submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &FramesInFlightData[imageIndex].computeCommandBuffers;
+    submitInfo.pCommandBuffers = &FramesInFlightData[imageIndex].commanderBuffers.computeCommandBuffers;
 
     submitInfo.signalSemaphoreCount = (uint32_t)signalsemaphores.size();
     submitInfo.pSignalSemaphores = signalsemaphores.data();
@@ -1542,7 +1361,7 @@ void vulkanRenderer::recordCommandBufferOpaquePass(Scene* scene, VkCommandBuffer
     
     const VkRenderingAttachmentInfoKHR dynamicRenderingColorAttatchment {
         .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
-        .imageView = swapChainImageViews[imageIndex],
+        .imageView = rendererResources.swapchainImageViews[imageIndex],
         .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR,
         .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
         .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
@@ -1551,7 +1370,7 @@ void vulkanRenderer::recordCommandBufferOpaquePass(Scene* scene, VkCommandBuffer
 
     const VkRenderingAttachmentInfoKHR dynamicRenderingDepthAttatchment {
         .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
-        .imageView = depthImageView,
+        .imageView = rendererResources.depthBufferInfo.view,
         .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR,
         .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
         .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
@@ -1560,7 +1379,7 @@ void vulkanRenderer::recordCommandBufferOpaquePass(Scene* scene, VkCommandBuffer
 
     VkRenderingInfo renderPassInfo{};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
-    renderPassInfo.renderArea.extent = swapChainExtent;
+    renderPassInfo.renderArea.extent = rendererVulkanObjects.swapchain.extent;
     renderPassInfo.renderArea.offset = {0, 0};
     renderPassInfo.layerCount =1;
     renderPassInfo.colorAttachmentCount = 1;
@@ -1572,15 +1391,15 @@ void vulkanRenderer::recordCommandBufferOpaquePass(Scene* scene, VkCommandBuffer
     VkViewport viewport{};
     viewport.x = 0.0f;
     viewport.y = 0.0f;
-    viewport.width = static_cast<float>(swapChainExtent.width);
-    viewport.height = static_cast<float>(swapChainExtent.height);
+    viewport.width = static_cast<float>(rendererVulkanObjects.swapchain.extent.width);
+    viewport.height = static_cast<float>(rendererVulkanObjects.swapchain.extent.height);
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
     vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 
     VkRect2D scissor{};
     scissor.offset = {0, 0};
-    scissor.extent = swapChainExtent;
+    scissor.extent = rendererVulkanObjects.swapchain.extent;
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
 // #define DEBUG_SHADERS
@@ -1647,7 +1466,7 @@ void vulkanRenderer::recordCommandBufferOpaquePass(Scene* scene, VkCommandBuffer
 
 
     //temp home for imgui
-    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), FramesInFlightData[currentFrame].opaqueCommandBuffers);
+    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), FramesInFlightData[currentFrame].commanderBuffers.opaqueCommandBuffers);
 
     
     vkCmdEndRendering(commandBuffer);
@@ -1659,25 +1478,23 @@ void vulkanRenderer::recordCommandBufferOpaquePass(Scene* scene, VkCommandBuffer
 }
 #pragma endregion
 
-void vulkanRenderer::createCommandBuffers()
+void allocaterendererCommandBuffers(VkDevice device, VkCommandPool pool, rendererCommandBuffers* resultCommandBuffers)
 {
-    for (int i = 0; i < FramesInFlightData.size(); i++)
-    {
+    
         VkCommandBufferAllocateInfo allocInfo{};
         allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-        allocInfo.commandPool = commandPoolmanager.commandPool;
+        allocInfo.commandPool = pool;
         allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
         allocInfo.commandBufferCount = 1;
-        
 
-        VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, &FramesInFlightData[i].opaqueCommandBuffers));
-        VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, &FramesInFlightData[i].computeCommandBuffers));
-        VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, &FramesInFlightData[i].shadowCommandBuffers));
-        VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, &FramesInFlightData[i].swapchainTransitionInCommandBuffer));
-        VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, &FramesInFlightData[i].swapchainTransitionOutCommandBuffer));
-        VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, &FramesInFlightData[i].shadowTransitionInCommandBuffer));
-        VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, &FramesInFlightData[i].shadowTransitionOutCommandBuffer));
-    }
+        VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, &resultCommandBuffers->opaqueCommandBuffers));
+        VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, &resultCommandBuffers->computeCommandBuffers));
+        VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, &resultCommandBuffers->shadowCommandBuffers));
+        VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, &resultCommandBuffers->swapchainTransitionInCommandBuffer));
+        VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, &resultCommandBuffers->swapchainTransitionOutCommandBuffer));
+        VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, &resultCommandBuffers->shadowTransitionInCommandBuffer));
+        VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, &resultCommandBuffers->shadowTransitionOutCommandBuffer));
+  
 }
 
 bool vulkanRenderer::hasStencilComponent(VkFormat format)
@@ -1687,17 +1504,36 @@ bool vulkanRenderer::hasStencilComponent(VkFormat format)
 
 #pragma region depth
 
-void vulkanRenderer::createDepthResources()
-{
-    depthFormat = Capabilities::findDepthFormat(getHandles());
 
-    TextureUtilities::createImage(getHandles(), swapChainExtent.width, swapChainExtent.height, depthFormat,
+
+//TODO JS: would like to get away from passing deletion queue into image fns
+vulkanTextureInfo createDepthResources(InitializedRenderer initializedrenderer,  MemoryArena::memoryArena* allocationArena, Array<deleteableResource>* deletionQueue, CommandPoolManager* commandPoolmanager )
+{
+    auto depthFormat = Capabilities::findDepthFormat(initializedrenderer.vkbPhysicalDevice.physical_device);
+    VkImage depthImage;
+                                            //The two null handles will get overwritten by the create  calls below 
+    vulkanTextureInfo bufferInfo = {depthFormat, VK_NULL_HANDLE, VK_NULL_HANDLE, VmaAllocation {}};
+
+
+    //TODO JS: replace with slimmer renderer context 
+    RendererContext context = {
+        .physicalDevice = initializedrenderer.vkbdevice.physical_device,
+        .device =  initializedrenderer.vkbdevice.device,
+        .commandPoolmanager = commandPoolmanager,
+        .allocator =  initializedrenderer.vmaAllocator,
+        .arena = allocationArena,
+        .perframeArena = nullptr,
+        .rendererdeletionqueue = deletionQueue};
+
+    TextureUtilities::createImage(context, initializedrenderer.swapchain.extent.width, initializedrenderer.swapchain.extent.height, bufferInfo.format,
                                   VK_IMAGE_TILING_OPTIMAL,
                                   VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-                                  depthImage,
-                                  depthImageMemory);
-    depthImageView =
-        TextureUtilities::createImageView(getHandles(), depthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
+                                  (bufferInfo.image),
+                                 (bufferInfo.vmaAllocation));
+    bufferInfo.view =
+        TextureUtilities::createImageView(context,   (bufferInfo.image), bufferInfo.format, VK_IMAGE_ASPECT_DEPTH_BIT);
+
+return bufferInfo;
 }
 
 #pragma endregion
@@ -1706,16 +1542,16 @@ void vulkanRenderer::createDepthResources()
 
 void vulkanRenderer::createGraphicsPipeline(const char* shaderName, PipelineDataObject* descriptorsetdata,  PipelineDataObject::graphicsPipelineSettings settings, bool compute, size_t pconstantSize)
 { 
-    auto shaders = shaderLoader->compiledShaders[shaderName];
+    auto shaders = rendererResources.shaderLoader->compiledShaders[shaderName];
     if (!compute)
     descriptorsetdata->createGraphicsPipeline(shaders, settings, pconstantSize);
     else
         descriptorsetdata->createComputePipeline(shaders[0], pconstantSize);
-    auto val = shaderLoader->compiledShaders[shaderName];
+    auto val = rendererResources.shaderLoader->compiledShaders[shaderName];
 
     for (auto v : val)
     {
-        vkDestroyShaderModule(device, v.module, nullptr);
+        vkDestroyShaderModule(rendererVulkanObjects.vkbdevice.device, v.module, nullptr);
     }
 
 }
@@ -1733,7 +1569,7 @@ void vulkanRenderer::Update(Scene* scene)
     ImGui::Begin("RENDERER Buffer preview window");
     ImGui::Text("TODO");
     int shadowIndex =1;
-    VkDescriptorSet img = GetOrRegisterImguiTextureHandle(shadowSamplers[shadowIndex],shadowMapSamplingImageViews[shadowIndex][3]);
+    VkDescriptorSet img = GetOrRegisterImguiTextureHandle(rendererResources.shadowSamplers[shadowIndex],rendererResources.shadowMapSamplingImageViews[shadowIndex][3]);
     ImGui::Image(ImTextureID(img), ImVec2{480, 480});
     ImGui::End();
     
@@ -1744,17 +1580,17 @@ void vulkanRenderer::Update(Scene* scene)
 
         if (!firstTime[currentFrame])
         {
-            vkWaitForFences(device, 1, &FramesInFlightData[currentFrame].inFlightFences, VK_TRUE, UINT64_MAX);
+            vkWaitForFences(rendererVulkanObjects.vkbdevice.device, 1, &FramesInFlightData[currentFrame].inFlightFence, VK_TRUE, UINT64_MAX);
             MemoryArena::free(&perFrameArenas[currentFrame]);
-            vkResetCommandBuffer(FramesInFlightData[currentFrame].opaqueCommandBuffers, 0);
-            vkResetCommandBuffer(FramesInFlightData[currentFrame].computeCommandBuffers, 0);
-            vkResetCommandBuffer(FramesInFlightData[currentFrame].shadowCommandBuffers, 0);
-            vkResetCommandBuffer(FramesInFlightData[currentFrame].swapchainTransitionOutCommandBuffer, 0);
-            vkResetCommandBuffer(FramesInFlightData[currentFrame].swapchainTransitionInCommandBuffer, 0);
-            vkResetCommandBuffer(FramesInFlightData[currentFrame].shadowTransitionOutCommandBuffer, 0);
-            vkResetCommandBuffer(FramesInFlightData[currentFrame].shadowTransitionInCommandBuffer, 0);
+            vkResetCommandBuffer(FramesInFlightData[currentFrame].commanderBuffers.opaqueCommandBuffers, 0);
+            vkResetCommandBuffer(FramesInFlightData[currentFrame].commanderBuffers.computeCommandBuffers, 0);
+            vkResetCommandBuffer(FramesInFlightData[currentFrame].commanderBuffers.shadowCommandBuffers, 0);
+            vkResetCommandBuffer(FramesInFlightData[currentFrame].commanderBuffers.swapchainTransitionOutCommandBuffer, 0);
+            vkResetCommandBuffer(FramesInFlightData[currentFrame].commanderBuffers.swapchainTransitionInCommandBuffer, 0);
+            vkResetCommandBuffer(FramesInFlightData[currentFrame].commanderBuffers.shadowTransitionOutCommandBuffer, 0);
+            vkResetCommandBuffer(FramesInFlightData[currentFrame].commanderBuffers.shadowTransitionInCommandBuffer, 0);
    
-            vkResetFences(device, 1, &FramesInFlightData[currentFrame].inFlightFences);
+            vkResetFences(rendererVulkanObjects.vkbdevice.device, 1, &FramesInFlightData[currentFrame].inFlightFence);
       
         }
         if (firstTime[currentFrame])
@@ -1770,7 +1606,7 @@ void vulkanRenderer::Update(Scene* scene)
 
         auto t2 = SDL_GetTicks();
 
-    // vkDeviceWaitIdle(device);
+    // vkDeviceWaitIdle(rendererVulkanObjects.vkbdevice.device);
 }
 
 
@@ -1958,7 +1794,7 @@ void vulkanRenderer::drawFrame(Scene* scene)
 
     //Prepare for pass
     uint32_t swapChainImageIndex; 
-    vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, FramesInFlightData[currentFrame].imageAvailableSemaphores, VK_NULL_HANDLE,
+    vkAcquireNextImageKHR(rendererVulkanObjects.vkbdevice.device, rendererVulkanObjects.swapchain, UINT64_MAX, FramesInFlightData[currentFrame].semaphores.imageAvailableSemaphores, VK_NULL_HANDLE,
                           &swapChainImageIndex);
     ///////////////////////// Transition swapChain  />
     ///
@@ -1977,14 +1813,14 @@ void vulkanRenderer::drawFrame(Scene* scene)
     ///////////////////////// </Transition swapChain 
 
 
-    semaphoreData waitSemaphores = getSemaphoreDataFromSemaphores({&FramesInFlightData[currentFrame].imageAvailableSemaphores, 1}, &perFrameArenas[currentFrame]);
+    semaphoreData waitSemaphores = getSemaphoreDataFromSemaphores({&FramesInFlightData[currentFrame].semaphores.imageAvailableSemaphores, 1}, &perFrameArenas[currentFrame]);
     //Transition swapchain for rendering
     transitionImageForRendering(
         getHandles(),
-        FramesInFlightData[currentFrame].swapchainTransitionInCommandBuffer,
+        FramesInFlightData[currentFrame].commanderBuffers.swapchainTransitionInCommandBuffer,
         waitSemaphores,
-        std::span<VkSemaphore>(&FramesInFlightData[currentFrame].swapchaintransitionedInSemaphores, 1),
-        swapChainImages[swapChainImageIndex],
+        std::span<VkSemaphore>(&FramesInFlightData[currentFrame].semaphores.swapchaintransitionedInSemaphores, 1),
+        rendererResources.swapchainImages[swapChainImageIndex],
         VK_IMAGE_LAYOUT_UNDEFINED,
         VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, swapchainWaitStages, false);
     ///////////////////////// Transition swapChain  />
@@ -1992,10 +1828,10 @@ void vulkanRenderer::drawFrame(Scene* scene)
     //Transition shadow maps for rendering
     transitionImageForRendering(
     getHandles(),
-    FramesInFlightData[currentFrame].shadowTransitionInCommandBuffer,
+    FramesInFlightData[currentFrame].commanderBuffers.shadowTransitionInCommandBuffer,
      {},
-   {&FramesInFlightData[currentFrame].shadowtransitionedInSemaphores, 1},
-    shadowImages[currentFrame],
+   {&FramesInFlightData[currentFrame].semaphores.shadowtransitionedInSemaphores, 1},
+    rendererResources.shadowImages[currentFrame],
     VK_IMAGE_LAYOUT_UNDEFINED,
     VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, shadowWaitStages, true);
     ///////////////////////// Transition swapChain  />
@@ -2009,13 +1845,13 @@ void vulkanRenderer::drawFrame(Scene* scene)
      
 
     //Compute
-    submitComputePass(currentFrame, currentFrame, {}, {FramesInFlightData[currentFrame].computeFinishedSemaphores}, renderPassInformation.computeDraws);
+    submitComputePass(currentFrame, currentFrame, {}, {FramesInFlightData[currentFrame].semaphores.computeFinishedSemaphores}, renderPassInformation.computeDraws);
    
 
 
     //Shadows
-    std::vector<VkSemaphore> shadowPassWaitSemaphores = {FramesInFlightData[currentFrame].shadowtransitionedInSemaphores, FramesInFlightData[currentFrame].computeFinishedSemaphores};
-    std::vector<VkSemaphore> shadowpasssignalSemaphores = {FramesInFlightData[currentFrame].shadowFinishedSemaphores};
+    std::vector<VkSemaphore> shadowPassWaitSemaphores = {FramesInFlightData[currentFrame].semaphores.shadowtransitionedInSemaphores, FramesInFlightData[currentFrame].semaphores.computeFinishedSemaphores};
+    std::vector<VkSemaphore> shadowpasssignalSemaphores = {FramesInFlightData[currentFrame].semaphores.shadowFinishedSemaphores};
 
 
     
@@ -2025,17 +1861,17 @@ void vulkanRenderer::drawFrame(Scene* scene)
     waitSemaphores = getSemaphoreDataFromSemaphores(shadowpasssignalSemaphores, &perFrameArenas[currentFrame]);
     transitionImageForRendering(
     getHandles(),
-    FramesInFlightData[currentFrame].shadowTransitionOutCommandBuffer,
+    FramesInFlightData[currentFrame].commanderBuffers.shadowTransitionOutCommandBuffer,
     waitSemaphores,
-   {&FramesInFlightData[currentFrame].shadowtransitionedOutSemaphores, 1},
-    shadowImages[currentFrame],
+   {&FramesInFlightData[currentFrame].semaphores.shadowtransitionedOutSemaphores, 1},
+    rendererResources.shadowImages[currentFrame],
     VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, shadowWaitStages, true);
 
     
     //TODO JS: Enable shadow semaphore
-    std::vector<VkSemaphore> opaquePassWaitSemaphores = {FramesInFlightData[currentFrame].shadowtransitionedOutSemaphores, FramesInFlightData[currentFrame].swapchaintransitionedInSemaphores};
-    std::vector<VkSemaphore> opaquepasssignalSemaphores = {FramesInFlightData[currentFrame].renderFinishedSemaphores};
+    std::vector<VkSemaphore> opaquePassWaitSemaphores = {FramesInFlightData[currentFrame].semaphores.shadowtransitionedOutSemaphores, FramesInFlightData[currentFrame].semaphores.swapchaintransitionedInSemaphores};
+    std::vector<VkSemaphore> opaquepasssignalSemaphores = {FramesInFlightData[currentFrame].semaphores.renderFinishedSemaphores};
 
 
    
@@ -2049,10 +1885,10 @@ void vulkanRenderer::drawFrame(Scene* scene)
     waitSemaphores = getSemaphoreDataFromSemaphores(opaquepasssignalSemaphores, &perFrameArenas[currentFrame]);
     transitionImageForRendering(
     getHandles(),
-    FramesInFlightData[currentFrame].swapchainTransitionOutCommandBuffer,
+    FramesInFlightData[currentFrame].commanderBuffers.swapchainTransitionOutCommandBuffer,
     waitSemaphores,
-   {&FramesInFlightData[currentFrame].swapchaintransitionedOutSemaphores, 1},
-    swapChainImages[swapChainImageIndex],
+   {&FramesInFlightData[currentFrame].semaphores.swapchaintransitionedOutSemaphores, 1},
+    rendererResources.swapchainImages[swapChainImageIndex],
     VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
     VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, swapchainWaitStages, false);
     ///////////////////////// Transition swapChain  />
@@ -2061,9 +1897,9 @@ void vulkanRenderer::drawFrame(Scene* scene)
     VkPresentInfoKHR presentInfo{};
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
     presentInfo.waitSemaphoreCount = 1;
-    presentInfo.pWaitSemaphores = &FramesInFlightData[currentFrame].swapchaintransitionedOutSemaphores;
+    presentInfo.pWaitSemaphores = &FramesInFlightData[currentFrame].semaphores.swapchaintransitionedOutSemaphores;
     presentInfo.swapchainCount = 1;
-    presentInfo.pSwapchains = {&swapChain};
+    presentInfo.pSwapchains = {&rendererVulkanObjects.swapchain.swapchain};
     presentInfo.pImageIndices = &swapChainImageIndex;
     presentInfo.pResults = nullptr; // Optional
 
@@ -2077,7 +1913,7 @@ void vulkanRenderer::drawFrame(Scene* scene)
 //TODO JS: Can i replace drawcount with info in the simplepassinfo? 
 void vulkanRenderer::renderShadowPass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores, std::vector<VkSemaphore> signalsemaphores, std::span<simplePassInfo> passes)
 {
-    recordCommandBufferShadowPass(FramesInFlightData[currentFrame].shadowCommandBuffers, imageIndex, passes);
+    recordCommandBufferShadowPass(FramesInFlightData[currentFrame].commanderBuffers.shadowCommandBuffers, imageIndex, passes);
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -2086,7 +1922,7 @@ void vulkanRenderer::renderShadowPass(uint32_t currentFrame, uint32_t imageIndex
     submitInfo.pWaitSemaphores = waitSemaphores.semaphores.data();
     submitInfo.pWaitDstStageMask = waitSemaphores.waitStages.data();
     submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &FramesInFlightData[currentFrame].shadowCommandBuffers;
+    submitInfo.pCommandBuffers = &FramesInFlightData[currentFrame].commanderBuffers.shadowCommandBuffers;
 
     submitInfo.signalSemaphoreCount = (uint32_t)signalsemaphores.size();
     submitInfo.pSignalSemaphores = signalsemaphores.data();
@@ -2100,7 +1936,7 @@ void vulkanRenderer::renderShadowPass(uint32_t currentFrame, uint32_t imageIndex
 void vulkanRenderer::renderOpaquePass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores, std::vector<VkSemaphore> signalsemaphores, std::span<opaquePassInfo> batchedDraws, Scene* scene)
 {   
     //Record command buffer for pass
-    recordCommandBufferOpaquePass(scene, FramesInFlightData[currentFrame].opaqueCommandBuffers, imageIndex, batchedDraws);
+    recordCommandBufferOpaquePass(scene, FramesInFlightData[currentFrame].commanderBuffers.opaqueCommandBuffers, imageIndex, batchedDraws);
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -2110,14 +1946,14 @@ void vulkanRenderer::renderOpaquePass(uint32_t currentFrame, uint32_t imageIndex
     submitInfo.pWaitSemaphores = waitSemaphores.semaphores.data();
     submitInfo.pWaitDstStageMask = waitSemaphores.waitStages.data();
     submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &FramesInFlightData[currentFrame].opaqueCommandBuffers;
+    submitInfo.pCommandBuffers = &FramesInFlightData[currentFrame].commanderBuffers.opaqueCommandBuffers;
     
    
     submitInfo.signalSemaphoreCount = (uint32_t)signalsemaphores.size();
     submitInfo.pSignalSemaphores = signalsemaphores.data();
 
     //Submit pass 
-    VK_CHECK(vkQueueSubmit(commandPoolmanager.Queues.graphicsQueue, 1, &submitInfo, FramesInFlightData[currentFrame].inFlightFences));
+    VK_CHECK(vkQueueSubmit(commandPoolmanager.Queues.graphicsQueue, 1, &submitInfo, FramesInFlightData[currentFrame].inFlightFence));
     
 }
 
@@ -2128,6 +1964,7 @@ VmaAllocation vulkanRenderer::validateVMADeleteableResource(deleteableResource d
 }
 void vulkanRenderer::runDeletionQueue(std::span<deleteableResource> queue)
 {
+    auto device = rendererVulkanObjects.vkbdevice.device;
     for(int i = queue.size() -1; i >= 0; i--)
     {
     printf("%d\n", i);
@@ -2137,7 +1974,7 @@ void vulkanRenderer::runDeletionQueue(std::span<deleteableResource> queue)
         case deletionType::vmaBuffer:
             {
                 auto alloc = validateVMADeleteableResource(resource);
-                VulkanMemory::DestroyBuffer(allocator,(VkBuffer)(resource.handle), alloc);
+                VulkanMemory::DestroyBuffer(rendererVulkanObjects.vmaAllocator,(VkBuffer)(resource.handle), alloc);
                 break;
             }
         case deletionType::descriptorPool:
@@ -2179,7 +2016,7 @@ void vulkanRenderer::runDeletionQueue(std::span<deleteableResource> queue)
           {
                
                 auto alloc = validateVMADeleteableResource(resource);
-                VulkanMemory::DestroyImage(allocator, (VkImage)(resource.handle), alloc);
+                VulkanMemory::DestroyImage(rendererVulkanObjects.vmaAllocator, (VkImage)(resource.handle), alloc);
                 break;
           }
         case deletionType::Sampler:
@@ -2197,7 +2034,7 @@ void vulkanRenderer::cleanup()
 
     for(int i =0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        vkWaitForFences(device, 1, &FramesInFlightData[i].inFlightFences, VK_TRUE, UINT64_MAX);
+        vkWaitForFences(rendererVulkanObjects.vkbdevice.device, 1, &FramesInFlightData[i].inFlightFence, VK_TRUE, UINT64_MAX);
     }
     //
     ImGui_ImplVulkan_Shutdown();
@@ -2210,11 +2047,11 @@ void vulkanRenderer::cleanup()
 
     // for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     // {
-    //    VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].uniformBuffers._buffer.data, FramesInFlightData[i].uniformBuffers.allocation);
-    //    VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].meshBuffers._buffer.data, FramesInFlightData[i].meshBuffers.allocation);
-    //    VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].lightBuffers._buffer.data, FramesInFlightData[i].lightBuffers.allocation);
-    //    VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].shadowDataBuffers._buffer.data, FramesInFlightData[i].shadowDataBuffers.allocation);
-    //    VulkanMemory::DestroyBuffer(allocator, FramesInFlightData[i].drawBuffers._buffer.data, FramesInFlightData[i].drawBuffers.allocation);
+    //    VulkanMemory::DestroyBuffer(rendererVulkanObjects.vmaAllocator, FramesInFlightData[i].uniformBuffers._buffer.data, FramesInFlightData[i].uniformBuffers.allocation);
+    //    VulkanMemory::DestroyBuffer(rendererVulkanObjects.vmaAllocator, FramesInFlightData[i].meshBuffers._buffer.data, FramesInFlightData[i].meshBuffers.allocation);
+    //    VulkanMemory::DestroyBuffer(rendererVulkanObjects.vmaAllocator, FramesInFlightData[i].lightBuffers._buffer.data, FramesInFlightData[i].lightBuffers.allocation);
+    //    VulkanMemory::DestroyBuffer(rendererVulkanObjects.vmaAllocator, FramesInFlightData[i].shadowDataBuffers._buffer.data, FramesInFlightData[i].shadowDataBuffers.allocation);
+    //    VulkanMemory::DestroyBuffer(rendererVulkanObjects.vmaAllocator, FramesInFlightData[i].drawBuffers._buffer.data, FramesInFlightData[i].drawBuffers.allocation);
     // }
 
     // vkDestroyDescriptorPool(device, descriptorPool, nullptr);
@@ -2247,25 +2084,25 @@ void vulkanRenderer::cleanup()
     //todo 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        // VulkanMemory::DestroyImage(allocator, shadowImages[i], shadowMemory[i]);
+        // VulkanMemory::DestroyImage(allocator, rendererResources.shadowImages[i], rendererResources.shadowMemory[i]);
         // vkDestroySampler(device, shadowSamplers[i], nullptr);
         for(int j = 0; j < MAX_SHADOWMAPS; j++)
         {
-            // vkDestroyImageView(device, shadowMapRenderingImageViews[i][j], nullptr);
-            // vkDestroyImageView(device, shadowMapSamplingImageViews[i][j], nullptr);
+            // vkDestroyImageView(device, rendererResources.shadowMapRenderingImageViews[i][j], nullptr);
+            // vkDestroyImageView(device, rendererResources.shadowMapSamplingImageViews[i][j], nullptr);
         }
     }
 
 
      // vkb::destroy_surface(vkb_surface);
-    destroy_swapchain(vkb_swapchain);
+    destroy_swapchain(rendererVulkanObjects.swapchain);
    
-    vkDestroySurfaceKHR(instance, surface, nullptr);
+    vkDestroySurfaceKHR(rendererVulkanObjects.vkbInstance.instance, rendererVulkanObjects.surface, nullptr);
 
-   vkDeviceWaitIdle(vkb_device.device);
-   vmaDestroyAllocator(allocator);
-   destroy_device(vkb_device);
-   destroy_instance(vkb_instance);
+   vkDeviceWaitIdle(rendererVulkanObjects.vkbdevice.device);
+   vmaDestroyAllocator(rendererVulkanObjects.vmaAllocator);
+   destroy_device(rendererVulkanObjects.vkbdevice);
+   destroy_instance(rendererVulkanObjects.vkbInstance);
    SDL_DestroyWindow(_window);
 
  
@@ -2292,4 +2129,74 @@ void printGraph(localTransform g, int depth)
 }
 
 
+
+
+//could be static utility, move
+//Throw a bunch of VUID-vkCmdDrawIndexed-viewType-07752 errors due to image format, but renders fine
+VkDescriptorSet vulkanRenderer::GetOrRegisterImguiTextureHandle(VkSampler sampler, VkImageView imageView)
+{
+        if (imguiRegisteredTextures.contains(imageView))
+        {
+            return imguiRegisteredTextures.at(imageView);
+        }
+  
+    //auto img = ImGui_ImplVulkan_AddTexture(shadowSamplers[shadowIndex], shadowMapSamplingImageViews[shadowIndex][0], VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL);
+     VkDescriptorSet set = ImGui_ImplVulkan_AddTexture(sampler, imageView,VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+     imguiRegisteredTextures.emplace(imageView, set);
+     return set;
+    
+}
+void vulkanRenderer::initializeDearIMGUI()
+{
+
+    VkDescriptorPoolSize pool_sizes[] = { { VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
+    { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
+    { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
+    { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
+    { VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 },
+    { VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 },
+    { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 },
+    { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 },
+    { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
+    { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
+    { VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 } };
+
+    VkDescriptorPoolCreateInfo pool_info = {};
+    pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+    pool_info.maxSets = 1000;
+    pool_info.poolSizeCount = (uint32_t)std::size(pool_sizes);
+    pool_info.pPoolSizes = pool_sizes;
+
+    VK_CHECK(vkCreateDescriptorPool(rendererVulkanObjects.vkbdevice.device, &pool_info, nullptr, &imgui_descriptorPool));
+    deletionQueue.push_back({deletionType::descriptorPool, imgui_descriptorPool});
+
+    ImGui_ImplSDL2_InitForVulkan(_window);
+    ImGui_ImplVulkan_InitInfo init_info = {};
+    init_info.Instance = rendererVulkanObjects.vkbInstance.instance;
+    init_info.PhysicalDevice = rendererVulkanObjects.vkbPhysicalDevice.physical_device;
+    init_info.Device = rendererVulkanObjects.vkbdevice.device;
+    init_info.QueueFamily = commandPoolmanager.Queues.graphicsQueueFamily;
+    init_info.Queue = commandPoolmanager.Queues.graphicsQueue;
+    // init_info.PipelineCache = HOPEFULLY OPTIONAL??;
+    init_info.DescriptorPool = imgui_descriptorPool;
+    init_info.Subpass = 0;
+    init_info.MinImageCount = 2;
+    init_info.ImageCount = 2;
+    init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+    init_info.UseDynamicRendering = true;
+    //dynamic rendering parameters for imgui to use
+    init_info.PipelineRenderingCreateInfo = {.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO};
+    init_info.PipelineRenderingCreateInfo.colorAttachmentCount = 1;
+    init_info.PipelineRenderingCreateInfo.pColorAttachmentFormats = &rendererVulkanObjects.swapchain.image_format;
+    init_info.PipelineRenderingCreateInfo.depthAttachmentFormat = rendererResources.depthBufferInfo.format;
+    //init_info.Allocator = nullptr; //
+    //init_info.CheckVkResultFn = check_vk_result;
+    ImGui_ImplVulkan_Init(&init_info);
+    ImGui_ImplVulkan_CreateFontsTexture();
+    // (this gets a bit more complicated, see example app for full reference)
+    // ImGui_ImplVulkan_CreateFontsTexture(YOUR_COMMAND_BUFFER);
+    // (your code submit a queue)
+    //ImGui_ImplVulkan_DestroyFontUploadObjects(); //TODO JS: destroy queue
+}
 

@@ -20,5 +20,12 @@ struct RendererContext
     MemoryArena::memoryArena* arena;
     MemoryArena::memoryArena* perframeArena;
     Array<deleteableResource>* rendererdeletionqueue;
-    bool canWriteKTX;
+};
+
+struct rendererContext_NEW //gonna use this for textures -- may rename, may phase out other one
+{
+    VkDevice device;
+    VmaAllocator allocator;
+    MemoryArena::memoryArena* memoryArena;
+    Array<deleteableResource>* rendererdeletionqueue;
 };

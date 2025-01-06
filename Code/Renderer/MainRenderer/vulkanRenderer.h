@@ -7,13 +7,14 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
-#include "./VulkanIncludes/Vulkan_Includes.h"
 #include <General/Array.h>
 // #include "rendererGlobals.h"
-#include "CommandPoolManager.h"
-#include "gpu-data-structs.h"
+#include "../CommandPoolManager.h"
+#include "../gpu-data-structs.h"
 #include <General/MemoryArena.h>
-#include "PipelineDataObject.h"
+#include "../Shaders/ShaderLoading.h"
+#include "VkBootstrap.h"
+#include "../PipelineDataObject.h"
 #include "Scene/Scene.h"
 // My stuff 
 struct gpulight;
@@ -21,9 +22,9 @@ struct gpuvertex;
 struct PerShadowData;
 struct MeshData; //Forward Declaration
 struct Vertex; //Forward Declaration
-struct ShaderLoader;
 struct TextureData;
 using VmaAllocator = struct VmaAllocator_T*;
+struct SDL_Window;
 //Include last //
 
 const uint32_t SHADOW_MAP_SIZE = 1024;
@@ -59,15 +60,83 @@ struct  semaphoreData
     std::span<VkPipelineStageFlags> waitStages;
 };
 
+struct InitializedRenderer
+{
+    vkb::Instance vkbInstance;
+    vkb::PhysicalDevice vkbPhysicalDevice;
+    vkb::Device vkbdevice;
+    VmaAllocator vmaAllocator;
+    VkSurfaceKHR surface; //not sure I need surface for anything except cleanup?
+    vkb::Swapchain swapchain;
+    //maybe move these two
+};
+
+
+struct vulkanTextureInfo //This is like general image info -- currently only using for shadows/depth buffer/etc but need to get away from TextureData.h
+{
+    VkFormat format;
+    VkImage image;
+    VkImageView view;
+    VmaAllocation vmaAllocation;
+};
+
+struct RendererResources //Buffers, images, etc, used in core rendering -- probably to break up later
+{
+    
+    std::unique_ptr<ShaderLoader> shaderLoader;
+
+    std::vector<VkImage> swapchainImages;
+    std::vector<VkImageView> swapchainImageViews;
+    
+    std::span<std::span<VkImageView>> shadowMapRenderingImageViews;
+    std::span<std::span<VkImageView>> shadowMapSamplingImageViews;
+    
+    std::vector<VkSampler> shadowSamplers;
+    std::vector<VkImage> shadowImages;
+    std::vector<VmaAllocation> shadowMemory;
+
+    vulkanTextureInfo depthBufferInfo;
+};
+
+struct rendererCommandBuffers
+{
+    VkCommandBuffer computeCommandBuffers {};
+    VkCommandBuffer opaqueCommandBuffers {};
+    VkCommandBuffer shadowCommandBuffers {};
+    VkCommandBuffer swapchainTransitionInCommandBuffer {};
+    VkCommandBuffer swapchainTransitionOutCommandBuffer {};
+    VkCommandBuffer shadowTransitionInCommandBuffer {};
+    VkCommandBuffer shadowTransitionOutCommandBuffer {};
+};
+
+struct rendererSemaphores
+{
+    VkSemaphore computeFinishedSemaphores {};
+    VkSemaphore shadowAvailableSemaphores {};
+    VkSemaphore shadowFinishedSemaphores {};
+    VkSemaphore imageAvailableSemaphores {};
+    VkSemaphore renderFinishedSemaphores {};
+
+    VkSemaphore swapchaintransitionedOutSemaphores {};
+    VkSemaphore swapchaintransitionedInSemaphores {};
+    VkSemaphore shadowtransitionedOutSemaphores {};
+    VkSemaphore shadowtransitionedInSemaphores {};
+};
+    
+
+InitializedRenderer initializeRendererHandles(SDL_Window* sdlWin, int WIDTH,int HEIGHT);
+
+
+
+
 class vulkanRenderer
 {
 
 public:
     std::unordered_map<VkImageView, VkDescriptorSet> imguiRegisteredTextures;
-    VkExtent2D swapChainExtent;
     RendererLoadedAssetData* rendererSceneData;
     VkDescriptorSet GetOrRegisterImguiTextureHandle(VkSampler sampler, VkImageView imageView);
-    void initDearImgui();
+    void initializeDearIMGUI();
     RendererContext getHandles();
     void updateShadowImageViews(int frame, Scene* scene);
     vulkanRenderer();
@@ -98,12 +167,14 @@ private:
 
 #pragma endregion
     glm::mat4 freezeView = {};
-    
-    VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
-    VkDevice device; //Logical device
-    VkInstance instance;
-    CommandPoolManager commandPoolmanager;
-    VmaAllocator allocator;
+
+    InitializedRenderer rendererVulkanObjects;
+    RendererResources rendererResources;
+    // VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+    // VkDevice device; //Logical device
+    // // VkInstance instance;
+    CommandPoolManager commandPoolmanager; //todo js
+    // VmaAllocator allocator;
 
     VkDebugUtilsMessengerEXT debugMessenger;
     const std::vector<const char*> validationLayers = {
@@ -119,27 +190,13 @@ private:
     };
    
 
-    VkSwapchainKHR swapChain;
-    VkFormat swapChainColorFormat;
-  
-    std::vector<VkImageView> swapChainImageViews;
-    std::vector<VkImage> swapChainImages;
 
-    std::span<std::span<VkImageView>> shadowMapRenderingImageViews;
-    std::span<std::span<VkImageView>> shadowMapSamplingImageViews;
-    std::vector<VkSampler> shadowSamplers;
-    std::vector<VkImage> shadowImages;
-    std::vector<VmaAllocation> shadowMemory;
 
     std::span<std::span<PerShadowData>> perLightShadowData;
 
 
-    VkFormat shadowFormat;
+    VkFormat shadowFormat = VK_FORMAT_D16_UNORM;
     
-    VkImage depthImage;
-    VmaAllocation depthImageMemory;
-    VkFormat depthFormat;
-    VkImageView depthImageView;
 
 #pragma region  descriptor sets 
     VkDescriptorPool descriptorPool;
@@ -180,29 +237,17 @@ private:
     Array<deleteableResource> deletionQueue;
 #pragma endregion;
 
-    
+
     struct per_frame_data
     {
         //Below is all vulkan stuff
-        VkSemaphore computeFinishedSemaphores {};
-        VkSemaphore shadowAvailableSemaphores {};
-        VkSemaphore shadowFinishedSemaphores {};
-        VkSemaphore imageAvailableSemaphores {};
-        VkSemaphore renderFinishedSemaphores {};
 
-        VkSemaphore swapchaintransitionedOutSemaphores {};
-        VkSemaphore swapchaintransitionedInSemaphores {};
-        VkSemaphore shadowtransitionedOutSemaphores {};
-        VkSemaphore shadowtransitionedInSemaphores {};
+        rendererSemaphores semaphores;
         
-        VkFence inFlightFences {};
-        VkCommandBuffer computeCommandBuffers {};
-        VkCommandBuffer opaqueCommandBuffers {};
-        VkCommandBuffer shadowCommandBuffers {};
-        VkCommandBuffer swapchainTransitionInCommandBuffer {};
-        VkCommandBuffer swapchainTransitionOutCommandBuffer {};
-        VkCommandBuffer shadowTransitionInCommandBuffer {};
-        VkCommandBuffer shadowTransitionOutCommandBuffer {};
+        VkFence inFlightFence {};
+
+        rendererCommandBuffers commanderBuffers;
+
 
 #pragma region buffers
 
@@ -246,11 +291,8 @@ private:
     const bool enableValidationLayers = true;
 #endif
 
-    ShaderLoader* shaderLoader = nullptr;
-
     
-    void initWindow();
-    void initVulkan();
+    void initializeWindow();
 
 
     PFN_vkCopyImageToMemoryEXT vkCopyImageToMemoryEXT;
@@ -269,9 +311,8 @@ private:
 
 
     void compileShaders();
-    void createSyncObjects();
 
-    void createCommandBuffers();
+ 
     void recordCommandBufferCompute(VkCommandBuffer commandBuffer, uint32_t currentFrame, std::span<simplePassInfo> passes);
     void submitComputePass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores,
                            std::vector<VkSemaphore> signalsemaphores, std::span<simplePassInfo> passes);
@@ -279,8 +320,6 @@ private:
 
     void createGraphicsCommandPool();
     void createTransferCommandPool();
-
-    void createDepthResources();
 
 
     bool hasStencilComponent(VkFormat format);

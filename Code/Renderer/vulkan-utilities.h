@@ -36,11 +36,11 @@ namespace DescriptorSets
 
 namespace Capabilities
 {
-    VkFormat findDepthFormat(RendererContext rendererHandles);
+    VkFormat findDepthFormat(VkPhysicalDevice physicalDevice);
 
-    VkFormat findSupportedFormat(RendererContext rendererHandles, const std::vector<VkFormat>& candidates,
-                                 VkImageTiling tiling,
-                                 VkFormatFeatureFlags features);    
+    VkFormat findSupportedFormat(VkPhysicalDevice physicalDevice,
+                                 const std::vector<VkFormat>& candidates,
+                                 VkImageTiling tiling, VkFormatFeatureFlags features);    
     uint32_t findMemoryType(RendererContext rendererHandles, uint32_t typeFilter, VkMemoryPropertyFlags properties);
 }
 

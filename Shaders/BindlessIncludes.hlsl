@@ -262,7 +262,7 @@ float3 getShadow(int index, float3 fragPos)
         // Take 12 samples in disc
         for ( int nTapIndex = 0; nTapIndex < SAMPLECOUNT; nTapIndex++ )
         {
-            float2 vTapCoord = vTexelSize * vTaps[nTapIndex] * 2.5;
+            float2 vTapCoord = vTexelSize * vTaps[nTapIndex] * 1.5;
             
             // Accumulate samples
             cSampleAccum += (shadowmap[index].Sample( shadowmapSampler[0],  shadowUV.xyz + float3(vTapCoord.x, vTapCoord.y, 0)).r > shadowProjection.z);

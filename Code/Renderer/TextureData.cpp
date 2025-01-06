@@ -426,11 +426,11 @@ void TextureData::createTextureSampler(VkSampler* textureSampler, RendererContex
 
 void TextureData::cacheKTXFromTempTexture(temporaryTextureInfo staging, const char* outpath, VkFormat format, TextureType textureType, bool use_mipmaps)
 {
-	assert(rendererHandles.canWriteKTX);
-	if (!rendererHandles.canWriteKTX)
-	{
-		exit (-1);
-	}
+	// assert(rendererHandles.canWriteKTX);
+	// if (!rendererHandles.canWriteKTX)
+	// {
+	// 	exit (-1);
+	// }
 	ktx_size_t srcSize = 0;
 	VkImage image = staging.textureImage;
 	ktxTexture2* texture;                   // For KTX2
