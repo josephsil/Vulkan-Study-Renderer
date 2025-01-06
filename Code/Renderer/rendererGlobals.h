@@ -17,6 +17,8 @@ const static int CASCADE_CT = 6;
 #define MAX_SHADOWMAPS (MAX_SHADOWCASTERS * 8)
 const static int MAX_CAMERAS = 1;
 
+const static int HIZDEPTH = 6;
+
 const static int MAX_FRAMES_IN_FLIGHT = 2;
 const static int SWAPCHAIN_SIZE = 3;
 const static int MAX_DRAWINDIRECT_COMMANDS = 200000; //Draw commands per frmae

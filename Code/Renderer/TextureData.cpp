@@ -554,7 +554,7 @@ void cacheKTXFromTempTexture(RendererContext rendererContext, nonKTXTextureInfo 
 VkImageView createTextureImageView(RendererContext rendererContext,TextureMetaData data, VkImageViewType type)
 {
    VkImageView view =  TextureUtilities::createImageView(objectCreationContextFromRendererContext(rendererContext), data.textureImage, data.dimensionsInfo.format,
-                                                         VK_IMAGE_ASPECT_COLOR_BIT, type, data.dimensionsInfo.mipCt, data.dimensionsInfo.layerCt);
+                                                         VK_IMAGE_ASPECT_COLOR_BIT, type, data.dimensionsInfo.layerCt, 0);
 	// rendererContext.rendererdeletionqueue->push_back(deleteableResource{deletionType::ImageView, view});
 	
 

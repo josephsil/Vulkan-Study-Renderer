@@ -21,22 +21,18 @@ struct temporaryTextureInfo
     uint64_t  height;
     uint64_t  mipCt;
 };
-
-
-VkImageView TextureUtilities::createImageView(BufferCreationContext rendererContext, VkImage image, VkFormat format,
+VkImageView TextureUtilities::createImageViewCustomMip(BufferCreationContext rendererContext, VkImage image, VkFormat format,
                                               VkImageAspectFlags aspectFlags,
-                                              VkImageViewType type, uint32_t miplevels, uint32_t layerCount, uint32_t layer)
+                                              VkImageViewType type, uint32_t layerCount, uint32_t layer, uint32_t mipCount, uint32_t baseMip)
 {
-    aspectFlags = aspectFlags == -1 ? VK_IMAGE_ASPECT_COLOR_BIT : aspectFlags;
-    type = (int)type == -1 ? VK_IMAGE_VIEW_TYPE_2D : type; //TODO JS: WIP HACK 
     VkImageViewCreateInfo viewInfo{};
     viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     viewInfo.image = image;
     viewInfo.viewType = type;
     viewInfo.format = format;
     viewInfo.subresourceRange.aspectMask = aspectFlags;
-    viewInfo.subresourceRange.baseMipLevel = 0; //TODO JS: pass in something more robust?
-    viewInfo.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
+    viewInfo.subresourceRange.baseMipLevel =baseMip; 
+    viewInfo.subresourceRange.levelCount = mipCount;
     viewInfo.subresourceRange.baseArrayLayer = layer; 
     viewInfo.subresourceRange.layerCount = layerCount;
 
@@ -45,6 +41,15 @@ VkImageView TextureUtilities::createImageView(BufferCreationContext rendererCont
     setDebugObjectName(rendererContext.device, VK_OBJECT_TYPE_IMAGE_VIEW, "TextureCreation image view", (uint64_t)imageView);
     rendererContext.rendererdeletionqueue->push_backVk(deletionType::ImageView, (uint64_t)imageView);
     return imageView;
+}
+
+
+VkImageView TextureUtilities::createImageView(BufferCreationContext rendererContext, VkImage image, VkFormat format,
+                                              VkImageAspectFlags aspectFlags,
+                                              VkImageViewType type, uint32_t layerCount, uint32_t layer)
+{
+
+    return createImageViewCustomMip(rendererContext, image, format, aspectFlags, type, layerCount, layer, VK_REMAINING_MIP_LEVELS, 0);
 }
 
 

@@ -30,11 +30,12 @@ struct  semaphoreData
     std::span<VkPipelineStageFlags> waitStages;
 };
 
-struct vulkanTextureInfo //This is like general image info -- currently only using for depth buffer/etc but need to get away from TextureData.h
+struct DepthBufferInfo //This is like general image info -- currently only using for depth buffer/etc but need to get away from TextureData.h
 {
     VkFormat format;
     VkImage image;
     VkImageView view;
+    std::span<VkImageView> viewsForMips;
     VmaAllocation vmaAllocation;
 };
 

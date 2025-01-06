@@ -55,7 +55,7 @@ struct RendererResources //Buffers, images, etc, used in core rendering -- proba
     std::vector<VkImage> shadowImages;
     std::vector<VmaAllocation> shadowMemory;
 
-    vulkanTextureInfo depthBufferInfo;
+    DepthBufferInfo depthBufferInfo;
 };
 
 

@@ -48,7 +48,7 @@ unsigned int MAX_TEXTURES = 120;
 
 //Slowly making this less of a giant class that owns lots of things and moving to these static FNS -- will eventually migrate thewm
 RendererResources /*todo*/  static_initializeResources(rendererObjects initializedrenderer,  MemoryArena::memoryArena* allocationArena, RendererDeletionQueue* deletionQueue,  CommandPoolManager* commandPoolmanager);
-vulkanTextureInfo static_createDepthResources(rendererObjects initializedrenderer,  MemoryArena::memoryArena* allocationArena, RendererDeletionQueue* deletionQueue,  CommandPoolManager* commandPoolmanager);
+DepthBufferInfo static_createDepthResources(rendererObjects initializedrenderer,  MemoryArena::memoryArena* allocationArena, RendererDeletionQueue* deletionQueue,  CommandPoolManager* commandPoolmanager);
 void static_allocaterendererCommandBuffers(VkDevice device, VkCommandPool pool, rendererCommandBuffers* resultCommandBuffers);
 void static_createSyncObjects(VkDevice device,  RendererDeletionQueue* deletionQueue, rendererSemaphores* semaphoresToCreate, VkFence* fence);
 
@@ -149,7 +149,6 @@ void vulkanRenderer::updateShadowImageViews(int frame, Scene* scene)
             getRendererForVkObjects(), rendererResources.shadowImages[i], shadowFormat,
             VK_IMAGE_ASPECT_DEPTH_BIT,
             (VkImageViewType)  VK_IMAGE_TYPE_2D,
-            1,
             1, 
             j);
     }
@@ -170,8 +169,6 @@ void vulkanRenderer::updateShadowImageViews(int frame, Scene* scene)
                 getRendererForVkObjects(), rendererResources.shadowImages[i], shadowFormat,
                 VK_IMAGE_ASPECT_DEPTH_BIT,
                 (VkImageViewType)  type,
-                1,
-               
                 ct, 
                 scene->getShadowDataIndex(j));
         }
@@ -1483,14 +1480,13 @@ bool vulkanRenderer::hasStencilComponent(VkFormat format)
 #pragma region depth
 
 
-
-//TODO JS: would like to get away from passing deletion queue into image fns
-vulkanTextureInfo static_createDepthResources(rendererObjects initializedrenderer,  MemoryArena::memoryArena* allocationArena, RendererDeletionQueue* deletionQueue, CommandPoolManager* commandPoolmanager )
+DepthBufferInfo static_createDepthResources(rendererObjects initializedrenderer,  MemoryArena::memoryArena* allocationArena, RendererDeletionQueue* deletionQueue, CommandPoolManager* commandPoolmanager )
 {
     auto depthFormat = Capabilities::findDepthFormat(initializedrenderer.vkbPhysicalDevice.physical_device);
     VkImage depthImage;
-                                            //The two null context will get overwritten by the create  calls below 
-    vulkanTextureInfo bufferInfo = {depthFormat, VK_NULL_HANDLE, VK_NULL_HANDLE, VmaAllocation {}};
+                                            //The two null context will get overwritten by the create  calls below
+    std::span<VkImageView> viewsForMips = MemoryArena::AllocSpan<VkImageView>(allocationArena, HIZDEPTH);
+    DepthBufferInfo bufferInfo = {depthFormat, VK_NULL_HANDLE, VK_NULL_HANDLE, viewsForMips, VmaAllocation {}};
 
 
     BufferCreationContext context = {
@@ -1504,9 +1500,13 @@ vulkanTextureInfo static_createDepthResources(rendererObjects initializedrendere
                                   VK_IMAGE_TILING_OPTIMAL,
                                   VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
                                   (bufferInfo.image),
-                                 (bufferInfo.vmaAllocation), 1, 1, false, "DEPTH TEXTURE");
-    bufferInfo.view =
-        TextureUtilities::createImageView(context,   (bufferInfo.image), bufferInfo.format, VK_IMAGE_ASPECT_DEPTH_BIT);
+                                 (bufferInfo.vmaAllocation), HIZDEPTH, 1, false, "DEPTH TEXTURE");
+    for(int i = 0; i < bufferInfo.viewsForMips.size(); i++)
+    {
+        bufferInfo.viewsForMips[i] =
+            TextureUtilities::createImageViewCustomMip(context,   (bufferInfo.image), bufferInfo.format, VK_IMAGE_ASPECT_DEPTH_BIT, VK_IMAGE_VIEW_TYPE_2D, 1, 0,1, i);
+    }
+    bufferInfo.view = bufferInfo.viewsForMips[0];
 
 return bufferInfo;
 }
