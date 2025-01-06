@@ -469,7 +469,7 @@ gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
         std::span<const char> gltfPathSpan = std::span(gltfpath, strlen(gltfpath));
         std::span<const char> textureNameSpan = std::span(name.data(), strlen(name.data()));
         size_t len = gltfPathSpan.size() + textureNameSpan.size() + 5; //4 for ".ktx" and 1 for null terminated
-        auto newName = MemoryArena::AllocSpan<char>(handles.perframeArena, len);
+        auto newName = MemoryArena::AllocSpan<char>(handles.tempArena, len);
         memcpy(newName.data(),gltfPathSpan.data(), gltfPathSpan.size_bytes());
         memcpy(newName.data() + gltfPathSpan.size_bytes(),textureNameSpan.data(), textureNameSpan.size_bytes());
         memcpy(newName.data() + gltfPathSpan.size_bytes() + textureNameSpan.size_bytes(),".ktx\0", 5 * sizeof(char));

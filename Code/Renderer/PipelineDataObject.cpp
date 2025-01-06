@@ -41,7 +41,7 @@ void PipelineDataObject::createLayout(RendererContext handles,  std::span<VkDesc
     VkDescriptorSetLayoutBindingFlagsCreateInfoEXT extended_info = {VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO_EXT};
     extended_info.bindingCount = (uint32_t)layout.size(); 
 
-    std::span<VkDescriptorBindingFlagsEXT> extFlags = MemoryArena::AllocSpan<VkDescriptorBindingFlagsEXT>(handles.perframeArena, layout.size());
+    std::span<VkDescriptorBindingFlagsEXT> extFlags = MemoryArena::AllocSpan<VkDescriptorBindingFlagsEXT>(handles.tempArena, layout.size());
 
     //enable partially bound bit for all samplers and images
     for (int i = 0; i < extFlags.size(); i++)

@@ -69,7 +69,7 @@ public:
     std::unordered_map<VkImageView, VkDescriptorSet> imguiRegisteredTextures;
 
     vulkanRenderer();
-    RendererContext getHandles();
+    RendererContext getRendererContext();
     void initializeRendererForScene(Scene* scene);
     void Update(Scene* scene);
     void cleanup();

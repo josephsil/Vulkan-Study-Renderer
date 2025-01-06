@@ -61,12 +61,12 @@ void Add_Scene_Content(RendererContext rendererContext, AssetManager* rendererDa
     //TODO JS: to span of spans for submeshes
 
 #pragma region gltf adding stuff --- todo move to fn 
-    std::span<std::span<int>> meshLUT = MemoryArena::AllocSpan<std::span<int>>(rendererContext.perframeArena, gltf.meshes.size());
-    std::span<int> textureLUT = MemoryArena::AllocSpan<int>(rendererContext.perframeArena, gltf.textures.size());
-    std::span<int> materialLUT = MemoryArena::AllocSpan<int>(rendererContext.perframeArena, gltf.materials.size());
-    std::span<int> parent = MemoryArena::AllocSpan<int>(rendererContext.perframeArena, gltf.objects.size());
-    std::span<bool> created = MemoryArena::AllocSpan<bool>(rendererContext.perframeArena, gltf.objects.size());
-    std::span<localTransform*> tforms = MemoryArena::AllocSpan<localTransform*>(rendererContext.perframeArena, gltf.objects.size());
+    std::span<std::span<int>> meshLUT = MemoryArena::AllocSpan<std::span<int>>(rendererContext.tempArena, gltf.meshes.size());
+    std::span<int> textureLUT = MemoryArena::AllocSpan<int>(rendererContext.tempArena, gltf.textures.size());
+    std::span<int> materialLUT = MemoryArena::AllocSpan<int>(rendererContext.tempArena, gltf.materials.size());
+    std::span<int> parent = MemoryArena::AllocSpan<int>(rendererContext.tempArena, gltf.objects.size());
+    std::span<bool> created = MemoryArena::AllocSpan<bool>(rendererContext.tempArena, gltf.objects.size());
+    std::span<localTransform*> tforms = MemoryArena::AllocSpan<localTransform*>(rendererContext.tempArena, gltf.objects.size());
     for(int i =0; i < parent.size(); i++)
     {
         parent[i] = -1;
@@ -75,7 +75,7 @@ void Add_Scene_Content(RendererContext rendererContext, AssetManager* rendererDa
 
     for(int i = 0; i < gltf.meshes.size(); i++)
     {
-        meshLUT[i] =MemoryArena::AllocSpan<int>(rendererContext.perframeArena, gltf.meshes[i].submeshes.size());
+        meshLUT[i] =MemoryArena::AllocSpan<int>(rendererContext.tempArena, gltf.meshes[i].submeshes.size());
         for(int j = 0; j < gltf.meshes[i].submeshes.size(); j++)
         {
             meshLUT[i][j] = rendererData->AddBackingMesh(gltf.meshes[i].submeshes[j]);

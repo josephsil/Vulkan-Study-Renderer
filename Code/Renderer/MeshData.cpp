@@ -191,12 +191,12 @@ temporaryloadingMesh geoFromObjPath(MemoryArena::memoryArena* tempArena, const c
 
 MeshData MeshDataFromObjFile(RendererContext rendererHandles, const char* path)
 {
-	MemoryArena::setCursor(rendererHandles.perframeArena);
+	MemoryArena::setCursor(rendererHandles.tempArena);
     const char* ext = strrchr(path, '.');
     assert(strcmp(ext, ".obj") == 0);
-    temporaryloadingMesh geo = geoFromObjPath(rendererHandles.perframeArena, path);
-    MeshData mesh = FinalizeMeshDataFromTempMesh(rendererHandles.arena, rendererHandles.perframeArena, geo);
-	MemoryArena::freeToCursor(rendererHandles.perframeArena); 
+    temporaryloadingMesh geo = geoFromObjPath(rendererHandles.tempArena, path);
+    MeshData mesh = FinalizeMeshDataFromTempMesh(rendererHandles.arena, rendererHandles.tempArena, geo);
+	MemoryArena::freeToCursor(rendererHandles.tempArena); 
 	return mesh;
 }
 

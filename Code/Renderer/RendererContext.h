@@ -3,6 +3,7 @@
 #include "RendererDeletionQueue.h"
 #include "General/Array.h"
 #include "VulkanIncludes/forward-declarations-renderer.h"
+
 struct CommandPoolManager;
 struct deleteableResource;
 namespace  MemoryArena
@@ -19,14 +20,6 @@ struct RendererContext
     CommandPoolManager* commandPoolmanager;
     VmaAllocator allocator;
     MemoryArena::memoryArena* arena;
-    MemoryArena::memoryArena* perframeArena;
-    RendererDeletionQueue* rendererdeletionqueue;
-};
-
-struct rendererContext_NEW //gonna use this for textures -- may rename, may phase out other one
-{
-    VkDevice device;
-    VmaAllocator allocator;
-    MemoryArena::memoryArena* memoryArena;
+    MemoryArena::memoryArena* tempArena;
     RendererDeletionQueue* rendererdeletionqueue;
 };

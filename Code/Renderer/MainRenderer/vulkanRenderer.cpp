@@ -119,7 +119,7 @@ TextureData cube_specular;
 // vkb::Swapchain vkb_swapchain; //todo js 0
 
 
-RendererContext vulkanRenderer::getHandles()
+RendererContext vulkanRenderer::getRendererContext()
 {
     return RendererContext{
         .physicalDevice = rendererVulkanObjects.vkbdevice.physical_device,
@@ -127,7 +127,7 @@ RendererContext vulkanRenderer::getHandles()
         .commandPoolmanager = commandPoolmanager.get(),
         .allocator =  rendererVulkanObjects.vmaAllocator,
         .arena = &rendererArena,
-        .perframeArena = &perFrameArenas[currentFrame],
+        .tempArena = &perFrameArenas[currentFrame],
         .rendererdeletionqueue = deletionQueue.get()};
 }
 
@@ -142,7 +142,7 @@ void vulkanRenderer::updateShadowImageViews(int frame, Scene* scene)
     for (int j = 0; j < MAX_SHADOWMAPS; j++)
     {
         rendererResources.shadowMapRenderingImageViews[i][j] = TextureUtilities::createImageView(
-            getHandles(), rendererResources.shadowImages[i], shadowFormat,
+            getRendererContext(), rendererResources.shadowImages[i], shadowFormat,
             VK_IMAGE_ASPECT_DEPTH_BIT,
             (VkImageViewType)  VK_IMAGE_TYPE_2D,
             1,
@@ -163,7 +163,7 @@ void vulkanRenderer::updateShadowImageViews(int frame, Scene* scene)
             }
            
             rendererResources.shadowMapSamplingImageViews[i][j] = TextureUtilities::createImageView(
-                getHandles(), rendererResources.shadowImages[i], shadowFormat,
+                getRendererContext(), rendererResources.shadowImages[i], shadowFormat,
                 VK_IMAGE_ASPECT_DEPTH_BIT,
                 (VkImageViewType)  type,
                 1,
@@ -237,9 +237,9 @@ void vulkanRenderer::initializeRendererForScene(Scene* scene) //todo remaining i
     perLightShadowData = MemoryArena::AllocSpan<std::span<PerShadowData>>(&rendererArena, scene->lightCount);
     for(int i = 0; i < MAX_FRAMES_IN_FLIGHT ; i++)
     {
-        TextureUtilities::createImage(getHandles(),SHADOW_MAP_SIZE, SHADOW_MAP_SIZE,shadowFormat,VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
+        TextureUtilities::createImage(getRendererContext(),SHADOW_MAP_SIZE, SHADOW_MAP_SIZE,shadowFormat,VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
                VK_IMAGE_USAGE_SAMPLED_BIT,0,rendererResources.shadowImages[i],rendererResources.shadowMemory[i],1, MAX_SHADOWMAPS, true);
-        createTextureSampler(&rendererResources.shadowSamplers[i], getHandles(), VK_SAMPLER_ADDRESS_MODE_REPEAT, 0, 1, true);
+        createTextureSampler(&rendererResources.shadowSamplers[i], getRendererContext(), VK_SAMPLER_ADDRESS_MODE_REPEAT, 0, 1, true);
         setDebugObjectName(rendererVulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_IMAGE, "SHADOW IMAGE", (uint64_t)(rendererResources.shadowImages[i]));
         setDebugObjectName(rendererVulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_SAMPLER, "SHADOW IMAGE SAMPLER", (uint64_t)(rendererResources.shadowSamplers[i]));
         updateShadowImageViews(i, scene);
@@ -247,9 +247,9 @@ void vulkanRenderer::initializeRendererForScene(Scene* scene) //todo remaining i
 
     //Initialize scene-ish objects we don't have a place for yet 
     cubemaplut_utilitytexture_index = AssetDataAndMemory->AddTexture(
-        createTexture(getHandles(), "textures/outputLUT.png", TextureType::DATA_DONT_COMPRESS));
-    cube_irradiance = createTexture(getHandles(), "textures/output_cubemap2_diff8.ktx2", TextureType::CUBE);
-    cube_specular = createTexture(getHandles(), "textures/output_cubemap2_spec8.ktx2", TextureType::CUBE);
+        createTexture(getRendererContext(), "textures/outputLUT.png", TextureType::DATA_DONT_COMPRESS));
+    cube_irradiance = createTexture(getRendererContext(), "textures/output_cubemap2_diff8.ktx2", TextureType::CUBE);
+    cube_specular = createTexture(getRendererContext(), "textures/output_cubemap2_spec8.ktx2", TextureType::CUBE);
 
     createUniformBuffers(scene->objectsCount(),scene->lightCount);
 
@@ -257,7 +257,7 @@ void vulkanRenderer::initializeRendererForScene(Scene* scene) //todo remaining i
     //TODO JS: Move... Run when meshes change?
     populateMeshBuffers();
 
-    createDescriptorSetPool(getHandles(), &descriptorPool);
+    createDescriptorSetPool(getRendererContext(), &descriptorPool);
 
     Array opaqueLayout = MemoryArena::AllocSpan<VkDescriptorSetLayoutBinding>(&rendererArena, 12);
     uint32_t i =0;
@@ -303,14 +303,14 @@ void vulkanRenderer::initializeRendererForScene(Scene* scene) //todo remaining i
     }
 
 
-    descriptorsetLayoutsDataCompute = PipelineDataObject(getHandles(), descriptorPool, computeLayout.getSpan());
+    descriptorsetLayoutsDataCompute = PipelineDataObject(getRendererContext(), descriptorPool, computeLayout.getSpan());
 
     //compute
     createGraphicsPipeline("cull",  &descriptorsetLayoutsDataCompute, {},true, sizeof(cullPConstants));
 
     
-    descriptorsetLayoutsData = PipelineDataObject(getHandles(), descriptorPool, opaqueLayout.getSpan());
-    descriptorsetLayoutsDataShadow = PipelineDataObject(getHandles(), descriptorPool, shadowLayout.getSpan());
+    descriptorsetLayoutsData = PipelineDataObject(getRendererContext(), descriptorPool, opaqueLayout.getSpan());
+    descriptorsetLayoutsDataShadow = PipelineDataObject(getRendererContext(), descriptorPool, shadowLayout.getSpan());
    auto swapchainFormat = rendererVulkanObjects.swapchain.image_format;
 
 
@@ -338,9 +338,9 @@ void vulkanRenderer::populateMeshBuffers()
         vertCt += AssetDataAndMemory->backing_meshes[i].vertices.size();
     }
 
-    auto gpuVerts = MemoryArena::AllocSpan<gpuvertex>(getHandles().arena, vertCt);
-    auto Positoins = MemoryArena::AllocSpan<glm::vec4>(getHandles().arena, vertCt);
-    auto Indices = MemoryArena::AllocSpan<uint32_t>(getHandles().arena, indexCt);
+    auto gpuVerts = MemoryArena::AllocSpan<gpuvertex>(getRendererContext().arena, vertCt);
+    auto Positoins = MemoryArena::AllocSpan<glm::vec4>(getRendererContext().arena, vertCt);
+    auto Indices = MemoryArena::AllocSpan<uint32_t>(getRendererContext().arena, indexCt);
     size_t vert = 0;
     size_t _vert = 0;
     size_t meshoffset = 0;
@@ -389,7 +389,7 @@ void vulkanRenderer::createUniformBuffers(int objectsCount, int lightCount)
     VkDeviceSize lightdataSize = sizeof(gpulight) *lightCount;
     VkDeviceSize shadowDataSize = sizeof(PerShadowData) *lightCount * 10; //times six is plenty right?
 
-    RendererContext handles = getHandles();
+    RendererContext handles = getRendererContext();
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
@@ -1022,7 +1022,7 @@ glm::vec4 normalizePlane(glm::vec4 p)
 void vulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<std::span<glm::mat4>> models, Scene* scene)
 {
     //TODO JS: to ring buffer?
-    auto tempArena = getHandles().perframeArena;
+    auto tempArena = getRendererContext().tempArena;
 
     updateGlobals(scene->sceneCamera, scene->lightCount, cubemaplut_utilitytexture_index, FramesInFlightData[currentFrame].opaqueShaderGlobalsBuffer);
     
@@ -1496,7 +1496,7 @@ vulkanTextureInfo static_createDepthResources(rendererObjects initializedrendere
         .commandPoolmanager = commandPoolmanager,
         .allocator =  initializedrenderer.vmaAllocator,
         .arena = allocationArena,
-        .perframeArena = nullptr,
+        .tempArena = nullptr,
         .rendererdeletionqueue = deletionQueue};
 
     TextureUtilities::createImage(context, initializedrenderer.swapchain.extent.width, initializedrenderer.swapchain.extent.height, bufferInfo.format,
@@ -1790,7 +1790,7 @@ void vulkanRenderer::drawFrame(Scene* scene)
     semaphoreData waitSemaphores = getSemaphoreDataFromSemaphores({&FramesInFlightData[currentFrame].semaphores.imageAvailableSemaphores, 1}, &perFrameArenas[currentFrame]);
     //Transition swapchain for rendering
     transitionImageForRendering(
-        getHandles(),
+        getRendererContext(),
         FramesInFlightData[currentFrame].commanderBuffers.swapchainTransitionInCommandBuffer,
         waitSemaphores,
         std::span<VkSemaphore>(&FramesInFlightData[currentFrame].semaphores.swapchaintransitionedInSemaphores, 1),
@@ -1801,7 +1801,7 @@ void vulkanRenderer::drawFrame(Scene* scene)
 
     //Transition shadow maps for rendering
     transitionImageForRendering(
-    getHandles(),
+    getRendererContext(),
     FramesInFlightData[currentFrame].commanderBuffers.shadowTransitionInCommandBuffer,
      {},
    {&FramesInFlightData[currentFrame].semaphores.shadowtransitionedInSemaphores, 1},
@@ -1834,7 +1834,7 @@ void vulkanRenderer::drawFrame(Scene* scene)
     //Transition shadow maps for reading
     waitSemaphores = getSemaphoreDataFromSemaphores(shadowpasssignalSemaphores, &perFrameArenas[currentFrame]);
     transitionImageForRendering(
-    getHandles(),
+    getRendererContext(),
     FramesInFlightData[currentFrame].commanderBuffers.shadowTransitionOutCommandBuffer,
     waitSemaphores,
    {&FramesInFlightData[currentFrame].semaphores.shadowtransitionedOutSemaphores, 1},
@@ -1858,7 +1858,7 @@ void vulkanRenderer::drawFrame(Scene* scene)
 
     waitSemaphores = getSemaphoreDataFromSemaphores(opaquepasssignalSemaphores, &perFrameArenas[currentFrame]);
     transitionImageForRendering(
-    getHandles(),
+    getRendererContext(),
     FramesInFlightData[currentFrame].commanderBuffers.swapchainTransitionOutCommandBuffer,
     waitSemaphores,
    {&FramesInFlightData[currentFrame].semaphores.swapchaintransitionedOutSemaphores, 1},
