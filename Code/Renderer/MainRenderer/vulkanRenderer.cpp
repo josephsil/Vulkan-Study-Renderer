@@ -239,7 +239,7 @@ void vulkanRenderer::initializeRendererForScene(Scene* scene) //todo remaining i
     {
         TextureUtilities::createImage(getHandles(),SHADOW_MAP_SIZE, SHADOW_MAP_SIZE,shadowFormat,VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
                VK_IMAGE_USAGE_SAMPLED_BIT,0,rendererResources.shadowImages[i],rendererResources.shadowMemory[i],1, MAX_SHADOWMAPS, true);
-        TextureData::createTextureSampler(&rendererResources.shadowSamplers[i], getHandles(), VK_SAMPLER_ADDRESS_MODE_REPEAT, 0, 1, true);
+        createTextureSampler(&rendererResources.shadowSamplers[i], getHandles(), VK_SAMPLER_ADDRESS_MODE_REPEAT, 0, 1, true);
         setDebugObjectName(rendererVulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_IMAGE, "SHADOW IMAGE", (uint64_t)(rendererResources.shadowImages[i]));
         setDebugObjectName(rendererVulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_SAMPLER, "SHADOW IMAGE SAMPLER", (uint64_t)(rendererResources.shadowSamplers[i]));
         updateShadowImageViews(i, scene);
@@ -247,9 +247,9 @@ void vulkanRenderer::initializeRendererForScene(Scene* scene) //todo remaining i
 
     //Initialize scene-ish objects we don't have a place for yet 
     cubemaplut_utilitytexture_index = AssetDataAndMemory->AddTexture(
-        TextureData(getHandles(), "textures/outputLUT.png", TextureData::DATA_DONT_COMPRESS));
-    cube_irradiance = TextureData(getHandles(), "textures/output_cubemap2_diff8.ktx2", TextureData::TextureType::CUBE);
-    cube_specular = TextureData(getHandles(), "textures/output_cubemap2_spec8.ktx2", TextureData::TextureType::CUBE);
+        createTexture(getHandles(), "textures/outputLUT.png", TextureType::DATA_DONT_COMPRESS));
+    cube_irradiance = createTexture(getHandles(), "textures/output_cubemap2_diff8.ktx2", TextureType::CUBE);
+    cube_specular = createTexture(getHandles(), "textures/output_cubemap2_spec8.ktx2", TextureType::CUBE);
 
     createUniformBuffers(scene->objectsCount(),scene->lightCount);
 
@@ -447,33 +447,6 @@ void vulkanRenderer::createDescriptorSetPool(RendererContext handles, VkDescript
 }
 
 
-//TODO JS: move
-VkDescriptorImageInfo imageInfoFromImageData(
-    TextureData texture)
-{
-    assert( &texture.textureImageView != VK_NULL_HANDLE);
-    return 
-        VkDescriptorImageInfo{
-           .sampler = texture.textureSampler,  .imageView = texture.textureImageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-}
-
-
-std::span<VkDescriptorImageInfo> getBindlessTextureInfos(MemoryArena::memoryArena* allocator, std::span<TextureData> textures)
-{
-
-    //TODO JS: Don't do this every frame
-    Array<VkDescriptorImageInfo> imageInfos = MemoryArena::AllocSpan<VkDescriptorImageInfo>(allocator, (textures.size()));
-    //Material textures
-    for (int texture_i = 0; texture_i < textures.size(); texture_i++)
-    {
-        auto imageInfo = imageInfoFromImageData(
-            textures[texture_i]);
-        imageInfos.push_back(imageInfo);
-    }
-
-    return imageInfos.getSpan();
-}
-
 
 void vulkanRenderer::updateOpaqueDescriptorSets(PipelineDataObject* layoutData)
 {
@@ -485,12 +458,11 @@ void vulkanRenderer::updateOpaqueDescriptorSets(PipelineDataObject* layoutData)
 std::span<descriptorUpdateData> vulkanRenderer::createOpaqueDescriptorUpdates(uint32_t frame, int shadowCasterCount, MemoryArena::memoryArena* arena, std::span<VkDescriptorSetLayoutBinding> layoutBindings)
 {
 
-    //Get data
-    std::span imageInfos = getBindlessTextureInfos(
-        arena,
-        std::span(AssetDataAndMemory->backing_diffuse_textures.data, AssetDataAndMemory->backing_diffuse_textures.ct ));
-    std::span cubeImageInfos= DescriptorSets::ImageInfoFromImageDataVec(arena,{
-        cube_irradiance, cube_specular});
+ 
+    auto imageInfos = AssetDataAndMemory->textures.getSpan();
+    std::span<VkDescriptorImageInfo> cubeImageInfos = MemoryArena::AllocSpan<VkDescriptorImageInfo>(arena, 2);
+    cubeImageInfos[0] = cube_irradiance.vkImageInfo;
+    cubeImageInfos[1] = cube_specular.vkImageInfo;
 
 
     int pointCount = 0;

@@ -64,20 +64,6 @@ uint32_t Capabilities::findMemoryType(RendererContext rendererHandles, uint32_t 
 }
 
 
-//This probably doesnt need to exisdt
-std::span<VkDescriptorImageInfo>
-DescriptorSets::ImageInfoFromImageDataVec(MemoryArena::memoryArena* arena, std::vector<TextureData> textures)
-{
-    std::span<VkDescriptorImageInfo> imageinfos = MemoryArena::AllocSpan<VkDescriptorImageInfo>(arena, textures.size());
-    for (int i = 0; i < textures.size(); i++)
-    {
-        imageinfos[i] = VkDescriptorImageInfo{
-             .sampler = textures[i].textureSampler, .imageView = textures[i].textureImageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-        };
-    }
-
-    return imageinfos;
-}
 
 void DescriptorSets::AllocateDescriptorSet(VkDevice device, VkDescriptorPool pool, VkDescriptorSetLayout* pdescriptorsetLayout, VkDescriptorSet* pset)
 {

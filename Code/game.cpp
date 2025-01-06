@@ -13,30 +13,30 @@ void Add_Scene_Content(RendererContext rendererContext, AssetManager* rendererDa
     std::vector<int> randomMaterials;
      scene->sceneCamera.extent = {16, 10}; // ????
 
-    int defaultTexture = rendererData->AddTexture(TextureData(rendererContext, "textures/blank.png", TextureData::DIFFUSE));
-    int defaultSPec = rendererData->AddTexture(TextureData(rendererContext, "textures/default_roug.tga", TextureData::SPECULAR));
-    int defaultNormal = rendererData->AddTexture(TextureData(rendererContext, "textures/blank.png", TextureData::SPECULAR));
+    int defaultTexture = rendererData->AddTexture(createTexture(rendererContext, "textures/blank.png", TextureType::DIFFUSE));
+    int defaultSPec = rendererData->AddTexture(createTexture(rendererContext, "textures/default_roug.tga", TextureType::SPECULAR));
+    int defaultNormal = rendererData->AddTexture(createTexture(rendererContext, "textures/blank.png", TextureType::SPECULAR));
 
     int placeholderMatidx;
     auto placeholderTextureidx = rendererData->AddTextureSet(
-        TextureData(rendererContext, "textures/pbr_cruiser-panels/space-cruiser-panels2_albedo.png",
-                    TextureData::TextureType::DIFFUSE),
-        TextureData(rendererContext, "textures/pbr_cruiser-panels/space-cruiser-panels2_roughness_metallic.tga",
-                    TextureData::TextureType::SPECULAR),
-        TextureData(rendererContext, "textures/pbr_cruiser-panels/space-cruiser-panels2_normal-dx.png",
-                    TextureData::TextureType::NORMAL));
+        createTexture(rendererContext, "textures/pbr_cruiser-panels/space-cruiser-panels2_albedo.png",
+                    TextureType::DIFFUSE, VK_IMAGE_VIEW_TYPE_2D),
+        createTexture(rendererContext, "textures/pbr_cruiser-panels/space-cruiser-panels2_roughness_metallic.tga",
+                    TextureType::SPECULAR,  VK_IMAGE_VIEW_TYPE_2D),
+        createTexture(rendererContext, "textures/pbr_cruiser-panels/space-cruiser-panels2_normal-dx.png",
+                    TextureType::NORMAL,  VK_IMAGE_VIEW_TYPE_2D));
 
     placeholderMatidx = rendererData->AddMaterial(0.2, 0, glm::vec3(1.0f), placeholderTextureidx, 1);
     randomMaterials.push_back(placeholderMatidx);
 
 
     placeholderTextureidx = rendererData->AddTextureSet(
-        TextureData(rendererContext, "textures/pbr_cruiser-panels/space-cruiser-panels2_albedo.png",
-                    TextureData::TextureType::DIFFUSE),
-        TextureData(rendererContext, "textures/pbr_cruiser-panels/space-cruiser-panels2_roughness_metallic.tga",
-                    TextureData::TextureType::SPECULAR),
-        TextureData(rendererContext, "textures/pbr_cruiser-panels/space-cruiser-panels2_normal-dx.png",
-                    TextureData::TextureType::NORMAL));
+        createTexture(rendererContext, "textures/pbr_cruiser-panels/space-cruiser-panels2_albedo.png",
+                    TextureType::DIFFUSE,  VK_IMAGE_VIEW_TYPE_2D),
+        createTexture(rendererContext, "textures/pbr_cruiser-panels/space-cruiser-panels2_roughness_metallic.tga",
+                    TextureType::SPECULAR,  VK_IMAGE_VIEW_TYPE_2D),
+        createTexture(rendererContext, "textures/pbr_cruiser-panels/space-cruiser-panels2_normal-dx.png",
+                    TextureType::NORMAL,  VK_IMAGE_VIEW_TYPE_2D));
     placeholderMatidx = rendererData->AddMaterial(0.2, 0, glm::vec3(1.0f), placeholderTextureidx, 1);
     randomMaterials.push_back(placeholderMatidx);
 
@@ -151,11 +151,11 @@ void Add_Scene_Content(RendererContext rendererContext, AssetManager* rendererDa
     // #else
     gltf = GltfLoadMeshes(rendererContext, "Meshes/pig.glb");
     placeholderTextureidx = rendererData->AddTextureSet(
-    gltf.textures[gltf.materials[0].diffIndex],
-      TextureData(rendererContext, "textures/pbr_stainless-steel/used-stainless-steel2_roughness.png",
-                  TextureData::TextureType::SPECULAR),
-      TextureData(rendererContext, "textures/pbr_stainless-steel/used-stainless-steel2_normal-dx.png",
-                  TextureData::TextureType::NORMAL));
+        gltf.textures[gltf.materials[0].diffIndex],
+        createTexture(rendererContext, "textures/pbr_stainless-steel/used-stainless-steel2_roughness.png",
+                    TextureType::SPECULAR),
+        createTexture(rendererContext, "textures/pbr_stainless-steel/used-stainless-steel2_normal-dx.png",
+                    TextureType::NORMAL));
 
     placeholderMatidx = rendererData->AddMaterial(0.2, 0, glm::vec3(1.0f), placeholderTextureidx, 1);
     randomMaterials.push_back(placeholderMatidx);

@@ -9,7 +9,6 @@ class AssetManager;
 //Forward declaration
 struct RendererContext;
 struct CommandPoolManager;
-struct TextureData;
 struct Vertex;
 
 namespace BufferUtilities

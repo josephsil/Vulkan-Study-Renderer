@@ -12,6 +12,18 @@
 #include "rendererGlobals.h"
 #include "VulkanIncludes/Vulkan_Includes.h"
 
+
+//todo js
+struct temporaryTextureInfo
+{
+    VkImage textureImage;
+    VmaAllocation alloc;
+    uint64_t width;
+    uint64_t  height;
+    uint64_t  mipCt;
+};
+
+
 VkImageView TextureUtilities::createImageView(RendererContext handles, VkImage image, VkFormat format,
                                               VkImageAspectFlags aspectFlags,
                                               VkImageViewType type, uint32_t miplevels, uint32_t layerCount, uint32_t layer)
@@ -157,9 +169,7 @@ void TextureUtilities::transitionImageLayout(RendererContext rendererHandles, Vk
         
 
     if (usingTempBuffer)
-    {
         rendererHandles.commandPoolmanager->endSingleTimeCommands(tempBufferAndPool);
-    }
 }
 
 void TextureUtilities::generateMipmaps(RendererContext rendererHandles, VkImage image, VkFormat imageFormat,
@@ -169,8 +179,9 @@ void TextureUtilities::generateMipmaps(RendererContext rendererHandles, VkImage 
 
     bufferAndPool bandp = rendererHandles.commandPoolmanager->beginSingleTimeCommands(false);
 
+    
     auto commandBuffer = bandp.buffer;
-
+setDebugObjectName(rendererHandles.device, VK_OBJECT_TYPE_COMMAND_BUFFER, "mipmap commandbuffer", uint64_t(bandp.buffer));
     VkImageMemoryBarrier barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
     barrier.image = image;
@@ -253,7 +264,6 @@ void TextureUtilities::copyBufferToImage(CommandPoolManager* commandPoolManager,
                                          VkCommandBuffer workingBuffer)
 {
     bool endNow = false;
-    printf("x%p\n", image);
     if (workingBuffer == nullptr)
     {
         //Optional buffer for if the caller wants to submit the command to an existing buffer and manually end it later

@@ -3,13 +3,12 @@
 #include <span>
 #include <unordered_map>
 #include <vector>
-#include <vulkan/vulkan_core.h>
+#include "Renderer/VulkanIncludes/Vulkan_Includes.h"
 
 struct Vertex;
 //Forward declaration
 struct RendererContext;
 struct CommandPoolManager;
-struct TextureData;
 struct descriptorUpdateData;
 
 

@@ -2,6 +2,8 @@
 #include "glm/glm.hpp"
 #include <General/Array.h>
 #include <Renderer/rendererGlobals.h>
+
+#include "Renderer/TextureData.h"
 //
 struct positionRadius;
 
@@ -18,7 +20,7 @@ struct textureSetIDs
 };
 //Objects have like, transformation info, ref to their mesh, ref to their material
 //Not sure on ref to material. Really I only have one shader right now
-struct TextureData;
+struct TextureMetaData;
 struct MeshData;
 struct VkDescriptorImageInfo;
 class AssetManager;
@@ -40,7 +42,8 @@ public:
     
     int meshCount = 0;
     Array<Material> materials;
-    Array<TextureData> backing_diffuse_textures;
+    Array<VkDescriptorImageInfo> textures; //What we need to render the textures
+    Array<TextureMetaData> texturesMetaData; //Other info about the texture in parallel array
     Array<MeshData> backing_meshes;
     Array<positionRadius> meshBoundingSphereRad;
     

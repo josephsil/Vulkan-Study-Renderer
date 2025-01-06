@@ -37,7 +37,8 @@ using VkDescriptorSet = struct VkDescriptorSet_T*;
 
 using VkPipelineLayout = struct VkPipelineLayout_T*;
 enum VkSamplerAddressMode :  int; ;
-enum VkImageViewType :  int; ; 
+enum VkImageViewType :  int; ;
+enum VkImageType : int;
 
 using VkQueue = struct VkQueue_T*;
  enum VkFormat :  int; ;
@@ -55,7 +56,5 @@ typedef uint64_t VkDeviceSize;
 
  struct VkDescriptorBufferInfo ;
 
-
- struct VkDescriptorImageInfo;
 
  struct VkWriteDescriptorSet;

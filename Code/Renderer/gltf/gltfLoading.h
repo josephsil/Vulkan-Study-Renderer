@@ -8,10 +8,12 @@
 #include <glm/glm.hpp>
 #include<glm/gtc/quaternion.hpp>
 
+#include "Renderer/TextureData.h"
+
 
 struct RendererContext;
-struct TextureData;
 struct MeshData;
+struct TextureMetaData;
 
 struct gltfMesh
 {

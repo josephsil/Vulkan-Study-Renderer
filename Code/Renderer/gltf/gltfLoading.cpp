@@ -1,11 +1,10 @@
 #include "gltfLoading.h"
-#include <vulkan/vulkan_core.h>
+#include "Renderer/VulkanIncludes/Vulkan_Includes.h"
 
 #include <Renderer/MeshData.h>
 #include <General/MemoryArena.h>
 #include <General/Array.h>
 
-#include <Renderer/TextureData.h>
 #include <General/FileCaching.h>
 #include <glm/gtx/matrix_decompose.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -14,6 +13,7 @@
 #include <Renderer/BufferAndPool.h>
 #include <Renderer/CommandPoolManager.h>
 #include <Renderer/RendererContext.h>
+#include <Renderer/TextureData.h>
 
 //Default tinyobj load image fn
 bool LoadImageData(tinygltf::Image *image, const int image_idx, std::string *err,
@@ -407,8 +407,8 @@ gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
     //TODO JS: leaking some extra gltf loading data for now
     std::span<gltfMesh> meshes = MemoryArena::AllocSpan<gltfMesh>(permanentArena, meshCt);
     std::span<TextureData> textures = MemoryArena::AllocSpan<TextureData>(permanentArena, imageCt); //These are what I call textures, what vulkan calls images
-    std::span<material> materials = MemoryArena::AllocSpan<material>(permanentArena, matCt); //These are what I call textures, what vulkan calls images
-    std::span<gltfNode> gltfNodes = MemoryArena::AllocSpan<gltfNode>(permanentArena, nodeCt); //These are what I call textures, what vulkan calls images
+    std::span<material> materials = MemoryArena::AllocSpan<material>(permanentArena, matCt);
+    std::span<gltfNode> gltfNodes = MemoryArena::AllocSpan<gltfNode>(permanentArena, nodeCt);
     if (!warn.empty())
     {
         printf("GLTF LOADER WARNING: %s\n", warn.data());
@@ -490,10 +490,10 @@ gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
             assert(image.pixel_type == TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE);
             assert(image.bits == 8);
 
-            textures[i] = TextureData(cachedImagePath.data(),name.data(),  (VkFormat)VK_FORMAT_R8G8B8A8_SRGB,   VK_SAMPLER_ADDRESS_MODE_REPEAT, image.image.data(), image.width, image.height, 6,  handles, textureImportCommandBuffer);
+            textures[i] = createTexture(handles, cachedImagePath.data(),name.data(),  (VkFormat)VK_FORMAT_R8G8B8A8_SRGB,   VK_SAMPLER_ADDRESS_MODE_REPEAT, image.image.data(), image.width, image.height, 6,   textureImportCommandBuffer, true);
         }
         else
-        textures[i] = TextureData(cachedImagePath.data(),name.data(),  (VkFormat)VK_FORMAT_R8G8B8A8_SRGB,   VK_SAMPLER_ADDRESS_MODE_REPEAT,  image.width, image.height, 6,  handles, textureImportCommandBuffer);
+        textures[i] = createTexture(handles, cachedImagePath.data(),name.data(),  (VkFormat)VK_FORMAT_R8G8B8A8_SRGB,   VK_SAMPLER_ADDRESS_MODE_REPEAT,  image.width, image.height, 6,  textureImportCommandBuffer);
 
     }
 

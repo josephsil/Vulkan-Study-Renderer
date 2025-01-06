@@ -15,7 +15,8 @@ void static_AllocateAssetMemory(MemoryArena::memoryArena* arena, AssetManager* s
 {
 
     // arallel arrays per Light
-    scene->backing_diffuse_textures = Array(MemoryArena::AllocSpan<TextureData>(arena, ASSET_MAX));
+    scene->texturesMetaData = Array(MemoryArena::AllocSpan<TextureMetaData>(arena, ASSET_MAX));
+    scene->textures = Array(MemoryArena::AllocSpan<VkDescriptorImageInfo>(arena, ASSET_MAX));
     scene->backing_meshes =  Array(MemoryArena::AllocSpan<MeshData>(arena, ASSET_MAX));
     scene->meshBoundingSphereRad = Array(MemoryArena::AllocSpan<positionRadius>(arena, ASSET_MAX));
 
@@ -81,21 +82,23 @@ uint32_t AssetManager::getVertexCount()
 
 int AssetManager::materialTextureCount()
 {
-    return  backing_diffuse_textures.size();
+    return  textures.size();
 }
 
 
 int AssetManager::AddTexture(TextureData T)
 {
-    backing_diffuse_textures.push_back(T);
-    return backing_diffuse_textures.size() -1;
+    //What we need to render the texture. 
+    textures.push_back( T.vkImageInfo);
+    texturesMetaData.push_back(T.metaData);
+    return textures.size() -1;
 }
 textureSetIDs AssetManager::AddTextureSet(TextureData D, TextureData S, TextureData N)
 {
-    backing_diffuse_textures.push_back(D);
-    backing_diffuse_textures.push_back(S);
-    backing_diffuse_textures.push_back(N);
-    return {(uint32_t)backing_diffuse_textures.size() -3, (uint32_t)backing_diffuse_textures.size() -2, (uint32_t)backing_diffuse_textures.size() -1};
+    auto dI = AddTexture(D);
+    auto sI = AddTexture(S);
+    auto nI = AddTexture(N);
+    return {(uint32_t)dI, (uint32_t)sI, (uint32_t)nI};
 }
 
 int AssetManager::AddBackingMesh(MeshData M)

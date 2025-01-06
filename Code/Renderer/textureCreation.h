@@ -4,7 +4,6 @@
 
 struct RendererContext;
 struct CommandPoolManager;
-struct TextureData;
 
 namespace TextureUtilities
 {

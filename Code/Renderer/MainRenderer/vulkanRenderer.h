@@ -24,7 +24,6 @@ struct gpuvertex;
 struct PerShadowData;
 struct MeshData; //Forward Declaration
 struct Vertex; //Forward Declaration
-struct TextureData;
 using VmaAllocator = struct VmaAllocator_T*;
 struct SDL_Window;
 //Include last //
@@ -198,4 +197,11 @@ void updateShadowImageViews(int frame, Scene* scene);
     void renderOpaquePass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores, std::vector<VkSemaphore>
                           signalsemaphores, std::span<opaquePassInfo> batchedDraws, Scene* scene);
 
+
+
 };
+
+#pragma region textures
+
+
+#pragma endregion
