@@ -28,12 +28,12 @@ struct nonKTXTextureInfo
 	uint64_t  mipCt;
 };
 
-static nonKTXTextureInfo createtempTextureFromPath(RendererContext rendererHandles, const char* path, VkFormat format, bool mips);
-static nonKTXTextureInfo createTextureImage(RendererContext rendererHandles, const unsigned char* pixels, uint64_t texWidth, uint64_t texHeight, VkFormat format, bool mips);
-static void cacheKTXFromTempTexture(RendererContext context, nonKTXTextureInfo tempTexture, const char* outpath, VkFormat format, TextureType textureType, bool use_mipmaps, bool compress);
-TextureMetaData GetOrLoadTexture(RendererContext context, const char* path, VkFormat format, TextureType textureType, bool use_mipmaps, bool compress);
+static nonKTXTextureInfo createtempTextureFromPath(RendererContext rendererContext, const char* path, VkFormat format, bool mips);
+static nonKTXTextureInfo createTextureImage(RendererContext rendererContext, const unsigned char* pixels, uint64_t texWidth, uint64_t texHeight, VkFormat format, bool mips);
+static void cacheKTXFromTempTexture(RendererContext rendererContext, nonKTXTextureInfo tempTexture, const char* outpath, VkFormat format, TextureType textureType, bool use_mipmaps, bool compress);
+TextureMetaData GetOrLoadTexture(RendererContext rendererContext, const char* path, VkFormat format, TextureType textureType, bool use_mipmaps, bool compress);
 
-TextureData createTexture(RendererContext rendererHandles, const char* path, TextureType type, VkImageViewType viewType)
+TextureData createTexture(RendererContext rendererContext, const char* path, TextureType type, VkImageViewType viewType)
 {
 
 	VkFormat inputFormat;
@@ -81,7 +81,7 @@ TextureData createTexture(RendererContext rendererHandles, const char* path, Tex
 	}
 
 	//TODO JS
-	auto ktxResult = GetOrLoadTexture(rendererHandles, path, inputFormat, type, use_mipmaps, !uncompressed);
+	auto ktxResult = GetOrLoadTexture(rendererContext, path, inputFormat, type, use_mipmaps, !uncompressed);
 	VkFormat loadedFormat = ktxResult.dimensionsInfo.format;
 	auto layerct = ktxResult.dimensionsInfo.layerCt;
 	auto textureImage = ktxResult.textureImage;
@@ -90,9 +90,9 @@ TextureData createTexture(RendererContext rendererHandles, const char* path, Tex
 	{
 		viewType = type == CUBE ? VK_IMAGE_VIEW_TYPE_CUBE : VK_IMAGE_VIEW_TYPE_2D;
 	}
-	auto textureImageView = createTextureImageView(rendererHandles, ktxResult, viewType);
+	auto textureImageView = createTextureImageView(rendererContext, ktxResult, viewType);
 	VkSampler textureSampler = {};
-	createTextureSampler(&textureSampler, rendererHandles, mode, 0, ktxResult.dimensionsInfo.mipCt);
+	createTextureSampler(&textureSampler, rendererContext, mode, 0, ktxResult.dimensionsInfo.mipCt);
 
 	TextureData texture =
 	{
@@ -113,24 +113,24 @@ TextureData createTexture(RendererContext rendererHandles, const char* path, Tex
 
 //TODO JS: these constructors suck and are error prone, was just easier refactor
 //FROM LOADED GLTF 
-TextureData createTexture(RendererContext rendererHandles, const char* OUTPUT_PATH, const char* textureName,  VkFormat format,  VkSamplerAddressMode samplerMode, unsigned char* pixels, uint64_t width, uint64_t height, int mipCt, bufferAndPool commandbuffer, bool compress)
+TextureData createTexture(RendererContext rendererContext, const char* OUTPUT_PATH, const char* textureName,  VkFormat format,  VkSamplerAddressMode samplerMode, unsigned char* pixels, uint64_t width, uint64_t height, int mipCt, bufferAndPool commandbuffer, bool compress)
 {
-	nonKTXTextureInfo staging = createTextureImage(rendererHandles, pixels, width, height, format, true);
+	nonKTXTextureInfo staging = createTextureImage(rendererContext, pixels, width, height, format, true);
 	//TODO JS: no gaurantee taking output path data works -- not null terminated rght?
-	cacheKTXFromTempTexture(rendererHandles, staging, OUTPUT_PATH, format, TextureType::DIFFUSE, mipCt != 0, compress);
+	cacheKTXFromTempTexture(rendererContext, staging, OUTPUT_PATH, format, TextureType::DIFFUSE, mipCt != 0, compress);
 
 
-	auto ktxResult = createImageKTX(rendererHandles, OUTPUT_PATH, TextureType::DIFFUSE, true, true, &commandbuffer);
+	auto ktxResult = createImageKTX(rendererContext, OUTPUT_PATH, TextureType::DIFFUSE, true, true, &commandbuffer);
 	VkFormat loadedFormat = ktxResult.dimensionsInfo.format;
 	auto layerct = ktxResult.dimensionsInfo.layerCt;
 	auto textureImage = ktxResult.textureImage;
 	// textureImageMemory = ktxResult.ktxMemory;
 
-	VkImageView textureImageView = createTextureImageView(rendererHandles, ktxResult, VK_IMAGE_VIEW_TYPE_2D);
+	VkImageView textureImageView = createTextureImageView(rendererContext, ktxResult, VK_IMAGE_VIEW_TYPE_2D);
 	assert(textureImageView != VK_NULL_HANDLE);
 	VkSampler textureSampler = {};
-	createTextureSampler(&textureSampler, rendererHandles, samplerMode, 0, ktxResult.dimensionsInfo.mipCt);
-	rendererHandles = rendererHandles;
+	createTextureSampler(&textureSampler, rendererContext, samplerMode, 0, ktxResult.dimensionsInfo.mipCt);
+	rendererContext = rendererContext;
 
 	TextureData texture =
 	{
@@ -150,17 +150,17 @@ return texture;
 }
 
 //FROM CACHED GLTF 
-TextureData createTexture(RendererContext rendererHandles, const char* OUTPUT_PATH, const char* textureName, VkFormat format, VkSamplerAddressMode samplerMode,
+TextureData createTexture(RendererContext rendererContext, const char* OUTPUT_PATH, const char* textureName, VkFormat format, VkSamplerAddressMode samplerMode,
 			uint64_t width, uint64_t height, int mipCt, bufferAndPool commandbuffer)
 {
-	auto ktxResult = createImageKTX(rendererHandles, OUTPUT_PATH, TextureType::DIFFUSE, true, true, &commandbuffer);
+	auto ktxResult = createImageKTX(rendererContext, OUTPUT_PATH, TextureType::DIFFUSE, true, true, &commandbuffer);
 	VkFormat loadedFormat = ktxResult.dimensionsInfo.format;
 	
-	auto textureImageView = createTextureImageView(rendererHandles, ktxResult, VK_IMAGE_VIEW_TYPE_2D);
+	auto textureImageView = createTextureImageView(rendererContext, ktxResult, VK_IMAGE_VIEW_TYPE_2D);
 	assert(textureImageView != VK_NULL_HANDLE);
 
 	VkSampler textureSampler = {};
-	createTextureSampler(&textureSampler, rendererHandles, samplerMode, 0, ktxResult.dimensionsInfo.mipCt);
+	createTextureSampler(&textureSampler, rendererContext, samplerMode, 0, ktxResult.dimensionsInfo.mipCt);
 
 	TextureData texture =
 	{
@@ -406,7 +406,7 @@ std::basic_string<char> replaceExt(const char* target, const char* extension)
 const uint32_t cubeMips = 6;
 
 
-TextureMetaData GetOrLoadTexture(RendererContext context, const char* path, VkFormat format, TextureType textureType, bool use_mipmaps, bool compress)
+TextureMetaData GetOrLoadTexture(RendererContext rendererContext, const char* path, VkFormat format, TextureType textureType, bool use_mipmaps, bool compress)
 {
 	//TODO JS: Figure out cubes later -- when we add compression we should cache cubes too
 	int maxmip = 0;
@@ -414,7 +414,7 @@ TextureMetaData GetOrLoadTexture(RendererContext context, const char* path, VkFo
 	{
 		maxmip = cubeMips;
 		
-			auto ktxResult= createImageKTX(context, path, textureType, true);
+			auto ktxResult= createImageKTX(rendererContext, path, textureType, true);
 			VkFormat loadedFormat = ktxResult.dimensionsInfo.format;
 		
 		
@@ -434,27 +434,27 @@ TextureMetaData GetOrLoadTexture(RendererContext context, const char* path, VkFo
 	// generateKTX = true;
 	if (generateKTX)
 	{
-		nonKTXTextureInfo staging = createtempTextureFromPath(context, path, format, use_mipmaps);
-		cacheKTXFromTempTexture(context, staging, ktxPath.data(), format, textureType, use_mipmaps, compress);
+		nonKTXTextureInfo staging = createtempTextureFromPath(rendererContext, path, format, use_mipmaps);
+		cacheKTXFromTempTexture(rendererContext, staging, ktxPath.data(), format, textureType, use_mipmaps, compress);
 		FileCaching::saveAssetChangedTime(path);
 	}
 	
-	return createImageKTX(context, ktxPath.data(), textureType, use_mipmaps, false);
+	return createImageKTX(rendererContext, ktxPath.data(), textureType, use_mipmaps, false);
 }
 
 
 //TODO JS 0
 // void TextureData::cleanup()
 // {
-//     vkDestroySampler(rendererHandles.device, textureSampler, nullptr);
-//     vkDestroyImageView(rendererHandles.device, textureImageView, nullptr);
-// 	   VulkanMemory::DestroyImage(rendererHandles.allocator, textureImage, textureImageMemory);
+//     vkDestroySampler(rendererContext.device, textureSampler, nullptr);
+//     vkDestroyImageView(rendererContext.device, textureImageView, nullptr);
+// 	   VulkanMemory::DestroyImage(rendererContext.allocator, textureImage, textureImageMemory);
 // }
 
-void createTextureSampler(VkSampler* textureSampler, RendererContext handles, VkSamplerAddressMode mode, float bias, uint32_t maxMip, bool shadow)
+void createTextureSampler(VkSampler* textureSampler, RendererContext rendererContext, VkSamplerAddressMode mode, float bias, uint32_t maxMip, bool shadow)
 {
     VkPhysicalDeviceProperties properties{};
-    vkGetPhysicalDeviceProperties(handles.physicalDevice, &properties);
+    vkGetPhysicalDeviceProperties(rendererContext.physicalDevice, &properties);
 
     VkSamplerCreateInfo samplerInfo{};
     samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -475,17 +475,17 @@ void createTextureSampler(VkSampler* textureSampler, RendererContext handles, Vk
     samplerInfo.mipLodBias = bias;
 
 
-    VK_CHECK(vkCreateSampler(handles.device, &samplerInfo, nullptr, textureSampler));
-	handles.rendererdeletionqueue->push_backVk(deletionType::Sampler, uint64_t(*textureSampler));
+    VK_CHECK(vkCreateSampler(rendererContext.device, &samplerInfo, nullptr, textureSampler));
+	rendererContext.rendererdeletionqueue->push_backVk(deletionType::Sampler, uint64_t(*textureSampler));
     
 	
 }
 //
 
-void cacheKTXFromTempTexture(RendererContext context, nonKTXTextureInfo tempTexture, const char* outpath, VkFormat format, TextureType textureType, bool use_mipmaps, bool compress)
+void cacheKTXFromTempTexture(RendererContext rendererContext, nonKTXTextureInfo tempTexture, const char* outpath, VkFormat format, TextureType textureType, bool use_mipmaps, bool compress)
 {
-	// assert(rendererHandles.canWriteKTX);
-	// if (!rendererHandles.canWriteKTX)
+	// assert(rendererContext.canWriteKTX);
+	// if (!rendererContext.canWriteKTX)
 	// {
 	// 	exit (-1);
 	// }
@@ -529,7 +529,7 @@ void cacheKTXFromTempTexture(RendererContext context, nonKTXTextureInfo tempText
 		_imageData.resize(imageByteSize);
 
 		//the readimagedata call is extremely glacially slow -- need to take another approach
-		readImageData(context, tempTexture.alloc, tempTexture.textureImage,_imageData.data(),{currentLevelWidth, currentLevelheight, 1}, mipLevel);
+		readImageData(rendererContext, tempTexture.alloc, tempTexture.textureImage,_imageData.data(),{currentLevelWidth, currentLevelheight, 1}, mipLevel);
 
 		
 		KTX_error_code r = ktxTexture_SetImageFromMemory(ktxTexture(texture),mipLevel, layer,faceSlice,_imageData.data(),_imageData.size());
@@ -548,14 +548,14 @@ void cacheKTXFromTempTexture(RendererContext context, nonKTXTextureInfo tempText
 	ktxTexture_Destroy(ktxTexture(texture));
 
 	//Destroy temporary texture
-	VulkanMemory::DestroyImage(context.allocator, tempTexture.textureImage, tempTexture.alloc); 
+	VulkanMemory::DestroyImage(rendererContext.allocator, tempTexture.textureImage, tempTexture.alloc); 
 }
 
-VkImageView createTextureImageView(RendererContext handles,TextureMetaData data, VkImageViewType type)
+VkImageView createTextureImageView(RendererContext rendererContext,TextureMetaData data, VkImageViewType type)
 {
-   VkImageView view =  TextureUtilities::createImageView(handles, data.textureImage, data.dimensionsInfo.format,
+   VkImageView view =  TextureUtilities::createImageView(objectCreationContextFromRendererContext(rendererContext), data.textureImage, data.dimensionsInfo.format,
                                                          VK_IMAGE_ASPECT_COLOR_BIT, type, data.dimensionsInfo.mipCt, data.dimensionsInfo.layerCt);
-	// handles.rendererdeletionqueue->push_back(deleteableResource{deletionType::ImageView, view});
+	// rendererContext.rendererdeletionqueue->push_back(deleteableResource{deletionType::ImageView, view});
 	
 
 	return view;
@@ -563,10 +563,10 @@ VkImageView createTextureImageView(RendererContext handles,TextureMetaData data,
 
 
 
-static nonKTXTextureInfo createTextureImage(RendererContext rendererHandles, const unsigned char* pixels, uint64_t texWidth, uint64_t texHeight, VkFormat format, bool mips)
+static nonKTXTextureInfo createTextureImage(RendererContext rendererContext, const unsigned char* pixels, uint64_t texWidth, uint64_t texHeight, VkFormat format, bool mips)
 { 
 	VkDeviceSize imageSize = texWidth * texHeight * 4;
-	auto workingTextureBuffer = rendererHandles.commandPoolmanager->beginSingleTimeCommands(true);
+	auto workingTextureBuffer = rendererContext.commandPoolmanager->beginSingleTimeCommands(true);
     if (!pixels)
     {
          std::cerr << "failed to load texture image!";
@@ -581,50 +581,50 @@ static nonKTXTextureInfo createTextureImage(RendererContext rendererHandles, con
 	VkImage _textureImage = {};
 	VmaAllocation _textureImageAlloc;
 
-    BufferUtilities::createStagingBuffer(rendererHandles, imageSize,
+    BufferUtilities::createStagingBuffer( imageSize,
                                          &bufferAlloc,
-                                         stagingBuffer);
+                                         stagingBuffer, rendererContext.device, rendererContext.allocator, "nonKTX texture");
 
     void* data;
- 	VulkanMemory::MapMemory(rendererHandles.allocator,bufferAlloc, &data);
+ 	VulkanMemory::MapMemory(rendererContext.allocator,bufferAlloc, &data);
  	memcpy(data, pixels, imageSize);
- 	VulkanMemory::UnmapMemory(rendererHandles.allocator,bufferAlloc);
+ 	VulkanMemory::UnmapMemory(rendererContext.allocator,bufferAlloc);
 
   
 
 	uint32_t fullMipPyramid =  mips ? static_cast<uint32_t>(std::floor(std::log2(glm::max(texWidth, texHeight)))) + 1: 1;
-    TextureUtilities::createImage(rendererHandles, texWidth, texHeight, format,
+    TextureUtilities::createImage(objectCreationContextFromRendererContext(rendererContext), texWidth, texHeight, format,
                                   VK_IMAGE_TILING_OPTIMAL,
                                   VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT |
                                   VK_IMAGE_USAGE_SAMPLED_BIT|VK_IMAGE_USAGE_HOST_TRANSFER_BIT_EXT,
                                   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, _textureImage, _textureImageAlloc, fullMipPyramid);
 
-    TextureUtilities::transitionImageLayout(rendererHandles, _textureImage, format, VK_IMAGE_LAYOUT_UNDEFINED,
+    TextureUtilities::transitionImageLayout(objectCreationContextFromRendererContext(rendererContext), _textureImage, format, VK_IMAGE_LAYOUT_UNDEFINED,
                                             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, workingTextureBuffer.buffer, fullMipPyramid);
 
-    TextureUtilities::copyBufferToImage(rendererHandles.commandPoolmanager, stagingBuffer, _textureImage,
+    TextureUtilities::copyBufferToImage(rendererContext.commandPoolmanager, stagingBuffer, _textureImage,
                                         static_cast<uint32_t>(texWidth),
                                         static_cast<uint32_t>(texHeight), workingTextureBuffer.buffer);
 	
     //JS: Prepare image to read in shaders
-    rendererHandles.commandPoolmanager->endSingleTimeCommands(workingTextureBuffer);
+    rendererContext.commandPoolmanager->endSingleTimeCommands(workingTextureBuffer);
 
 	//Texture is done, generate mipmaps
-	TextureUtilities::generateMipmaps(rendererHandles, _textureImage, format, static_cast<uint32_t>(texWidth),
+	TextureUtilities::generateMipmaps(objectCreationContextFromRendererContext(rendererContext), _textureImage, format, static_cast<uint32_t>(texWidth),
 									static_cast<uint32_t>(texHeight), fullMipPyramid);//TODO JS: centralize mip levels
 
 	//Done building temporary texture and generating mipmaps -- transition back to host to return
-	PFN_vkTransitionImageLayoutEXT vkTransitionImageLayoutEXT = (PFN_vkTransitionImageLayoutEXT)vkGetDeviceProcAddr(rendererHandles.device, "vkTransitionImageLayoutEXT");
+	PFN_vkTransitionImageLayoutEXT vkTransitionImageLayoutEXT = (PFN_vkTransitionImageLayoutEXT)vkGetDeviceProcAddr(rendererContext.device, "vkTransitionImageLayoutEXT");
 	assert(vkTransitionImageLayoutEXT != VK_NULL_HANDLE);
 	VkImageSubresourceRange range = {VK_IMAGE_ASPECT_COLOR_BIT,0, fullMipPyramid, 0, 1};
 	VkHostImageLayoutTransitionInfoEXT transtionInfo = {VK_STRUCTURE_TYPE_HOST_IMAGE_LAYOUT_TRANSITION_INFO_EXT, VK_NULL_HANDLE, _textureImage, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,VK_IMAGE_LAYOUT_GENERAL, range};
-	vkTransitionImageLayoutEXT(rendererHandles.device,1, {&transtionInfo});
+	vkTransitionImageLayoutEXT(rendererContext.device,1, {&transtionInfo});
 
 
-	setDebugObjectName(rendererHandles.device, VK_OBJECT_TYPE_IMAGE, "temporary texture info image", (uint64_t)_textureImage);
-	setDebugObjectName(rendererHandles.device, VK_OBJECT_TYPE_BUFFER, "temporary texture info buffer", (uint64_t)stagingBuffer);
-	setDebugObjectName(rendererHandles.device, VK_OBJECT_TYPE_BUFFER, "temporary texture info buffer", (uint64_t)stagingBuffer);
-	VulkanMemory::DestroyBuffer(rendererHandles.allocator, stagingBuffer, bufferAlloc); // destroy temp buffer
+	setDebugObjectName(rendererContext.device, VK_OBJECT_TYPE_IMAGE, "temporary texture info image", (uint64_t)_textureImage);
+	setDebugObjectName(rendererContext.device, VK_OBJECT_TYPE_BUFFER, "temporary texture info buffer", (uint64_t)stagingBuffer);
+	setDebugObjectName(rendererContext.device, VK_OBJECT_TYPE_BUFFER, "temporary texture info buffer", (uint64_t)stagingBuffer);
+	VulkanMemory::DestroyBuffer(rendererContext.allocator, stagingBuffer, bufferAlloc); // destroy temp buffer
 	
 	// exit(1);
 
@@ -632,12 +632,12 @@ static nonKTXTextureInfo createTextureImage(RendererContext rendererHandles, con
 
 }
 
-static nonKTXTextureInfo createtempTextureFromPath(RendererContext rendererHandles, const char* path, VkFormat format, bool mips)
+static nonKTXTextureInfo createtempTextureFromPath(RendererContext rendererContext, const char* path, VkFormat format, bool mips)
 {
 	int texWidth, texHeight, texChannels;
     stbi_uc* pixels = stbi_load(path, &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 
-	nonKTXTextureInfo tex = createTextureImage(rendererHandles, pixels, texWidth, texHeight, format, mips);
+	nonKTXTextureInfo tex = createTextureImage(rendererContext, pixels, texWidth, texHeight, format, mips);
 	stbi_image_free((void*)pixels);
 	return tex;
 }

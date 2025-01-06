@@ -119,7 +119,7 @@ TextureData cube_specular;
 // vkb::Swapchain vkb_swapchain; //todo js 0
 
 
-RendererContext vulkanRenderer::getRendererContext()
+RendererContext vulkanRenderer::getFullRendererContext()
 {
     return RendererContext{
         .physicalDevice = rendererVulkanObjects.vkbdevice.physical_device,
@@ -131,6 +131,10 @@ RendererContext vulkanRenderer::getRendererContext()
         .rendererdeletionqueue = deletionQueue.get()};
 }
 
+BufferCreationContext vulkanRenderer::getRendererForVkObjects()
+{
+    return objectCreationContextFromRendererContext(getFullRendererContext());
+}
 
 //TODO JS: Eventually, these should change per frame
 //TODO JS: I think I would create the views up front, and then swap them in and out at bind time 
@@ -142,7 +146,7 @@ void vulkanRenderer::updateShadowImageViews(int frame, Scene* scene)
     for (int j = 0; j < MAX_SHADOWMAPS; j++)
     {
         rendererResources.shadowMapRenderingImageViews[i][j] = TextureUtilities::createImageView(
-            getRendererContext(), rendererResources.shadowImages[i], shadowFormat,
+            getRendererForVkObjects(), rendererResources.shadowImages[i], shadowFormat,
             VK_IMAGE_ASPECT_DEPTH_BIT,
             (VkImageViewType)  VK_IMAGE_TYPE_2D,
             1,
@@ -163,7 +167,7 @@ void vulkanRenderer::updateShadowImageViews(int frame, Scene* scene)
             }
            
             rendererResources.shadowMapSamplingImageViews[i][j] = TextureUtilities::createImageView(
-                getRendererContext(), rendererResources.shadowImages[i], shadowFormat,
+                getRendererForVkObjects(), rendererResources.shadowImages[i], shadowFormat,
                 VK_IMAGE_ASPECT_DEPTH_BIT,
                 (VkImageViewType)  type,
                 1,
@@ -237,9 +241,9 @@ void vulkanRenderer::initializeRendererForScene(Scene* scene) //todo remaining i
     perLightShadowData = MemoryArena::AllocSpan<std::span<PerShadowData>>(&rendererArena, scene->lightCount);
     for(int i = 0; i < MAX_FRAMES_IN_FLIGHT ; i++)
     {
-        TextureUtilities::createImage(getRendererContext(),SHADOW_MAP_SIZE, SHADOW_MAP_SIZE,shadowFormat,VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
+        TextureUtilities::createImage(getRendererForVkObjects(),SHADOW_MAP_SIZE, SHADOW_MAP_SIZE,shadowFormat,VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
                VK_IMAGE_USAGE_SAMPLED_BIT,0,rendererResources.shadowImages[i],rendererResources.shadowMemory[i],1, MAX_SHADOWMAPS, true);
-        createTextureSampler(&rendererResources.shadowSamplers[i], getRendererContext(), VK_SAMPLER_ADDRESS_MODE_REPEAT, 0, 1, true);
+        createTextureSampler(&rendererResources.shadowSamplers[i], getFullRendererContext(), VK_SAMPLER_ADDRESS_MODE_REPEAT, 0, 1, true);
         setDebugObjectName(rendererVulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_IMAGE, "SHADOW IMAGE", (uint64_t)(rendererResources.shadowImages[i]));
         setDebugObjectName(rendererVulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_SAMPLER, "SHADOW IMAGE SAMPLER", (uint64_t)(rendererResources.shadowSamplers[i]));
         updateShadowImageViews(i, scene);
@@ -247,9 +251,9 @@ void vulkanRenderer::initializeRendererForScene(Scene* scene) //todo remaining i
 
     //Initialize scene-ish objects we don't have a place for yet 
     cubemaplut_utilitytexture_index = AssetDataAndMemory->AddTexture(
-        createTexture(getRendererContext(), "textures/outputLUT.png", TextureType::DATA_DONT_COMPRESS));
-    cube_irradiance = createTexture(getRendererContext(), "textures/output_cubemap2_diff8.ktx2", TextureType::CUBE);
-    cube_specular = createTexture(getRendererContext(), "textures/output_cubemap2_spec8.ktx2", TextureType::CUBE);
+        createTexture(getFullRendererContext(), "textures/outputLUT.png", TextureType::DATA_DONT_COMPRESS));
+    cube_irradiance = createTexture(getFullRendererContext(), "textures/output_cubemap2_diff8.ktx2", TextureType::CUBE);
+    cube_specular = createTexture(getFullRendererContext(), "textures/output_cubemap2_spec8.ktx2", TextureType::CUBE);
 
     createUniformBuffers(scene->objectsCount(),scene->lightCount);
 
@@ -257,7 +261,7 @@ void vulkanRenderer::initializeRendererForScene(Scene* scene) //todo remaining i
     //TODO JS: Move... Run when meshes change?
     populateMeshBuffers();
 
-    createDescriptorSetPool(getRendererContext(), &descriptorPool);
+    createDescriptorSetPool(getFullRendererContext(), &descriptorPool);
 
     Array opaqueLayout = MemoryArena::AllocSpan<VkDescriptorSetLayoutBinding>(&rendererArena, 12);
     uint32_t i =0;
@@ -303,14 +307,14 @@ void vulkanRenderer::initializeRendererForScene(Scene* scene) //todo remaining i
     }
 
 
-    descriptorsetLayoutsDataCompute = PipelineDataObject(getRendererContext(), descriptorPool, computeLayout.getSpan());
+    descriptorsetLayoutsDataCompute = PipelineDataObject(getFullRendererContext(), descriptorPool, computeLayout.getSpan());
 
     //compute
     createGraphicsPipeline("cull",  &descriptorsetLayoutsDataCompute, {},true, sizeof(cullPConstants));
 
     
-    descriptorsetLayoutsData = PipelineDataObject(getRendererContext(), descriptorPool, opaqueLayout.getSpan());
-    descriptorsetLayoutsDataShadow = PipelineDataObject(getRendererContext(), descriptorPool, shadowLayout.getSpan());
+    descriptorsetLayoutsData = PipelineDataObject(getFullRendererContext(), descriptorPool, opaqueLayout.getSpan());
+    descriptorsetLayoutsDataShadow = PipelineDataObject(getFullRendererContext(), descriptorPool, shadowLayout.getSpan());
    auto swapchainFormat = rendererVulkanObjects.swapchain.image_format;
 
 
@@ -338,9 +342,9 @@ void vulkanRenderer::populateMeshBuffers()
         vertCt += AssetDataAndMemory->backing_meshes[i].vertices.size();
     }
 
-    auto gpuVerts = MemoryArena::AllocSpan<gpuvertex>(getRendererContext().arena, vertCt);
-    auto Positoins = MemoryArena::AllocSpan<glm::vec4>(getRendererContext().arena, vertCt);
-    auto Indices = MemoryArena::AllocSpan<uint32_t>(getRendererContext().arena, indexCt);
+    auto gpuVerts = MemoryArena::AllocSpan<gpuvertex>(getFullRendererContext().arena, vertCt);
+    auto Positoins = MemoryArena::AllocSpan<glm::vec4>(getFullRendererContext().arena, vertCt);
+    auto Indices = MemoryArena::AllocSpan<uint32_t>(getFullRendererContext().arena, indexCt);
     size_t vert = 0;
     size_t _vert = 0;
     size_t meshoffset = 0;
@@ -389,7 +393,7 @@ void vulkanRenderer::createUniformBuffers(int objectsCount, int lightCount)
     VkDeviceSize lightdataSize = sizeof(gpulight) *lightCount;
     VkDeviceSize shadowDataSize = sizeof(PerShadowData) *lightCount * 10; //times six is plenty right?
 
-    RendererContext handles = getRendererContext();
+    RendererContext context = getFullRendererContext();
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
@@ -397,30 +401,30 @@ void vulkanRenderer::createUniformBuffers(int objectsCount, int lightCount)
 
         for (size_t j = 0; j < MAX_SHADOWCASTERS ; j++)
         {
-            FramesInFlightData[i].perLightShadowShaderGlobalsBuffer[j] = createDataBuffer<ShaderGlobals>(&handles, 1, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
+            FramesInFlightData[i].perLightShadowShaderGlobalsBuffer[j] = createDataBuffer<ShaderGlobals>(&context, 1, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
         }
 
        
 
         
-        FramesInFlightData[i].opaqueShaderGlobalsBuffer = createDataBuffer<ShaderGlobals>(&handles, 1, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
-        FramesInFlightData[i].uniformBuffers = createDataBuffer<UniformBufferObject>(&handles, objectsCount, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT); //
-        FramesInFlightData[i].meshBuffers = createDataBuffer<gpuvertex>(&handles,AssetDataAndMemory->getVertexCount(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-        FramesInFlightData[i].verts = createDataBuffer<glm::vec4>(&handles,AssetDataAndMemory->getVertexCount(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT); //TODO JS: use index buffer, get vertex count
-        FramesInFlightData[i].indices = createDataBuffer<uint32_t>(&handles,AssetDataAndMemory->getIndexCount(), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
-        FramesInFlightData[i].lightBuffers = createDataBuffer<gpulight>(&handles,lightCount, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-        FramesInFlightData[i].shadowDataBuffers = createDataBuffer<gpuPerShadowData>(&handles,lightCount * 10, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+        FramesInFlightData[i].opaqueShaderGlobalsBuffer = createDataBuffer<ShaderGlobals>(&context, 1, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
+        FramesInFlightData[i].uniformBuffers = createDataBuffer<UniformBufferObject>(&context, objectsCount, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT); //
+        FramesInFlightData[i].meshBuffers = createDataBuffer<gpuvertex>(&context,AssetDataAndMemory->getVertexCount(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+        FramesInFlightData[i].verts = createDataBuffer<glm::vec4>(&context,AssetDataAndMemory->getVertexCount(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT); //TODO JS: use index buffer, get vertex count
+        FramesInFlightData[i].indices = createDataBuffer<uint32_t>(&context,AssetDataAndMemory->getIndexCount(), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+        FramesInFlightData[i].lightBuffers = createDataBuffer<gpulight>(&context,lightCount, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+        FramesInFlightData[i].shadowDataBuffers = createDataBuffer<gpuPerShadowData>(&context,lightCount * 10, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
       
         
-        FramesInFlightData[i].drawBuffers = createDataBuffer<drawCommandData>(&handles, MAX_DRAWINDIRECT_COMMANDS, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
-        FramesInFlightData[i].frustumsForCullBuffers = createDataBuffer<glm::vec4>(&handles, (MAX_SHADOWMAPS + MAX_CAMERAS) * 6, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+        FramesInFlightData[i].drawBuffers = createDataBuffer<drawCommandData>(&context, MAX_DRAWINDIRECT_COMMANDS, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
+        FramesInFlightData[i].frustumsForCullBuffers = createDataBuffer<glm::vec4>(&context, (MAX_SHADOWMAPS + MAX_CAMERAS) * 6, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 
     }
 }
 
 
 #pragma region descriptorsets
-void vulkanRenderer::createDescriptorSetPool(RendererContext handles, VkDescriptorPool* pool)
+void vulkanRenderer::createDescriptorSetPool(RendererContext context, VkDescriptorPool* pool)
 {
     
     std::vector<VkDescriptorPoolSize> sizes =
@@ -441,8 +445,8 @@ void vulkanRenderer::createDescriptorSetPool(RendererContext handles, VkDescript
     pool_info.pPoolSizes = sizes.data();
     
     pool_info.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * 4 * 3; //4 here is the number of descriptorsets  * 3 pipelines
-    VK_CHECK( vkCreateDescriptorPool(handles.device, &pool_info, nullptr, pool));
-    handles.rendererdeletionqueue->push_backVk(deletionType::descriptorPool,uint64_t(*pool));
+    VK_CHECK( vkCreateDescriptorPool(context.device, &pool_info, nullptr, pool));
+    context.rendererdeletionqueue->push_backVk(deletionType::descriptorPool,uint64_t(*pool));
     
 }
 
@@ -1022,7 +1026,7 @@ glm::vec4 normalizePlane(glm::vec4 p)
 void vulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<std::span<glm::mat4>> models, Scene* scene)
 {
     //TODO JS: to ring buffer?
-    auto tempArena = getRendererContext().tempArena;
+    auto tempArena = getFullRendererContext().tempArena;
 
     updateGlobals(scene->sceneCamera, scene->lightCount, cubemaplut_utilitytexture_index, FramesInFlightData[currentFrame].opaqueShaderGlobalsBuffer);
     
@@ -1485,25 +1489,22 @@ vulkanTextureInfo static_createDepthResources(rendererObjects initializedrendere
 {
     auto depthFormat = Capabilities::findDepthFormat(initializedrenderer.vkbPhysicalDevice.physical_device);
     VkImage depthImage;
-                                            //The two null handles will get overwritten by the create  calls below 
+                                            //The two null context will get overwritten by the create  calls below 
     vulkanTextureInfo bufferInfo = {depthFormat, VK_NULL_HANDLE, VK_NULL_HANDLE, VmaAllocation {}};
 
 
-    //TODO JS: replace with slimmer renderer context 
-    RendererContext context = {
-        .physicalDevice = initializedrenderer.vkbdevice.physical_device,
+    BufferCreationContext context = {
         .device =  initializedrenderer.vkbdevice.device,
-        .commandPoolmanager = commandPoolmanager,
         .allocator =  initializedrenderer.vmaAllocator,
-        .arena = allocationArena,
-        .tempArena = nullptr,
-        .rendererdeletionqueue = deletionQueue};
+        .rendererdeletionqueue = deletionQueue,
+        .commandPoolmanager = commandPoolmanager
+    };
 
     TextureUtilities::createImage(context, initializedrenderer.swapchain.extent.width, initializedrenderer.swapchain.extent.height, bufferInfo.format,
                                   VK_IMAGE_TILING_OPTIMAL,
                                   VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
                                   (bufferInfo.image),
-                                 (bufferInfo.vmaAllocation));
+                                 (bufferInfo.vmaAllocation), 1, 1, false, "DEPTH TEXTURE");
     bufferInfo.view =
         TextureUtilities::createImageView(context,   (bufferInfo.image), bufferInfo.format, VK_IMAGE_ASPECT_DEPTH_BIT);
 
@@ -1595,7 +1596,7 @@ semaphoreData getSemaphoreDataFromSemaphores(std::span<VkSemaphore> semaphores, 
     return {semaphores, flags};
     
 }
-void transitionImageForRendering(RendererContext handles, VkCommandBuffer commandBuffer, semaphoreData waitSemaphores, std::span<VkSemaphore> signalSemaphores, VkImage image, VkImageLayout layoutIn, VkImageLayout layoutOut, VkPipelineStageFlags* waitStages, bool depth)
+void transitionImageForRendering(RendererContext context, VkCommandBuffer commandBuffer, semaphoreData waitSemaphores, std::span<VkSemaphore> signalSemaphores, VkImage image, VkImageLayout layoutIn, VkImageLayout layoutOut, VkPipelineStageFlags* waitStages, bool depth)
 {
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -1604,7 +1605,7 @@ void transitionImageForRendering(RendererContext handles, VkCommandBuffer comman
     //Transition swapchain for rendering
     
     VK_CHECK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
-    TextureUtilities::transitionImageLayout(handles,image,(VkFormat)0,layoutIn,layoutOut,commandBuffer,1, false, depth);
+    TextureUtilities::transitionImageLayout(objectCreationContextFromRendererContext(context),image,(VkFormat)0,layoutIn,layoutOut,commandBuffer,1, false, depth);
     vkEndCommandBuffer(commandBuffer);
 
   
@@ -1619,7 +1620,7 @@ void transitionImageForRendering(RendererContext handles, VkCommandBuffer comman
     swapChainInSubmitInfo.signalSemaphoreCount = (uint32_t)signalSemaphores.size();
     swapChainInSubmitInfo.pSignalSemaphores = signalSemaphores.data();
 
-    vkQueueSubmit(handles.commandPoolmanager->Queues.graphicsQueue, 1, &swapChainInSubmitInfo, VK_NULL_HANDLE);
+    vkQueueSubmit(context.commandPoolmanager->Queues.graphicsQueue, 1, &swapChainInSubmitInfo, VK_NULL_HANDLE);
 
     ///////////////////////// Transition swapChain  />
     
@@ -1790,7 +1791,7 @@ void vulkanRenderer::drawFrame(Scene* scene)
     semaphoreData waitSemaphores = getSemaphoreDataFromSemaphores({&FramesInFlightData[currentFrame].semaphores.imageAvailableSemaphores, 1}, &perFrameArenas[currentFrame]);
     //Transition swapchain for rendering
     transitionImageForRendering(
-        getRendererContext(),
+        getFullRendererContext(),
         FramesInFlightData[currentFrame].commanderBuffers.swapchainTransitionInCommandBuffer,
         waitSemaphores,
         std::span<VkSemaphore>(&FramesInFlightData[currentFrame].semaphores.swapchaintransitionedInSemaphores, 1),
@@ -1801,7 +1802,7 @@ void vulkanRenderer::drawFrame(Scene* scene)
 
     //Transition shadow maps for rendering
     transitionImageForRendering(
-    getRendererContext(),
+    getFullRendererContext(),
     FramesInFlightData[currentFrame].commanderBuffers.shadowTransitionInCommandBuffer,
      {},
    {&FramesInFlightData[currentFrame].semaphores.shadowtransitionedInSemaphores, 1},
@@ -1834,7 +1835,7 @@ void vulkanRenderer::drawFrame(Scene* scene)
     //Transition shadow maps for reading
     waitSemaphores = getSemaphoreDataFromSemaphores(shadowpasssignalSemaphores, &perFrameArenas[currentFrame]);
     transitionImageForRendering(
-    getRendererContext(),
+    getFullRendererContext(),
     FramesInFlightData[currentFrame].commanderBuffers.shadowTransitionOutCommandBuffer,
     waitSemaphores,
    {&FramesInFlightData[currentFrame].semaphores.shadowtransitionedOutSemaphores, 1},
@@ -1858,7 +1859,7 @@ void vulkanRenderer::drawFrame(Scene* scene)
 
     waitSemaphores = getSemaphoreDataFromSemaphores(opaquepasssignalSemaphores, &perFrameArenas[currentFrame]);
     transitionImageForRendering(
-    getRendererContext(),
+    getFullRendererContext(),
     FramesInFlightData[currentFrame].commanderBuffers.swapchainTransitionOutCommandBuffer,
     waitSemaphores,
    {&FramesInFlightData[currentFrame].semaphores.swapchaintransitionedOutSemaphores, 1},

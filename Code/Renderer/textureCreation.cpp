@@ -6,7 +6,6 @@
 #include <cstdlib>
 
 #include "BufferAndPool.h"
-#include "RendererContext.h"
 #include "bufferCreation.h"
 #include "CommandPoolManager.h"
 #include "rendererGlobals.h"
@@ -24,7 +23,7 @@ struct temporaryTextureInfo
 };
 
 
-VkImageView TextureUtilities::createImageView(RendererContext handles, VkImage image, VkFormat format,
+VkImageView TextureUtilities::createImageView(BufferCreationContext rendererContext, VkImage image, VkFormat format,
                                               VkImageAspectFlags aspectFlags,
                                               VkImageViewType type, uint32_t miplevels, uint32_t layerCount, uint32_t layer)
 {
@@ -42,18 +41,17 @@ VkImageView TextureUtilities::createImageView(RendererContext handles, VkImage i
     viewInfo.subresourceRange.layerCount = layerCount;
 
     VkImageView imageView;
-    VK_CHECK(vkCreateImageView(handles.device, &viewInfo, nullptr, &imageView));
-    
-    handles.rendererdeletionqueue->push_backVk(deletionType::ImageView, (uint64_t)imageView);
-    setDebugObjectName(handles.device, VK_OBJECT_TYPE_IMAGE_VIEW, "TextureCreation image view", (uint64_t)imageView);
+    VK_CHECK(vkCreateImageView(rendererContext.device, &viewInfo, nullptr, &imageView));
+    setDebugObjectName(rendererContext.device, VK_OBJECT_TYPE_IMAGE_VIEW, "TextureCreation image view", (uint64_t)imageView);
+    rendererContext.rendererdeletionqueue->push_backVk(deletionType::ImageView, (uint64_t)imageView);
     return imageView;
 }
 
 
-void TextureUtilities::createImage(RendererContext rendererHandles, uint64_t width, uint64_t height, VkFormat format,
+void TextureUtilities::createImage(BufferCreationContext rendererContext, uint64_t width, uint64_t height, VkFormat format,
                                    VkImageTiling tiling,
                                    VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image,
-                                   VmaAllocation& allocation, uint32_t miplevels, uint32_t araryLayers, bool cubeCompatible)
+                                   VmaAllocation& allocation, uint32_t miplevels, uint32_t araryLayers, bool cubeCompatible, const char* debugName)
 {
 
     //TODO JS Properties flags to vma 
@@ -80,10 +78,11 @@ void TextureUtilities::createImage(RendererContext rendererHandles, uint64_t wid
             imageInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT ; 
         }
     }
-    BufferUtilities::CreateImage(rendererHandles, &imageInfo, &image, &allocation, nullptr);
+    BufferUtilities::CreateImage(&imageInfo, &image, &allocation, rendererContext.device, rendererContext.allocator, debugName);
+    rendererContext.rendererdeletionqueue->push_backVMA(deletionType::VmaImage, uint64_t(image), allocation);
 }
 
-void TextureUtilities::transitionImageLayout(RendererContext rendererHandles, VkImage image, VkFormat format,
+void TextureUtilities::transitionImageLayout(BufferCreationContext rendererContext, VkImage image, VkFormat format,
                                              VkImageLayout oldLayout,
                                              VkImageLayout newLayout, VkCommandBuffer workingBuffer, uint32_t miplevels, bool useTransferPool, bool depth)
 {
@@ -92,7 +91,7 @@ void TextureUtilities::transitionImageLayout(RendererContext rendererHandles, Vk
     if (usingTempBuffer)
     {
         //Optional buffer for if the caller wants to submit the command to an existing buffer and manually end it later
-        tempBufferAndPool = rendererHandles.commandPoolmanager->beginSingleTimeCommands(useTransferPool);
+        tempBufferAndPool = rendererContext.commandPoolmanager->beginSingleTimeCommands(useTransferPool);
         workingBuffer = tempBufferAndPool.buffer;
     }
 
@@ -169,19 +168,19 @@ void TextureUtilities::transitionImageLayout(RendererContext rendererHandles, Vk
         
 
     if (usingTempBuffer)
-        rendererHandles.commandPoolmanager->endSingleTimeCommands(tempBufferAndPool);
+        rendererContext.commandPoolmanager->endSingleTimeCommands(tempBufferAndPool);
 }
 
-void TextureUtilities::generateMipmaps(RendererContext rendererHandles, VkImage image, VkFormat imageFormat,
+void TextureUtilities::generateMipmaps(BufferCreationContext rendererContext, VkImage image, VkFormat imageFormat,
                                        int32_t texWidth,
                                        int32_t texHeight, uint32_t mipLevels)
 {
 
-    bufferAndPool bandp = rendererHandles.commandPoolmanager->beginSingleTimeCommands(false);
+    bufferAndPool bandp = rendererContext.commandPoolmanager->beginSingleTimeCommands(false);
 
     
     auto commandBuffer = bandp.buffer;
-setDebugObjectName(rendererHandles.device, VK_OBJECT_TYPE_COMMAND_BUFFER, "mipmap commandbuffer", uint64_t(bandp.buffer));
+setDebugObjectName(rendererContext.device, VK_OBJECT_TYPE_COMMAND_BUFFER, "mipmap commandbuffer", uint64_t(bandp.buffer));
     VkImageMemoryBarrier barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
     barrier.image = image;
@@ -256,7 +255,7 @@ setDebugObjectName(rendererHandles.device, VK_OBJECT_TYPE_COMMAND_BUFFER, "mipma
                          0, nullptr,
                          1, &barrier);
 
-    rendererHandles.commandPoolmanager->endSingleTimeCommands(bandp);
+    rendererContext.commandPoolmanager->endSingleTimeCommands(bandp);
 }
 
 void TextureUtilities::copyBufferToImage(CommandPoolManager* commandPoolManager, VkBuffer buffer, VkImage image,

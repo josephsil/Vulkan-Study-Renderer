@@ -12,14 +12,28 @@ namespace  MemoryArena
 }
     //TODO JS: pass an arena in
 
-//This is stuff that I (currently) have to pass around a lot
+//Renderer stuff various subsystems will need to access
 struct RendererContext
 {
     VkPhysicalDevice physicalDevice;
-    VkDevice device; //Logical device
+    VkDevice device; 
     CommandPoolManager* commandPoolmanager;
     VmaAllocator allocator;
     MemoryArena::memoryArena* arena;
     MemoryArena::memoryArena* tempArena;
     RendererDeletionQueue* rendererdeletionqueue;
 };
+
+//Like renderercontext, but doesn't need cpu memory arenas or the physical device
+struct BufferCreationContext
+{
+    VkDevice device; 
+    VmaAllocator allocator;
+    RendererDeletionQueue* rendererdeletionqueue;
+    CommandPoolManager* commandPoolmanager;
+};
+
+inline BufferCreationContext objectCreationContextFromRendererContext(RendererContext r)
+{
+    return {.device = r.device, .allocator = r.allocator, .rendererdeletionqueue = r.rendererdeletionqueue, .commandPoolmanager = r.commandPoolmanager};
+}

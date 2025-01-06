@@ -97,9 +97,9 @@ void dataBuffer::updateMappedMemory(void* data, size_t size)
 void dataBuffer::allocateVulkanMemory(RendererContext h, VmaAllocation* allocation, VkBufferUsageFlags usage)
 {
    mapped = BufferUtilities::createDynamicBuffer(
-      h,  size, usage,
-     allocation,
-    data);
+       h.allocator,  size, usage,
+       allocation,
+       data);
 
     h.rendererdeletionqueue->push_backVMA(deletionType::vmaBuffer, uint64_t(data), *allocation);
 }

@@ -52,7 +52,7 @@ int main()
     MemoryArena::initialize(&sceneArena, 3 * 1000000);
     Scene scene = {};
     InitializeScene(&sceneArena, &scene);
-    Add_Scene_Content(renderer.getRendererContext(), renderer.AssetDataAndMemory, &scene);
+    Add_Scene_Content(renderer.getFullRendererContext(), renderer.AssetDataAndMemory, &scene);
     renderer.initializeRendererForScene(&scene);
     engineLoop(&renderer, &scene);
 

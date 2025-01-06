@@ -47,14 +47,14 @@ struct TextureData
 
 static TextureMetaData createImageKTX(RendererContext rendererContext, const char* path, TextureType type, bool mips,
                                bool useExistingBuffer = false, bufferAndPool* buffer = nullptr);
-static VkImageView createTextureImageView(RendererContext handles, TextureMetaData data, VkImageViewType type);
-void createTextureSampler(VkSampler* textureSampler, RendererContext handles, VkSamplerAddressMode mode, float bias, uint32_t maxMip, bool shadow = false);
+static VkImageView createTextureImageView(RendererContext rendererContext, TextureMetaData data, VkImageViewType type);
+void createTextureSampler(VkSampler* textureSampler, RendererContext rendererContext, VkSamplerAddressMode mode, float bias, uint32_t maxMip, bool shadow = false);
 
 //FILEPATH PATH 
-TextureData createTexture(RendererContext rendererHandles, const char* path, TextureType type, VkImageViewType viewType = (VkImageViewType)-1);
+TextureData createTexture(RendererContext rendererContext, const char* path, TextureType type, VkImageViewType viewType = (VkImageViewType)-1);
 //GLTF PATH 
-TextureData createTexture(RendererContext rendererHandles, const char* OUTPUT_PATH, const char* textureName,  VkFormat format,  VkSamplerAddressMode samplerMode, unsigned char* pixels, uint64_t width, uint64_t height, int mipCt, bufferAndPool commandbuffer, bool compress);
-TextureData createTexture(RendererContext rendererHandles, const char* OUTPUT_PATH, const char* textureName, VkFormat format, VkSamplerAddressMode samplerMode,
+TextureData createTexture(RendererContext rendererContext, const char* OUTPUT_PATH, const char* textureName,  VkFormat format,  VkSamplerAddressMode samplerMode, unsigned char* pixels, uint64_t width, uint64_t height, int mipCt, bufferAndPool commandbuffer, bool compress);
+TextureData createTexture(RendererContext rendererContext, const char* OUTPUT_PATH, const char* textureName, VkFormat format, VkSamplerAddressMode samplerMode,
             uint64_t width, uint64_t height, int mipCt, bufferAndPool commandbuffer);
 
 
