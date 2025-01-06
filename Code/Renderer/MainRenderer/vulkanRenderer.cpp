@@ -29,6 +29,7 @@
 #include "Scene/Transforms.h"
 #include "../VulkanIncludes/vmaImplementation.h"
 #include "../VulkanIncludes/VulkanMemory.h"
+#include "General/InputHandling.h"
 #include "Renderer/VulkanIncludes/Vulkan_Includes.h"
 
 struct gpuPerShadowData;
@@ -304,10 +305,10 @@ void vulkanRenderer::initializeRendererForScene(Scene* scene) //todo remaining i
     }
 
 
-    descriptorsetLayoutsDataCompute = PipelineDataObject(getFullRendererContext(), descriptorPool, computeLayout.getSpan());
+    descriptorsetLayoutsDataCulling = PipelineDataObject(getFullRendererContext(), descriptorPool, computeLayout.getSpan());
 
     //compute
-    createGraphicsPipeline("cull",  &descriptorsetLayoutsDataCompute, {},true, sizeof(cullPConstants));
+    createGraphicsPipeline("cull",  &descriptorsetLayoutsDataCulling, {},true, sizeof(cullPConstants));
 
     
     descriptorsetLayoutsData = PipelineDataObject(getFullRendererContext(), descriptorPool, opaqueLayout.getSpan());
@@ -1116,77 +1117,91 @@ void vulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<std::spa
     FramesInFlightData[currentFrame].uniformBuffers.updateMappedMemory({ubos.data(), (size_t)scene->objectsCount()});
 
 
-    FramesInFlightData[currentFrame].currentDrawOffset = 0; //VERY IMPORTANT!
 
 }
 
+void beginCommandBuffer(VkCommandBuffer commandBuffer)
+{
+    VkCommandBufferBeginInfo beginInfo{};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = 0; // Optional
+    beginInfo.pInheritanceInfo = nullptr; // Optional
+    
+    VK_CHECK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
+}
+
+VkRenderingAttachmentInfoKHR simpleRenderingAttatchment(VkImageView target, float clear)
+{
+    return  {
+        .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
+        .imageView = target,
+        .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        .clearValue =  {clear, 0}
+    };
+}
+
+void BeginRendering(VkRenderingAttachmentInfo depthAttatchment, int colorAttatchmentCount, VkRenderingAttachmentInfo* colorAttatchment, VkExtent2D extent, VkCommandBuffer commandBuffer)
+{
+   
+            
+    VkRenderingInfo renderPassInfo{};
+    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+
+    renderPassInfo.renderArea.extent = extent;
+    renderPassInfo.renderArea.offset = {0, 0};
+         
+    renderPassInfo.layerCount =1;
+    renderPassInfo.colorAttachmentCount = colorAttatchmentCount;
+    renderPassInfo.pColorAttachments = colorAttatchment;
+    renderPassInfo.pDepthAttachment = &depthAttatchment;
+
+    vkCmdBeginRendering(commandBuffer, &renderPassInfo);
+
+    
+    VkViewport viewport{};
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
+    viewport.width = static_cast<float>(extent.width );
+    viewport.height = static_cast<float>(extent.height);
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+
+    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+
+    
+    VkRect2D scissor{};
+    scissor.offset = {0, 0};
+    scissor.extent = extent;
+    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+}
 
 #pragma endregion
-#pragma region draw 
-void vulkanRenderer::recordCommandBufferShadowPass(VkCommandBuffer commandBuffer, uint32_t imageIndex, std::span<simplePassInfo> passes)
+#pragma region draw
+
+void vulkanRenderer::recordCommandBufferShadowPass(VkCommandBuffer commandBuffer, int indirectOffset, uint32_t imageIndex, std::span<simpleMeshPassInfo> passes)
 {
-     uint32_t shadowSize = SHADOW_MAP_SIZE; 
-     VkCommandBufferBeginInfo beginInfo{};
-     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-     beginInfo.flags = 0; // Optional
-     beginInfo.pInheritanceInfo = nullptr; // Optional
-     //Transition swapchain for rendering
-    
-     VK_CHECK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
+    beginCommandBuffer(commandBuffer);
     
     descriptorsetLayoutsDataShadow.bindToCommandBuffer(commandBuffer, currentFrame);
     VkPipelineLayout layout = descriptorsetLayoutsDataShadow.pipelineData.bindlessPipelineLayout;
-    
+
+    //TODO JS: Something other than hardcoded index 0 for shadow pipeline
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, descriptorsetLayoutsDataShadow.getPipeline(0));
     vkCmdBindIndexBuffer(commandBuffer, FramesInFlightData[currentFrame].indices._buffer.data,0,VK_INDEX_TYPE_UINT32);
     
+    uint32_t offset_into_struct = offsetof(drawCommandData, command);
     for(uint32_t i = 0; i < passes.size(); i ++)
     {
+        uint32_t offset_base = indirectOffset * sizeof(drawCommandData) + passes[i].firstDraw  *  sizeof(drawCommandData);
+        uint32_t drawIndirectOffset = offset_base + offset_into_struct;
         
-            uint32_t shadowMapIndex = i;
-            const VkRenderingAttachmentInfoKHR dynamicRenderingDepthAttatchment {
-                .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
-                .imageView = rendererResources.shadowMapRenderingImageViews[currentFrame][shadowMapIndex],
-                .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR,
-                .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-                .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-                .clearValue =  {1.0f, 0}
-            };
-
-            
-            VkRenderingInfo renderPassInfo{};
-            renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
-
-            renderPassInfo.renderArea.extent = {shadowSize , shadowSize}; //TODO JS: Shadow size
-            renderPassInfo.renderArea.offset = {0, 0};
-         
-            renderPassInfo.layerCount =1;
-            renderPassInfo.colorAttachmentCount = 0;
-            renderPassInfo.pColorAttachments = VK_NULL_HANDLE;
-            renderPassInfo.pDepthAttachment = &dynamicRenderingDepthAttatchment;
-
-            vkCmdBeginRendering(commandBuffer, &renderPassInfo);
-   
-            VkViewport viewport{};
-            viewport.x = 0.0f;
-            viewport.y = 0.0f;
-            viewport.width = static_cast<float>(shadowSize );
-            viewport.height = static_cast<float>(shadowSize );
-            viewport.minDepth = 0.0f;
-            viewport.maxDepth = 1.0f;
-            vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-
-            VkRect2D scissor{};
-            scissor.offset = {0, 0};
-            scissor.extent = {shadowSize , shadowSize };
-            vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-
-            //*************
-            //************
-            //** Descriptor Sets update and binding
-            // This could change sometimes
-
-
+        uint32_t shadowMapIndex = i;
+        BeginRendering(
+            simpleRenderingAttatchment(rendererResources.shadowMapRenderingImageViews[currentFrame][shadowMapIndex], 1.0),
+            0, nullptr, {SHADOW_MAP_SIZE, SHADOW_MAP_SIZE}, commandBuffer);
+        
             //TODO JS: dynamically set bias per shadow caster, especially for cascades
             float baseDepthBias = 6.0;
             float baseSLopeBias = 3.0;
@@ -1203,27 +1218,16 @@ void vulkanRenderer::recordCommandBufferShadowPass(VkCommandBuffer commandBuffer
             vkCmdPushConstants(commandBuffer, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                                sizeof(shadowPushConstants), &constants);
 
-            //TODO JS: Something other than hardcoded index 0 for shadow pipeline
-        
             int meshct =  passes[i].ct;
-            uint32_t offset_base = passes[i].firstDraw  *  sizeof(drawCommandData);
-            uint32_t offset_into_struct = offsetof(drawCommandData, command);
-            vkCmdDrawIndexedIndirect(commandBuffer,  FramesInFlightData[currentFrame].drawBuffers._buffer.data, offset_base + offset_into_struct, meshct, sizeof(drawCommandData));
-            FramesInFlightData[currentFrame].currentDrawOffset += meshct;
-            vkCmdEndRendering(commandBuffer);
-        // }
+        
+            vkCmdDrawIndexedIndirect(commandBuffer,  FramesInFlightData[currentFrame].drawBuffers._buffer.data,drawIndirectOffset, meshct, sizeof(drawCommandData));
+
+        vkCmdEndRendering(commandBuffer);
+     
     }
     std::vector<VkImageMemoryBarrier2> barriers = {};
-    for(int i = 0; i < rendererResources.shadowImages.size(); i++)
-    {
-        // barriers.push_back(imageBarrier(rendererResources.shadowImages[i],VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT_KHR | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT_KHR, VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT_KHR, VK_IMAGE_LAYOUT_UNDEFINED, VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT_KHR,   VK_ACCESS_2_SHADER_READ_BIT_KHR, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1));
-    }
-
     pipelineBarrier(commandBuffer, 0, 0, nullptr, barriers.size(), barriers.data());
-
-
-
-     VK_CHECK(vkEndCommandBuffer(commandBuffer));
+    VK_CHECK(vkEndCommandBuffer(commandBuffer));
 }
 
 
@@ -1234,16 +1238,10 @@ struct pipelineBucket
     Array<uint32_t> indices; 
 };
 
-void vulkanRenderer::recordCommandBufferCompute(VkCommandBuffer commandBuffer, uint32_t currentFrame, std::span<simplePassInfo> passes)
+void vulkanRenderer::recordCommandBufferCulling(VkCommandBuffer commandBuffer, uint32_t currentFrame, std::span<simpleMeshPassInfo> passes)
 {
-    VkCommandBufferBeginInfo beginInfo{};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo.flags = 0; // Optional
-    beginInfo.pInheritanceInfo = nullptr; // Optional
-    //Transition swapchain for rendering
-    
-    VK_CHECK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
-    
+
+    beginCommandBuffer(commandBuffer);
     MemoryArena::memoryArena* arena = &perFrameArenas[currentFrame];
 
     VkDescriptorBufferInfo* frustumData =  MemoryArena::Alloc<VkDescriptorBufferInfo>(&perFrameArenas[currentFrame], 1);
@@ -1261,11 +1259,10 @@ void vulkanRenderer::recordCommandBufferCompute(VkCommandBuffer commandBuffer, u
     descriptorUpdates[1] = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, computeDrawBuffer}; //draws 
     descriptorUpdates[2] = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, objectBufferInfo}; //objectData  //
     
-    descriptorsetLayoutsDataCompute.updateDescriptorSets(descriptorUpdates, currentFrame);
-    descriptorsetLayoutsDataCompute.bindToCommandBuffer(commandBuffer, currentFrame, VK_PIPELINE_BIND_POINT_COMPUTE);
+    descriptorsetLayoutsDataCulling.updateDescriptorSets(descriptorUpdates, currentFrame);
+    descriptorsetLayoutsDataCulling.bindToCommandBuffer(commandBuffer, currentFrame, VK_PIPELINE_BIND_POINT_COMPUTE);
 
-    
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, descriptorsetLayoutsDataCompute.getPipeline(0));
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, descriptorsetLayoutsDataCulling.getPipeline(0));
 
     int offset = 0;
 
@@ -1278,7 +1275,7 @@ void vulkanRenderer::recordCommandBufferCompute(VkCommandBuffer commandBuffer, u
         constants.frustumIndex = (offset) * 6;
         constants.objectCount = passes[i].ct;
 
-        vkCmdPushConstants(commandBuffer, descriptorsetLayoutsDataCompute.pipelineData.bindlessPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0,
+        vkCmdPushConstants(commandBuffer, descriptorsetLayoutsDataCulling.pipelineData.bindlessPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0,
                            sizeof(cullPConstants), &constants);
 
         const uint32_t dispatch_x = passes[i].ct != 0
@@ -1296,12 +1293,10 @@ void vulkanRenderer::recordCommandBufferCompute(VkCommandBuffer commandBuffer, u
     
     pipelineBarrier(commandBuffer,0, 1, &barrier, 0, 0);
     vkEndCommandBuffer(commandBuffer);
-}//
+}
 
-
-void vulkanRenderer::submitComputePass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores, std::vector<VkSemaphore> signalsemaphores, std::span<simplePassInfo> passes)
+void vulkanRenderer::SubmitCommandBuffer(uint32_t commandbufferCt, VkCommandBuffer* commandBuffers, semaphoreData waitSemaphores, std::vector<VkSemaphore> signalsemaphores, VkFence waitFence)
 {
-    recordCommandBufferCompute(FramesInFlightData[imageIndex].commanderBuffers.computeCommandBuffers, imageIndex, passes);
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -1309,76 +1304,29 @@ void vulkanRenderer::submitComputePass(uint32_t currentFrame, uint32_t imageInde
     submitInfo.waitSemaphoreCount = (uint32_t)waitSemaphores.semaphores.size();
     submitInfo.pWaitSemaphores = waitSemaphores.semaphores.data();
     submitInfo.pWaitDstStageMask = waitSemaphores.waitStages.data();
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &FramesInFlightData[imageIndex].commanderBuffers.computeCommandBuffers;
+    submitInfo.commandBufferCount = commandbufferCt;
+    submitInfo.pCommandBuffers = commandBuffers;
 
     submitInfo.signalSemaphoreCount = (uint32_t)signalsemaphores.size();
     submitInfo.pSignalSemaphores = signalsemaphores.data();
     
     //Submit pass 
-    VK_CHECK(vkQueueSubmit(commandPoolmanager->Queues.graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE));
+    VK_CHECK(vkQueueSubmit(commandPoolmanager->Queues.graphicsQueue, 1,
+        &submitInfo, waitFence));
     
     
     
 }
 //command buffer to draw the frame 
-void vulkanRenderer::recordCommandBufferOpaquePass(Scene* scene, VkCommandBuffer commandBuffer, uint32_t imageIndex, std::span<opaquePassInfo> batchedDraws)
+void vulkanRenderer::recordCommandBufferOpaquePass(Scene* scene, int drawIndirectOffset, VkCommandBuffer commandBuffer, uint32_t imageIndex, std::span<opaqueMeshPassInfo> batchedDraws)
 {
-    VkCommandBufferBeginInfo beginInfo{};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo.flags = 0; // Optional
-    beginInfo.pInheritanceInfo = nullptr; // Optional
-    //Transition swapchain for rendering
+
+
+    beginCommandBuffer(commandBuffer);
+     VkRenderingAttachmentInfoKHR dynamicRenderingColorAttatchment = simpleRenderingAttatchment(rendererResources.swapchainImageViews[imageIndex], 0.0); 
+    BeginRendering(simpleRenderingAttatchment( rendererResources.depthBufferInfo.view, 1.0), 1, &dynamicRenderingColorAttatchment,rendererVulkanObjects.swapchain.extent,commandBuffer);
     
-    
-    VK_CHECK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
 
-    
-    const VkRenderingAttachmentInfoKHR dynamicRenderingColorAttatchment {
-        .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
-        .imageView = rendererResources.swapchainImageViews[imageIndex],
-        .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR,
-        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-        .clearValue =  {0.0f, 0.0f, 0.0f, 1.0f}
-    };
-
-    const VkRenderingAttachmentInfoKHR dynamicRenderingDepthAttatchment {
-        .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
-        .imageView = rendererResources.depthBufferInfo.view,
-        .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR,
-        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-        .clearValue =  {1.0f, 0}
-    };
-
-    VkRenderingInfo renderPassInfo{};
-    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
-    renderPassInfo.renderArea.extent = rendererVulkanObjects.swapchain.extent;
-    renderPassInfo.renderArea.offset = {0, 0};
-    renderPassInfo.layerCount =1;
-    renderPassInfo.colorAttachmentCount = 1;
-    renderPassInfo.pColorAttachments = &dynamicRenderingColorAttatchment;
-    renderPassInfo.pDepthAttachment = &dynamicRenderingDepthAttatchment;
-
-    vkCmdBeginRendering(commandBuffer, &renderPassInfo);
-  
-    VkViewport viewport{};
-    viewport.x = 0.0f;
-    viewport.y = 0.0f;
-    viewport.width = static_cast<float>(rendererVulkanObjects.swapchain.extent.width);
-    viewport.height = static_cast<float>(rendererVulkanObjects.swapchain.extent.height);
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-
-    VkRect2D scissor{};
-    scissor.offset = {0, 0};
-    scissor.extent = rendererVulkanObjects.swapchain.extent;
-    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-
-// #define DEBUG_SHADERS
-    
     //*************
     //************
     //** Descriptor Sets update and binding
@@ -1405,19 +1353,20 @@ void vulkanRenderer::recordCommandBufferOpaquePass(Scene* scene, VkCommandBuffer
         // debugDrawCross(model * glm::vec4(corner2, 1.0), 1.0, {1,1,0.5});
     }
     
-
+   int startOfOpaqueDraws = drawIndirectOffset * sizeof(drawCommandData);
+    int currentDrawoffset = 0;
 //draw
     for(int k = 0; k < batchedDraws.size(); k ++)
     {
         auto draw = batchedDraws[k];
        
             vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.pipeline);
-            uint32_t offset_base = (FramesInFlightData[currentFrame].currentDrawOffset * sizeof(drawCommandData)) + (sizeof(drawCommandData) * draw.start);
+            uint32_t offset_base = startOfOpaqueDraws + (currentDrawoffset * sizeof(drawCommandData)) + (sizeof(drawCommandData) * draw.start);
             uint32_t offset_into_struct = offsetof(drawCommandData, command);
             vkCmdDrawIndexedIndirect(commandBuffer,    FramesInFlightData[currentFrame].drawBuffers._buffer.data, offset_base + offset_into_struct, draw.ct, sizeof(drawCommandData));
        
     }
-    FramesInFlightData[currentFrame].currentDrawOffset +=( meshct );
+    currentDrawoffset +=( meshct );
 
     
                                                                             //TODO JS: something other than hardcoded 2
@@ -1635,15 +1584,15 @@ framePasses preparePasses(Scene* scene, AssetManager* rendererData, cameraData* 
     uint32_t PIPELINE_COUNT = opaquePipelineData.getPipelineCt();
     uint32_t objectsPerDraw = scene->objectsCount();
     uint32_t shadowDrawIndex = 0;
-    
-    Array simplePasses =  MemoryArena::AllocSpan<simplePassInfo>(allocator, MAX_SHADOWMAPS); //These are used for both shadows and compute
+
+    Array depthOnlyPasses =  MemoryArena::AllocSpan<simpleMeshPassInfo>(allocator, MAX_SHADOWMAPS); //These are used for both shadows and compute
     for(int i = 0; i < glm::min(scene->lightCount, MAX_SHADOWCASTERS); i ++)
     {
         lightType type = (lightType)scene->lightTypes[i];
         int lightSubpasses = shadowCountFromLightType(type);
         for (int j = 0; j < lightSubpasses; j++)
         {
-            simplePasses.push_back({ shadowDrawIndex * objectsPerDraw, objectsPerDraw, inputShadowdata[i][j].view, inputShadowdata[i][j].proj});
+            depthOnlyPasses.push_back({ shadowDrawIndex * objectsPerDraw, objectsPerDraw, inputShadowdata[i][j].view, inputShadowdata[i][j].proj});
             shadowDrawIndex++;
         }
     }
@@ -1651,26 +1600,28 @@ framePasses preparePasses(Scene* scene, AssetManager* rendererData, cameraData* 
     //add one more pass for opaque compute
     if (!debug_cull_override)
     {
-        simplePasses.push_back({shadowDrawIndex * objectsPerDraw, objectsPerDraw, viewProjFromCamera(*camera).view});
+        depthOnlyPasses.push_back({shadowDrawIndex * objectsPerDraw, objectsPerDraw, viewProjFromCamera(*camera).view});
     }
     else
     {
 
             if (!debug_cull_freeze)
             {
-                camera->debug_frozen_culling_v = simplePasses[debug_cull_override_index].viewMatrix;
-                camera->debug_frozen_culling_p = simplePasses[debug_cull_override_index].projMatrix;
+                camera->debug_frozen_culling_v = depthOnlyPasses[debug_cull_override_index].viewMatrix;
+                camera->debug_frozen_culling_p = depthOnlyPasses[debug_cull_override_index].projMatrix;
             }
         
-        simplePasses.push_back({shadowDrawIndex * objectsPerDraw, objectsPerDraw,  camera->debug_frozen_culling_v});
+        depthOnlyPasses.push_back({shadowDrawIndex * objectsPerDraw, objectsPerDraw,  camera->debug_frozen_culling_v});
      
         glm::vec4 frustumCornersWorldSpace[8] = {};
         populateFrustumCornersForSpace(frustumCornersWorldSpace,   glm::inverse(camera->debug_frozen_culling_p* camera->debug_frozen_culling_v));
         debugDrawFrustum(frustumCornersWorldSpace);
     }
+
+    uint32_t shadowDrawCounts = shadowDrawIndex;
     
-    std::span<simplePassInfo> shadowPasses = simplePasses.getSpan().subspan(0, shadowDrawIndex);
-    std::span<simplePassInfo> computePasses = simplePasses.getSpan();
+    std::span<simpleMeshPassInfo> shadowPasses = depthOnlyPasses.getSpan().subspan(0, shadowDrawIndex);
+    std::span<simpleMeshPassInfo> computePasses = depthOnlyPasses.getSpan();
 
     //Opaque passes are bucketed by pipeline 
     Array bucketedPipelines = MemoryArena::AllocSpan<pipelineBucket>(allocator, PIPELINE_COUNT);
@@ -1689,7 +1640,7 @@ framePasses preparePasses(Scene* scene, AssetManager* rendererData, cameraData* 
     }
     
     //Fill opaque pass infos
-    Array batchedDraws = MemoryArena::AllocSpan<opaquePassInfo>(allocator, MAX_PIPELINES);
+    Array batchedDraws = MemoryArena::AllocSpan<opaqueMeshPassInfo>(allocator, MAX_PIPELINES);
 
     uint32_t opaqueDrawOffset = 0;
     for (size_t j = 0; j < bucketedPipelines.size(); j++)
@@ -1705,11 +1656,13 @@ framePasses preparePasses(Scene* scene, AssetManager* rendererData, cameraData* 
     }
 
 
-    return  {shadowPasses, computePasses, batchedDraws.getSpan()};
+    simpleMeshPassInfo hiZPrepassInfo = {0, objectsPerDraw, viewProjFromCamera(*camera).view};
+    return  {hiZPrepassInfo, shadowPasses, computePasses, batchedDraws.getSpan()};
 
 }
 
-void updateIndirectCommandBufferForPasses(Scene* scene, AssetManager* rendererData, MemoryArena::memoryArena* allocator, std::span<drawCommandData> mappedDrawCommandBuffer, framePasses passes)
+//This function maps all of our candidate draws to draw indirect buffers 
+void updateIndirectCommandBufferForPasses(Scene* scene, AssetManager* rendererData, MemoryArena::memoryArena* allocator, std::span<drawCommandData> drawCommands, framePasses passes)
 {
    
     uint32_t objectsPerDraw = scene->objectsCount();
@@ -1727,32 +1680,48 @@ void updateIndirectCommandBufferForPasses(Scene* scene, AssetManager* rendererDa
         indexCtoffset += rendererData->backing_meshes[i].indices.size();
     }
 
-    //draw commands for shadows
+    //indirect draw commands for shadows/depth only draws
     for(size_t i =0; i < passes.shadowDraws.size(); i++)
     {
-        uint32_t drawCount = passes.shadowDraws[i].ct;
-            for (size_t j = 0; j < drawCount; j++)
+        uint32_t shadowDrawCount = passes.shadowDraws[i].ct;
+            for (size_t j = 0; j < shadowDrawCount; j++)
             {
-            auto objectIndex = j;
-                mappedDrawCommandBuffer[passes.shadowDraws[i].firstDraw + j] =  {
-                    (uint32_t)objectIndex, (uint32_t)rendererData->backing_meshes[meshIndices[objectIndex]].indices.size(), 1, indicesOffsets[meshIndices[objectIndex]], 0, (uint32_t)objectIndex};
+                auto objectIndex = j;
+                drawCommands[passes.shadowDraws[i].firstDraw + j] = {
+                    (uint32_t)objectIndex,
+                    {
+                        .indexCount = (uint32_t)rendererData->backing_meshes[meshIndices[objectIndex]].indices.size(),
+                        .instanceCount = 1,
+                        .firstIndex = indicesOffsets[meshIndices[objectIndex]],
+                        .vertexOffset = 0,
+                        .firstInstance = (uint32_t)objectIndex
+                    }
+                };
             }
-        drawOffset += drawCount;
+        drawOffset += shadowDrawCount;
     }
 
     
     //draw commands for opaque passes
-    uint32_t drawCt2 = 0;
+    uint32_t opaqueDrawCount = 0;
     for (size_t i = 0; i < passes.opaqueDraw.size(); i++)
     {
         //TODO JS: option to not use custom indices?
         std::span<uint32_t> indices = passes.opaqueDraw[i].overrideIndices;
         for (size_t k = 0; k < indices.size(); k++)
         {
-         auto objectIndex = indices[k];
-            mappedDrawCommandBuffer[drawOffset + drawCt2 + k] = {objectIndex, (uint32_t)rendererData->backing_meshes[meshIndices[objectIndex]].indices.size(), 1, indicesOffsets[meshIndices[objectIndex]], 0,  (uint32_t)objectIndex};
+            auto objectIndex = indices[k];
+            drawCommands[drawOffset + opaqueDrawCount + k] = {
+                objectIndex, {
+                    .indexCount = (uint32_t)rendererData->backing_meshes[meshIndices[objectIndex]].indices.size(),
+                    .instanceCount = 1,
+                    .firstIndex = indicesOffsets[meshIndices[objectIndex]],
+                    .vertexOffset = 0,
+                    .firstInstance = (uint32_t)objectIndex
+                }
+            };
         }
-        drawCt2 += (uint32_t)indices.size();
+        opaqueDrawCount += (uint32_t)indices.size();
     }
 }
 
@@ -1771,22 +1740,13 @@ void vulkanRenderer::drawFrame(Scene* scene)
     uint32_t swapChainImageIndex; 
     vkAcquireNextImageKHR(rendererVulkanObjects.vkbdevice.device, rendererVulkanObjects.swapchain, UINT64_MAX, FramesInFlightData[currentFrame].semaphores.imageAvailableSemaphores, VK_NULL_HANDLE,
                           &swapChainImageIndex);
-    ///////////////////////// Transition swapChain  />
-    ///
-    ///
-    ///    //Wait for IMAGE INDEX to be ready to present
- 
+
     updateShadowData(&perFrameArenas[currentFrame], perLightShadowData, scene, scene->sceneCamera);
     updatePerFrameBuffers(currentFrame, scene->transforms.worldMatrices,scene); // TODO JS: timing bugs if it doesn't happen after the fence
 
     updateOpaqueDescriptorSets(&descriptorsetLayoutsData);
     updateShadowDescriptorSets(&descriptorsetLayoutsDataShadow, 0);
     
-
-
-
-    ///////////////////////// </Transition swapChain 
-
 
     semaphoreData waitSemaphores = getSemaphoreDataFromSemaphores({&FramesInFlightData[currentFrame].semaphores.imageAvailableSemaphores, 1}, &perFrameArenas[currentFrame]);
     //Transition swapchain for rendering
@@ -1809,28 +1769,41 @@ void vulkanRenderer::drawFrame(Scene* scene)
     rendererResources.shadowImages[currentFrame],
     VK_IMAGE_LAYOUT_UNDEFINED,
     VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, shadowWaitStages, true);
-    ///////////////////////// Transition swapChain  />
+    ///////////////////////// Transition shadows  />
 
     //Pre-rendering setup
     std::span<drawCommandData> mappedDrawCommandBuffer =  FramesInFlightData[currentFrame].drawBuffers.getMappedSpan();
 
+    //TODO JS these tw ofunctions deal with the same lists in different forms and should be unified somehow
     framePasses renderPassInformation =  preparePasses(scene, AssetDataAndMemory, &scene->sceneCamera, &perFrameArenas[currentFrame],
                                                    perLightShadowData, descriptorsetLayoutsData);
     updateIndirectCommandBufferForPasses(scene, AssetDataAndMemory, &perFrameArenas[currentFrame], mappedDrawCommandBuffer, renderPassInformation);
-     
 
+    
+    //todo // recordCommandBufferEarlyZ(FramesInFlightData[currentFrame].commanderBuffers.computeCommandBuffers, currentFrame, renderPassInformation.computeDraws);
+
+    //Set up our draw commands for the later passes
+    //May have to split these up when/if we do compaction and stuff 
+    recordCommandBufferCulling(FramesInFlightData[currentFrame].commanderBuffers.computeCommandBuffers, currentFrame, renderPassInformation.computeDraws);
+    recordCommandBufferShadowPass(FramesInFlightData[currentFrame].commanderBuffers.shadowCommandBuffers, 0, currentFrame, renderPassInformation.shadowDraws);
+    int opaqueOffset = 0;
+    for(int i =0; i < renderPassInformation.shadowDraws.size(); i++)
+    {
+        opaqueOffset += renderPassInformation.shadowDraws[i].ct;
+    }
+    recordCommandBufferOpaquePass(scene,opaqueOffset, FramesInFlightData[currentFrame].commanderBuffers.opaqueCommandBuffers, swapChainImageIndex,  renderPassInformation.opaqueDraw);
+
+    
     //Compute
-    submitComputePass(currentFrame, currentFrame, {}, {FramesInFlightData[currentFrame].semaphores.computeFinishedSemaphores}, renderPassInformation.computeDraws);
-   
-
-
+    SubmitCommandBuffer(1, &FramesInFlightData[currentFrame].commanderBuffers.computeCommandBuffers,
+                        {}, {FramesInFlightData[currentFrame].semaphores.computeFinishedSemaphores},
+                        VK_NULL_HANDLE);
     //Shadows
     std::vector<VkSemaphore> shadowPassWaitSemaphores = {FramesInFlightData[currentFrame].semaphores.shadowtransitionedInSemaphores, FramesInFlightData[currentFrame].semaphores.computeFinishedSemaphores};
     std::vector<VkSemaphore> shadowpasssignalSemaphores = {FramesInFlightData[currentFrame].semaphores.shadowFinishedSemaphores};
-
-
-    
-    renderShadowPass(currentFrame,swapChainImageIndex,  getSemaphoreDataFromSemaphores(shadowPassWaitSemaphores, &perFrameArenas[currentFrame]),shadowpasssignalSemaphores, renderPassInformation.shadowDraws);
+    SubmitCommandBuffer(1, &FramesInFlightData[currentFrame].commanderBuffers.shadowCommandBuffers,
+        getSemaphoreDataFromSemaphores(shadowPassWaitSemaphores, &perFrameArenas[currentFrame]),shadowpasssignalSemaphores,
+        VK_NULL_HANDLE);
 
     //Transition shadow maps for reading
     waitSemaphores = getSemaphoreDataFromSemaphores(shadowpasssignalSemaphores, &perFrameArenas[currentFrame]);
@@ -1845,18 +1818,16 @@ void vulkanRenderer::drawFrame(Scene* scene)
 
     
     //TODO JS: Enable shadow semaphore
+    //Opaque
     std::vector<VkSemaphore> opaquePassWaitSemaphores = {FramesInFlightData[currentFrame].semaphores.shadowtransitionedOutSemaphores, FramesInFlightData[currentFrame].semaphores.swapchaintransitionedInSemaphores};
     std::vector<VkSemaphore> opaquepasssignalSemaphores = {FramesInFlightData[currentFrame].semaphores.renderFinishedSemaphores};
-
-
-   
-    //Opaque
-    renderOpaquePass(currentFrame,swapChainImageIndex, getSemaphoreDataFromSemaphores(opaquePassWaitSemaphores, &perFrameArenas[currentFrame]),opaquepasssignalSemaphores, renderPassInformation.opaqueDraw,scene);
+    SubmitCommandBuffer(1,&FramesInFlightData[currentFrame].commanderBuffers.opaqueCommandBuffers,
+        getSemaphoreDataFromSemaphores(opaquePassWaitSemaphores, &perFrameArenas[currentFrame]), opaquepasssignalSemaphores,
+        FramesInFlightData[currentFrame].inFlightFence);
 
    
 
     //Transition swapchain for rendering
-
     waitSemaphores = getSemaphoreDataFromSemaphores(opaquepasssignalSemaphores, &perFrameArenas[currentFrame]);
     transitionImageForRendering(
     getFullRendererContext(),
@@ -1883,53 +1854,6 @@ void vulkanRenderer::drawFrame(Scene* scene)
     
 
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
-}
-
-//TODO JS: Can i replace drawcount with info in the simplepassinfo? 
-void vulkanRenderer::renderShadowPass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores, std::vector<VkSemaphore> signalsemaphores, std::span<simplePassInfo> passes)
-{
-    recordCommandBufferShadowPass(FramesInFlightData[currentFrame].commanderBuffers.shadowCommandBuffers, imageIndex, passes);
-
-    VkSubmitInfo submitInfo{};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    VkPipelineStageFlags _waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-    submitInfo.waitSemaphoreCount = (uint32_t)waitSemaphores.semaphores.size();
-    submitInfo.pWaitSemaphores = waitSemaphores.semaphores.data();
-    submitInfo.pWaitDstStageMask = waitSemaphores.waitStages.data();
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &FramesInFlightData[currentFrame].commanderBuffers.shadowCommandBuffers;
-
-    submitInfo.signalSemaphoreCount = (uint32_t)signalsemaphores.size();
-    submitInfo.pSignalSemaphores = signalsemaphores.data();
-    
-    //Submit pass 
-    VK_CHECK(vkQueueSubmit(commandPoolmanager->Queues.graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE));
-    
-    
-    
-}
-void vulkanRenderer::renderOpaquePass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores, std::vector<VkSemaphore> signalsemaphores, std::span<opaquePassInfo> batchedDraws, Scene* scene)
-{   
-    //Record command buffer for pass
-    recordCommandBufferOpaquePass(scene, FramesInFlightData[currentFrame].commanderBuffers.opaqueCommandBuffers, imageIndex, batchedDraws);
-
-    VkSubmitInfo submitInfo{};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    
-    VkPipelineStageFlags _waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-    submitInfo.waitSemaphoreCount = (uint32_t)waitSemaphores.semaphores.size();
-    submitInfo.pWaitSemaphores = waitSemaphores.semaphores.data();
-    submitInfo.pWaitDstStageMask = waitSemaphores.waitStages.data();
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &FramesInFlightData[currentFrame].commanderBuffers.opaqueCommandBuffers;
-    
-   
-    submitInfo.signalSemaphoreCount = (uint32_t)signalsemaphores.size();
-    submitInfo.pSignalSemaphores = signalsemaphores.data();
-
-    //Submit pass 
-    VK_CHECK(vkQueueSubmit(commandPoolmanager->Queues.graphicsQueue, 1, &submitInfo, FramesInFlightData[currentFrame].inFlightFence));
-    
 }
 
 void vulkanRenderer::cleanup()
@@ -1959,7 +1883,7 @@ void vulkanRenderer::cleanup()
     // vkDestroyDescriptorPool(device, descriptorPool, nullptr);
     descriptorsetLayoutsData.cleanup();
     descriptorsetLayoutsDataShadow.cleanup();
-    descriptorsetLayoutsDataCompute.cleanup();
+    descriptorsetLayoutsDataCulling.cleanup();
     AssetDataAndMemory->Cleanup(); //noop currently
     // for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     // {

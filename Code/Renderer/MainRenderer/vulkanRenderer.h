@@ -107,7 +107,7 @@ void updateShadowImageViews(int frame, Scene* scene);
     
     PipelineDataObject descriptorsetLayoutsData; 
     PipelineDataObject descriptorsetLayoutsDataShadow; 
-    PipelineDataObject descriptorsetLayoutsDataCompute;
+    PipelineDataObject descriptorsetLayoutsDataCulling;
 
     
     void createDescriptorSetPool(RendererContext handles, VkDescriptorPool* pool);
@@ -152,7 +152,6 @@ void updateShadowImageViews(int frame, Scene* scene);
         dataBufferObject<gpuPerShadowData> shadowDataBuffers;
         
         //Draw indirect
-        uint32_t currentDrawOffset = 0;
         dataBufferObject<drawCommandData> drawBuffers;
 
         //Compute culling for draw indirect 
@@ -174,12 +173,14 @@ void updateShadowImageViews(int frame, Scene* scene);
 
     //Globals per pass, ubos, and lights are updated every frame
     void updatePerFrameBuffers(unsigned currentFrame, Array<std::span<glm::mat4>> models, Scene* scene);
-    void recordCommandBufferShadowPass(VkCommandBuffer commandBuffer, uint32_t imageIndex, std::span<simplePassInfo> passes);
+    void recordCommandBufferShadowPass(VkCommandBuffer commandBuffer, int indirectOffset, uint32_t imageIndex, std::span<simpleMeshPassInfo> passes);
 
-    void recordCommandBufferCompute(VkCommandBuffer commandBuffer, uint32_t currentFrame, std::span<simplePassInfo> passes);
-    void submitComputePass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores,
-                           std::vector<VkSemaphore> signalsemaphores, std::span<simplePassInfo> passes);
-    void recordCommandBufferOpaquePass(Scene* scene, VkCommandBuffer commandBuffer, uint32_t imageIndex, std::span<opaquePassInfo> batchedDraws);
+    void recordCommandBufferCulling(VkCommandBuffer commandBuffer, uint32_t currentFrame, std::span<simpleMeshPassInfo> passes);
+    void SubmitCommandBuffer(uint32_t commandbufferCt,
+                           VkCommandBuffer* commandBuffers, semaphoreData waitSemaphores, std::vector<VkSemaphore> signalsemaphores, VkFence
+                           waitFence);
+    void recordCommandBufferOpaquePass(Scene* scene, int drawIndirectOffset, VkCommandBuffer commandBuffer, uint32_t imageIndex, std::span<opaqueMeshPassInfo>
+                                       batchedDraws);
 
 
     bool hasStencilComponent(VkFormat format);
@@ -194,9 +195,10 @@ void updateShadowImageViews(int frame, Scene* scene);
 
 
     void renderShadowPass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores,
-                          std::vector<VkSemaphore> signalsemaphores, std::span<simplePassInfo> passes);
-    void renderOpaquePass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores, std::vector<VkSemaphore>
-                          signalsemaphores, std::span<opaquePassInfo> batchedDraws, Scene* scene);
+                          std::vector<VkSemaphore> signalsemaphores, std::span<simpleMeshPassInfo> passes);
+    void renderOpaquePass( uint32_t commandbufferCt, VkCommandBuffer* commandBuffer, semaphoreData
+                          waitSemaphores, std::vector<VkSemaphore>
+                          signalsemaphores, VkFence waitFence);
 
 
 

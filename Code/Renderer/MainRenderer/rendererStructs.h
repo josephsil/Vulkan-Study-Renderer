@@ -1,6 +1,6 @@
 
 
-struct simplePassInfo
+struct simpleMeshPassInfo
 {
     uint32_t firstDraw = 0;
     uint32_t ct;
@@ -8,7 +8,7 @@ struct simplePassInfo
     glm::mat4 projMatrix;
 };
 
-struct opaquePassInfo
+struct opaqueMeshPassInfo
 {
     uint32_t start;
     uint32_t ct;
@@ -19,9 +19,10 @@ struct opaquePassInfo
 };
 struct framePasses
 {
-    std::span<simplePassInfo> shadowDraws;
-    std::span<simplePassInfo> computeDraws;
-    std::span<opaquePassInfo> opaqueDraw;
+    simpleMeshPassInfo hiZPrepassDraw;
+    std::span<simpleMeshPassInfo> shadowDraws;
+    std::span<simpleMeshPassInfo> computeDraws;
+    std::span<opaqueMeshPassInfo> opaqueDraw;
 };
 
 struct  semaphoreData
