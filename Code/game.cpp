@@ -37,7 +37,7 @@ void Add_Scene_Content(RendererContext rendererContext, AssetManager* rendererDa
                     TextureType::SPECULAR,  VK_IMAGE_VIEW_TYPE_2D),
         createTexture(rendererContext, "textures/pbr_cruiser-panels/space-cruiser-panels2_normal-dx.png",
                     TextureType::NORMAL,  VK_IMAGE_VIEW_TYPE_2D));
-    placeholderMatidx = rendererData->AddMaterial(0.2, 0, glm::vec3(1.0f), placeholderTextureidx, 1);
+    placeholderMatidx = rendererData->AddMaterial(0.2, 0, glm::vec3(1.0f), placeholderTextureidx, 0);
     randomMaterials.push_back(placeholderMatidx);
 
 

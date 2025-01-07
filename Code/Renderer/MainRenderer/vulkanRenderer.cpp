@@ -211,8 +211,8 @@ RendererResources /*todo*/ static_initializeResources(rendererObjects initialize
 
 
     auto shaderLoader =  std::make_unique<ShaderLoader>(initializedrenderer.vkbdevice.device);
-    shaderLoader->AddShader("triangle", L"./Shaders/Shader1.hlsl");
-    shaderLoader->AddShader("triangle_alt", L"./Shaders/shader2.hlsl");
+    shaderLoader->AddShader("triangle", L"./Shaders/Shader1_copy.hlsl");
+    shaderLoader->AddShader("triangle_alt", L"./Shaders/shader1.hlsl");
     shaderLoader->AddShader("shadow", L"./Shaders/bindlessShadow.hlsl");
     shaderLoader->AddShader("lines", L"./Shaders/lines.hlsl");
     shaderLoader->AddShader("cull", L"./Shaders/cull_compute.hlsl", true);
