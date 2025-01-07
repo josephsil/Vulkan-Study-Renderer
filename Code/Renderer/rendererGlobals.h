@@ -24,6 +24,7 @@ const static int SWAPCHAIN_SIZE = 3;
 const static int MAX_DRAWINDIRECT_COMMANDS = 200000; //Draw commands per frmae
 const static int MAX_DRAWS_PER_PIPELINE = 2000; //whatever, probably could be dynamic, will fix later 
 const static int MAX_PIPELINES = 80; //whatever, probably could be dynamic, will fix later
+const static int MAX_RENDER_PASSES = 120;//whatever, probably could be dynamic, will fix later
 const VkFormat shadowFormat = VK_FORMAT_D16_UNORM;
 
 

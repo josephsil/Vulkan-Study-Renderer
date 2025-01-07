@@ -2,27 +2,20 @@
 
 struct simpleMeshPassInfo
 {
-    uint32_t firstDraw = 0;
+    uint32_t firstIndex;
     uint32_t ct;
     glm::mat4 viewMatrix;
     glm::mat4 projMatrix;
+    VkPipeline pipeline;
+    std::span<uint32_t> sortedObjectIDs;
 };
 
-struct opaqueMeshPassInfo
-{
-    uint32_t start;
-    uint32_t ct;
-    glm::mat4 viewMatrix;
-    VkPipeline pipeline;
-    std::span<uint32_t> overrideIndices;
-    
-};
 struct framePasses
 {
     simpleMeshPassInfo hiZPrepassDraw;
     std::span<simpleMeshPassInfo> shadowDraws;
     std::span<simpleMeshPassInfo> computeDraws;
-    std::span<opaqueMeshPassInfo> opaqueDraw;
+    std::span<simpleMeshPassInfo> opaqueDraw;
 };
 
 struct  semaphoreData

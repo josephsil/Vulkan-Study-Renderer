@@ -28,6 +28,13 @@ using VmaAllocator = struct VmaAllocator_T*;
 struct SDL_Window;
 //Include last //
 
+struct commandBufferContext
+{
+    VkCommandBuffer commandBuffer;
+    bool active;
+    VkBuffer indexBuffer;
+    VkPipeline boundPipeline;
+};
 
 struct rendererObjects
 {
@@ -173,13 +180,14 @@ void updateShadowImageViews(int frame, Scene* scene);
 
     //Globals per pass, ubos, and lights are updated every frame
     void updatePerFrameBuffers(unsigned currentFrame, Array<std::span<glm::mat4>> models, Scene* scene);
-    void recordCommandBufferShadowPass(VkCommandBuffer commandBuffer, int indirectOffset, uint32_t imageIndex, std::span<simpleMeshPassInfo> passes);
+    void recordCommandBufferShadowPass(VkCommandBuffer commandBuffer, uint32_t imageIndex, std::span<simpleMeshPassInfo> passes);
 
-    void recordCommandBufferCulling(VkCommandBuffer commandBuffer, uint32_t currentFrame, std::span<simpleMeshPassInfo> passes);
+    void recordCommandBufferCulling(commandBufferContext, uint32_t currentFrame, std::span<simpleMeshPassInfo> passes);
     void SubmitCommandBuffer(uint32_t commandbufferCt,
-                           VkCommandBuffer* commandBuffers, semaphoreData waitSemaphores, std::vector<VkSemaphore> signalsemaphores, VkFence
-                           waitFence);
-    void recordCommandBufferOpaquePass(Scene* scene, int drawIndirectOffset, VkCommandBuffer commandBuffer, uint32_t imageIndex, std::span<opaqueMeshPassInfo>
+                             commandBufferContext* commandBufferContext, semaphoreData waitSemaphores, std::vector<VkSemaphore> signalsemaphores, VkFence
+                             waitFence);
+    void recordCommandBufferUtilityPass(VkCommandBuffer commandBuffer, int imageIndex);
+    void recordCommandBufferOpaquePass(Scene* scene, VkCommandBuffer commandBuffer, uint32_t imageIndex, std::span<simpleMeshPassInfo>
                                        batchedDraws);
 
 
