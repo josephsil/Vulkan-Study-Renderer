@@ -173,5 +173,6 @@ FSOutput Frag(VSOutput input)
     output.Color = output.Color / (output.Color + 1.0);
     //	output.Color = pow(output.Color, 1.0/2.2); 
     // output.Color = reflected;
+    output.Color  = 1.0f;
     return output;
 }

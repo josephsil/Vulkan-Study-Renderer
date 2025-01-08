@@ -18,7 +18,7 @@ struct FSOutput
 
 struct pconstant
 {
-    float indexInfo_2;
+    float matrixIndex;
     float4x4 mat;
 };
 
@@ -38,7 +38,7 @@ struct VSOutput
 };
 
 #ifdef SHADOWPASS
-#define MATRIXOFFSET pc.indexInfo_2
+#define MATRIXOFFSET pc.matrixIndex
 #endif
 
 VSOutput Vert(VSInput input,  [[vk::builtin("BaseInstance")]]  uint InstanceIndex : BaseInstance, uint VertexIndex : SV_VertexID)

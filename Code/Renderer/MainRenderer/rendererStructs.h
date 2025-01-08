@@ -10,13 +10,17 @@ struct simpleMeshPassInfo
     std::span<uint32_t> sortedObjectIDs;
 };
 
-struct framePasses
+struct ComputeCullListInfo 
 {
-    simpleMeshPassInfo hiZPrepassDraw;
-    std::span<simpleMeshPassInfo> shadowDraws;
-    std::span<simpleMeshPassInfo> computeDraws;
-    std::span<simpleMeshPassInfo> opaqueDraw;
+    uint32_t firstDrawIndirectIndex;
+    uint32_t drawCount; //always object count?
+    glm::mat4 viewMatrix;
+    glm::mat4 projMatrix; //not used?
+    VkPipelineLayout layout;
+    uint32_t pushCosntantSize;
+    void* pushConstants;
 };
+
 
 struct  semaphoreData
 {

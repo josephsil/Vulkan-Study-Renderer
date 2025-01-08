@@ -47,6 +47,37 @@ struct rendererObjects
     //maybe move these two
 };
 
+struct framePasses
+{
+    std::span<simpleMeshPassInfo> shadowDraws;
+    std::span<ComputeCullListInfo> computeDraws;
+    std::span<simpleMeshPassInfo> opaqueDraw;
+};
+struct depthBiasSettng
+{
+    bool use = false;
+    float depthBias;
+    float slopeBias;
+};
+struct RenderPassConfig
+{
+    commandBufferContext* drawcommandBufferContext;
+    commandBufferContext* computeCommandBufferContext;
+    PipelineDataObject* pipelineData; //descriptorsetLayoutsDataShadow
+    VkBuffer indexBuffer; //FramesInFlightData[currentFrame].indices._buffer.data
+    VkIndexType indexBufferType; // VK_INDEX_TYPE_UINT32
+    std::span<simpleMeshPassInfo> meshPasses;
+    ComputeCullListInfo* computeCullingInfo;
+    VkRenderingAttachmentInfoKHR depthAttatchment; // simpleRenderingAttatchment(rendererResources.shadowMapRenderingImageViews[currentFrame][shadowMapIndex], 1.0)
+    VkRenderingAttachmentInfoKHR* colorattatchment; //nullptr
+    VkExtent2D renderingAttatchmentExtent; //SHADOW_MAP_SIZE
+    void* pushConstants;    //shadowPushConstants constants;
+    //Light count, vert offset, texture index, and object data index
+    //constants.shadowIndex = (glm::float32_t)shadowMapIndex;
+    size_t pushConstantsSize;
+    depthBiasSettng depthBiasSetting;
+};
+
 
 struct RendererResources //Buffers, images, etc, used in core rendering -- probably to break up later
 {
@@ -85,6 +116,14 @@ public:
     VkDescriptorSet GetOrRegisterImguiTextureHandle(VkSampler sampler, VkImageView imageView);
 
 private:
+    
+  
+    std::span<RenderPassConfig> createRenderPasses(Scene* scene, AssetManager* rendererData, cameraData* camera, MemoryArena::memoryArena* allocator, std::span<std::span<
+                                                   PerShadowData>> inputShadowdata,
+                                                   PipelineDataObject opaquePipelineData, PipelineDataObject shadowPipelineData, PipelineDataObject computePipelineData,
+                                                   commandBufferContext* shadowCommandBufferContext, commandBufferContext* opaqueCommandBufferContext, commandBufferContext
+                                                   * computeCommandBufferContext, VkRenderingAttachmentInfoKHR* opaqueTarget);
+    
     rendererObjects rendererVulkanObjects;
     RendererResources rendererResources;
     std::unique_ptr<CommandPoolManager> commandPoolmanager; 
@@ -182,7 +221,7 @@ void updateShadowImageViews(int frame, Scene* scene);
     void updatePerFrameBuffers(unsigned currentFrame, Array<std::span<glm::mat4>> models, Scene* scene);
     void recordCommandBufferShadowPass(VkCommandBuffer commandBuffer, uint32_t imageIndex, std::span<simpleMeshPassInfo> passes);
 
-    void recordCommandBufferCulling(commandBufferContext, uint32_t currentFrame, std::span<simpleMeshPassInfo> passes);
+    void initializeCommandBufferCulling(commandBufferContext commandBufferContext, MemoryArena::memoryArena* arena, uint32_t _currentFrame);
     void SubmitCommandBuffer(uint32_t commandbufferCt,
                              commandBufferContext* commandBufferContext, semaphoreData waitSemaphores, std::vector<VkSemaphore> signalsemaphores, VkFence
                              waitFence);

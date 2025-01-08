@@ -65,7 +65,7 @@ void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
 	}
 
 	// visible = 0;
-	drawData[globals.offset + GlobalInvocationID.x].instanceCount = visible ? 1 : 0;
+	drawData[globals.offset +GlobalInvocationID.x].instanceCount = visible ? 1 : 0;
 	// drawData[GlobalInvocationID.x].debugData = center;
 	// drawData[globals.offset + GlobalInvocationID.x].instanceCount = 0;
 	
