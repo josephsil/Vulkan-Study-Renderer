@@ -118,7 +118,7 @@ public:
 private:
     
   
-    std::span<RenderPassConfig> createRenderPasses(Scene* scene, AssetManager* rendererData, cameraData* camera, MemoryArena::memoryArena* allocator, std::span<std::span<
+    std::span<RenderPassConfig> AddRenderPasses(Array<RenderPassConfig>* targetPassList,Scene* scene, AssetManager* rendererData, cameraData* camera, MemoryArena::memoryArena* allocator, std::span<std::span<
                                                    PerShadowData>> inputShadowdata,
                                                    PipelineDataObject opaquePipelineData, PipelineDataObject shadowPipelineData, PipelineDataObject computePipelineData,
                                                    commandBufferContext* shadowCommandBufferContext, commandBufferContext* opaqueCommandBufferContext, commandBufferContext
