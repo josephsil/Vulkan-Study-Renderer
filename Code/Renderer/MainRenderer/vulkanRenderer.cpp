@@ -1080,6 +1080,7 @@ void vulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<std::spa
         .getMappedSpan();
 
     int offset = 0;
+    //TODO JS-frustum-binding: draws always ned to be shadow first the nopaque because we bind frustum data like this
     for (int i = 0; i < perLightShadowData.size(); i++)
     {
         for (int j = 0; j < perLightShadowData[i].size(); j++)
@@ -1095,7 +1096,7 @@ void vulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<std::spa
             offset +=6;
         }
     }
-
+    //TODO JS-frustum-binding: draws always ned to be shadow first the nopaque because we bind frustum data like this
     viewProj vp = viewProjFromCamera(scene->sceneCamera);
     glm::mat4  projT =   transpose(vp.proj);
     frustums[offset + 0] = projT[3] + projT[0];
@@ -1716,8 +1717,18 @@ void    AddOpaquePasses(RenderPassList* targetPassList, shaderLookup shaderGroup
     uint32_t objectsPerDraw = scene->objectsCount();
     viewProj viewProjMatrices = viewProjFromCamera(scene->sceneCamera);
 
+    
     //Culling debug stuff
+    
     PerShadowData* data = MemoryArena::Alloc<PerShadowData>(allocator);
+    int shadowDrawCt = 0;
+    for(int i =0; i <inputShadowdata.size(); i++)
+    {
+        shadowDrawCt += inputShadowdata[i].size();
+    }
+    assert(targetPassList->drawCount >= shadowDrawCt); //TODO JS-frustum-binding
+
+    
     if ( debug_cull_override && getFlattenedShadowData(debug_cull_override_index,inputShadowdata, data))
     {
         viewProjMatrices = { data->view,  data->proj};
@@ -1725,7 +1736,8 @@ void    AddOpaquePasses(RenderPassList* targetPassList, shaderLookup shaderGroup
         populateFrustumCornersForSpace(frustumCornersWorldSpace,   glm::inverse(viewProjMatrices.proj * viewProjMatrices.view));
         debugDrawFrustum(frustumCornersWorldSpace);
     }
-  
+
+   
     targetPassList->passes.push_back(  CreateRenderPassConfig_new(allocator, scene, rendererData,
         {.colorDraw = opaqueTarget, .depthDraw = depthTarget, .extents = targetExtent},
         shaderGroup, computePipelineData, opaqueCommandBufferContext, computeCommandBufferContext,

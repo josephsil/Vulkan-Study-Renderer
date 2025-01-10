@@ -41,7 +41,7 @@ void Add_Scene_Content(RendererContext rendererContext, AssetManager* rendererDa
     randomMaterials.push_back(placeholderMatidx);
 
 
-#define SPONZA
+
 
     //spot light
     //TODO JS: paramaterize better -- hard to set power and radius currently
@@ -55,9 +55,11 @@ void Add_Scene_Content(RendererContext rendererContext, AssetManager* rendererDa
     // scene->AddPointLight(glm::vec3(-2, 2, 0), glm::vec3(1, 0, 0), 4422 / 2);
     // scene->AddPointLight(glm::vec3(0, 0, 0), glm::vec3(1, 1, 0), 999 / 2);
 
+    gltfdata gltf;
+#define SPONZA
     #ifdef SPONZA 
     //TODO: gltf load fn that gets back struct, then append its contents to scene 
-    auto gltf = GltfLoadMeshes(rendererContext, "Meshes/sponza.glb");
+    gltf = GltfLoadMeshes(rendererContext, "Meshes/sponza.glb");
     //TODO JS: to span of spans for submeshes
 
 #pragma region gltf adding stuff --- todo move to fn 
@@ -145,7 +147,7 @@ void Add_Scene_Content(RendererContext rendererContext, AssetManager* rendererDa
             }
         }
     }
-
+#endif 
 #pragma endregion 
     printf("objects count: %d \n", scene->objects.objectsCount);
     // #else
@@ -195,6 +197,6 @@ void Add_Scene_Content(RendererContext rendererContext, AssetManager* rendererDa
         }
     
     }
-#endif 
+
     scene->transforms.RebuildTransformDataFromNodes(rendererContext.arena);
 }
