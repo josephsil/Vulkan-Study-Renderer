@@ -27,6 +27,14 @@ const static int MAX_PIPELINES = 80; //whatever, probably could be dynamic, will
 const static int MAX_RENDER_PASSES = 120;//whatever, probably could be dynamic, will fix later
 const VkFormat shadowFormat = VK_FORMAT_D16_UNORM;
 
+template < typename T >
+struct result
+{
+    bool success;
+    T* t;
+};
+template < typename T >
+
 
 #ifdef NDEBUG
 const bool enableValidationLayers = false;
@@ -188,7 +196,7 @@ struct cameraData
 {
     glm::vec3 eyePos = glm::vec3(-4.0f, 0.4f, 1.0f);
     glm::vec2 eyeRotation = glm::vec2(55.0f, -22.0f); //yaw, pitch
-    float nearPlane = 0.01f;
+    float nearPlane = 0.1f;
     float farPlane = 35.0f;
 
     extent extent;

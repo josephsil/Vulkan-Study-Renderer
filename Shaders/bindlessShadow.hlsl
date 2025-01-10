@@ -4,8 +4,8 @@
 struct VSInput
 {
     [[vk::location(0)]] float3 Position : POSITION0;
-    [[vk::location(1)]] float3 Color : COLOR0;
-    [[vk::location(2)]] float2 Texture_ST : TEXCOORD0;
+    // [[vk::location(1)]] float3 Color : COLOR0;
+    // [[vk::location(2)]] float2 Texture_ST : TEXCOORD0;
    };
 
 
@@ -18,7 +18,7 @@ struct FSOutput
 
 struct pconstant
 {
-    float matrixIndex;
+    float unused;
     float4x4 mat;
 };
 
@@ -38,7 +38,7 @@ struct VSOutput
 };
 
 #ifdef SHADOWPASS
-#define MATRIXOFFSET pc.matrixIndex
+// #define MATRIXOFFSET pc.unused
 #endif
 
 VSOutput Vert(VSInput input,  [[vk::builtin("BaseInstance")]]  uint InstanceIndex : BaseInstance, uint VertexIndex : SV_VertexID)
@@ -47,7 +47,7 @@ VSOutput Vert(VSInput input,  [[vk::builtin("BaseInstance")]]  uint InstanceInde
     VSOutput output = (VSOutput)0;
     float4x4 viewProjection;
 ///
-    viewProjection = mul(shadowMatrices[MATRIXOFFSET].proj, shadowMatrices[MATRIXOFFSET].view);
+    viewProjection = pc.mat;
     
     float4x4 mvp2 = mul(viewProjection, ubo.Model);
 

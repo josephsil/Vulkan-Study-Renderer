@@ -26,6 +26,8 @@ struct descriptorUpdateData;
             VkFormat depthFormat;
             VkCullModeFlags cullMode = VK_CULL_MODE_BACK_BIT;
             VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+            VkBool32 depthClampEnable = VK_FALSE;
+            VkBool32 depthWriteEnable = VK_TRUE;
             VkBool32 depthBias = VK_FALSE;
             bool dynamicBias = false;
         };
@@ -38,7 +40,7 @@ struct descriptorUpdateData;
         //Initialization
         
 
-        void createGraphicsPipeline(std::vector<VkPipelineShaderStageCreateInfo> shaders, graphicsPipelineSettings settings, size_t pconstantSize = 0);
+        void createGraphicsPipeline(std::span<VkPipelineShaderStageCreateInfo> shaders, graphicsPipelineSettings settings, size_t pconstantSize = 0);
         void createComputePipeline(VkPipelineShaderStageCreateInfo shader, size_t pconstantSize = 0);
         struct perPipelineData;
 

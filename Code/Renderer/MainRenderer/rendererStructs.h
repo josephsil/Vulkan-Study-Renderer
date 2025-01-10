@@ -14,8 +14,6 @@ struct simpleMeshPassInfo
 {
     uint32_t firstIndex;
     uint32_t ct;
-    glm::mat4 viewMatrix;
-    glm::mat4 projMatrix;
     VkPipeline pipeline;
     std::span<uint32_t> sortedObjectIDs;
 };
@@ -52,6 +50,7 @@ struct rendererCommandBuffers
     VkCommandBuffer computeCommandBuffers {};
     VkCommandBuffer opaqueCommandBuffers {};
     VkCommandBuffer shadowCommandBuffers {};
+    VkCommandBuffer cullingDepthPrepassCommandBuffers {};
     VkCommandBuffer swapchainTransitionInCommandBuffer {};
     VkCommandBuffer swapchainTransitionOutCommandBuffer {};
     VkCommandBuffer shadowTransitionInCommandBuffer {};
@@ -60,6 +59,8 @@ struct rendererCommandBuffers
 
 struct rendererSemaphores
 {
+    VkSemaphore depthPrepassFinishedSemaphore {};
+    VkSemaphore depthPrepassMipsFinishedSempahore {};
     VkSemaphore computeFinishedSemaphores {};
     VkSemaphore shadowAvailableSemaphores {};
     VkSemaphore shadowFinishedSemaphores {};

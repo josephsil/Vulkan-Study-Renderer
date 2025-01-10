@@ -47,12 +47,6 @@ struct rendererObjects
     //maybe move these two
 };
 
-struct framePasses
-{
-    std::span<simpleMeshPassInfo> shadowDraws;
-    std::span<ComputeCullListInfo> computeDraws;
-    std::span<simpleMeshPassInfo> opaqueDraw;
-};
 struct depthBiasSettng
 {
     bool use = false;
@@ -67,6 +61,7 @@ struct RenderPassList
     uint32_t drawCount;
     Array<RenderPassConfig> passes;
 };
+
 struct RenderPassConfig
 {
     commandBufferContext* drawcommandBufferContext;
@@ -79,9 +74,10 @@ struct RenderPassConfig
     VkRenderingAttachmentInfoKHR* depthAttatchment; // simpleRenderingAttatchment(rendererResources.shadowMapRenderingImageViews[currentFrame][shadowMapIndex], 1.0)
     VkRenderingAttachmentInfoKHR* colorattatchment; //nullptr
     VkExtent2D renderingAttatchmentExtent; //SHADOW_MAP_SIZE
-    void* pushConstants;    //shadowPushConstants constants;
+    viewProj matrices;
     //Light count, vert offset, texture index, and object data index
     //constants.shadowIndex = (glm::float32_t)shadowMapIndex;
+    void* pushConstants;    //shadowPushConstants constants;
     size_t pushConstantsSize;
     depthBiasSettng depthBiasSetting;
 };
@@ -227,7 +223,7 @@ void updateShadowImageViews(int frame, Scene* scene);
     void SubmitCommandBuffer(uint32_t commandbufferCt,
                              commandBufferContext* commandBufferContext, semaphoreData waitSemaphores, std::vector<VkSemaphore> signalsemaphores, VkFence
                              waitFence);
-    void recordCommandBufferUtilityPass(VkCommandBuffer commandBuffer, int imageIndex);
+    void recordUtilityPasses(VkCommandBuffer commandBuffer, int imageIndex);
     void recordCommandBufferOpaquePass(Scene* scene, VkCommandBuffer commandBuffer, uint32_t imageIndex, std::span<simpleMeshPassInfo>
                                        batchedDraws);
 
@@ -235,7 +231,7 @@ void updateShadowImageViews(int frame, Scene* scene);
     bool hasStencilComponent(VkFormat format);
 
 
-    void createGraphicsPipeline(const char* shaderName,
+    void createGraphicsPipeline(std::span<VkPipelineShaderStageCreateInfo> shaderStages,
                                 PipelineGroup* descriptorsetdata, PipelineGroup::graphicsPipelineSettings settings, bool compute, size_t pconstantsize);
     
 
