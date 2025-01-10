@@ -37,7 +37,7 @@ void static_AllocateAssetMemory(MemoryArena::memoryArena* arena, AssetManager* s
 int AssetManager::AddMaterial(float roughness, float metallic, glm::vec3 color, textureSetIDs textureindex, uint32_t pipeline)
 {
   materials.push_back(Material{
-        .pipelineidx = pipeline, .diffuseIndex = textureindex.diffuseIndex, .specIndex   = textureindex.specIndex, .normalIndex = textureindex.normIndex, .metallic = metallic, .roughness = roughness, .color = color
+        .shaderGroupIndex = pipeline, .diffuseIndex = textureindex.diffuseIndex, .specIndex   = textureindex.specIndex, .normalIndex = textureindex.normIndex, .metallic = metallic, .roughness = roughness, .color = color
     });
     return materials.size() -1;
 }

@@ -1,4 +1,4 @@
-#include "PipelineDataObject.h"
+#include "PipelineGroup.h"
 
 #include <cassert>
 
@@ -24,7 +24,7 @@ VkDescriptorSetLayoutCreateInfo createInfoFromSpan( std::span<VkDescriptorSetLay
 
     return _createInfo;
 }
-PipelineDataObject::PipelineDataObject(RendererContext handles, VkDescriptorPool pool, std::span<VkDescriptorSetLayoutBinding> opaqueLayout)
+PipelineGroup::PipelineGroup(RendererContext handles, VkDescriptorPool pool, std::span<VkDescriptorSetLayoutBinding> opaqueLayout)
 {
     device = handles.device;
     createLayout(handles , opaqueLayout);
@@ -32,7 +32,7 @@ PipelineDataObject::PipelineDataObject(RendererContext handles, VkDescriptorPool
     
 }
 
-void PipelineDataObject::createLayout(RendererContext handles,  std::span<VkDescriptorSetLayoutBinding> layout )
+void PipelineGroup::createLayout(RendererContext handles,  std::span<VkDescriptorSetLayoutBinding> layout )
 {
     VkDescriptorSetLayoutCreateInfo perSceneLaout = createInfoFromSpan(layout);
 
@@ -59,7 +59,7 @@ void PipelineDataObject::createLayout(RendererContext handles,  std::span<VkDesc
     this->pipelineData.slots = layout;
 }
 
-void PipelineDataObject::bindToCommandBuffer(VkCommandBuffer cmd, uint32_t currentFrame, VkPipelineBindPoint bindPoint)
+void PipelineGroup::bindToCommandBuffer(VkCommandBuffer cmd, uint32_t currentFrame, VkPipelineBindPoint bindPoint)
 {
     assert(pipelineData.descriptorSetsInitialized && pipelineData.pipelinesInitialized);
     vkCmdBindDescriptorSets(cmd, bindPoint, this->pipelineData.bindlessPipelineLayout, 0, 1, &this->pipelineData.perSceneDescriptorSetForFrame[currentFrame], 0, nullptr);
@@ -67,7 +67,7 @@ void PipelineDataObject::bindToCommandBuffer(VkCommandBuffer cmd, uint32_t curre
 
 
 
-void PipelineDataObject::updateDescriptorSetsForPipeline(std::span<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame, perPipelineData* perPipelineData)
+void PipelineGroup::updateDescriptorSetsForPipeline(std::span<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame, perPipelineData* perPipelineData)
 {
     
     writeDescriptorSets.clear();
@@ -116,7 +116,7 @@ void PipelineDataObject::updateDescriptorSetsForPipeline(std::span<descriptorUpd
 }
 
 //updates descriptor sets based on vector of descriptorupdatedata, with some light validation that we're binding the right stuff
-void PipelineDataObject::updateDescriptorSets(std::span<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame)
+void PipelineGroup::updateDescriptorSets(std::span<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame)
 {
    updateDescriptorSetsForPipeline(descriptorUpdates, currentFrame, &pipelineData);
 }
@@ -124,7 +124,7 @@ void PipelineDataObject::updateDescriptorSets(std::span<descriptorUpdateData> de
 
 
 
-void PipelineDataObject::createDescriptorSets(VkDescriptorPool pool, int MAX_FRAMES_IN_FLIGHT)
+void PipelineGroup::createDescriptorSets(VkDescriptorPool pool, int MAX_FRAMES_IN_FLIGHT)
 {
     assert(!this->pipelineData.descriptorSetsInitialized); // Don't double initialize
     pipelineData.perSceneDescriptorSetForFrame.resize(MAX_FRAMES_IN_FLIGHT);
@@ -136,7 +136,7 @@ void PipelineDataObject::createDescriptorSets(VkDescriptorPool pool, int MAX_FRA
             
 }
 
-VkPipeline PipelineDataObject::getPipeline(int index)
+VkPipeline PipelineGroup::getPipeline(int index)
 {
     //TODO JS
     // assert(pipelinesInitialized && pipelineLayoutInitialized);
@@ -144,14 +144,14 @@ VkPipeline PipelineDataObject::getPipeline(int index)
     return pipelines[index];
 }
 
-uint32_t PipelineDataObject::getPipelineCt()
+uint32_t PipelineGroup::getPipelineCt()
 {
     //TODO JS
     // assert(pipelinesInitialized && pipelineLayoutInitialized);
     return (uint32_t)pipelines.size();
 }
 
-void PipelineDataObject::createPipelineLayoutForPipeline(perPipelineData* perPipelineData, size_t pconstantSize, bool compute)
+void PipelineGroup::createPipelineLayoutForPipeline(perPipelineData* perPipelineData, size_t pconstantSize, bool compute)
 {
 
     if(perPipelineData->pipelineLayoutInitialized)
@@ -193,7 +193,7 @@ void PipelineDataObject::createPipelineLayoutForPipeline(perPipelineData* perPip
 
 
 
-void PipelineDataObject::createGraphicsPipeline(std::vector<VkPipelineShaderStageCreateInfo> shaders, graphicsPipelineSettings settings, size_t pconstantSize)
+void PipelineGroup::createGraphicsPipeline(std::vector<VkPipelineShaderStageCreateInfo> shaders, graphicsPipelineSettings settings, size_t pconstantSize)
 {
     auto pipeline =  &pipelineData;
     createPipelineLayoutForPipeline(pipeline, pconstantSize,false);
@@ -309,7 +309,7 @@ void PipelineDataObject::createGraphicsPipeline(std::vector<VkPipelineShaderStag
     pipelines.push_back(newGraphicsPipeline);
 }
 
-void PipelineDataObject::createComputePipeline(VkPipelineShaderStageCreateInfo shader, size_t pconstantSize)
+void PipelineGroup::createComputePipeline(VkPipelineShaderStageCreateInfo shader, size_t pconstantSize)
 {
 
     auto pipeline =  &pipelineData;
@@ -333,7 +333,7 @@ void PipelineDataObject::createComputePipeline(VkPipelineShaderStageCreateInfo s
     pipelines.push_back(newPipeline);
 }
 
-void PipelineDataObject::cleanup()
+void PipelineGroup::cleanup()
 {
     
    
@@ -346,7 +346,7 @@ void PipelineDataObject::cleanup()
 
 }
 
-VkDescriptorSet PipelineDataObject::perPipelineData::getSetFromType(VkDescriptorType type,
+VkDescriptorSet PipelineGroup::perPipelineData::getSetFromType(VkDescriptorType type,
     int currentFrame)
 {
     printf("Deprecated call to getSetFromType \n");
@@ -354,7 +354,7 @@ VkDescriptorSet PipelineDataObject::perPipelineData::getSetFromType(VkDescriptor
   
 }
 
-void PipelineDataObject::perPipelineData::cleanup(VkDevice device)
+void PipelineGroup::perPipelineData::cleanup(VkDevice device)
 {
     vkDestroyPipelineLayout(device, bindlessPipelineLayout, nullptr);
     vkDestroyDescriptorSetLayout(device, perSceneDescriptorSetLayout, nullptr);

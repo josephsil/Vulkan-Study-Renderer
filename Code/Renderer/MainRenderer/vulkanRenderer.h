@@ -14,7 +14,7 @@
 #include <General/MemoryArena.h>
 #include "../Shaders/ShaderLoading.h"
 #include "VkBootstrap.h"
-#include "../PipelineDataObject.h"
+#include "../PipelineGroup.h"
 #include "Scene/Scene.h"
 #include "rendererStructs.h"
 #include "Renderer/RendererDeletionQueue.h"
@@ -59,16 +59,24 @@ struct depthBiasSettng
     float depthBias;
     float slopeBias;
 };
+//TODO JS
+//The idea is using this, and using objectCount in place of cullingFrustumIndex and etc, and objectCount in place of drawOffset
+struct RenderPassConfig;
+struct RenderPassList
+{
+    uint32_t drawCount;
+    Array<RenderPassConfig> passes;
+};
 struct RenderPassConfig
 {
     commandBufferContext* drawcommandBufferContext;
     commandBufferContext* computeCommandBufferContext;
-    PipelineDataObject* pipelineData; //descriptorsetLayoutsDataShadow
+    PipelineGroup* pipelineGroup; //descriptorsetLayoutsDataShadow
     VkBuffer indexBuffer; //FramesInFlightData[currentFrame].indices._buffer.data
     VkIndexType indexBufferType; // VK_INDEX_TYPE_UINT32
     std::span<simpleMeshPassInfo> meshPasses;
     ComputeCullListInfo* computeCullingInfo;
-    VkRenderingAttachmentInfoKHR depthAttatchment; // simpleRenderingAttatchment(rendererResources.shadowMapRenderingImageViews[currentFrame][shadowMapIndex], 1.0)
+    VkRenderingAttachmentInfoKHR* depthAttatchment; // simpleRenderingAttatchment(rendererResources.shadowMapRenderingImageViews[currentFrame][shadowMapIndex], 1.0)
     VkRenderingAttachmentInfoKHR* colorattatchment; //nullptr
     VkExtent2D renderingAttatchmentExtent; //SHADOW_MAP_SIZE
     void* pushConstants;    //shadowPushConstants constants;
@@ -116,14 +124,7 @@ public:
     VkDescriptorSet GetOrRegisterImguiTextureHandle(VkSampler sampler, VkImageView imageView);
 
 private:
-    
-  
-    std::span<RenderPassConfig> AddRenderPasses(Array<RenderPassConfig>* targetPassList,Scene* scene, AssetManager* rendererData, cameraData* camera, MemoryArena::memoryArena* allocator, std::span<std::span<
-                                                   PerShadowData>> inputShadowdata,
-                                                   PipelineDataObject opaquePipelineData, PipelineDataObject shadowPipelineData, PipelineDataObject computePipelineData,
-                                                   commandBufferContext* shadowCommandBufferContext, commandBufferContext* opaqueCommandBufferContext, commandBufferContext
-                                                   * computeCommandBufferContext, VkRenderingAttachmentInfoKHR* opaqueTarget);
-    
+
     rendererObjects rendererVulkanObjects;
     RendererResources rendererResources;
     std::unique_ptr<CommandPoolManager> commandPoolmanager; 
@@ -150,21 +151,22 @@ void updateShadowImageViews(int frame, Scene* scene);
     VkDescriptorPool imgui_descriptorPool;
     VkDescriptorSetLayout pushDescriptorSetLayout;
     VkDescriptorSetLayout perMaterialSetLayout;
-    
-    PipelineDataObject descriptorsetLayoutsData; 
-    PipelineDataObject descriptorsetLayoutsDataShadow; 
-    PipelineDataObject descriptorsetLayoutsDataCulling;
+
+    ShaderGroups shaderGroups;
+    PipelineGroup descriptorsetLayoutsData; 
+    PipelineGroup descriptorsetLayoutsDataShadow; 
+    PipelineGroup descriptorsetLayoutsDataCulling;
 
     
     void createDescriptorSetPool(RendererContext handles, VkDescriptorPool* pool);
-    void updateOpaqueDescriptorSets(PipelineDataObject* layoutData);
+    void updateOpaqueDescriptorSets(PipelineGroup* layoutData);
     std::span<descriptorUpdateData> createOpaqueDescriptorUpdates(uint32_t frame, int shadowCasterCount, MemoryArena::memoryArena* arena, std::span<VkDescriptorSetLayoutBinding>
                                                                   layoutBindings);
     std::span<descriptorUpdateData> createShadowDescriptorUpdates(MemoryArena::memoryArena* arena, uint32_t frame, uint32_t shadowIndex, std::span<VkDescriptorSetLayoutBinding>
                                                                   layoutBindings);
 
     void updateShadowDescriptorSets(
-        PipelineDataObject* layoutData, uint32_t shadowIndex);
+        PipelineGroup* layoutData, uint32_t shadowIndex);
 
     std::span<descriptorUpdateData> opaqueUpdates[MAX_FRAMES_IN_FLIGHT] = {};
 
@@ -234,7 +236,7 @@ void updateShadowImageViews(int frame, Scene* scene);
 
 
     void createGraphicsPipeline(const char* shaderName,
-                                PipelineDataObject* descriptorsetdata, PipelineDataObject::graphicsPipelineSettings settings, bool compute, size_t pconstantsize);
+                                PipelineGroup* descriptorsetdata, PipelineGroup::graphicsPipelineSettings settings, bool compute, size_t pconstantsize);
     
 
   

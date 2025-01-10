@@ -16,7 +16,7 @@ struct descriptorUpdateData;
 //TODO JS: Pipelines identified by slots? Unique perPipelineData based on configuration???
 //
     //One of these per pipeline *layout*, contains multiple pipelines
-    class PipelineDataObject
+    class PipelineGroup
     {
     public:
 
@@ -31,9 +31,9 @@ struct descriptorUpdateData;
         };
 
         
-        PipelineDataObject()
+        PipelineGroup()
         {}
-        PipelineDataObject(RendererContext handles, VkDescriptorPool pool, std::span<VkDescriptorSetLayoutBinding> opaqueLayout);
+        PipelineGroup(RendererContext handles, VkDescriptorPool pool, std::span<VkDescriptorSetLayoutBinding> opaqueLayout);
 
         //Initialization
         

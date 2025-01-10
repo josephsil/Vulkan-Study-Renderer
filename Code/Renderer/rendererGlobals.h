@@ -8,7 +8,7 @@
 #include <span>
 #include <string_view>
 
-#include "PipelineDataObject.h"
+#include "PipelineGroup.h"
 #include "RendererContext.h"
 #include "VulkanIncludes/forward-declarations-renderer.h"
 struct RendererContext;
@@ -53,6 +53,15 @@ enum lightType
     LIGHT_DIR = 0,
     LIGHT_POINT = 1,
     LIGHT_SPOT = 2,
+};
+
+
+
+struct renderPassAttatchmentInfo
+{
+    VkRenderingAttachmentInfoKHR* colorDraw;
+    VkRenderingAttachmentInfoKHR* depthDraw;
+    VkExtent2D extents;
 };
 struct RenderTextureFormat
 {
@@ -161,7 +170,7 @@ struct Transform
 struct Material
 {
 public:
-    uint32_t pipelineidx;
+    uint32_t shaderGroupIndex;
     uint32_t diffuseIndex;
     uint32_t specIndex;
     uint32_t normalIndex;

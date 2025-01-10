@@ -1,4 +1,14 @@
+struct pointerSize
+{
+    void* ptr;
+    uint32_t size;
+};
 
+struct viewProj
+{
+    glm::mat4 view;
+    glm::mat4 proj;
+};
 
 struct simpleMeshPassInfo
 {
@@ -17,8 +27,7 @@ struct ComputeCullListInfo
     glm::mat4 viewMatrix;
     glm::mat4 projMatrix; //not used?
     VkPipelineLayout layout;
-    uint32_t pushCosntantSize;
-    void* pushConstants;
+    pointerSize pushConstantInfo;
 };
 
 
@@ -61,4 +70,20 @@ struct rendererSemaphores
     VkSemaphore swapchaintransitionedInSemaphores {};
     VkSemaphore shadowtransitionedOutSemaphores {};
     VkSemaphore shadowtransitionedInSemaphores {};
+};
+
+
+struct shaderLookup
+{
+    std::span<int> shaderIndices;
+    PipelineGroup* pipelineGroup;
+};
+
+//These map the shader ID in the scene/materials to shader IDs/pipeline groups for each major type
+
+struct ShaderGroups
+{
+    shaderLookup opaqueShaders;
+    shaderLookup shadowShaders;
+    shaderLookup cullShaders;
 };

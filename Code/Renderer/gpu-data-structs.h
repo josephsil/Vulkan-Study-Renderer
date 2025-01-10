@@ -65,7 +65,7 @@ struct drawCommandData
 struct shadowPushConstants
 {
     alignas(16) glm::float32_t shadowIndex; //a is light index for shadows
-    glm::mat4 shadowMatrix;
+    glm::mat4 UNUSED;
 };
 
 

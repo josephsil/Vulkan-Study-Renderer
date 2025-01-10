@@ -257,7 +257,7 @@
     <ClCompile Include="Code\Renderer\MeshData.cpp">
     </ClCompile>
     <ClCompile Include="Code\Renderer\MikkTImpl.cpp" />
-    <ClCompile Include="Code\Renderer\PipelineDataObject.cpp">
+    <ClCompile Include="Code\Renderer\PipelineGroup.cpp">
     </ClCompile>
     <ClCompile Include="Code\Renderer\RendererDeletionQueue.cpp" />
     <ClCompile Include="Code\Renderer\rendererGlobals.cpp" />
@@ -311,7 +311,7 @@
     <ClInclude Include="Code\Renderer\MainRenderer\vulkanRenderer.h" />
     <ClInclude Include="Code\Renderer\MeshData.h" />
     <ClInclude Include="Code\Renderer\MikkTImpl.h" />
-    <ClInclude Include="Code\Renderer\PipelineDataObject.h" />
+    <ClInclude Include="Code\Renderer\PipelineGroup.h" />
     <ClInclude Include="Code\Renderer\RendererDeletionQueue.h" />
     <ClInclude Include="Code\Renderer\rendererGlobals.h" />
     <ClInclude Include="Code\Renderer\RendererContext.h" />
