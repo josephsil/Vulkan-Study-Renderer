@@ -105,7 +105,8 @@ vkb::Instance getInstance()
     vkb::InstanceBuilder instance_builder;
     auto instanceBuilderResult = instance_builder
                                   // .request_validation_layers()
-                                 .use_default_debug_messenger().enable_extension(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)
+                                 .use_default_debug_messenger()
+    .enable_extension(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)
                                  .require_api_version(1, 3, 255)
                                  .build();
     if (!instanceBuilderResult)

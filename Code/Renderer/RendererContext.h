@@ -17,7 +17,7 @@ struct RendererContext
 {
     VkPhysicalDevice physicalDevice;
     VkDevice device; 
-    CommandPoolManager* commandPoolmanager;
+    CommandPoolManager* textureCreationcommandPoolmanager;
     VmaAllocator allocator;
     MemoryArena::memoryArena* arena;
     MemoryArena::memoryArena* tempArena;
@@ -35,5 +35,5 @@ struct BufferCreationContext
 
 inline BufferCreationContext objectCreationContextFromRendererContext(RendererContext r)
 {
-    return {.device = r.device, .allocator = r.allocator, .rendererdeletionqueue = r.rendererdeletionqueue, .commandPoolmanager = r.commandPoolmanager};
+    return {.device = r.device, .allocator = r.allocator, .rendererdeletionqueue = r.rendererdeletionqueue, .commandPoolmanager = r.textureCreationcommandPoolmanager};
 }

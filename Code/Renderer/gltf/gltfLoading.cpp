@@ -456,7 +456,7 @@ gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
 		materials[i].occlusionStrength = gltfmaterial.occlusionTexture.strength;
 	}
 
-    auto textureImportCommandBuffer =  handles.commandPoolmanager->beginSingleTimeCommands(true);
+    auto textureImportCommandBuffer =  handles.textureCreationcommandPoolmanager->beginSingleTimeCommands(true);
     for (int i = 0; i < imageCt; i++)
     {
         tinygltf::Image image = model.images[i];
@@ -497,7 +497,7 @@ gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
 
     }
 
-    handles.commandPoolmanager->endSingleTimeCommands(textureImportCommandBuffer);
+    handles.textureCreationcommandPoolmanager->endSingleTimeCommands(textureImportCommandBuffer);
 
 	for(int i = 0; i < nodeCt; i++)
 	{

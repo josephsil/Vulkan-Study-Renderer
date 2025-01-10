@@ -24,7 +24,7 @@ struct QueueData
 };
 
 
-//Not really sure I like this conceptually
+//This is silly -- merge with the apporoach used for drawing
 struct CommandPoolManager
 {
 public:

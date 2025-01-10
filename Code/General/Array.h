@@ -57,6 +57,25 @@ struct Array
         data[ct++] = entry;
     }
 
+     std::span<T> push_back_span(std::initializer_list<T> il)
+    {
+        assert(ct + il.size() <capacity);
+        int start = ct;
+        for(auto entry : il)
+        {
+            this->push_back(entry);
+        }
+        std::span<T>(start, il.size());
+    }
+
+    std::span<T> pushUninitializedSubspan(int spanSize)
+    {
+        assert(ct + spanSize < capacity);
+        int start = ct;
+        ct += spanSize;
+        return this->getSpan().subspan(start, spanSize);
+    }
+
     std::span<T> getSpan(size_t size = INT_MAX)
     {
         return std::span<T>(data, glm::min(ct, size));

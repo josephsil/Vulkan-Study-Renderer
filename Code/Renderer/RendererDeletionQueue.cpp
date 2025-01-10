@@ -85,7 +85,9 @@ void RendererDeletionQueue::FreeQueue()
                 vkDestroySampler(device, (VkSampler)(resource.handle), nullptr);
                 break;
             }
+       
         }
         
     }
+    deletionList.clear();
 }

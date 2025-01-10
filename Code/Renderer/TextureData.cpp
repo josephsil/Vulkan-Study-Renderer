@@ -566,7 +566,7 @@ VkImageView createTextureImageView(RendererContext rendererContext,TextureMetaDa
 static nonKTXTextureInfo createTextureImage(RendererContext rendererContext, const unsigned char* pixels, uint64_t texWidth, uint64_t texHeight, VkFormat format, bool mips)
 { 
 	VkDeviceSize imageSize = texWidth * texHeight * 4;
-	auto workingTextureBuffer = rendererContext.commandPoolmanager->beginSingleTimeCommands(true);
+	auto workingTextureBuffer = rendererContext.textureCreationcommandPoolmanager->beginSingleTimeCommands(true);
     if (!pixels)
     {
          std::cerr << "failed to load texture image!";
@@ -602,12 +602,12 @@ static nonKTXTextureInfo createTextureImage(RendererContext rendererContext, con
     TextureUtilities::transitionImageLayout(objectCreationContextFromRendererContext(rendererContext), _textureImage, format, VK_IMAGE_LAYOUT_UNDEFINED,
                                             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, workingTextureBuffer.buffer, fullMipPyramid);
 
-    TextureUtilities::copyBufferToImage(rendererContext.commandPoolmanager, stagingBuffer, _textureImage,
+    TextureUtilities::copyBufferToImage(rendererContext.textureCreationcommandPoolmanager, stagingBuffer, _textureImage,
                                         static_cast<uint32_t>(texWidth),
                                         static_cast<uint32_t>(texHeight), workingTextureBuffer.buffer);
 	
     //JS: Prepare image to read in shaders
-    rendererContext.commandPoolmanager->endSingleTimeCommands(workingTextureBuffer);
+    rendererContext.textureCreationcommandPoolmanager->endSingleTimeCommands(workingTextureBuffer);
 
 	//Texture is done, generate mipmaps
 	TextureUtilities::generateMipmaps(objectCreationContextFromRendererContext(rendererContext), _textureImage, format, static_cast<uint32_t>(texWidth),
@@ -655,7 +655,7 @@ TextureMetaData createImageKTX(RendererContext rendererContext, const char* path
 	bufferAndPool workingTextureBuffer;
 	if (!useExistingBuffer)
 	{
-		workingTextureBuffer = rendererContext.commandPoolmanager->beginSingleTimeCommands(false ); //TODO JS: Transfer pool doesnt work since ktx saving wor-- why?
+		workingTextureBuffer = rendererContext.textureCreationcommandPoolmanager->beginSingleTimeCommands(false ); //TODO JS: Transfer pool doesnt work since ktx saving wor-- why?
 	}
 	else
 		workingTextureBuffer = *buffer;
@@ -712,7 +712,7 @@ TextureMetaData createImageKTX(RendererContext rendererContext, const char* path
 	
 	if (!useExistingBuffer)
 	{
-		rendererContext.commandPoolmanager->endSingleTimeCommands(workingTextureBuffer);
+		rendererContext.textureCreationcommandPoolmanager->endSingleTimeCommands(workingTextureBuffer);
 	}
 
 #ifdef DEBUG

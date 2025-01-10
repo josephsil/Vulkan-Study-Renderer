@@ -44,9 +44,9 @@ const bool enableValidationLayers = true;
 
 
 
-const std::vector<const char*> validationLayers = {
-    "VK_LAYER_KHRONOS_validation"
-};
+// const std::vector<const char*> validationLayers = {
+    // "VK_LAYER_KHRONOS_validation"
+// };
 const uint32_t SHADOW_MAP_SIZE = 1024;
 
 //deletio nqueue stuff

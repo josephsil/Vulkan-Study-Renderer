@@ -14,6 +14,7 @@ enum class deletionType
     VkMemory,
     VmaImage,
     Sampler,
+    CommandBuffer
     
 };
 struct deleteableResource

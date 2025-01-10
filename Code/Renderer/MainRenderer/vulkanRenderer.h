@@ -30,10 +30,12 @@ struct SDL_Window;
 
 struct commandBufferContext
 {
-    VkCommandBuffer commandBuffer;
     bool active;
     VkBuffer indexBuffer;
     VkPipeline boundPipeline;
+    VkCommandBuffer commandBuffer;
+    std::span<VkSemaphore> waitSemaphores;
+    std::span<VkSemaphore> signalSempahores;
 };
 
 struct rendererObjects
@@ -176,10 +178,8 @@ void updateShadowImageViews(int frame, Scene* scene);
     struct per_frame_data
     {
         rendererSemaphores semaphores;
-        
+        std::unique_ptr<RendererDeletionQueue> deletionQueue;
         VkFence inFlightFence {};
-        
-        rendererCommandBuffers commanderBuffers;
 
         std::vector<dataBufferObject<ShaderGlobals>> perLightShadowShaderGlobalsBuffer;
         
@@ -223,6 +223,9 @@ void updateShadowImageViews(int frame, Scene* scene);
     void SubmitCommandBuffer(uint32_t commandbufferCt,
                              commandBufferContext* commandBufferContext, semaphoreData waitSemaphores, std::vector<VkSemaphore> signalsemaphores, VkFence
                              waitFence);
+    void SubmitCommandBuffer_NEW(uint32_t commandbufferCt,
+                           commandBufferContext* commandBufferContext, VkFence
+                           waitFence);
     void recordUtilityPasses(VkCommandBuffer commandBuffer, int imageIndex);
     void recordCommandBufferOpaquePass(Scene* scene, VkCommandBuffer commandBuffer, uint32_t imageIndex, std::span<simpleMeshPassInfo>
                                        batchedDraws);

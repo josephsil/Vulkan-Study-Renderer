@@ -44,33 +44,28 @@ struct DepthBufferInfo //This is like general image info -- currently only using
     VmaAllocation vmaAllocation;
 };
 
-
-struct rendererCommandBuffers
+struct ComamndBufferAndSemaphores
 {
-    VkCommandBuffer computeCommandBuffers {};
-    VkCommandBuffer opaqueCommandBuffers {};
-    VkCommandBuffer shadowCommandBuffers {};
-    VkCommandBuffer cullingDepthPrepassCommandBuffers {};
-    VkCommandBuffer swapchainTransitionInCommandBuffer {};
-    VkCommandBuffer swapchainTransitionOutCommandBuffer {};
-    VkCommandBuffer shadowTransitionInCommandBuffer {};
-    VkCommandBuffer shadowTransitionOutCommandBuffer {};
+    VkCommandBuffer commandBuffer;
+    std::span<VkSemaphore> waitSemaphores;
+    std::span<VkSemaphore> signalSempahores;
 };
+
 
 struct rendererSemaphores
 {
-    VkSemaphore depthPrepassFinishedSemaphore {};
-    VkSemaphore depthPrepassMipsFinishedSempahore {};
-    VkSemaphore computeFinishedSemaphores {};
-    VkSemaphore shadowAvailableSemaphores {};
-    VkSemaphore shadowFinishedSemaphores {};
     VkSemaphore imageAvailableSemaphores {};
-    VkSemaphore renderFinishedSemaphores {};
-
-    VkSemaphore swapchaintransitionedOutSemaphores {};
-    VkSemaphore swapchaintransitionedInSemaphores {};
-    VkSemaphore shadowtransitionedOutSemaphores {};
-    VkSemaphore shadowtransitionedInSemaphores {};
+    // VkSemaphore renderFinishedSemaphores {};
+    // VkSemaphore depthPrepassFinishedSemaphore {};
+    // VkSemaphore depthPrepassMipsFinishedSempahore {};
+    // VkSemaphore computeFinishedSemaphores {};
+    // VkSemaphore shadowAvailableSemaphores {};
+    // VkSemaphore shadowFinishedSemaphores {};
+    //
+    // VkSemaphore swapchaintransitionedOutSemaphores {};
+    // VkSemaphore swapchaintransitionedInSemaphores {};
+    // VkSemaphore shadowtransitionedOutSemaphores {};
+    // VkSemaphore shadowtransitionedInSemaphores {};
 };
 
 
