@@ -450,13 +450,14 @@ void vulkanRenderer::createUniformBuffers(int objectsCount, int lightCount)
         FramesInFlightData[i].uniformBuffers = createDataBuffer<UniformBufferObject>(&context, objectsCount, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT); //
         FramesInFlightData[i].meshBuffers = createDataBuffer<gpuvertex>(&context,AssetDataAndMemory->getVertexCount(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
         FramesInFlightData[i].verts = createDataBuffer<glm::vec4>(&context,AssetDataAndMemory->getVertexCount(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT); //TODO JS: use index buffer, get vertex count
+
         FramesInFlightData[i].indices = createDataBuffer<uint32_t>(&context,AssetDataAndMemory->getIndexCount(), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
         FramesInFlightData[i].lightBuffers = createDataBuffer<gpulight>(&context,lightCount, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
         FramesInFlightData[i].shadowDataBuffers = createDataBuffer<gpuPerShadowData>(&context,lightCount * 10, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
       
         
         FramesInFlightData[i].drawBuffers = createDataBuffer<drawCommandData>(&context, MAX_DRAWINDIRECT_COMMANDS, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
-        setDebugObjectName(context.device, VK_OBJECT_TYPE_BUFFER, "draw indirect buffer", (uint64_t)FramesInFlightData[i].drawBuffers._buffer.data);
+        setDebugObjectName(context.device, VK_OBJECT_TYPE_BUFFER, "draw indirect buffer", (uint64_t)FramesInFlightData[i].drawBuffers.buffer.data);
         FramesInFlightData[i].frustumsForCullBuffers = createDataBuffer<glm::vec4>(&context, (MAX_SHADOWMAPS + MAX_CAMERAS) * 6, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 
     }
@@ -540,18 +541,18 @@ std::span<descriptorUpdateData> vulkanRenderer::createOpaqueDescriptorUpdates(ui
     };
     
     VkDescriptorBufferInfo* meshBufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
-    *meshBufferinfo = FramesInFlightData[frame].meshBuffers._buffer.getBufferInfo();
+    *meshBufferinfo = FramesInFlightData[frame].meshBuffers.buffer.getBufferInfo();
     VkDescriptorBufferInfo* lightbufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
-    *lightbufferinfo = FramesInFlightData[frame].lightBuffers._buffer.getBufferInfo();
+    *lightbufferinfo = FramesInFlightData[frame].lightBuffers.buffer.getBufferInfo();
     VkDescriptorBufferInfo* uniformbufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
-    *uniformbufferinfo = FramesInFlightData[frame].uniformBuffers._buffer.getBufferInfo();
+    *uniformbufferinfo = FramesInFlightData[frame].uniformBuffers.buffer.getBufferInfo();
     VkDescriptorBufferInfo* shaderglobalsinfo =  MemoryArena::Alloc<VkDescriptorBufferInfo>(arena);
-    *shaderglobalsinfo = FramesInFlightData[frame].opaqueShaderGlobalsBuffer._buffer.getBufferInfo();
+    *shaderglobalsinfo = FramesInFlightData[frame].opaqueShaderGlobalsBuffer.buffer.getBufferInfo();
     VkDescriptorBufferInfo* shadowBuffersInfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
-    *shadowBuffersInfo = FramesInFlightData[frame].shadowDataBuffers._buffer.getBufferInfo();
+    *shadowBuffersInfo = FramesInFlightData[frame].shadowDataBuffers.buffer.getBufferInfo();
     
     VkDescriptorBufferInfo* vertBufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
-    *vertBufferinfo = FramesInFlightData[frame].verts._buffer.getBufferInfo();
+    *vertBufferinfo = FramesInFlightData[frame].verts.buffer.getBufferInfo();
    
 
 
@@ -603,7 +604,7 @@ std::span<descriptorUpdateData> vulkanRenderer::createShadowDescriptorUpdates(Me
     // *shadowBuffersInfo = getDescriptorBufferInfo(FramesInFlightData[frame].shadowDataBuffers);
     
     VkDescriptorBufferInfo* vertBufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
-    *vertBufferinfo = FramesInFlightData[frame].verts._buffer.getBufferInfo();
+    *vertBufferinfo = FramesInFlightData[frame].verts.buffer.getBufferInfo();
 
 
     Array<descriptorUpdateData> descriptorUpdates = MemoryArena::AllocSpan<descriptorUpdateData>(arena, 5);
@@ -1030,7 +1031,7 @@ std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocato
 }
 
 
-void updateGlobals(cameraData camera, int lightCount, int cubeMapLutIndex, dataBufferObject<ShaderGlobals> globalsBuffer)
+void updateGlobals(cameraData camera, int lightCount, int cubeMapLutIndex, HostDataBufferObject<ShaderGlobals> globalsBuffer)
 {
     ShaderGlobals globals{};
     viewProj vp = viewProjFromCamera(camera);
@@ -1570,15 +1571,7 @@ void vulkanRenderer::Update(Scene* scene)
             vkWaitForFences(rendererVulkanObjects.vkbdevice.device, 1, &FramesInFlightData[currentFrame].inFlightFence, VK_TRUE, UINT64_MAX);
             FramesInFlightData[currentFrame].deletionQueue->FreeQueue();
             MemoryArena::free(&perFrameArenas[currentFrame]);
-          
-            // vkResetCommandBuffer(FramesInFlightData[currentFrame].commanderBuffers.opaqueCommandBuffers, 0);
-            // vkResetCommandBuffer(FramesInFlightData[currentFrame].commanderBuffers.computeCommandBuffers, 0);
-            // vkResetCommandBuffer(FramesInFlightData[currentFrame].commanderBuffers.shadowCommandBuffers, 0);
-            // vkResetCommandBuffer(FramesInFlightData[currentFrame].commanderBuffers.swapchainTransitionOutCommandBuffer, 0);
-            // vkResetCommandBuffer(FramesInFlightData[currentFrame].commanderBuffers.swapchainTransitionInCommandBuffer, 0);
-            // vkResetCommandBuffer(FramesInFlightData[currentFrame].commanderBuffers.shadowTransitionOutCommandBuffer, 0);
-            // vkResetCommandBuffer(FramesInFlightData[currentFrame].commanderBuffers.shadowTransitionInCommandBuffer, 0);
-   
+       
             vkResetFences(rendererVulkanObjects.vkbdevice.device, 1, &FramesInFlightData[currentFrame].inFlightFence);
       
         }
@@ -1951,8 +1944,6 @@ void vulkanRenderer::drawFrame(Scene* scene)
     ComamndBufferAndSemaphores shadowNCB = {VK_NULL_HANDLE, computeNCB.signalSempahores, semaphorePool.pushUninitializedSubspan(1)};
     allocateCBAndSemaphores(rendererVulkanObjects.vkbdevice.device, "shadowNCB", thisFrameData->deletionQueue.get(), commandPoolmanager->commandPool, &shadowNCB);
 
-
-
     ComamndBufferAndSemaphores shadowTransitionOutCB = {VK_NULL_HANDLE, shadowNCB.signalSempahores, semaphorePool.pushUninitializedSubspan(1)};
     allocateCBAndSemaphores(rendererVulkanObjects.vkbdevice.device, "shadowTransitionOutCB", thisFrameData->deletionQueue.get(), commandPoolmanager->commandPool, &shadowTransitionOutCB);
 
@@ -1961,7 +1952,7 @@ void vulkanRenderer::drawFrame(Scene* scene)
 
     ComamndBufferAndSemaphores TR_RenderingOutNCB = {VK_NULL_HANDLE, opaqueNCB.signalSempahores, semaphorePool.pushUninitializedSubspan(1)};
     allocateCBAndSemaphores(rendererVulkanObjects.vkbdevice.device, "TR_RenderingNCB", thisFrameData->deletionQueue.get(), commandPoolmanager->commandPool, &TR_RenderingOutNCB);
- 
+    //TODO JS: it's possible I'm leaking tons of commandbuffers into vram here? May need to add them to per frame deletio nqueue
 
 
     //Transition swapchain for rendering
@@ -1981,8 +1972,6 @@ void vulkanRenderer::drawFrame(Scene* scene)
     VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, shadowWaitStages, true);
     ///////////////////////// Transition shadows  />
     
-
-        //TODO JS: need to register a one frame deletion queue to free this guy
 
     //Pre-rendering setup
     auto cullingDepthPrepassCommandBufferContext  = beginCommandBuffer(&prepassNCB);
@@ -2006,7 +1995,7 @@ void vulkanRenderer::drawFrame(Scene* scene)
      AddShadowPasses(renderPasses, scene, AssetDataAndMemory, &scene->sceneCamera,
                      &perFrameArenas[currentFrame],
                      perLightShadowData, shaderGroups.shadowShaders, &descriptorsetLayoutsDataCulling
-                     ,  &shadowCommandBufferContext,  &computeCommandBufferContext,thisFrameData->indices._buffer.data, rendererResources.shadowMapRenderingImageViews[currentFrame]);
+                     ,  &shadowCommandBufferContext,  &computeCommandBufferContext,thisFrameData->indices.buffer.data, rendererResources.shadowMapRenderingImageViews[currentFrame]);
 
     VkRenderingAttachmentInfoKHR* depthDrawAttatchment = MemoryArena::Alloc<VkRenderingAttachmentInfoKHR>(&perFrameArenas[currentFrame]);
     *depthDrawAttatchment = createRenderingAttatchmentStruct( rendererResources.depthBufferInfo.view, 1.0, true);
@@ -2015,7 +2004,7 @@ void vulkanRenderer::drawFrame(Scene* scene)
                     perLightShadowData,
                     &descriptorsetLayoutsDataCulling, &opaqueCommandBufferContext
                     ,  &computeCommandBufferContext,   mainRenderTargetAttatchment,depthDrawAttatchment, rendererVulkanObjects.swapchain.extent,
-                 thisFrameData->indices._buffer.data);
+                 thisFrameData->indices.buffer.data);
 
 
     //Indirect command buffer
@@ -2055,7 +2044,7 @@ void vulkanRenderer::drawFrame(Scene* scene)
 
     
     //Draws
-    recordPrimaryRenderPasses(renderPasses->passes.getSpan(),thisFrameData->drawBuffers._buffer.data, currentFrame);
+    recordPrimaryRenderPasses(renderPasses->passes.getSpan(),thisFrameData->drawBuffers.buffer.data, currentFrame);
     recordUtilityPasses(opaqueCommandBufferContext.commandBuffer, swapChainImageIndex);
 
     endCommandBuffer(&cullingDepthPrepassCommandBufferContext);
@@ -2081,7 +2070,6 @@ void vulkanRenderer::drawFrame(Scene* scene)
                         VK_NULL_HANDLE);
 
     //Transition shadow maps for reading
-    // waitSemaphores = getSemaphoreDataFromSemaphores(TEMP_WAITEMAPHORES_COPY, &perFrameArenas[currentFrame]);
     transitionImageForRendering(
     getFullRendererContext(),
     &shadowTransitionOutCB,
@@ -2090,17 +2078,13 @@ void vulkanRenderer::drawFrame(Scene* scene)
     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, shadowWaitStages, true);
 
     
-    //TODO JS: Enable shadow semaphore
     //Opaque
-    // std::vector<VkSemaphore> opaquePassWaitSemaphores = {thisFrameSemaphores.shadowtransitionedOutSemaphores, thisFrameSemaphores.swapchaintransitionedInSemaphores};
-    // std::vector<VkSemaphore> opaquepasssignalSemaphores = {thisFrameSemaphores.renderFinishedSemaphores};
     SubmitCommandBuffer_NEW(1,&opaqueCommandBufferContext,
                         FramesInFlightData[currentFrame].inFlightFence);
 
    
 
     //Transition swapchain for rendering
-    // waitSemaphores = getSemaphoreDataFromSemaphores(opaquepasssignalSemaphores, &perFrameArenas[currentFrame]);
     transitionImageForRendering(
     getFullRendererContext(),
     &TR_RenderingOutNCB,

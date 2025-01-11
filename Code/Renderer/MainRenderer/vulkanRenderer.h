@@ -181,25 +181,25 @@ void updateShadowImageViews(int frame, Scene* scene);
         std::unique_ptr<RendererDeletionQueue> deletionQueue;
         VkFence inFlightFence {};
 
-        std::vector<dataBufferObject<ShaderGlobals>> perLightShadowShaderGlobalsBuffer;
+        std::vector<HostDataBufferObject<ShaderGlobals>> perLightShadowShaderGlobalsBuffer;
         
-        dataBufferObject<ShaderGlobals> opaqueShaderGlobalsBuffer;
+        HostDataBufferObject<ShaderGlobals> opaqueShaderGlobalsBuffer;
 
 
-        dataBufferObject<glm::vec4> verts;
-        dataBufferObject<uint32_t> indices;
-        dataBufferObject<UniformBufferObject> uniformBuffers;
-        dataBufferObject<gpuvertex> meshBuffers;
+        HostDataBufferObject<glm::vec4> verts;
+        HostDataBufferObject<uint32_t> indices;
+        HostDataBufferObject<UniformBufferObject> uniformBuffers;
+        HostDataBufferObject<gpuvertex> meshBuffers;
         
         //Basic data about the light used in all passes 
-        dataBufferObject<gpulight> lightBuffers;
-        dataBufferObject<gpuPerShadowData> shadowDataBuffers;
+        HostDataBufferObject<gpulight> lightBuffers;
+        HostDataBufferObject<gpuPerShadowData> shadowDataBuffers;
         
         //Draw indirect
-        dataBufferObject<drawCommandData> drawBuffers;
+        HostDataBufferObject<drawCommandData> drawBuffers;
 
         //Compute culling for draw indirect 
-        dataBufferObject<glm::vec4> frustumsForCullBuffers;
+        HostDataBufferObject<glm::vec4> frustumsForCullBuffers;
 
     };
 

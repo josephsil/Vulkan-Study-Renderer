@@ -10,6 +10,8 @@ struct Vertex;
 
 namespace BufferUtilities
 {
+    void createDeviceBuffer(VmaAllocator allocator, VkDeviceSize size, VkBufferUsageFlags usage,
+                            VkDevice device, VmaAllocation* allocation, VkBuffer& buffer);
     void CreateImage(
         VkImageCreateInfo* pImageCreateInfo,
         VkImage* pImage, VmaAllocation* pAllocation, VkDevice device, VmaAllocator allocator, const char* debugName = "Bufferutiltiies create image vkimage");

@@ -90,6 +90,17 @@ void* BufferUtilities::createDynamicBuffer(VmaAllocator allocator, VkDeviceSize 
     exit(-1);
     }
 }
+
+
+void BufferUtilities::createDeviceBuffer(VmaAllocator allocator, VkDeviceSize size, VkBufferUsageFlags usage,
+                                           VkDevice device,VmaAllocation* allocation, VkBuffer& buffer)
+{
+    VmaAllocationInfo AllocationInfo = {};
+    createBuffer(allocator, size, usage,  VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
+                 allocation, &buffer, &AllocationInfo);
+    setDebugObjectName(device, VK_OBJECT_TYPE_BUFFER, "Bufferutiltiies create device buffer buffer", (uint64_t)buffer);
+
+}
 void BufferUtilities::createStagingBuffer(VkDeviceSize size,
 VmaAllocation* allocation, VkBuffer& stagingBuffer,  VkDevice device, VmaAllocator allocator, const char* debugName)
 {

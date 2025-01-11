@@ -88,19 +88,3 @@ VkDescriptorBufferInfo dataBuffer::getBufferInfo()
     return bufferInfo;
 }
 
-void dataBuffer::updateMappedMemory(void* data, size_t size)
-{
-    assert(size == this->size);
-    memcpy(this->mapped, data, size);
-}
-
-void dataBuffer::allocateVulkanMemory(RendererContext h, VmaAllocation* allocation, VkBufferUsageFlags usage)
-{
-   mapped = BufferUtilities::createDynamicBuffer(
-       h.allocator,  size, usage,
-       allocation,
-       data);
-
-    h.rendererdeletionqueue->push_backVMA(deletionType::vmaBuffer, uint64_t(data), *allocation);
-}
-
