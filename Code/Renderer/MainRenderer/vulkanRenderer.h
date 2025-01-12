@@ -93,8 +93,11 @@ struct RendererResources //Buffers, images, etc, used in core rendering -- proba
     std::vector<VkImageView> swapchainImageViews;
     
     std::span<std::span<VkImageView>> shadowMapRenderingImageViews;
+    std::span<std::span<VkImageView>> shadowMapSamplingImageViews_WithMips;
     std::span<std::span<VkImageView>> shadowMapSamplingImageViews;
-    
+
+    //TODO JS: separate samplers for writing/hiz and reading??
+    std::vector<VkSampler> shadowSamplersWithMips;
     std::vector<VkSampler> shadowSamplers;
     std::vector<VkImage> shadowImages;
     std::vector<VmaAllocation> shadowMemory;
@@ -186,10 +189,13 @@ void updateShadowImageViews(int frame, Scene* scene);
         HostDataBufferObject<ShaderGlobals> opaqueShaderGlobalsBuffer;
 
 
-        HostDataBufferObject<glm::vec4> verts;
-        HostDataBufferObject<uint32_t> indices;
+        HostDataBufferObject<glm::vec4> hostVerts;
+        dataBuffer deviceVerts;
+        HostDataBufferObject<uint32_t> hostIndices;
+        dataBuffer deviceIndices;
         HostDataBufferObject<UniformBufferObject> uniformBuffers;
-        HostDataBufferObject<gpuvertex> meshBuffers;
+        HostDataBufferObject<gpuvertex> hostMesh;
+        dataBuffer deviceMesh;
         
         //Basic data about the light used in all passes 
         HostDataBufferObject<gpulight> lightBuffers;

@@ -139,7 +139,7 @@ std::span<T> HostDataBufferObject<T>::getMappedSpan()
 template <typename T>
 void HostDataBufferObject<T>::updateMappedMemory(std::span<T> source)
 {
-    assert(source.size_bytes() == buffer->size);
+    assert(source.size_bytes() == buffer.size);
     memcpy(buffer.mapped, source.data(), source.size_bytes());
 }
 
@@ -154,7 +154,7 @@ template<typename T> HostDataBufferObject<T> createDataBuffer(RendererContext* h
 
   HostDataBufferObject<T> hostDataBuffer{};
   hostDataBuffer.buffer.size = sizeof(T) * size;
-    hostDataBuffer.buffer.mapped = BufferUtilities::createDynamicBuffer(
+    hostDataBuffer.buffer.mapped = BufferUtilities::createHostMappedBuffer(
         h->allocator,  hostDataBuffer.buffer.size, usage,
         &hostDataBuffer.allocation,
         hostDataBuffer.buffer.data);

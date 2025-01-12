@@ -37,6 +37,13 @@ namespace MemoryArena
         return ret;
     }
 
+    template<typename T> T *AllocCopy(memoryArena* a, T source) {
+        assert(!std::is_void<T>());
+        T *ret = (T*)alloc(a, sizeof(T));
+        *ret = source;
+        return ret;
+    }
+
     void setCursor(memoryArena* a);
     void freeToCursor(memoryArena* a);
 

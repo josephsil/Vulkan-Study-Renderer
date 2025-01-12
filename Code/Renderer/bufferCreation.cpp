@@ -38,6 +38,16 @@ void BufferUtilities::copyBuffer(CommandPoolManager* commandPoolManager, VkBuffe
    commandPoolManager->endSingleTimeCommands(commandBuffer);
 }
 
+void BufferUtilities::copyBufferWithCommandBuffer(VkCommandBuffer cb, VkBuffer srcBuffer, VkBuffer dstBuffer,
+                                 VkDeviceSize size)
+{
+
+    VkBufferCopy copyRegion{};
+    copyRegion.size = size;
+    vkCmdCopyBuffer(cb, srcBuffer, dstBuffer, 1, &copyRegion);
+
+}
+
 
 void BufferUtilities::stageMeshDataBuffer(VmaAllocator allocator, CommandPoolManager* commandPoolManager, VkDeviceSize bufferSize, VkBuffer& buffer,
                                    VmaAllocation& allocation, void* vertices, VkBufferUsageFlags dataTypeFlag)
@@ -67,7 +77,21 @@ void BufferUtilities::stageMeshDataBuffer(VmaAllocator allocator, CommandPoolMan
  
 }
 
-void* BufferUtilities::createDynamicBuffer(VmaAllocator allocator, VkDeviceSize size, VkBufferUsageFlags usage,
+
+void BufferUtilities::createDeviceBuffer(VmaAllocator allocator, VkDeviceSize size, VkBufferUsageFlags usage,
+                                           VmaAllocation* allocation, VkBuffer& buffer)
+{
+    VmaAllocationInfo allocInfo;
+    createBuffer(allocator, size, usage, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
+                 allocation, &buffer, &allocInfo);
+
+
+    VkMemoryPropertyFlags memPropFlags;
+    vmaGetAllocationMemoryProperties(allocator, *allocation, &memPropFlags);
+   
+}
+
+void* BufferUtilities::createHostMappedBuffer(VmaAllocator allocator, VkDeviceSize size, VkBufferUsageFlags usage,
                                            VmaAllocation* allocation, VkBuffer& buffer)
 {
     VmaAllocationInfo allocInfo;
@@ -93,12 +117,12 @@ void* BufferUtilities::createDynamicBuffer(VmaAllocator allocator, VkDeviceSize 
 
 
 void BufferUtilities::createDeviceBuffer(VmaAllocator allocator, VkDeviceSize size, VkBufferUsageFlags usage,
-                                           VkDevice device,VmaAllocation* allocation, VkBuffer& buffer)
+                                           VkDevice device,VmaAllocation* allocation, VkBuffer* buffer)
 {
     VmaAllocationInfo AllocationInfo = {};
-    createBuffer(allocator, size, usage,  VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
-                 allocation, &buffer, &AllocationInfo);
-    setDebugObjectName(device, VK_OBJECT_TYPE_BUFFER, "Bufferutiltiies create device buffer buffer", (uint64_t)buffer);
+    createBuffer(allocator, size, usage, VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                 allocation, buffer, &AllocationInfo);
+    setDebugObjectName(device, VK_OBJECT_TYPE_BUFFER, "Bufferutiltiies create device buffer buffer", (uint64_t)*buffer);
 
 }
 void BufferUtilities::createStagingBuffer(VkDeviceSize size,

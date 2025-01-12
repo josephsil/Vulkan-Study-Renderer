@@ -19,6 +19,7 @@ void RendererDeletionQueue::push_backVk(deletionType t, uint64_t vulkanObject)
     deletionList.push_back({t,vulkanObject});
 }
 
+
 void RendererDeletionQueue::push_backVMA(deletionType t, uint64_t vulkanObject, VmaAllocation allocation)
 {
     assert (initialized != 0);
