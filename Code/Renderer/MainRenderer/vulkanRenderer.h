@@ -93,16 +93,16 @@ struct RendererResources //Buffers, images, etc, used in core rendering -- proba
     std::vector<VkImageView> swapchainImageViews;
     
     std::span<std::span<VkImageView>> shadowMapRenderingImageViews;
-    std::span<std::span<VkImageView>> shadowMapSamplingImageViews_WithMips;
     std::span<std::span<VkImageView>> shadowMapSamplingImageViews;
 
-    //TODO JS: separate samplers for writing/hiz and reading??
-    std::vector<VkSampler> shadowSamplersWithMips;
     std::vector<VkSampler> shadowSamplers;
     std::vector<VkImage> shadowImages;
+    std::span<std::span<DepthPyramidInfo>>WIP_shadowDepthPyramidInfos; //todo js populate
     std::vector<VmaAllocation> shadowMemory;
 
     DepthBufferInfo depthBufferInfo;
+
+    DepthPyramidInfo depthPyramidInfo;
 };
 
 
@@ -157,6 +157,7 @@ void updateShadowImageViews(int frame, Scene* scene);
     PipelineGroup descriptorsetLayoutsData; 
     PipelineGroup descriptorsetLayoutsDataShadow; 
     PipelineGroup descriptorsetLayoutsDataCulling;
+    PipelineGroup descriptorsetLayoutsDataMipChain;
 
     
     void createDescriptorSetPool(RendererContext handles, VkDescriptorPool* pool);
@@ -225,7 +226,9 @@ void updateShadowImageViews(int frame, Scene* scene);
     void updatePerFrameBuffers(unsigned currentFrame, Array<std::span<glm::mat4>> models, Scene* scene);
     void recordCommandBufferShadowPass(VkCommandBuffer commandBuffer, uint32_t imageIndex, std::span<simpleMeshPassInfo> passes);
 
-    void initializeCommandBufferCulling(commandBufferContext commandBufferContext, MemoryArena::memoryArena* arena, uint32_t _currentFrame);
+    void doMipChainCompute(commandBufferContext commandBufferContext, MemoryArena::memoryArena* arena,
+                           VkImage image, VkImageView view, VkSampler sampler, uint32_t _currentFrame);
+    void updateBindingsComputeCulling(commandBufferContext commandBufferContext, MemoryArena::memoryArena* arena, uint32_t _currentFrame);
     void SubmitCommandBuffer(uint32_t commandbufferCt,
                              commandBufferContext* commandBufferContext, semaphoreData waitSemaphores, std::vector<VkSemaphore> signalsemaphores, VkFence
                              waitFence);

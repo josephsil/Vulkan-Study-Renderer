@@ -40,6 +40,13 @@ struct DepthBufferInfo //This is like general image info -- currently only using
     VkFormat format;
     VkImage image;
     VkImageView view;
+    VmaAllocation vmaAllocation;
+};
+
+struct DepthPyramidInfo 
+{
+    VkFormat format;
+    VkImage image;
     std::span<VkImageView> viewsForMips;
     VmaAllocation vmaAllocation;
 };

@@ -7,6 +7,7 @@
 #include "VulkanIncludes/Vulkan_Includes.h"
 
 //TODO JS: break this dependency
+#include <atldef.h>
 #include <span>
 
 #include "gpu-data-structs.h"
@@ -24,11 +25,11 @@ VkDescriptorSetLayoutCreateInfo createInfoFromSpan( std::span<VkDescriptorSetLay
 
     return _createInfo;
 }
-PipelineGroup::PipelineGroup(RendererContext handles, VkDescriptorPool pool, std::span<VkDescriptorSetLayoutBinding> opaqueLayout)
+PipelineGroup::PipelineGroup(RendererContext handles, VkDescriptorPool pool, std::span<VkDescriptorSetLayoutBinding> opaqueLayout, const char* debugName)
 {
     device = handles.device;
     createLayout(handles , opaqueLayout);
-    createDescriptorSets(pool, MAX_FRAMES_IN_FLIGHT);
+    createDescriptorSets(pool, MAX_FRAMES_IN_FLIGHT, debugName);
     
 }
 
@@ -124,13 +125,14 @@ void PipelineGroup::updateDescriptorSets(std::span<descriptorUpdateData> descrip
 
 
 
-void PipelineGroup::createDescriptorSets(VkDescriptorPool pool, int MAX_FRAMES_IN_FLIGHT)
+void PipelineGroup::createDescriptorSets(VkDescriptorPool pool, int MAX_FRAMES_IN_FLIGHT, const char* debugName)
 {
     assert(!this->pipelineData.descriptorSetsInitialized); // Don't double initialize
     pipelineData.perSceneDescriptorSetForFrame.resize(MAX_FRAMES_IN_FLIGHT);
     for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
         if ( pipelineData.perSceneDescriptorSetLayout != nullptr) DescriptorSets::AllocateDescriptorSet(device, pool,  &pipelineData.perSceneDescriptorSetLayout, & pipelineData.perSceneDescriptorSetForFrame[i]);
+    setDebugObjectName(device, VK_OBJECT_TYPE_DESCRIPTOR_SET,debugName, uint64_t(pipelineData.perSceneDescriptorSetForFrame[i]) );
     }
     pipelineData.descriptorSetsInitialized = true;
             

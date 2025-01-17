@@ -35,7 +35,7 @@ struct descriptorUpdateData;
         
         PipelineGroup()
         {}
-        PipelineGroup(RendererContext handles, VkDescriptorPool pool, std::span<VkDescriptorSetLayoutBinding> opaqueLayout);
+        PipelineGroup(RendererContext handles, VkDescriptorPool pool, std::span<VkDescriptorSetLayoutBinding> opaqueLayout, const char* debugName);
 
         //Initialization
         
@@ -81,7 +81,7 @@ struct descriptorUpdateData;
         perPipelineData pipelineData;
         // perPipelineData shadowPipelineData;
         //Descriptor set update
-        void createDescriptorSets(VkDescriptorPool pool, int MAX_FRAMES_IN_FLIGHT);
+        void createDescriptorSets(VkDescriptorPool pool, int MAX_FRAMES_IN_FLIGHT, const char* debugName);
 
     private:
 
