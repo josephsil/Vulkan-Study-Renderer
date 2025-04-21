@@ -2136,8 +2136,8 @@ void vulkanRenderer::drawFrame(Scene* scene)
         //Set up a command buffer, initialize it, return an object wrapping all the relevant stuff
         //Default to chaining semaphores with the last/next one
         ActiveRenderStepData* createRenderStepAndInitialize(const char* debugName, const char* cbufferDebugName,VkCommandPool pool,
-            bool overrideWaitSemaphores, std::span<VkSemaphore> overridenWaitSemaphores,
-             bool overrideSignalSemaphores, std::span<VkSemaphore> overridenSignalSemaphores)
+            bool overrideWaitSemaphores= false , std::span<VkSemaphore> overridenWaitSemaphores = {}, //Overhead for empty spans? Fix someday
+             bool overrideSignalSemaphores = false , std::span<VkSemaphore> overridenSignalSemaphores = {}) //Overhead for empty spans? Fix someday
         {
 
             assert(!(!overrideWaitSemaphores && renderstepDatas.ct == 0));  //We can only override wait semaphores if we have prior steps. 
@@ -2176,20 +2176,11 @@ void vulkanRenderer::drawFrame(Scene* scene)
             return &renderstepDatas.back();
         }
 
-        void finishAndSubmitCommandBuffers()
-        {
-            ////Submit our render steps
-            for (int j = 0; j < renderstepDatas.size(); j++)
-            {
-                ActiveRenderStepData* ctx = &renderstepDatas[j];
-                endCommandBufferRecording(ctx);
-                SubmitCommandBuffer(1, ctx, ctx->fence != nullptr? *ctx->fence : VK_NULL_HANDLE);
-            }
-        }
+
         
     };
 
-    renderStepContextObject renderstepDatas =
+    renderStepContextObject renderCommandBufferObjects =
         {
         .device =   rendererVulkanObjects.vkbdevice.device,
         .deletionQueue = thisFrameData->deletionQueue.get(),
@@ -2202,56 +2193,51 @@ void vulkanRenderer::drawFrame(Scene* scene)
     //This needs revisted, but not right away
     //Create command buffers for this frame and allocate their signal semaphores/set up their dependencies. Written here in linear order
 
-    ///Swapchain transition in
-    auto preRenderTransitionsrenderStepContext = renderstepDatas.createRenderStepAndInitialize(
+    /////////<Set up command buffers
+    //////////
+    /////////
+    auto preRenderTransitionsrenderStepContext = renderCommandBufferObjects.createRenderStepAndInitialize(
         "swapTransitionInSignalSemaphores", "swapTransitionInCommandBuffer",
         commandPoolmanager->commandPool,
-        true, std::span<VkSemaphore>(&acquireImageSemaphore.semaphore, 1),
-        false, {});
+        true, std::span<VkSemaphore>(&acquireImageSemaphore.semaphore, 1));
 
-    //Compute frustum culling
-    auto computeRenderStepContext = renderstepDatas.createRenderStepAndInitialize(
+    auto computeRenderStepContext = renderCommandBufferObjects.createRenderStepAndInitialize(
         "frustumSignalSemaphores", "frustumCommandBuffer",
-        commandPoolmanager->commandPool, false, {},
-        false, {});
+        commandPoolmanager->commandPool);
 
-    //Depth Prepass
-    auto cullingDepthPrepassRenderStepContext = renderstepDatas.createRenderStepAndInitialize(
+    auto cullingDepthPrepassRenderStepContext = renderCommandBufferObjects.createRenderStepAndInitialize(
         "prepassSignalSemaphores", "prepassCommandBuffer",
-        commandPoolmanager->commandPool, false,
-        {}, false, {});
+        commandPoolmanager->commandPool);
 
-    //Mip Chain Generation
-    //This will be pretty iddle, right? Would rather be going ahead with other rendering 
+    //TODO This will be pretty idle, right? Would rather be going ahead with other rendering 
     //Might be the first place I need more fine grained synchronization
-    auto mipChainRenderStepContext = renderstepDatas.createRenderStepAndInitialize(
+    auto mipChainRenderStepContext = renderCommandBufferObjects.createRenderStepAndInitialize(
         "MipChainSignalSemaphores", "MipChainCommandBuffer",
-        commandPoolmanager->commandPool, false,
-        {}, false, {});
-
-    //Shadow map Drawing 
-    auto shadowRenderStepContext = renderstepDatas.createRenderStepAndInitialize(
+        commandPoolmanager->commandPool);
+    
+    auto shadowRenderStepContext = renderCommandBufferObjects.createRenderStepAndInitialize(
         "shadowSignalSemaphores", "shadowCommandBuffer",
-        commandPoolmanager->commandPool, false,
-        {}, false, {});
-    auto beforeOpaqueTransitionOutRenderStepContext = renderstepDatas.createRenderStepAndInitialize(
+        commandPoolmanager->commandPool);
+    
+    auto beforeOpaqueTransitionOutRenderStepContext = renderCommandBufferObjects.createRenderStepAndInitialize(
         "shadowTransitionOutSignalSemaphores", "shadowTransitionOutCommandBuffer",
-        commandPoolmanager->commandPool, false,
-        {}, false, {});
-    //Transition Shadowmaps
-
-    //Opaque rendering 
-    auto opaqueRenderStepContext = renderstepDatas.createRenderStepAndInitialize(
+        commandPoolmanager->commandPool);
+    
+    auto opaqueRenderStepContext = renderCommandBufferObjects.createRenderStepAndInitialize(
         "opaqueSignalSemaphores", "opaqueCommandBuffer",
-        commandPoolmanager->commandPool, false,
-        {}, false, {});
+        commandPoolmanager->commandPool);
+
+    //TODO JS: the fence is very important I think -- need to understand what i was doing when i added it lol
+    //TODO JS: Mutating the opaqueRenderStepContext like this doesnt feel amazing, would love to set this all in creation
     opaqueRenderStepContext->fence = &FramesInFlightData[currentFrame].inFlightFence;
-
-    auto postRenderTransitionOutStepContext = renderstepDatas.createRenderStepAndInitialize(
+    
+    auto postRenderTransitionOutStepContext = renderCommandBufferObjects.createRenderStepAndInitialize(
         "TR_RenderingSignalSemaphores", "TR_RenderingCommandBuffer",
-        commandPoolmanager->commandPool, false,
-        {}, false, {});
+        commandPoolmanager->commandPool);
 
+    //////////
+    /////////
+    // Set up command buffers />/////////
     //TODO JS: it's possible I'm leaking tons of commandbuffers into vram here? May need to add them to flush per frame pools or something?
     //TODO JS: Can add cleanup to the renderstepDatas for loop at the end?
 
@@ -2366,9 +2352,13 @@ void vulkanRenderer::drawFrame(Scene* scene)
         VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
         VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, swapchainWaitStages, 1, false);
 
-    ////Submit our render steps
-    renderstepDatas.finishAndSubmitCommandBuffers();
 
+    for (int j = 0; j < renderCommandBufferObjects.renderstepDatas.size(); j++)
+    {
+        ActiveRenderStepData* ctx = &renderCommandBufferObjects.renderstepDatas[j];
+        endCommandBufferRecording(ctx);
+        SubmitCommandBuffer(1, ctx, ctx->fence != nullptr? *ctx->fence : VK_NULL_HANDLE);
+    }
 
 
     //Render
