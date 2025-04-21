@@ -97,6 +97,7 @@ struct RendererResources //Buffers, images, etc, used in core rendering -- proba
 
     std::vector<VkSampler> shadowSamplers;
     std::vector<VkImage> shadowImages;
+    VkSampler depthMipSampler;
     std::span<std::span<DepthPyramidInfo>>WIP_shadowDepthPyramidInfos; //todo js populate
     std::vector<VmaAllocation> shadowMemory;
 
@@ -227,7 +228,8 @@ void updateShadowImageViews(int frame, Scene* scene);
     void recordCommandBufferShadowPass(VkCommandBuffer commandBuffer, uint32_t imageIndex, std::span<simpleMeshPassInfo> passes);
 
     void doMipChainCompute(commandBufferContext commandBufferContext, MemoryArena::memoryArena* arena,
-                           VkImage image, VkImageView view, VkSampler sampler, uint32_t _currentFrame);
+                           VkImage dstImage, VkImageView srcView, std::span<VkImageView> pyramidviews, VkSampler sampler, uint32_t _currentFrame, int
+                           pyramidWidth, int pyramidHeight);
     void updateBindingsComputeCulling(commandBufferContext commandBufferContext, MemoryArena::memoryArena* arena, uint32_t _currentFrame);
     void SubmitCommandBuffer(uint32_t commandbufferCt,
                              commandBufferContext* commandBufferContext, semaphoreData waitSemaphores, std::vector<VkSemaphore> signalsemaphores, VkFence

@@ -25,7 +25,7 @@ namespace DescriptorSets
 {
     //Passing around a vector of these to enforce binding for a pipeline
     
-    void AllocateDescriptorSet(VkDevice device, VkDescriptorPool pool, VkDescriptorSetLayout* pdescriptorsetLayout, VkDescriptorSet* pset);
+    void AllocateDescriptorSet(VkDevice device, VkDescriptorPool pool, VkDescriptorSetLayout* pdescriptorsetLayout, VkDescriptorSet* pset, uint32_t ct);
 
    
 

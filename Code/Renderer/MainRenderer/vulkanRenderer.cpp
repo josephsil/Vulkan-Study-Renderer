@@ -258,6 +258,8 @@ void vulkanRenderer::initializeRendererForScene(Scene* scene) //todo remaining i
         updateShadowImageViews(i, scene);
     }
 
+    createDepthPyramidSampler(&rendererResources.depthMipSampler, getFullRendererContext(),HIZDEPTH);  
+
     //Initialize scene-ish objects we don't have a place for yet 
     cubemaplut_utilitytexture_index = AssetDataAndMemory->AddTexture(
         createTexture(getFullRendererContext(), "textures/outputLUT.png", TextureType::DATA_DONT_COMPRESS));
@@ -304,9 +306,10 @@ void vulkanRenderer::initializeRendererForScene(Scene* scene) //todo remaining i
     cullingLayout.push_back({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}); //draws 
     cullingLayout.push_back({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}); //objectData
 
-    Array mipChainLayout = MemoryArena::AllocSpan<VkDescriptorSetLayoutBinding>(&rendererArena, 2);
+    Array mipChainLayout = MemoryArena::AllocSpan<VkDescriptorSetLayoutBinding>(&rendererArena, 3);
     mipChainLayout.push_back({0, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}); //depth pyramid inout
-    mipChainLayout.push_back({1, VK_DESCRIPTOR_TYPE_SAMPLER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}); //depth pyramid inout
+    mipChainLayout.push_back({1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}); //depth pyramid output
+    mipChainLayout.push_back({2, VK_DESCRIPTOR_TYPE_SAMPLER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}); //depth pyramid inout
 
     for(int i = 0; i < MAX_FRAMES_IN_FLIGHT ; i++)
     {
@@ -318,12 +321,14 @@ void vulkanRenderer::initializeRendererForScene(Scene* scene) //todo remaining i
             
         }
     }
-    
+
+    //TODO JS: Next validation errors point here, because I'm re-setting the descriptor sets repeatedly.\
+    //TODO JS: Either need to refactor  comp shader to be bindless style or address immediate cause.
     descriptorsetLayoutsDataMipChain = PipelineGroup(getFullRendererContext(), descriptorPool, mipChainLayout.getSpan(), "mip chain layout");
     setDebugObjectName(rendererVulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT,"mip chain descriptor layout", 
     uint64_t(descriptorsetLayoutsDataMipChain.pipelineData.perSceneDescriptorSetLayout));
 
-    createGraphicsPipeline( rendererResources.shaderLoader->compiledShaders["mipChain"] ,  &descriptorsetLayoutsDataMipChain, {},true, sizeof(int));
+    createGraphicsPipeline( rendererResources.shaderLoader->compiledShaders["mipChain"] ,  &descriptorsetLayoutsDataMipChain, {},true, sizeof(glm::vec2));
 
     descriptorsetLayoutsDataCulling = PipelineGroup(getFullRendererContext(), descriptorPool, cullingLayout.getSpan(), "culling layout");
     setDebugObjectName(rendererVulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT,"cullingdescriptor layout", 
@@ -1406,56 +1411,86 @@ struct pipelineBatch
     Array<uint32_t> objectIndices; 
 };
 
-void vulkanRenderer::doMipChainCompute(commandBufferContext commandBufferContext, MemoryArena::memoryArena* arena, VkImage image,  VkImageView view, VkSampler sampler, uint32_t _currentFrame)
+void vulkanRenderer::doMipChainCompute(commandBufferContext commandBufferContext, MemoryArena::memoryArena* arena, VkImage dstImage,
+    VkImageView srcView, std::span<VkImageView> pyramidviews, VkSampler sampler, uint32_t _currentFrame, int pyramidWidth, int pyramidHeight)
 {
     
     assert(commandBufferContext.active);
 
-    //todo js: dont rebind pipeline every call
     vkCmdBindPipeline(commandBufferContext.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, descriptorsetLayoutsDataMipChain.getPipeline(0));
-    
-    VkDescriptorImageInfo* shadowInfo =  MemoryArena::Alloc<VkDescriptorImageInfo>(arena);
-    *shadowInfo = {
-        .imageView = view, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-    };
 
-    VkDescriptorImageInfo* shadowSamplerInfo =  MemoryArena::Alloc<VkDescriptorImageInfo>(arena);
-    *shadowSamplerInfo = {
-        .sampler  =sampler, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-    };
-  
-    std::span<descriptorUpdateData> descriptorUpdates = MemoryArena::AllocSpan<descriptorUpdateData>(arena, 2);
-
-    descriptorUpdates[0] = {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, shadowInfo};  //frustum data
-    descriptorUpdates[1] = {VK_DESCRIPTOR_TYPE_SAMPLER, shadowSamplerInfo}; //draws 
-
-    descriptorsetLayoutsDataMipChain.updateDescriptorSets(descriptorUpdates, _currentFrame);
-    descriptorsetLayoutsDataMipChain.bindToCommandBuffer(commandBufferContext.commandBuffer, _currentFrame, VK_PIPELINE_BIND_POINT_COMPUTE);
-
+    int i = 0;
+   
+ 
     //For each texture, for each mip level, we want to work on, dispatch X/Y texture resolution and set a barrier (for the next phase)
-    //Compute shader will read in texture and write back out to it 
-    for(int i =1; i < HIZDEPTH; i++)
+    //Compute shader will read in texture and write back out to it
+    VkImageMemoryBarrier2 barrier12 = imageBarrier(dstImage,
+        0,
+        0,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        0,
+        0,
+        VK_IMAGE_LAYOUT_GENERAL,
+        VK_IMAGE_ASPECT_COLOR_BIT,
+        i,
+        HIZDEPTH);
+
+    
+    pipelineBarrier(commandBufferContext.commandBuffer,0, 0, 0, 1, &barrier12);
+    for(int i =0; i < HIZDEPTH; i++)
     {
-        auto pushConstants = MemoryArena::Alloc<int>(arena);
-        *pushConstants = i;
-        vkCmdPushConstants(commandBufferContext.commandBuffer, descriptorsetLayoutsDataMipChain.pipelineData.bindlessPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+        
+        VkDescriptorImageInfo* sourceInfo =  MemoryArena::Alloc<VkDescriptorImageInfo>(arena);
+        *sourceInfo = {
+            .imageView = i == 0 ? srcView : pyramidviews[i-1], .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+        };
+
+        VkDescriptorImageInfo* distInfo =  MemoryArena::Alloc<VkDescriptorImageInfo>(arena);
+        *distInfo = {
+            .imageView = pyramidviews[i], .imageLayout = VK_IMAGE_LAYOUT_GENERAL
+        };
+
+        VkDescriptorImageInfo* shadowSamplerInfo =  MemoryArena::Alloc<VkDescriptorImageInfo>(arena);
+        *shadowSamplerInfo = {
+            .sampler  =sampler, .imageLayout = VK_IMAGE_LAYOUT_GENERAL
+        };
+  
+        std::span<descriptorUpdateData> descriptorUpdates = MemoryArena::AllocSpan<descriptorUpdateData>(arena, 3);
+
+        descriptorUpdates[0] = {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, sourceInfo};  //src view
+        descriptorUpdates[1] = {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, distInfo};  //dst view
+        descriptorUpdates[2] = {VK_DESCRIPTOR_TYPE_SAMPLER, shadowSamplerInfo}; //draws 
+
+        descriptorsetLayoutsDataMipChain.updateDescriptorSets(descriptorUpdates, _currentFrame);
+        descriptorsetLayoutsDataMipChain.bindToCommandBuffer(commandBufferContext.commandBuffer, _currentFrame, VK_PIPELINE_BIND_POINT_COMPUTE);
+
+        
+
+        int outputWidth= pyramidWidth >> i;
+        outputWidth = outputWidth < 1 ? 1 : outputWidth;
+        int outputHeight = pyramidHeight >> i;
+        outputHeight = outputHeight < 1 ? 1 : outputHeight;
+        auto pushConstants = MemoryArena::Alloc<glm::vec2>(arena);
+        *pushConstants = {outputWidth, outputHeight};
+        vkCmdPushConstants(commandBufferContext.commandBuffer, descriptorsetLayoutsDataMipChain.pipelineData.bindlessPipelineLayout,VK_SHADER_STAGE_COMPUTE_BIT, 0,
                           sizeof(int),pushConstants);
-
-        int TEXTURE_X= 1;
-        int TEXTURE_Y = 1;
-
+        
         //Dispatch for all the pixels?
-        vkCmdDispatch(commandBufferContext.commandBuffer, TEXTURE_X, TEXTURE_Y, 1);
+        vkCmdDispatch(commandBufferContext.commandBuffer, outputWidth, outputHeight, 1);
 
-        //TODO // VkImageMemoryBarrier2 barrier =  imageBarrier(image,
-        //TODO // VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-        //TODO //   VK_ACCESS_2_SHADER_WRITE_BIT,
-        //TODO //   VK_ACCESS_2_SHADER_READ_BIT,
-        //TODO //  VK_ACCESS_2_MEMORY_READ_BIT_KHR ,); //todo js
+//todo js
+        VkImageMemoryBarrier2 barrier = imageBarrier(dstImage,
+            0,
+            0,
+            VK_IMAGE_LAYOUT_GENERAL,
+            0,
+            0,
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            VK_IMAGE_ASPECT_COLOR_BIT,
+            i,
+            1);
 
-
-        pipelineBarrier(commandBufferContext.commandBuffer,0, 0, 0, 0, 0);
-        //TODO pipelineBarrier(commandBufferContext.commandBuffer,0, 0, 0, 1,  &barrier);
+        pipelineBarrier(commandBufferContext.commandBuffer,0, 0, 0, 1, &barrier);
     }
 
 }
@@ -1601,7 +1636,7 @@ DepthBufferInfo static_createDepthResources(rendererObjects initializedrenderer,
 
     TextureUtilities::createImage(context, initializedrenderer.swapchain.extent.width, initializedrenderer.swapchain.extent.height, bufferInfo.format,
                                   VK_IMAGE_TILING_OPTIMAL,
-                                  VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                                  VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
                                   (bufferInfo.image),
                                  (bufferInfo.vmaAllocation), 1, 1, false, "DEPTH TEXTURE");
 
@@ -1612,11 +1647,15 @@ return bufferInfo;
 
 DepthPyramidInfo static_createDepthPyramidResources(rendererObjects initializedrenderer,  MemoryArena::memoryArena* allocationArena, RendererDeletionQueue* deletionQueue, CommandPoolManager* commandPoolmanager )
 {
-    auto depthFormat = Capabilities::findDepthFormat(initializedrenderer.vkbPhysicalDevice.physical_device);
-    VkImage depthImage;
+    auto depthFormat = Capabilities::findSupportedFormat(initializedrenderer.vkbPhysicalDevice.physical_device,
+                               {VK_FORMAT_R16_SFLOAT},
+                               VK_IMAGE_TILING_OPTIMAL,
+                               VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT | VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT );
     //The two null context will get overwritten by the create  calls below
     std::span<VkImageView> viewsForMips = MemoryArena::AllocSpan<VkImageView>(allocationArena, HIZDEPTH);
-    DepthPyramidInfo bufferInfo = {depthFormat, VK_NULL_HANDLE, viewsForMips,  VmaAllocation {}};
+    int depthWidth = previousPow2(initializedrenderer.swapchain.extent.width);
+    int depthHeight = previousPow2(initializedrenderer.swapchain.extent.height);
+    DepthPyramidInfo bufferInfo = {depthFormat, VK_NULL_HANDLE, viewsForMips,  VmaAllocation {}, {depthWidth, depthHeight}};
 
 
     BufferCreationContext context = {
@@ -1626,16 +1665,31 @@ DepthPyramidInfo static_createDepthPyramidResources(rendererObjects initializedr
         .commandPoolmanager = commandPoolmanager
     };
 
-    TextureUtilities::createImage(context, initializedrenderer.swapchain.extent.width, initializedrenderer.swapchain.extent.height, bufferInfo.format,
+
+    TextureUtilities::createImage(context, depthWidth,depthHeight, bufferInfo.format,
                                   VK_IMAGE_TILING_OPTIMAL,
-                                  VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                                  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
                                   (bufferInfo.image),
-                                 (bufferInfo.vmaAllocation), HIZDEPTH, 1, false, "DEPTH TEXTURE");
+                                 (bufferInfo.vmaAllocation), HIZDEPTH, 1, false, "DEPTH PYRAMID TEXTURE");
     for(int i = 0; i < bufferInfo.viewsForMips.size(); i++)
     {
         bufferInfo.viewsForMips[i] =
-            TextureUtilities::createImageViewCustomMip(context,   (bufferInfo.image), bufferInfo.format, VK_IMAGE_ASPECT_DEPTH_BIT, VK_IMAGE_VIEW_TYPE_2D, 1, 0,1, i);
+            TextureUtilities::createImageViewCustomMip(context,   (bufferInfo.image), bufferInfo.format, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_VIEW_TYPE_2D, 1, 0,1, i);
     }
+
+    auto tempBufferAndPool = commandPoolmanager->beginSingleTimeCommands(false);
+    VkImageMemoryBarrier2 barrier11 = imageBarrier(bufferInfo.image,
+     0,
+     0,
+     VK_IMAGE_LAYOUT_UNDEFINED,
+     0,
+     0,
+     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+     VK_IMAGE_ASPECT_COLOR_BIT,
+     0,
+     HIZDEPTH);
+    pipelineBarrier(tempBufferAndPool.buffer,0, 0, 0, 1, &barrier11);
+    commandPoolmanager->endSingleTimeCommands(tempBufferAndPool);
 
     return bufferInfo;
 }
@@ -2089,15 +2143,13 @@ void vulkanRenderer::drawFrame(Scene* scene)
     ComamndBufferAndSemaphores copyStagedDataNCB = {VK_NULL_HANDLE, shadowTransitionInCB.signalSempahores,  semaphorePool.pushUninitializedSubspan(1)};
     allocateCBAndSemaphores(rendererVulkanObjects.vkbdevice.device, "copyStagedDataNCB", thisFrameData->deletionQueue.get(), commandPoolmanager->commandPool, &copyStagedDataNCB);
 
-
     ComamndBufferAndSemaphores prepassNCB = {VK_NULL_HANDLE,  copyStagedDataNCB.signalSempahores, semaphorePool.pushUninitializedSubspan(1)};
     allocateCBAndSemaphores(rendererVulkanObjects.vkbdevice.device, "prepassNCB", thisFrameData->deletionQueue.get(), commandPoolmanager->commandPool, &prepassNCB);
 
-    //TODO 0 //ComamndBufferAndSemaphores MipChainNCB = {VK_NULL_HANDLE, prepassNCB.signalSempahores, semaphorePool.pushUninitializedSubspan(1)};
-    //TODO 0 //allocateCBAndSemaphores(rendererVulkanObjects.vkbdevice.device, "MipChainNCB", thisFrameData->deletionQueue.get(), commandPoolmanager->commandPool, &MipChainNCB);
-
+    ComamndBufferAndSemaphores MipChainNCB = {VK_NULL_HANDLE, prepassNCB.signalSempahores, semaphorePool.pushUninitializedSubspan(1)};
+    allocateCBAndSemaphores(rendererVulkanObjects.vkbdevice.device, "MipChainNCB", thisFrameData->deletionQueue.get(), commandPoolmanager->commandPool, &MipChainNCB);
     
-    ComamndBufferAndSemaphores computeNCB = {VK_NULL_HANDLE, prepassNCB.signalSempahores, semaphorePool.pushUninitializedSubspan(1)};
+    ComamndBufferAndSemaphores computeNCB = {VK_NULL_HANDLE, MipChainNCB.signalSempahores, semaphorePool.pushUninitializedSubspan(1)};
     allocateCBAndSemaphores(rendererVulkanObjects.vkbdevice.device, "computeNCB", thisFrameData->deletionQueue.get(), commandPoolmanager->commandPool, &computeNCB);
     
     ComamndBufferAndSemaphores shadowNCB = {VK_NULL_HANDLE, computeNCB.signalSempahores, semaphorePool.pushUninitializedSubspan(1)};
@@ -2133,16 +2185,17 @@ void vulkanRenderer::drawFrame(Scene* scene)
     
 
     //Pre-rendering setup
-    //TODO 0 // auto mipChainCommandBufferContext = beginCommandBuffer(&MipChainNCB);
+    auto mipChainCommandBufferContext = beginCommandBuffer(&MipChainNCB);
     auto copyDataCommandBufferContext = beginCommandBuffer(&copyStagedDataNCB);
     auto cullingDepthPrepassCommandBufferContext  = beginCommandBuffer(&prepassNCB);
     auto shadowCommandBufferContext  = beginCommandBuffer(&shadowNCB);
     auto opaqueCommandBufferContext  = beginCommandBuffer(&opaqueNCB);
     auto computeCommandBufferContext = beginCommandBuffer(&computeNCB);
 
-
-
-    //TODO 0 // doMipChainCompute(mipChainCommandBufferContext, &perFrameArenas[currentFrame], rendererResources.depthBufferInfo.image, rendererResources.depthBufferInfo.view, rendererResources.shadowSamplers[0], currentFrame);     //Like initializeCommandBufferCulling -- mips and stuff
+    
+    doMipChainCompute(mipChainCommandBufferContext, &perFrameArenas[currentFrame],  rendererResources.depthPyramidInfo.image,
+                      rendererResources.depthBufferInfo.view, rendererResources.depthPyramidInfo.viewsForMips, rendererResources.depthMipSampler, currentFrame, rendererResources.depthPyramidInfo.depthSize.x,
+                       rendererResources.depthPyramidInfo.depthSize.y);     //Like initializeCommandBufferCulling -- mips and stuff
     
     //Transferring cpu -> gpu data -- should improve
     AddBufferTrasnfer(thisFrameData->hostVerts.buffer.data,thisFrameData->deviceVerts.data,thisFrameData->deviceVerts.size, copyStagedDataNCB.commandBuffer);
@@ -2218,7 +2271,7 @@ void vulkanRenderer::drawFrame(Scene* scene)
     recordPrimaryRenderPasses(renderPasses->passes.getSpan(),thisFrameData->drawBuffers.buffer.data, currentFrame);
     recordUtilityPasses(opaqueCommandBufferContext.commandBuffer, swapChainImageIndex);
 
-    //TODO 0 // endCommandBuffer(&mipChainCommandBufferContext);
+    endCommandBuffer(&mipChainCommandBufferContext);
     endCommandBuffer(&copyDataCommandBufferContext);
     endCommandBuffer(&cullingDepthPrepassCommandBufferContext);
     endCommandBuffer(&computeCommandBufferContext);
@@ -2233,12 +2286,17 @@ void vulkanRenderer::drawFrame(Scene* scene)
     //TODO: 6- better home/structure for creating the depth passes
 
     //TODO maybe move submits up into ends?
-    // SubmitCommandBuffer_NEW(1, &mipChainCommandBufferContext,
-    //                 VK_NULL_HANDLE);
+
     // std::vector depthPrepassWaitSemaphores = {thisFrameSemaphores.shadowtransitionedInSemaphores};
     SubmitCommandBuffer_NEW(1, &copyDataCommandBufferContext,
                         VK_NULL_HANDLE);
+
+    //depth prepass
     SubmitCommandBuffer_NEW(1, &cullingDepthPrepassCommandBufferContext, VK_NULL_HANDLE);
+
+    //Generate mip chain
+    SubmitCommandBuffer_NEW(1, &mipChainCommandBufferContext,
+                VK_NULL_HANDLE);
     //Compute
     SubmitCommandBuffer_NEW(1, &computeCommandBufferContext,
                         VK_NULL_HANDLE);

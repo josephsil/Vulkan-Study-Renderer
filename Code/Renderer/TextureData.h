@@ -49,7 +49,7 @@ static TextureMetaData createImageKTX(RendererContext rendererContext, const cha
                                bool useExistingBuffer = false, bufferAndPool* buffer = nullptr);
 static VkImageView createTextureImageView(RendererContext rendererContext, TextureMetaData data, VkImageViewType type);
 void createTextureSampler(VkSampler* textureSampler, RendererContext rendererContext, VkSamplerAddressMode mode, float bias, uint32_t maxMip, bool shadow = false);
-
+void createDepthPyramidSampler(VkSampler* textureSampler, RendererContext rendererContext, uint32_t maxMip);
 //FILEPATH PATH 
 TextureData createTexture(RendererContext rendererContext, const char* path, TextureType type, VkImageViewType viewType = (VkImageViewType)-1);
 //GLTF PATH 

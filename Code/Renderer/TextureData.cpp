@@ -450,7 +450,36 @@ TextureMetaData GetOrLoadTexture(RendererContext rendererContext, const char* pa
 //     vkDestroyImageView(rendererContext.device, textureImageView, nullptr);
 // 	   VulkanMemory::DestroyImage(rendererContext.allocator, textureImage, textureImageMemory);
 // }
+void createDepthPyramidSampler(VkSampler* textureSampler, RendererContext rendererContext, uint32_t maxMip)
+{
+	VkPhysicalDeviceProperties properties{};
+	vkGetPhysicalDeviceProperties(rendererContext.physicalDevice, &properties);
 
+	VkSamplerCreateInfo samplerInfo{};
+	samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	samplerInfo.magFilter = VK_FILTER_LINEAR;
+	samplerInfo.minFilter = VK_FILTER_LINEAR;
+	samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
+	samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+	samplerInfo.unnormalizedCoordinates = VK_FALSE;
+	samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+	samplerInfo.minLod = 0; // Optional
+	samplerInfo.maxLod = (float)maxMip;
+
+	//add a extension struct to enable Min mode
+	VkSamplerReductionModeCreateInfoEXT createInfoReduction = {};
+
+	createInfoReduction.sType = VK_STRUCTURE_TYPE_SAMPLER_REDUCTION_MODE_CREATE_INFO_EXT;
+	createInfoReduction.reductionMode = VK_SAMPLER_REDUCTION_MODE_MIN;
+	samplerInfo.pNext = &createInfoReduction;
+	VK_CHECK(vkCreateSampler(rendererContext.device, &samplerInfo, nullptr, textureSampler));
+	rendererContext.rendererdeletionqueue->push_backVk(deletionType::Sampler, uint64_t(*textureSampler));
+    
+	
+}
 void createTextureSampler(VkSampler* textureSampler, RendererContext rendererContext, VkSamplerAddressMode mode, float bias, uint32_t maxMip, bool shadow)
 {
     VkPhysicalDeviceProperties properties{};

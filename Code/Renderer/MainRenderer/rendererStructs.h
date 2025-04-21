@@ -49,6 +49,7 @@ struct DepthPyramidInfo
     VkImage image;
     std::span<VkImageView> viewsForMips;
     VmaAllocation vmaAllocation;
+    glm::vec2 depthSize;
 };
 
 struct ComamndBufferAndSemaphores

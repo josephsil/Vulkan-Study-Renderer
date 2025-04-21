@@ -17,7 +17,7 @@ VkFormat Capabilities::findDepthFormat(VkPhysicalDevice physicalDevice)
     return findSupportedFormat(physicalDevice,
                                {VK_FORMAT_D16_UNORM},
                                VK_IMAGE_TILING_OPTIMAL,
-                               VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
+                               VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT
     );
 }
 
@@ -64,14 +64,21 @@ uint32_t Capabilities::findMemoryType(RendererContext rendererHandles, uint32_t 
 }
 
 
-
-void DescriptorSets::AllocateDescriptorSet(VkDevice device, VkDescriptorPool pool, VkDescriptorSetLayout* pdescriptorsetLayout, VkDescriptorSet* pset)
+//TODO JS: Descriptor refactor Note 1-
+    //TODO JS: I want to move descriptor allocation to the start of the frame
+    //TODO JS: I want to allocate a varying descriptor set count in this call, and bump through them as I need them
+    //TODO JS: I need to register how many I need for a frame... somewhere
+    //TODO JS: OR: I can special case this for now, and expose something in pipeline group for how many sets there are
+    //TODO JS: Span of sets?
+    //TODO JS: And then in my draw command just consume them
+    //TODO JS: Maybe that's better. 
+void DescriptorSets::AllocateDescriptorSet(VkDevice device, VkDescriptorPool pool, VkDescriptorSetLayout* pdescriptorsetLayout, VkDescriptorSet* pset, uint32_t ct)
 {
     VkDescriptorSetAllocateInfo allocInfo = {};
     allocInfo.pNext = nullptr;
     allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     allocInfo.descriptorPool = pool;
-    allocInfo.descriptorSetCount = 1;
+    allocInfo.descriptorSetCount = ct;
     allocInfo.pSetLayouts = pdescriptorsetLayout;
     VkResult result = vkAllocateDescriptorSets(device, &allocInfo, pset);
     VK_CHECK(result);

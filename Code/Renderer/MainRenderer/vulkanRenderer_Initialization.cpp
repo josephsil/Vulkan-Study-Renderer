@@ -49,6 +49,7 @@ vkb::PhysicalDevice getPhysicalDevice(vkb::Instance instance,     VkSurfaceKHR s
     features12.descriptorBindingPartiallyBound = VK_TRUE;
     features13.dynamicRendering = VK_TRUE;
     features13.synchronization2 = VK_TRUE;
+    features12.samplerFilterMinmax = VK_TRUE;
     
 
    

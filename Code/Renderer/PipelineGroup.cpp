@@ -63,7 +63,9 @@ void PipelineGroup::createLayout(RendererContext handles,  std::span<VkDescripto
 void PipelineGroup::bindToCommandBuffer(VkCommandBuffer cmd, uint32_t currentFrame, VkPipelineBindPoint bindPoint)
 {
     assert(pipelineData.descriptorSetsInitialized && pipelineData.pipelinesInitialized);
-    vkCmdBindDescriptorSets(cmd, bindPoint, this->pipelineData.bindlessPipelineLayout, 0, 1, &this->pipelineData.perSceneDescriptorSetForFrame[currentFrame], 0, nullptr);
+    vkCmdBindDescriptorSets(cmd, bindPoint, this->pipelineData.bindlessPipelineLayout,
+        0, 1,
+        &this->pipelineData.perSceneDescriptorSetForFrame[currentFrame], 0, nullptr);
 }
 
 
@@ -97,7 +99,7 @@ void PipelineGroup::updateDescriptorSetsForPipeline(std::span<descriptorUpdateDa
         assert(update.count <= bindingInfo.descriptorCount);
         // assert(bindingIndex == bindingInfo.binding);
 
-        if (update.type == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE || update.type == VK_DESCRIPTOR_TYPE_SAMPLER)
+        if (update.type == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE || update.type == VK_DESCRIPTOR_TYPE_SAMPLER || update.type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
         {
             newSet.pImageInfo = static_cast<VkDescriptorImageInfo*>(update.ptr);
         }
@@ -131,7 +133,8 @@ void PipelineGroup::createDescriptorSets(VkDescriptorPool pool, int MAX_FRAMES_I
     pipelineData.perSceneDescriptorSetForFrame.resize(MAX_FRAMES_IN_FLIGHT);
     for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        if ( pipelineData.perSceneDescriptorSetLayout != nullptr) DescriptorSets::AllocateDescriptorSet(device, pool,  &pipelineData.perSceneDescriptorSetLayout, & pipelineData.perSceneDescriptorSetForFrame[i]);
+        if ( pipelineData.perSceneDescriptorSetLayout != nullptr)
+            DescriptorSets::AllocateDescriptorSet(device, pool,  &pipelineData.perSceneDescriptorSetLayout, & pipelineData.perSceneDescriptorSetForFrame[i], 1);
     setDebugObjectName(device, VK_OBJECT_TYPE_DESCRIPTOR_SET,debugName, uint64_t(pipelineData.perSceneDescriptorSetForFrame[i]) );
     }
     pipelineData.descriptorSetsInitialized = true;
@@ -348,13 +351,6 @@ void PipelineGroup::cleanup()
 
 }
 
-VkDescriptorSet PipelineGroup::perPipelineData::getSetFromType(VkDescriptorType type,
-    int currentFrame)
-{
-    printf("Deprecated call to getSetFromType \n");
-    return perSceneDescriptorSetForFrame[currentFrame];
-  
-}
 
 void PipelineGroup::perPipelineData::cleanup(VkDevice device)
 {

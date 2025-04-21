@@ -74,7 +74,6 @@ struct descriptorUpdateData;
             // std::vector<VkDescriptorSet> imageDescriptorSetForFrame = {};
             // std::vector<VkDescriptorSet> samplerDescriptorSetForFrame = {};
 
-            VkDescriptorSet getSetFromType(VkDescriptorType type, int currentFrame);
             void cleanup(VkDevice device);
         };
 
