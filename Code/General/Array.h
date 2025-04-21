@@ -45,6 +45,10 @@ struct Array
         return data[i];
     }
 
+    T& back()
+    {
+        return data[ct-1];
+    }
     
     void push_back()
     {
