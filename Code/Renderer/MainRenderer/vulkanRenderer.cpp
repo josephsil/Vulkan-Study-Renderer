@@ -1311,28 +1311,28 @@ void BeginRendering(VkRenderingAttachmentInfo* depthAttatchment, int colorAttatc
 
 #pragma endregion
 #pragma region draw
-void recordPrimaryRenderPasses( std::span<RenderPassConfig> passes, VkBuffer indirectCommandsBuffer /*FramesInFlightData[currentFrame].drawBuffers._buffer.data*/, int currentFrame)
+void recordPrimaryRenderPasses( std::span<drawBatchConfig> draws, VkBuffer indirectCommandsBuffer /*FramesInFlightData[currentFrame].drawBuffers._buffer.data*/, int currentFrame)
 {
   
     uint32_t offset_into_struct = offsetof(drawCommandData, command);
 
     //Cache these at a higher level -- maybe per command buffer/when the command buffer is set? Rn these get invalidated every shadow draw, since they're all new renderpasses 
     
-    for(int j = 0; j < passes.size(); j++)
+    for(int j = 0; j < draws.size(); j++)
     {
         //TODO recordDepthPrepass( std::span<RenderPassConfig> passes, VkBuffer indirectCommandsBuffer /*FramesInFlightData[currentFrame].drawBuffers._buffer.data*/, int currentFrame)
         //TODO GeneratehiZ(int currentFrame)
     }
       
-    for(int j = 0; j < passes.size(); j++)
+    for(int j = 0; j < draws.size(); j++)
     {
-        auto passInfo = passes[j];
+        auto passInfo = draws[j];
         recordCommandBufferCulling(*passInfo.computeRenderStepContext, currentFrame, *passInfo.computeCullingInfo,indirectCommandsBuffer);
     }
 
-    for(int j = 0; j < passes.size(); j++)
+    for(int j = 0; j < draws.size(); j++)
     {
-        auto passInfo = passes[j];
+        auto passInfo = draws[j];
         auto context = passInfo.drawRenderStepContext;
         assert(context->active);
         passInfo.pipelineGroup->bindToCommandBuffer(context->commandBuffer, currentFrame, 0); //Often the same -- cache?
@@ -1808,7 +1808,7 @@ bool getFlattenedShadowData(int index, std::span<std::span<PerShadowData>> input
 }
 
 
-RenderPassConfig CreateRenderPassConfig_new(MemoryArena::memoryArena* allocator, Scene* scene,  AssetManager* rendererData,
+drawBatchConfig CreateRenderPassConfig_new(MemoryArena::memoryArena* allocator, Scene* scene,  AssetManager* rendererData,
                                     renderPassAttatchmentInfo renderAttatchmentInfo,
                                     shaderLookup shaderGroup,
                                      PipelineGroup* computePipelineData, 
@@ -1883,7 +1883,7 @@ RenderPassConfig CreateRenderPassConfig_new(MemoryArena::memoryArena* allocator,
 }
 
 
-void    AddOpaquePasses(RenderPassList* targetPassList, shaderLookup shaderGroup, Scene* scene, AssetManager* rendererData,
+void    AddOpaquePasses(drawBatchList* targetPassList, shaderLookup shaderGroup, Scene* scene, AssetManager* rendererData,
                                          MemoryArena::memoryArena* allocator,
                                      std::span<std::span<PerShadowData>> inputShadowdata,
                                      PipelineGroup* computePipelineData,
@@ -1916,16 +1916,16 @@ void    AddOpaquePasses(RenderPassList* targetPassList, shaderLookup shaderGroup
     }
 
    
-    targetPassList->passes.push_back(  CreateRenderPassConfig_new(allocator, scene, rendererData,
+    targetPassList->batchConfigs.push_back(  CreateRenderPassConfig_new(allocator, scene, rendererData,
         {.colorDraw = opaqueTarget, .depthDraw = depthTarget, .extents = targetExtent},
         shaderGroup, computePipelineData, opaqueRenderStepContext, computeRenderStepContext,
-        {.ptr = nullptr, .size = 0}, indexBuffer,viewProjMatrices,targetPassList->drawCount,targetPassList->passes.size(), objectsPerDraw,{false, 0, 0}
+        {.ptr = nullptr, .size = 0}, indexBuffer,viewProjMatrices,targetPassList->drawCount,targetPassList->batchConfigs.size(), objectsPerDraw,{false, 0, 0}
         ));
     targetPassList->drawCount += objectsPerDraw;
 
 }
 
-void AddShadowPasses(RenderPassList* targetPassList, Scene* scene, AssetManager* rendererData,
+void AddShadowPasses(drawBatchList* targetPassList, Scene* scene, AssetManager* rendererData,
                                      cameraData* camera, MemoryArena::memoryArena* allocator,
                                      std::span<std::span<PerShadowData>> inputShadowdata,
                                    shaderLookup shaderLookup,
@@ -1949,9 +1949,9 @@ void AddShadowPasses(RenderPassList* targetPassList, Scene* scene, AssetManager*
             shadowPC ->matrix =  proj * view;
             
             VkRenderingAttachmentInfoKHR* depthDrawAttatchment = MemoryArena::Alloc<VkRenderingAttachmentInfoKHR>(allocator);
-            *depthDrawAttatchment =  createRenderingAttatchmentStruct(shadowMapRenderingViews[targetPassList->passes.size()], 1.0, true);
+            *depthDrawAttatchment =  createRenderingAttatchmentStruct(shadowMapRenderingViews[targetPassList->batchConfigs.size()], 1.0, true);
             
-            targetPassList->passes.push_back(
+            targetPassList->batchConfigs.push_back(
             CreateRenderPassConfig_new(
                 allocator, scene, rendererData,
                 {.colorDraw = VK_NULL_HANDLE, .depthDraw = depthDrawAttatchment, .extents = {SHADOW_MAP_SIZE, SHADOW_MAP_SIZE}},
@@ -1963,7 +1963,7 @@ void AddShadowPasses(RenderPassList* targetPassList, Scene* scene, AssetManager*
                 indexBuffer,
                 {.view = view, .proj =proj },
                 targetPassList->drawCount,
-                targetPassList->passes.size(),
+                targetPassList->batchConfigs.size(),
                 objectsPerDraw,{.use = true, .depthBias = 6.0, .slopeBias = 3.0})
                 );
             
@@ -1997,7 +1997,7 @@ int UpdateDrawCommanddataDrawIndirectCommands(std::span<drawCommandData> targetD
 //We end up with the gpu mapped DrawCommands populated with a unique list of drawcommanddata for each object for each draw
 //I think I did it this way so I can easily set index count to zero later on to skip a draw
 //Would be better to only have one list of objects to draw?
-void uploadIndirectCommandBufferForPasses(Scene* scene, AssetManager* rendererData, MemoryArena::memoryArena* allocator, std::span<drawCommandData> drawCommands, std::span<RenderPassConfig> passes)
+void uploadIndirectCommandBufferForPasses(Scene* scene, AssetManager* rendererData, MemoryArena::memoryArena* allocator, std::span<drawCommandData> drawCommands, std::span<drawBatchConfig> passes)
 {
     for(int i =0; i < drawCommands.size(); i++)
     {
@@ -2276,10 +2276,10 @@ void vulkanRenderer::drawFrame(Scene* scene)
      *mainRenderTargetAttatchment =  createRenderingAttatchmentStruct(rendererResources.swapchainImageViews[swapChainImageIndex], 0.0, true);
 
     //set up all our  draws
-    RenderPassList* renderPasses = MemoryArena::Alloc<RenderPassList>(&perFrameArenas[currentFrame]);
-    *renderPasses = {.drawCount = 0,  .passes =  MemoryArena::AllocSpan<RenderPassConfig>(&perFrameArenas[currentFrame], MAX_RENDER_PASSES)};
+    drawBatchList* renderBatches = MemoryArena::Alloc<drawBatchList>(&perFrameArenas[currentFrame]);
+    *renderBatches = {.drawCount = 0,  .batchConfigs =  MemoryArena::AllocSpan<drawBatchConfig>(&perFrameArenas[currentFrame], MAX_RENDER_PASSES)};
 
-     AddShadowPasses(renderPasses, scene, AssetDataAndMemory, &scene->sceneCamera,
+     AddShadowPasses(renderBatches, scene, AssetDataAndMemory, &scene->sceneCamera,
                      &perFrameArenas[currentFrame],
                      perLightShadowData, shaderGroups.shadowShaders, &descriptorsetLayoutsDataCulling
                      ,  shadowRenderStepContext,  computeRenderStepContext,thisFrameData->deviceIndices.data, rendererResources.shadowMapRenderingImageViews[currentFrame]);
@@ -2287,7 +2287,7 @@ void vulkanRenderer::drawFrame(Scene* scene)
     VkRenderingAttachmentInfoKHR* depthDrawAttatchment = MemoryArena::Alloc<VkRenderingAttachmentInfoKHR>(&perFrameArenas[currentFrame]);
     *depthDrawAttatchment = createRenderingAttatchmentStruct( rendererResources.depthBufferInfo.view, 1.0, true);
     
-    AddOpaquePasses(renderPasses,shaderGroups.opaqueShaders, scene,  AssetDataAndMemory, &perFrameArenas[currentFrame],
+    AddOpaquePasses(renderBatches,shaderGroups.opaqueShaders, scene,  AssetDataAndMemory, &perFrameArenas[currentFrame],
                     perLightShadowData,
                     &descriptorsetLayoutsDataCulling, opaqueRenderStepContext
                     ,  computeRenderStepContext,   mainRenderTargetAttatchment,depthDrawAttatchment, rendererVulkanObjects.swapchain.extent,
@@ -2295,20 +2295,20 @@ void vulkanRenderer::drawFrame(Scene* scene)
 
 
     //Indirect command buffer
-    uploadIndirectCommandBufferForPasses(scene, AssetDataAndMemory, &perFrameArenas[currentFrame], thisFrameData->drawBuffers.getMappedSpan(), renderPasses->passes.getSpan());
+    uploadIndirectCommandBufferForPasses(scene, AssetDataAndMemory, &perFrameArenas[currentFrame], thisFrameData->drawBuffers.getMappedSpan(), renderBatches->batchConfigs.getSpan());
     updateBindingsComputeCulling(*computeRenderStepContext,  &perFrameArenas[currentFrame], currentFrame);
     
  
     //Prototype depth passes code
     //Going to move creation of these into the add passes fns, and have the logic to look up the appropriate sahder passed thru there
     //Need to think about how 
-    auto passes = renderPasses->passes.getSpan();
-    for(size_t i = 0; i < passes.size(); i++)
+    auto batches = renderBatches->batchConfigs.getSpan();
+    for(size_t i = 0; i < batches.size(); i++)
     {
-        auto oldPass = passes[i];
-        auto newPass =  passes[i];
+        auto oldPass = batches[i];
+        auto newPass =  batches[i];
         newPass.colorattatchment = VK_NULL_HANDLE;
-        std::span<simpleMeshPassInfo> oldPasses = passes[i].meshPasses;
+        std::span<simpleMeshPassInfo> oldPasses = batches[i].meshPasses;
         std::span<simpleMeshPassInfo> newPasses = MemoryArena::copySpan<simpleMeshPassInfo>(&perFrameArenas[currentFrame], oldPasses);
         for(int j =0; j < newPasses.size(); j++)
         {
@@ -2316,7 +2316,7 @@ void vulkanRenderer::drawFrame(Scene* scene)
         }
         newPass.meshPasses = newPasses;
         newPass.drawRenderStepContext = cullingDepthPrepassRenderStepContext;
-        newPass.depthAttatchment = MemoryArena::AllocCopy<VkRenderingAttachmentInfoKHR>(&perFrameArenas[currentFrame], *passes[i].depthAttatchment);
+        newPass.depthAttatchment = MemoryArena::AllocCopy<VkRenderingAttachmentInfoKHR>(&perFrameArenas[currentFrame], *batches[i].depthAttatchment);
         if (newPass.pushConstantsSize == 0) //kludge -- this is a opaque draw
         {
             newPass.depthBiasSetting = {true, 0, 0};
@@ -2325,13 +2325,13 @@ void vulkanRenderer::drawFrame(Scene* scene)
                 newPasses[j].pipeline = shaderGroups.opaqueShaders.pipelineGroup->getPipeline(shaderGroups.opaqueShaders.pipelineGroup->getPipelineCt() -1); //TODO JS: Avoid hardcoded last index for non-shadow cull shader
             }
         }
-        renderPasses->passes.push_back(newPass);
-        passes[i].depthAttatchment->loadOp = VK_ATTACHMENT_LOAD_OP_LOAD; ////TODO JS: as I work on depth prepass -- later set this when the pass is created
+        renderBatches->batchConfigs.push_back(newPass);
+        batches[i].depthAttatchment->loadOp = VK_ATTACHMENT_LOAD_OP_LOAD; ////TODO JS: as I work on depth prepass -- later set this when the pass is created
     }
 
     
     //Submti the actual Draws
-    recordPrimaryRenderPasses(renderPasses->passes.getSpan(),thisFrameData->drawBuffers.buffer.data, currentFrame);
+    recordPrimaryRenderPasses(renderBatches->batchConfigs.getSpan(),thisFrameData->drawBuffers.buffer.data, currentFrame);
     recordUtilityPasses(opaqueRenderStepContext->commandBuffer, swapChainImageIndex);
     //
 

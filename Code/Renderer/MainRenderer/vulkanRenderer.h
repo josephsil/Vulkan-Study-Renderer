@@ -61,14 +61,14 @@ struct depthBiasSettng
 };
 //TODO JS
 //The idea is using this, and using objectCount in place of cullingFrustumIndex and etc, and objectCount in place of drawOffset
-struct RenderPassConfig;
-struct RenderPassList
+struct drawBatchConfig;
+struct drawBatchList
 {
     uint32_t drawCount;
-    Array<RenderPassConfig> passes;
+    Array<drawBatchConfig> batchConfigs;
 };
 
-struct RenderPassConfig
+struct drawBatchConfig
 {
     ActiveRenderStepData* drawRenderStepContext;
     ActiveRenderStepData* computeRenderStepContext;
