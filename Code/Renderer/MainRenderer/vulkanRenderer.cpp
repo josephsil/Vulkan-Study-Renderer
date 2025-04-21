@@ -1445,8 +1445,8 @@ void vulkanRenderer::doMipChainCompute(commandBufferContext commandBufferContext
             .imageView = i == 0 ? srcView : pyramidviews[i-1], .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
         };
 
-        VkDescriptorImageInfo* distInfo =  MemoryArena::Alloc<VkDescriptorImageInfo>(arena);
-        *distInfo = {
+        VkDescriptorImageInfo* destinationInfo =  MemoryArena::Alloc<VkDescriptorImageInfo>(arena);
+        *destinationInfo = {
             .imageView = pyramidviews[i], .imageLayout = VK_IMAGE_LAYOUT_GENERAL
         };
 
@@ -1458,7 +1458,7 @@ void vulkanRenderer::doMipChainCompute(commandBufferContext commandBufferContext
         std::span<descriptorUpdateData> descriptorUpdates = MemoryArena::AllocSpan<descriptorUpdateData>(arena, 3);
 
         descriptorUpdates[0] = {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, sourceInfo};  //src view
-        descriptorUpdates[1] = {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, distInfo};  //dst view
+        descriptorUpdates[1] = {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, destinationInfo};  //dst view
         descriptorUpdates[2] = {VK_DESCRIPTOR_TYPE_SAMPLER, shadowSamplerInfo}; //draws 
 
         descriptorsetLayoutsDataMipChain.updateDescriptorSets(descriptorUpdates, _currentFrame, i);
@@ -1733,7 +1733,12 @@ void vulkanRenderer::Update(Scene* scene)
     ImGui::Text("TODO");
     int shadowIndex =1;
     VkDescriptorSet img = GetOrRegisterImguiTextureHandle(rendererResources.shadowSamplers[shadowIndex],rendererResources.shadowMapSamplingImageViews[shadowIndex][3]);
-    ImGui::Image(ImTextureID(img), ImVec2{480, 480});
+    //todo js: need to change image before/after doing this? need to do this toa  copy? not sure -- get valdidation errors around layout
+    // VkDescriptorSet img_depth_0 = GetOrRegisterImguiTextureHandle(rendererResources.depthMipSampler,rendererResources.depthBufferInfo.view);
+    // VkDescriptorSet img_depth_1 = GetOrRegisterImguiTextureHandle(rendererResources.depthMipSampler,rendererResources.depthPyramidInfo.viewsForMips[4]);
+    //
+    // ImGui::Image(ImTextureID(img_depth_0), ImVec2{480, 480});
+    // ImGui::Image(ImTextureID(img_depth_1), ImVec2{480, 480});
     ImGui::End();
     
     //make imgui calculate internal draw structures
