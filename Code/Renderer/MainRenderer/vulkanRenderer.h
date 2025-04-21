@@ -30,7 +30,8 @@ using VmaAllocator = struct VmaAllocator_T*;
 struct SDL_Window;
 //Include last //
 
-struct RenderStep
+
+struct ActiveRenderStepData
 {
     bool active;
     VkBuffer indexBuffer;
@@ -38,7 +39,6 @@ struct RenderStep
     VkCommandBuffer commandBuffer;
     std::span<VkSemaphore> waitSemaphores;
     std::span<VkSemaphore> signalSempahores;
-    std::function<void(void)> renderStep;
     VkFence* fence;
 };
 
@@ -70,8 +70,8 @@ struct RenderPassList
 
 struct RenderPassConfig
 {
-    RenderStep* drawcommandBufferContext;
-    RenderStep* computeCommandBufferContext;
+    ActiveRenderStepData* drawRenderStepContext;
+    ActiveRenderStepData* computeRenderStepContext;
     PipelineGroup* pipelineGroup; //descriptorsetLayoutsDataShadow
     VkBuffer indexBuffer; //FramesInFlightData[currentFrame].indices._buffer.data
     VkIndexType indexBufferType; // VK_INDEX_TYPE_UINT32
@@ -186,7 +186,7 @@ void updateShadowImageViews(int frame, Scene* scene);
 
     struct per_frame_data
     {
-        rendererSemaphores semaphores;
+        acquireImageSemaphore semaphores;
         std::unique_ptr<RendererDeletionQueue> deletionQueue;
         VkFence inFlightFence {};
 
@@ -231,15 +231,15 @@ void updateShadowImageViews(int frame, Scene* scene);
     void updatePerFrameBuffers(unsigned currentFrame, Array<std::span<glm::mat4>> models, Scene* scene);
     void recordCommandBufferShadowPass(VkCommandBuffer commandBuffer, uint32_t imageIndex, std::span<simpleMeshPassInfo> passes);
 
-    void doMipChainCompute(RenderStep commandBufferContext, MemoryArena::memoryArena* arena,
+    void doMipChainCompute(ActiveRenderStepData commandBufferContext, MemoryArena::memoryArena* arena,
                            VkImage dstImage, VkImageView srcView, std::span<VkImageView> pyramidviews, VkSampler sampler, uint32_t _currentFrame, int
                            pyramidWidth, int pyramidHeight);
-    void updateBindingsComputeCulling(RenderStep commandBufferContext, MemoryArena::memoryArena* arena, uint32_t _currentFrame);
+    void updateBindingsComputeCulling(ActiveRenderStepData commandBufferContext, MemoryArena::memoryArena* arena, uint32_t _currentFrame);
     void SubmitCommandBuffer(uint32_t commandbufferCt,
-                             RenderStep* commandBufferContext, semaphoreData waitSemaphores, std::vector<VkSemaphore> signalsemaphores, VkFence
+                             ActiveRenderStepData* commandBufferContext, semaphoreData waitSemaphores, std::vector<VkSemaphore> signalsemaphores, VkFence
                              waitFence);
     void SubmitCommandBuffer(uint32_t commandbufferCt,
-                           RenderStep* commandBufferContext, VkFence
+                           ActiveRenderStepData* commandBufferContext, VkFence
                            waitFence);
     void recordUtilityPasses(VkCommandBuffer commandBuffer, int imageIndex);
     void recordCommandBufferOpaquePass(Scene* scene, VkCommandBuffer commandBuffer, uint32_t imageIndex, std::span<simpleMeshPassInfo>

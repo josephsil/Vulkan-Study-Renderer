@@ -52,28 +52,10 @@ struct DepthPyramidInfo
     glm::vec2 depthSize;
 };
 
-struct ComamndBufferAndSemaphores
+struct acquireImageSemaphore
 {
-    VkCommandBuffer commandBuffer;
-    std::span<VkSemaphore> waitSemaphores;
-    std::span<VkSemaphore> signalSempahores;
-};
-
-
-struct rendererSemaphores
-{
-    VkSemaphore imageAvailableSemaphores {};
-    // VkSemaphore renderFinishedSemaphores {};
-    // VkSemaphore depthPrepassFinishedSemaphore {};
-    // VkSemaphore depthPrepassMipsFinishedSempahore {};
-    // VkSemaphore computeFinishedSemaphores {};
-    // VkSemaphore shadowAvailableSemaphores {};
-    // VkSemaphore shadowFinishedSemaphores {};
-    //
-    // VkSemaphore swapchaintransitionedOutSemaphores {};
-    // VkSemaphore swapchaintransitionedInSemaphores {};
-    // VkSemaphore shadowtransitionedOutSemaphores {};
-    // VkSemaphore shadowtransitionedInSemaphores {};
+    VkSemaphore semaphore {};
+  
 };
 
 

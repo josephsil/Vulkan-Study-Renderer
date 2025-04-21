@@ -52,7 +52,7 @@ unsigned int MAX_TEXTURES = 120;
 RendererResources /*todo*/  static_initializeResources(rendererObjects initializedrenderer,  MemoryArena::memoryArena* allocationArena, RendererDeletionQueue* deletionQueue,  CommandPoolManager* commandPoolmanager);
 DepthBufferInfo static_createDepthResources(rendererObjects initializedrenderer,  MemoryArena::memoryArena* allocationArena, RendererDeletionQueue* deletionQueue,  CommandPoolManager* commandPoolmanager);
 DepthPyramidInfo static_createDepthPyramidResources(rendererObjects initializedrenderer,  MemoryArena::memoryArena* allocationArena, RendererDeletionQueue* deletionQueue, CommandPoolManager* commandPoolmanager );
-void static_createSyncObjects(VkDevice device,  RendererDeletionQueue* deletionQueue, rendererSemaphores* semaphoresToCreate, VkFence* fence);
+void static_createSyncObjects(VkDevice device,  RendererDeletionQueue* deletionQueue, acquireImageSemaphore* semaphoresToCreate, VkFence* fence);
 
 vulkanRenderer::vulkanRenderer()
 {
@@ -708,14 +708,14 @@ void createSemaphore(VkDevice device,   VkSemaphore* semaphorePtr, const char* d
     setDebugObjectName(device, VK_OBJECT_TYPE_SEMAPHORE, debugName, uint64_t(*semaphorePtr));
     
 }
-void static_createSyncObjects(VkDevice device,  RendererDeletionQueue* deletionQueue, rendererSemaphores* semaphoresToCreate, VkFence* fence)
+void static_createSyncObjects(VkDevice device,  RendererDeletionQueue* deletionQueue, acquireImageSemaphore* semaphoresToCreate, VkFence* fence)
 {
 
     VkFenceCreateInfo fenceInfo{};
     fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-        createSemaphore(device,  &semaphoresToCreate->imageAvailableSemaphores, "imageAvailableSemaphores", deletionQueue);
+        createSemaphore(device,  &semaphoresToCreate->semaphore, "imageAvailableSemaphores", deletionQueue);
         // createSemaphore(device,  &semaphoresToCreate->renderFinishedSemaphores, "renderFinishedSemaphores", deletionQueue);
     //
     // createSemaphore(device,  &semaphoresToCreate->depthPrepassFinishedSemaphore, "depthPrepassFinishedSemaphore", deletionQueue);
@@ -1221,21 +1221,7 @@ void vulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<std::spa
 
 }
 
-RenderStep beginCommandBuffer(ComamndBufferAndSemaphores* ncb)
-{
-    VkCommandBufferBeginInfo beginInfo{};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo.flags = 0; // Optional
-    beginInfo.pInheritanceInfo = nullptr; // Optional
-    
-    VK_CHECK(vkBeginCommandBuffer(ncb->commandBuffer, &beginInfo));
-
-   return{.active = true, .indexBuffer = VK_NULL_HANDLE, .boundPipeline = VK_NULL_HANDLE,
-       .commandBuffer = ncb->commandBuffer, .waitSemaphores = ncb->waitSemaphores, .signalSempahores = ncb->signalSempahores };
-
-}
-
-void endCommandBufferRecording(RenderStep* context)
+void endCommandBufferRecording(ActiveRenderStepData* context)
 {
     assert(context->active);
     VK_CHECK(vkEndCommandBuffer(context->commandBuffer));
@@ -1257,7 +1243,7 @@ VkRenderingAttachmentInfoKHR createRenderingAttatchmentStruct(VkImageView target
 {
    return createRenderingAttatchmentWithLayout(target, clearColor, clear,VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR);
 }
-void recordCommandBufferCulling(RenderStep commandBufferContext, uint32_t currentFrame, ComputeCullListInfo pass,  VkBuffer indirectCommandsBuffer)
+void recordCommandBufferCulling(ActiveRenderStepData commandBufferContext, uint32_t currentFrame, ComputeCullListInfo pass,  VkBuffer indirectCommandsBuffer)
 {
 
     assert(commandBufferContext.active);
@@ -1341,13 +1327,13 @@ void recordPrimaryRenderPasses( std::span<RenderPassConfig> passes, VkBuffer ind
     for(int j = 0; j < passes.size(); j++)
     {
         auto passInfo = passes[j];
-        recordCommandBufferCulling(*passInfo.computeCommandBufferContext, currentFrame, *passInfo.computeCullingInfo,indirectCommandsBuffer);
+        recordCommandBufferCulling(*passInfo.computeRenderStepContext, currentFrame, *passInfo.computeCullingInfo,indirectCommandsBuffer);
     }
 
     for(int j = 0; j < passes.size(); j++)
     {
         auto passInfo = passes[j];
-        auto context = passInfo.drawcommandBufferContext;
+        auto context = passInfo.drawRenderStepContext;
         assert(context->active);
         passInfo.pipelineGroup->bindToCommandBuffer(context->commandBuffer, currentFrame, 0); //Often the same -- cache?
         VkPipelineLayout layout =  passInfo.pipelineGroup->pipelineData.bindlessPipelineLayout; //Often the same -- cache?
@@ -1412,7 +1398,7 @@ struct pipelineBatch
     Array<uint32_t> objectIndices; 
 };
 
-void vulkanRenderer::doMipChainCompute(RenderStep commandBufferContext, MemoryArena::memoryArena* arena, VkImage dstImage,
+void vulkanRenderer::doMipChainCompute(ActiveRenderStepData commandBufferContext, MemoryArena::memoryArena* arena, VkImage dstImage,
     VkImageView srcView, std::span<VkImageView> pyramidviews, VkSampler sampler, uint32_t _currentFrame, int pyramidWidth, int pyramidHeight)
 {
     
@@ -1496,7 +1482,7 @@ void vulkanRenderer::doMipChainCompute(RenderStep commandBufferContext, MemoryAr
 
 }
 
-void vulkanRenderer::updateBindingsComputeCulling(RenderStep commandBufferContext, 
+void vulkanRenderer::updateBindingsComputeCulling(ActiveRenderStepData commandBufferContext, 
     MemoryArena::memoryArena* arena, uint32_t _currentFrame)
 {
     assert(commandBufferContext.active);
@@ -1523,7 +1509,7 @@ void vulkanRenderer::updateBindingsComputeCulling(RenderStep commandBufferContex
 
 
 
-void vulkanRenderer::SubmitCommandBuffer(uint32_t commandbufferCt, RenderStep* commandBufferContext, VkFence waitFence)
+void vulkanRenderer::SubmitCommandBuffer(uint32_t commandbufferCt, ActiveRenderStepData* commandBufferContext, VkFence waitFence)
 {
 
     assert(!commandBufferContext->active);
@@ -1773,7 +1759,7 @@ semaphoreData getSemaphoreDataFromSemaphores(std::span<VkSemaphore> semaphores, 
     return {semaphores, flags};
     
 }
-void transitionImageForRendering(RendererContext context, RenderStep* CommandBufferContext, VkImage image, VkImageLayout layoutIn, VkImageLayout layoutOut, VkPipelineStageFlags* waitStages, int mipCount, bool depth)
+void transitionImageForRendering(RendererContext context, ActiveRenderStepData* RenderStepContext, VkImage image, VkImageLayout layoutIn, VkImageLayout layoutOut, VkPipelineStageFlags* waitStages, int mipCount, bool depth)
 {
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -1781,7 +1767,7 @@ void transitionImageForRendering(RendererContext context, RenderStep* CommandBuf
     beginInfo.pInheritanceInfo = nullptr; // Optional
     //Transition swapchain for rendering
     
-    TextureUtilities::transitionImageLayout(objectCreationContextFromRendererContext(context),image,(VkFormat)0,layoutIn,layoutOut,CommandBufferContext->commandBuffer,mipCount, false, depth);
+    TextureUtilities::transitionImageLayout(objectCreationContextFromRendererContext(context),image,(VkFormat)0,layoutIn,layoutOut,RenderStepContext->commandBuffer,mipCount, false, depth);
 
   
     VkSubmitInfo swapChainInSubmitInfo{};
@@ -1789,11 +1775,11 @@ void transitionImageForRendering(RendererContext context, RenderStep* CommandBuf
     swapChainInSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     swapChainInSubmitInfo.commandBufferCount = 1;
     swapChainInSubmitInfo.pWaitDstStageMask = _waitStages;
-    swapChainInSubmitInfo.pCommandBuffers = &CommandBufferContext->commandBuffer;
-    swapChainInSubmitInfo.waitSemaphoreCount = (uint32_t)CommandBufferContext->waitSemaphores.size();
-    swapChainInSubmitInfo.pWaitSemaphores =CommandBufferContext->waitSemaphores.data();
-    swapChainInSubmitInfo.signalSemaphoreCount = CommandBufferContext->signalSempahores.size();
-    swapChainInSubmitInfo.pSignalSemaphores = CommandBufferContext->signalSempahores.data();
+    swapChainInSubmitInfo.pCommandBuffers = &RenderStepContext->commandBuffer;
+    swapChainInSubmitInfo.waitSemaphoreCount = (uint32_t)RenderStepContext->waitSemaphores.size();
+    swapChainInSubmitInfo.pWaitSemaphores =RenderStepContext->waitSemaphores.data();
+    swapChainInSubmitInfo.signalSemaphoreCount = RenderStepContext->signalSempahores.size();
+    swapChainInSubmitInfo.pSignalSemaphores = RenderStepContext->signalSempahores.data();
 
     ///////////////////////// Transition swapChain  />
     
@@ -1826,8 +1812,8 @@ RenderPassConfig CreateRenderPassConfig_new(MemoryArena::memoryArena* allocator,
                                     renderPassAttatchmentInfo renderAttatchmentInfo,
                                     shaderLookup shaderGroup,
                                      PipelineGroup* computePipelineData, 
-                                     RenderStep* shadowCommandBufferContext,
-                                     RenderStep* computeCommandBufferContext, 
+                                     ActiveRenderStepData* shadowRenderStepContext,
+                                     ActiveRenderStepData* computeRenderStepContext, 
                                      pointerSize pushConstantReference,
                                       VkBuffer indexBuffer, viewProj cameraViewProj, uint32_t drawOffset, uint32_t passOffset, uint32_t objectCount, depthBiasSettng depthBiasConfig )
 {
@@ -1879,8 +1865,8 @@ RenderPassConfig CreateRenderPassConfig_new(MemoryArena::memoryArena* allocator,
 
 
   return {
-             .drawcommandBufferContext =  shadowCommandBufferContext,
-             .computeCommandBufferContext = computeCommandBufferContext,
+             .drawRenderStepContext =  shadowRenderStepContext,
+             .computeRenderStepContext = computeRenderStepContext,
              .pipelineGroup = shaderGroup.pipelineGroup ,
              .indexBuffer =indexBuffer,
              .indexBufferType =  VK_INDEX_TYPE_UINT32,
@@ -1901,8 +1887,8 @@ void    AddOpaquePasses(RenderPassList* targetPassList, shaderLookup shaderGroup
                                          MemoryArena::memoryArena* allocator,
                                      std::span<std::span<PerShadowData>> inputShadowdata,
                                      PipelineGroup* computePipelineData,
-                                     RenderStep* opaqueCommandBufferContext,
-                                     RenderStep* computeCommandBufferContext,
+                                     ActiveRenderStepData* opaqueRenderStepContext,
+                                     ActiveRenderStepData* computeRenderStepContext,
                                      VkRenderingAttachmentInfoKHR* opaqueTarget, VkRenderingAttachmentInfoKHR* depthTarget, VkExtent2D targetExtent, VkBuffer indexBuffer)
     
 {
@@ -1932,7 +1918,7 @@ void    AddOpaquePasses(RenderPassList* targetPassList, shaderLookup shaderGroup
    
     targetPassList->passes.push_back(  CreateRenderPassConfig_new(allocator, scene, rendererData,
         {.colorDraw = opaqueTarget, .depthDraw = depthTarget, .extents = targetExtent},
-        shaderGroup, computePipelineData, opaqueCommandBufferContext, computeCommandBufferContext,
+        shaderGroup, computePipelineData, opaqueRenderStepContext, computeRenderStepContext,
         {.ptr = nullptr, .size = 0}, indexBuffer,viewProjMatrices,targetPassList->drawCount,targetPassList->passes.size(), objectsPerDraw,{false, 0, 0}
         ));
     targetPassList->drawCount += objectsPerDraw;
@@ -1944,8 +1930,8 @@ void AddShadowPasses(RenderPassList* targetPassList, Scene* scene, AssetManager*
                                      std::span<std::span<PerShadowData>> inputShadowdata,
                                    shaderLookup shaderLookup,
                                      PipelineGroup* computePipelineData,
-                                     RenderStep* shadowCommandBufferContext,
-                                     RenderStep* computeCommandBufferContext,
+                                     ActiveRenderStepData* shadowRenderStepContext,
+                                     ActiveRenderStepData* computeRenderStepContext,
                                       VkBuffer indexBuffer,   std::span<VkImageView> shadowMapRenderingViews)
 {
     uint32_t objectsPerDraw =scene->objectsCount();
@@ -1971,8 +1957,8 @@ void AddShadowPasses(RenderPassList* targetPassList, Scene* scene, AssetManager*
                 {.colorDraw = VK_NULL_HANDLE, .depthDraw = depthDrawAttatchment, .extents = {SHADOW_MAP_SIZE, SHADOW_MAP_SIZE}},
                 shaderLookup,
                 computePipelineData,
-                shadowCommandBufferContext,
-                computeCommandBufferContext,
+                shadowRenderStepContext,
+                computeRenderStepContext,
                 {.ptr = shadowPC, .size =sizeof(shadowPushConstants)},
                 indexBuffer,
                 {.view = view, .proj =proj },
@@ -2080,7 +2066,7 @@ void AddBufferTrasnfer(VkBuffer sourceBuffer, VkBuffer targetBuffer, size_t copy
 
 }
 
-RenderStep createAndBeginRenderStep(VkDevice device, const char* debugName,  RendererDeletionQueue* deletionQueue, VkCommandPool pool,     std::span<VkSemaphore> waitSemaphores,
+ActiveRenderStepData createAndBeginRenderStep(VkDevice device, const char* debugName, const char* cbufferDebugName,  RendererDeletionQueue* deletionQueue, VkCommandPool pool,     std::span<VkSemaphore> waitSemaphores,
     std::span<VkSemaphore> signalSempahores)
 {
     VkCommandBufferAllocateInfo allocInfo{};
@@ -2088,23 +2074,29 @@ RenderStep createAndBeginRenderStep(VkDevice device, const char* debugName,  Ren
     allocInfo.commandPool = pool;
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     allocInfo.commandBufferCount = 1;
+    
+    VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
+    VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer));
+    setDebugObjectName(device,VK_OBJECT_TYPE_COMMAND_BUFFER, cbufferDebugName, (uint64_t)commandBuffer);
 
-    ComamndBufferAndSemaphores cb = {
-        .commandBuffer = VK_NULL_HANDLE, .waitSemaphores = waitSemaphores, .signalSempahores = signalSempahores
-    };
-    VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, &cb.commandBuffer));
-    setDebugObjectName(device, VK_OBJECT_TYPE_COMMAND_BUFFER, debugName, (uint64_t)cb.commandBuffer);
-
-    for(int i = 0; i < cb.signalSempahores.size(); i++) 
+    for(int i = 0; i < signalSempahores.size(); i++) 
     {
-        auto sem = &cb.signalSempahores[i];
+        auto sem = &signalSempahores[i];
         createSemaphore(device, sem, debugName, deletionQueue);
         setDebugObjectName(device, VK_OBJECT_TYPE_SEMAPHORE,debugName, (uint64_t)*sem);
     }
-    return beginCommandBuffer(&cb);
+
+    //Begin command buffer
+    VkCommandBufferBeginInfo beginInfo{};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = 0; // Optional
+    beginInfo.pInheritanceInfo = nullptr; // Optional
+    
+    VK_CHECK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
+
+    return{.active = true, .indexBuffer = VK_NULL_HANDLE, .boundPipeline = VK_NULL_HANDLE,
+        .commandBuffer = commandBuffer, .waitSemaphores = waitSemaphores, .signalSempahores = signalSempahores };
 }
-
-
 
 uint32_t internal_debug_cull_override_index = 0;
 void vulkanRenderer::drawFrame(Scene* scene)
@@ -2120,155 +2112,179 @@ void vulkanRenderer::drawFrame(Scene* scene)
     //Prepare for pass
     uint32_t swapChainImageIndex;
     per_frame_data* thisFrameData = &FramesInFlightData[currentFrame];
-    rendererSemaphores thisFrameSemaphores = thisFrameData->semaphores;
+    acquireImageSemaphore acquireImageSemaphore = thisFrameData->semaphores;
     vkAcquireNextImageKHR(rendererVulkanObjects.vkbdevice.device, rendererVulkanObjects.swapchain,
-        UINT64_MAX,thisFrameSemaphores.imageAvailableSemaphores, VK_NULL_HANDLE,&swapChainImageIndex);
+        UINT64_MAX,acquireImageSemaphore.semaphore, VK_NULL_HANDLE,&swapChainImageIndex);
+    
     //Sync data updated from the engine
     updateShadowData(&perFrameArenas[currentFrame], perLightShadowData, scene, scene->sceneCamera);
-    updatePerFrameBuffers(currentFrame, scene->transforms.worldMatrices,scene); // TODO JS: timing bugs if it doesn't happen after the fence - why?
+    updatePerFrameBuffers(currentFrame, scene->transforms.worldMatrices,scene); 
 
     updateOpaqueDescriptorSets(&descriptorsetLayoutsData);
     updateShadowDescriptorSets(&descriptorsetLayoutsDataShadow, 0);
-    Array<VkSemaphore> semaphorePool = MemoryArena::AllocSpan<VkSemaphore>(&perFrameArenas[currentFrame], 100);
+    
 
-    //TODO JS: these don't work properly with my array type -- something goes wrong on a std::function destructor
-    std::vector<RenderStep> render_steps_for_frame;
-    render_steps_for_frame.reserve(100);
+    //Kinda a convenience thing, todo more later, wrote in a hurry
+    struct renderStepContextObject
+    {
+        VkDevice device;
+        RendererDeletionQueue* deletionQueue;
+         Array<ActiveRenderStepData> renderstepDatas;
+        Array<VkSemaphore> semaphorePool;
+        std::span<VkSemaphore> previousStepSignalSemaphores;
 
+        //Set up a command buffer, initialize it, return an object wrapping all the relevant stuff
+        //Default to chaining semaphores with the last/next one
+        ActiveRenderStepData* createRenderStepAndInitialize(const char* debugName, const char* cbufferDebugName,VkCommandPool pool,
+            bool overrideWaitSemaphores, std::span<VkSemaphore> overridenWaitSemaphores,
+             bool overrideSignalSemaphores, std::span<VkSemaphore> overridenSignalSemaphores)
+        {
 
+            assert(!(!overrideWaitSemaphores && renderstepDatas.ct == 0));  //We can only override wait semaphores if we have prior steps. 
+            
+            auto signalSemaphores = overrideSignalSemaphores ? overridenSignalSemaphores : semaphorePool.pushUninitializedSubspan(1);
+            auto waitSemaphores = overrideWaitSemaphores ? overridenWaitSemaphores : previousStepSignalSemaphores;
+            previousStepSignalSemaphores = signalSemaphores;
+            VkCommandBufferAllocateInfo allocInfo{};
+            allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+            allocInfo.commandPool = pool;
+            allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+            allocInfo.commandBufferCount = 1;
+    
+            VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
+            VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer));
+            setDebugObjectName(device,VK_OBJECT_TYPE_COMMAND_BUFFER, cbufferDebugName, (uint64_t)commandBuffer);
+
+            for(int i = 0; i < signalSemaphores.size(); i++) 
+            {
+                auto sem = &signalSemaphores[i];
+                createSemaphore(device, sem, debugName, deletionQueue);
+                setDebugObjectName(device, VK_OBJECT_TYPE_SEMAPHORE,debugName, (uint64_t)*sem);
+            }
+
+            //Begin command buffer
+            VkCommandBufferBeginInfo beginInfo{};
+            beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+            beginInfo.flags = 0; // Optional
+            beginInfo.pInheritanceInfo = nullptr; // Optional
+    
+            VK_CHECK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
+
+            renderstepDatas.push_back({.active = true, .indexBuffer = VK_NULL_HANDLE, .boundPipeline = VK_NULL_HANDLE,
+                .commandBuffer = commandBuffer, .waitSemaphores = waitSemaphores, .signalSempahores = signalSemaphores });
+
+            return &renderstepDatas.back();
+        }
+
+        void finishAndSubmitCommandBuffers()
+        {
+            ////Submit our render steps
+            for (int j = 0; j < renderstepDatas.size(); j++)
+            {
+                ActiveRenderStepData* ctx = &renderstepDatas[j];
+                endCommandBufferRecording(ctx);
+                SubmitCommandBuffer(1, ctx, ctx->fence != nullptr? *ctx->fence : VK_NULL_HANDLE);
+            }
+        }
+        
+    };
+
+    renderStepContextObject renderstepDatas =
+        {
+        .device =   rendererVulkanObjects.vkbdevice.device,
+        .deletionQueue = thisFrameData->deletionQueue.get(),
+        .renderstepDatas =  MemoryArena::AllocSpan<ActiveRenderStepData>(&perFrameArenas[currentFrame], 20),
+        .semaphorePool = MemoryArena::AllocSpan<VkSemaphore>(&perFrameArenas[currentFrame], 100)
+        };
+
+    //I'm currently using multiple command buffers to handle most of my concurrency
+    //each one of these step datas gets a signal and wait semaphore list, and then their command buffers are all submitted in order in the loop near the end of this fn
+    //This needs revisted, but not right away
     //Create command buffers for this frame and allocate their signal semaphores/set up their dependencies. Written here in linear order
 
     ///Swapchain transition in
-    render_steps_for_frame.push_back(createAndBeginRenderStep(
-        rendererVulkanObjects.vkbdevice.device, "swapTransitionInCB", thisFrameData->deletionQueue.get(),
-        commandPoolmanager->commandPool, std::span<VkSemaphore>(&thisFrameSemaphores.imageAvailableSemaphores, 1),
-        semaphorePool.pushUninitializedSubspan(1)));
-    render_steps_for_frame.back().renderStep = [&, _i = render_steps_for_frame.size()]()
-    {
-        transitionImageForRendering(
-            getFullRendererContext(),
-            &render_steps_for_frame[_i - 1],
-            rendererResources.swapchainImages[swapChainImageIndex],
-            VK_IMAGE_LAYOUT_UNDEFINED,
-            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, swapchainWaitStages, 1, false);
-    };
+    auto preRenderTransitionsrenderStepContext = renderstepDatas.createRenderStepAndInitialize(
+        "swapTransitionInSignalSemaphores", "swapTransitionInCommandBuffer",
+        commandPoolmanager->commandPool,
+        true, std::span<VkSemaphore>(&acquireImageSemaphore.semaphore, 1),
+        false, {});
 
-    ///Shadowmap transition in
-    render_steps_for_frame.push_back(createAndBeginRenderStep(rendererVulkanObjects.vkbdevice.device, "shadowTransitionInCB",
-                                             thisFrameData->deletionQueue.get(), commandPoolmanager->commandPool,
-                                             {}, semaphorePool.pushUninitializedSubspan(1)));
-    render_steps_for_frame.back().renderStep = [&, _i = render_steps_for_frame.size()]()
-    {
-        transitionImageForRendering(
-            getFullRendererContext(),
-            &render_steps_for_frame[_i - 1],
-            rendererResources.shadowImages[currentFrame],
-            VK_IMAGE_LAYOUT_UNDEFINED,
-            VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, shadowWaitStages, 1, true);
-    };
+    //Compute frustum culling
+    auto computeRenderStepContext = renderstepDatas.createRenderStepAndInitialize(
+        "frustumSignalSemaphores", "frustumCommandBuffer",
+        commandPoolmanager->commandPool, false, {},
+        false, {});
 
-    //Copy rendering data for drawing
-    render_steps_for_frame.push_back(createAndBeginRenderStep(rendererVulkanObjects.vkbdevice.device, "copyStagedDataNCB",
-                                             thisFrameData->deletionQueue.get(), commandPoolmanager->commandPool,
-                                             render_steps_for_frame.back().signalSempahores, semaphorePool.pushUninitializedSubspan(1)));
-    render_steps_for_frame.back().renderStep = [&, _i = render_steps_for_frame.size()]()
-    {
-        //Transferring cpu -> gpu data -- should improve
-        AddBufferTrasnfer(thisFrameData->hostVerts.buffer.data, thisFrameData->deviceVerts.data,
-                          thisFrameData->deviceVerts.size, render_steps_for_frame[_i - 1].commandBuffer);
-        AddBufferTrasnfer(thisFrameData->hostMesh.buffer.data, thisFrameData->deviceMesh.data,
-                          thisFrameData->deviceMesh.size, render_steps_for_frame[_i - 1].commandBuffer);
-        AddBufferTrasnfer(thisFrameData->hostIndices.buffer.data, thisFrameData->deviceIndices.data,
-                          thisFrameData->deviceIndices.size, render_steps_for_frame[_i - 1].commandBuffer);
-    };
+    //Depth Prepass
+    auto cullingDepthPrepassRenderStepContext = renderstepDatas.createRenderStepAndInitialize(
+        "prepassSignalSemaphores", "prepassCommandBuffer",
+        commandPoolmanager->commandPool, false,
+        {}, false, {});
 
-    //Compute frustum culling -- part of the big aggregate step I need to write code for
-    render_steps_for_frame.push_back(createAndBeginRenderStep(rendererVulkanObjects.vkbdevice.device, "frustumNCB",
-                                             thisFrameData->deletionQueue.get(), commandPoolmanager->commandPool,
-                                             render_steps_for_frame.back().signalSempahores, semaphorePool.pushUninitializedSubspan(1)));
-    auto computeCommandBufferContext = &render_steps_for_frame[render_steps_for_frame.size() - 1];
-    render_steps_for_frame.back().renderStep = []()
-    {
-    };
+    //Mip Chain Generation
+    //This will be pretty iddle, right? Would rather be going ahead with other rendering 
+    //Might be the first place I need more fine grained synchronization
+    auto mipChainRenderStepContext = renderstepDatas.createRenderStepAndInitialize(
+        "MipChainSignalSemaphores", "MipChainCommandBuffer",
+        commandPoolmanager->commandPool, false,
+        {}, false, {});
 
-    //Depth Prepass -- part of the big aggregate step I need to write code for
-    render_steps_for_frame.push_back(createAndBeginRenderStep(rendererVulkanObjects.vkbdevice.device, "prepassNCB",
-                                             thisFrameData->deletionQueue.get(), commandPoolmanager->commandPool,
-                                             render_steps_for_frame.back().signalSempahores, semaphorePool.pushUninitializedSubspan(1)));
-    auto cullingDepthPrepassCommandBufferContext = &render_steps_for_frame[render_steps_for_frame.size() - 1];
-    render_steps_for_frame.back().renderStep = []()
-    {
-    };
-
-    //Mip Chain Generation -- part of the big aggregate step I need to write code for
-    render_steps_for_frame.push_back(createAndBeginRenderStep(rendererVulkanObjects.vkbdevice.device, "MipChainNCB",
-                                             thisFrameData->deletionQueue.get(), commandPoolmanager->commandPool,
-                                             render_steps_for_frame.back().signalSempahores, semaphorePool.pushUninitializedSubspan(1)));
-    auto mipChainCommandBufferContext = &render_steps_for_frame[render_steps_for_frame.size() - 1];
-    render_steps_for_frame.back().renderStep = []()
-    {
-    };
-
-    //Shadow map Drawing  -- part of the big aggregate step I need to write code for
-    render_steps_for_frame.push_back(createAndBeginRenderStep(rendererVulkanObjects.vkbdevice.device, "shadowNCB",
-                                             thisFrameData->deletionQueue.get(), commandPoolmanager->commandPool,
-                                             render_steps_for_frame.back().signalSempahores, semaphorePool.pushUninitializedSubspan(1)));
-    auto shadowCommandBufferContext = &render_steps_for_frame[render_steps_for_frame.size() - 1];
-    render_steps_for_frame.back().renderStep = []()
-    {
-    };
-    render_steps_for_frame.push_back(createAndBeginRenderStep(rendererVulkanObjects.vkbdevice.device, "shadowTransitionOutCB",
-                                             thisFrameData->deletionQueue.get(), commandPoolmanager->commandPool,
-                                             render_steps_for_frame.back().signalSempahores, semaphorePool.pushUninitializedSubspan(1)));
-
+    //Shadow map Drawing 
+    auto shadowRenderStepContext = renderstepDatas.createRenderStepAndInitialize(
+        "shadowSignalSemaphores", "shadowCommandBuffer",
+        commandPoolmanager->commandPool, false,
+        {}, false, {});
+    auto beforeOpaqueTransitionOutRenderStepContext = renderstepDatas.createRenderStepAndInitialize(
+        "shadowTransitionOutSignalSemaphores", "shadowTransitionOutCommandBuffer",
+        commandPoolmanager->commandPool, false,
+        {}, false, {});
     //Transition Shadowmaps
-    auto shadowTransitionOutContext = render_steps_for_frame.back();
-    render_steps_for_frame.back().renderStep = [&, _i = render_steps_for_frame.size()]()
-    {
-        transitionImageForRendering(
-            getFullRendererContext(),
-            &render_steps_for_frame[_i - 1],
-            rendererResources.shadowImages[currentFrame],
-            VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, shadowWaitStages, 1, true);
-    };
 
+    //Opaque rendering 
+    auto opaqueRenderStepContext = renderstepDatas.createRenderStepAndInitialize(
+        "opaqueSignalSemaphores", "opaqueCommandBuffer",
+        commandPoolmanager->commandPool, false,
+        {}, false, {});
+    opaqueRenderStepContext->fence = &FramesInFlightData[currentFrame].inFlightFence;
 
-    //Opaque rendering -- part of the big aggregate step I need to write code for
-    render_steps_for_frame.push_back(createAndBeginRenderStep(rendererVulkanObjects.vkbdevice.device, "opaqueNCB",
-                                             thisFrameData->deletionQueue.get(), commandPoolmanager->commandPool,
-                                             render_steps_for_frame.back().signalSempahores, semaphorePool.pushUninitializedSubspan(1)));
-    auto opaqueCommandBufferContext = &render_steps_for_frame[render_steps_for_frame.size() - 1];
-    opaqueCommandBufferContext->fence = &FramesInFlightData[currentFrame].inFlightFence;
+    auto postRenderTransitionOutStepContext = renderstepDatas.createRenderStepAndInitialize(
+        "TR_RenderingSignalSemaphores", "TR_RenderingCommandBuffer",
+        commandPoolmanager->commandPool, false,
+        {}, false, {});
 
-    
-    render_steps_for_frame.push_back(createAndBeginRenderStep(rendererVulkanObjects.vkbdevice.device, "TR_RenderingNCB",
-                                             thisFrameData->deletionQueue.get(), commandPoolmanager->commandPool,
-                                             render_steps_for_frame.back().signalSempahores, semaphorePool.pushUninitializedSubspan(1)));
     //TODO JS: it's possible I'm leaking tons of commandbuffers into vram here? May need to add them to flush per frame pools or something?
-    //Pre-rendering setup
-    render_steps_for_frame.back().renderStep = [&, _i = render_steps_for_frame.size()]()
-    {
-        transitionImageForRendering(
-            getFullRendererContext(),
-            &render_steps_for_frame[_i - 1],
-            rendererResources.swapchainImages[swapChainImageIndex],
-            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-            VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, swapchainWaitStages, 1, false);
-    };
+    //TODO JS: Can add cleanup to the renderstepDatas for loop at the end?
 
-    //TODO JS vvvv
+    //Pre-rendering setup
+    //  // //
+    transitionImageForRendering(
+    getFullRendererContext(),
+    preRenderTransitionsrenderStepContext,
+    rendererResources.swapchainImages[swapChainImageIndex],
+    VK_IMAGE_LAYOUT_UNDEFINED,
+    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, swapchainWaitStages, 1, false);
+    
+    transitionImageForRendering(
+    getFullRendererContext(),
+    preRenderTransitionsrenderStepContext,
+    rendererResources.shadowImages[currentFrame],
+    VK_IMAGE_LAYOUT_UNDEFINED,
+    VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, shadowWaitStages, 1, true);
+    
+    //Transferring cpu -> gpu data -- should improve
+    AddBufferTrasnfer(thisFrameData->hostVerts.buffer.data, thisFrameData->deviceVerts.data,
+                      thisFrameData->deviceVerts.size, preRenderTransitionsrenderStepContext->commandBuffer);
+    AddBufferTrasnfer(thisFrameData->hostMesh.buffer.data, thisFrameData->deviceMesh.data,
+                      thisFrameData->deviceMesh.size, preRenderTransitionsrenderStepContext->commandBuffer);
+    AddBufferTrasnfer(thisFrameData->hostIndices.buffer.data, thisFrameData->deviceIndices.data,
+                      thisFrameData->deviceIndices.size, preRenderTransitionsrenderStepContext->commandBuffer);
+      
+    //Set up draws
     //This is the bulk of the render, the main opaque pass which depends on compute, shadow, opaque, culling, etc
         //Need to make a new "aggregate step" concept to handle this so I can make it a lambda like the rest
-    doMipChainCompute(*mipChainCommandBufferContext, &perFrameArenas[currentFrame],  rendererResources.depthPyramidInfo.image,
+    doMipChainCompute(*mipChainRenderStepContext, &perFrameArenas[currentFrame],  rendererResources.depthPyramidInfo.image,
                       rendererResources.depthBufferInfo.view, rendererResources.depthPyramidInfo.viewsForMips, rendererResources.depthMipSampler, currentFrame, rendererResources.depthPyramidInfo.depthSize.x,
-                       rendererResources.depthPyramidInfo.depthSize.y);     //Like initializeCommandBufferCulling -- mips and stuff
-
-    setDebugObjectName(rendererVulkanObjects.vkbdevice.device,VK_OBJECT_TYPE_COMMAND_BUFFER, "Shadow Command Buffer",   uint64_t(shadowCommandBufferContext->commandBuffer));
-    setDebugObjectName(rendererVulkanObjects.vkbdevice.device,VK_OBJECT_TYPE_COMMAND_BUFFER, "Opaque Command Buffer",   uint64_t(opaqueCommandBufferContext->commandBuffer));
-    setDebugObjectName(rendererVulkanObjects.vkbdevice.device,VK_OBJECT_TYPE_COMMAND_BUFFER, "Compute Command Buffer",   uint64_t(computeCommandBufferContext->commandBuffer));
-    setDebugObjectName(rendererVulkanObjects.vkbdevice.device,VK_OBJECT_TYPE_COMMAND_BUFFER, "culling Command Buffer",   uint64_t(cullingDepthPrepassCommandBufferContext->commandBuffer));
-    
+                       rendererResources.depthPyramidInfo.depthSize.y);     
     //Create the renderpass
      auto* mainRenderTargetAttatchment = MemoryArena::Alloc<VkRenderingAttachmentInfoKHR>(&perFrameArenas[currentFrame]);
      *mainRenderTargetAttatchment =  createRenderingAttatchmentStruct(rendererResources.swapchainImageViews[swapChainImageIndex], 0.0, true);
@@ -2280,28 +2296,28 @@ void vulkanRenderer::drawFrame(Scene* scene)
      AddShadowPasses(renderPasses, scene, AssetDataAndMemory, &scene->sceneCamera,
                      &perFrameArenas[currentFrame],
                      perLightShadowData, shaderGroups.shadowShaders, &descriptorsetLayoutsDataCulling
-                     ,  shadowCommandBufferContext,  computeCommandBufferContext,thisFrameData->deviceIndices.data, rendererResources.shadowMapRenderingImageViews[currentFrame]);
+                     ,  shadowRenderStepContext,  computeRenderStepContext,thisFrameData->deviceIndices.data, rendererResources.shadowMapRenderingImageViews[currentFrame]);
 
     VkRenderingAttachmentInfoKHR* depthDrawAttatchment = MemoryArena::Alloc<VkRenderingAttachmentInfoKHR>(&perFrameArenas[currentFrame]);
     *depthDrawAttatchment = createRenderingAttatchmentStruct( rendererResources.depthBufferInfo.view, 1.0, true);
     
     AddOpaquePasses(renderPasses,shaderGroups.opaqueShaders, scene,  AssetDataAndMemory, &perFrameArenas[currentFrame],
                     perLightShadowData,
-                    &descriptorsetLayoutsDataCulling, opaqueCommandBufferContext
-                    ,  computeCommandBufferContext,   mainRenderTargetAttatchment,depthDrawAttatchment, rendererVulkanObjects.swapchain.extent,
+                    &descriptorsetLayoutsDataCulling, opaqueRenderStepContext
+                    ,  computeRenderStepContext,   mainRenderTargetAttatchment,depthDrawAttatchment, rendererVulkanObjects.swapchain.extent,
                  thisFrameData->deviceIndices.data);
 
 
     //Indirect command buffer
     uploadIndirectCommandBufferForPasses(scene, AssetDataAndMemory, &perFrameArenas[currentFrame], thisFrameData->drawBuffers.getMappedSpan(), renderPasses->passes.getSpan());
-    updateBindingsComputeCulling(*computeCommandBufferContext,  &perFrameArenas[currentFrame], currentFrame);
+    updateBindingsComputeCulling(*computeRenderStepContext,  &perFrameArenas[currentFrame], currentFrame);
     
  
     //Prototype depth passes code
     //Going to move creation of these into the add passes fns, and have the logic to look up the appropriate sahder passed thru there
     //Need to think about how 
     auto passes = renderPasses->passes.getSpan();
-    for(int i = 0; i < passes.size(); i++)
+    for(size_t i = 0; i < passes.size(); i++)
     {
         auto oldPass = passes[i];
         auto newPass =  passes[i];
@@ -2313,7 +2329,7 @@ void vulkanRenderer::drawFrame(Scene* scene)
             newPasses[j].pipeline = shaderGroups.shadowShaders.pipelineGroup->getPipeline(1); //TODO JS: Avoid hardcoded index 1 for cull shader
         }
         newPass.meshPasses = newPasses;
-        newPass.drawcommandBufferContext = cullingDepthPrepassCommandBufferContext;
+        newPass.drawRenderStepContext = cullingDepthPrepassRenderStepContext;
         newPass.depthAttatchment = MemoryArena::AllocCopy<VkRenderingAttachmentInfoKHR>(&perFrameArenas[currentFrame], *passes[i].depthAttatchment);
         if (newPass.pushConstantsSize == 0) //kludge -- this is a opaque draw
         {
@@ -2328,28 +2344,38 @@ void vulkanRenderer::drawFrame(Scene* scene)
     }
 
     
-    //Draws
+    //Submti the actual Draws
     recordPrimaryRenderPasses(renderPasses->passes.getSpan(),thisFrameData->drawBuffers.buffer.data, currentFrame);
-    recordUtilityPasses(opaqueCommandBufferContext->commandBuffer, swapChainImageIndex);
+    recordUtilityPasses(opaqueRenderStepContext->commandBuffer, swapChainImageIndex);
     //
 
+    //After render steps
+    //
+    //
+    
+    transitionImageForRendering(
+      getFullRendererContext(),
+      beforeOpaqueTransitionOutRenderStepContext,
+      rendererResources.shadowImages[currentFrame],
+      VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, shadowWaitStages, 1, true);
+    transitionImageForRendering(
+        getFullRendererContext(),
+        beforeOpaqueTransitionOutRenderStepContext,
+        rendererResources.swapchainImages[swapChainImageIndex],
+        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, swapchainWaitStages, 1, false);
 
     ////Submit our render steps
-    for (int j = 0; j < render_steps_for_frame.size(); j++)
-    {
-        RenderStep* ctx = &render_steps_for_frame.data()[j];
-        if (ctx->renderStep != nullptr)ctx->renderStep();
-        endCommandBufferRecording(ctx);
-        SubmitCommandBuffer(1, ctx, ctx->fence != nullptr? *ctx->fence : VK_NULL_HANDLE);
-    }
+    renderstepDatas.finishAndSubmitCommandBuffers();
 
 
 
     //Render
     VkPresentInfoKHR presentInfo{};
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-    presentInfo.waitSemaphoreCount = render_steps_for_frame.back().signalSempahores.size();
-    presentInfo.pWaitSemaphores = render_steps_for_frame.back().signalSempahores.data();
+    presentInfo.waitSemaphoreCount = postRenderTransitionOutStepContext->signalSempahores.size();
+    presentInfo.pWaitSemaphores = postRenderTransitionOutStepContext->signalSempahores.data();
     presentInfo.swapchainCount = 1;
     presentInfo.pSwapchains = {&rendererVulkanObjects.swapchain.swapchain};
     presentInfo.pImageIndices = &swapChainImageIndex;
