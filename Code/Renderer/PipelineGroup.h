@@ -35,7 +35,7 @@ struct descriptorUpdateData;
         
         PipelineGroup()
         {}
-        PipelineGroup(RendererContext handles, VkDescriptorPool pool, std::span<VkDescriptorSetLayoutBinding> opaqueLayout, const char* debugName);
+        PipelineGroup(RendererContext handles, VkDescriptorPool pool, std::span<VkDescriptorSetLayoutBinding> opaqueLayout,  uint32_t setsPerFrame, const char* debugName);
 
         //Initialization
         
@@ -45,8 +45,9 @@ struct descriptorUpdateData;
         struct perPipelineData;
 
         //Runtime
-        void updateDescriptorSets(std::span<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame);
-        void bindToCommandBuffer(VkCommandBuffer cmd, uint32_t currentFrame, VkPipelineBindPoint bindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS);
+        void updateDescriptorSets(std::span<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame, uint32_t descriptorToUpdate);
+        void bindToCommandBuffer(VkCommandBuffer cmd, uint32_t currentFrame, uint32_t descriptorOffset, VkPipelineBindPoint bindPoint =
+                                     VK_PIPELINE_BIND_POINT_GRAPHICS);
 
         VkPipeline getPipeline(int index);
         uint32_t getPipelineCt();
@@ -69,7 +70,7 @@ struct descriptorUpdateData;
             // VkDescriptorSetLayout imageDescriptorLayout = {};
             // VkDescriptorSetLayout samplerDescriptorLayout = {};
         
-            std::vector<VkDescriptorSet> perSceneDescriptorSetForFrame = {};
+            std::vector<std::span<VkDescriptorSet>> perSceneDescriptorSetForFrame = {};
             // std::vector<VkDescriptorSet> storageDescriptorSetForFrame = {};
             // std::vector<VkDescriptorSet> imageDescriptorSetForFrame = {};
             // std::vector<VkDescriptorSet> samplerDescriptorSetForFrame = {};
@@ -80,7 +81,7 @@ struct descriptorUpdateData;
         perPipelineData pipelineData;
         // perPipelineData shadowPipelineData;
         //Descriptor set update
-        void createDescriptorSets(VkDescriptorPool pool, int MAX_FRAMES_IN_FLIGHT, const char* debugName);
+        void createDescriptorSets(RendererContext handles, VkDescriptorPool pool, int MAX_FRAMES_IN_FLIGHT, uint32_t descriptorCt, const char* debugName);
 
     private:
 
@@ -102,7 +103,8 @@ struct descriptorUpdateData;
 
      
         void createPipelineLayoutForPipeline(perPipelineData* perPipelineData, size_t pconstantSize, bool compute);
-        void updateDescriptorSetsForPipeline(std::span<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame, perPipelineData* perPipelineData);
+        void updateDescriptorSetsForPipeline(std::span<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame, perPipelineData* perPipelineData, uint32_t
+                                             descriptorOffset);
         std::vector<VkWriteDescriptorSet> writeDescriptorSets;
         std::unordered_map<VkDescriptorSet, int> writeDescriptorSetsBindingIndices;
         

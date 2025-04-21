@@ -25,11 +25,11 @@ VkDescriptorSetLayoutCreateInfo createInfoFromSpan( std::span<VkDescriptorSetLay
 
     return _createInfo;
 }
-PipelineGroup::PipelineGroup(RendererContext handles, VkDescriptorPool pool, std::span<VkDescriptorSetLayoutBinding> opaqueLayout, const char* debugName)
+PipelineGroup::PipelineGroup(RendererContext handles, VkDescriptorPool pool, std::span<VkDescriptorSetLayoutBinding> opaqueLayout, uint32_t setsPerFrame, const char* debugName)
 {
     device = handles.device;
     createLayout(handles , opaqueLayout);
-    createDescriptorSets(pool, MAX_FRAMES_IN_FLIGHT, debugName);
+    createDescriptorSets(handles, pool, MAX_FRAMES_IN_FLIGHT, setsPerFrame, debugName);
     
 }
 
@@ -60,17 +60,24 @@ void PipelineGroup::createLayout(RendererContext handles,  std::span<VkDescripto
     this->pipelineData.slots = layout;
 }
 
-void PipelineGroup::bindToCommandBuffer(VkCommandBuffer cmd, uint32_t currentFrame, VkPipelineBindPoint bindPoint)
+//Descriptor offset: Currently I allocate all of my descriptor sets for the whole renderer up front, because there are very few
+//The Mip Chain group  needs multiple descriptor sets, because it has to write to various mip levels, so the offset indices in 
+//Likely that will need a revisit.
+void PipelineGroup::bindToCommandBuffer(VkCommandBuffer cmd, uint32_t currentFrame,  uint32_t descriptorOffset, VkPipelineBindPoint bindPoint)
 {
     assert(pipelineData.descriptorSetsInitialized && pipelineData.pipelinesInitialized);
     vkCmdBindDescriptorSets(cmd, bindPoint, this->pipelineData.bindlessPipelineLayout,
         0, 1,
-        &this->pipelineData.perSceneDescriptorSetForFrame[currentFrame], 0, nullptr);
+                                                            //TODO JS1
+        &this->pipelineData.perSceneDescriptorSetForFrame[currentFrame][descriptorOffset], 0, nullptr);
 }
 
 
 
-void PipelineGroup::updateDescriptorSetsForPipeline(std::span<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame, perPipelineData* perPipelineData)
+//Descriptor offset: Currently I allocate all of my descriptor sets for the whole renderer up front, because there are very few
+//The Mip Chain group  needs multiple descriptor sets, because it has to write to various mip levels, so the offset indices in 
+//Likely that will need a revisit.
+void PipelineGroup::updateDescriptorSetsForPipeline(std::span<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame, perPipelineData* perPipelineData, uint32_t descriptorOffset)
 {
     
     writeDescriptorSets.clear();
@@ -79,7 +86,7 @@ void PipelineGroup::updateDescriptorSetsForPipeline(std::span<descriptorUpdateDa
     for(int i = 0; i < descriptorUpdates.size(); i++)
     {
         descriptorUpdateData update = descriptorUpdates[i];
-        VkDescriptorSet set = perPipelineData-> perSceneDescriptorSetForFrame[currentFrame];
+        VkDescriptorSet set = perPipelineData-> perSceneDescriptorSetForFrame[currentFrame][descriptorOffset];
         
         if (!writeDescriptorSetsBindingIndices.contains(set))
         {
@@ -119,23 +126,40 @@ void PipelineGroup::updateDescriptorSetsForPipeline(std::span<descriptorUpdateDa
 }
 
 //updates descriptor sets based on vector of descriptorupdatedata, with some light validation that we're binding the right stuff
-void PipelineGroup::updateDescriptorSets(std::span<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame)
+void PipelineGroup::updateDescriptorSets(std::span<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame, uint32_t descriptorToUpdate)
 {
-   updateDescriptorSetsForPipeline(descriptorUpdates, currentFrame, &pipelineData);
+   updateDescriptorSetsForPipeline(descriptorUpdates, currentFrame, &pipelineData, descriptorToUpdate);
 }
 
 
 
 
-void PipelineGroup::createDescriptorSets(VkDescriptorPool pool, int MAX_FRAMES_IN_FLIGHT, const char* debugName)
+void PipelineGroup::createDescriptorSets(RendererContext handles, VkDescriptorPool pool, int MAX_FRAMES_IN_FLIGHT, uint32_t descriptorCt, const char* debugName)
 {
     assert(!this->pipelineData.descriptorSetsInitialized); // Don't double initialize
     pipelineData.perSceneDescriptorSetForFrame.resize(MAX_FRAMES_IN_FLIGHT);
     for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        if ( pipelineData.perSceneDescriptorSetLayout != nullptr)
-            DescriptorSets::AllocateDescriptorSet(device, pool,  &pipelineData.perSceneDescriptorSetLayout, & pipelineData.perSceneDescriptorSetForFrame[i], 1);
-    setDebugObjectName(device, VK_OBJECT_TYPE_DESCRIPTOR_SET,debugName, uint64_t(pipelineData.perSceneDescriptorSetForFrame[i]) );
+        assert(pipelineData.perSceneDescriptorSetLayout != nullptr);
+        pipelineData.perSceneDescriptorSetForFrame[i] = MemoryArena::AllocSpan<VkDescriptorSet>(handles.arena,descriptorCt);
+
+        //Allocate descriptor sets expects one layout per each descriptor set allocated
+        //(I think the expectation is you're allocating big chunks of un-sorted descriptor sets)
+        //For now, since this only happens once at the start of the frame, we'll just copy the layout for the alloc
+        //However this may need a revisit in the future
+        auto descriptorSetLayoutCopiesForAlloc = MemoryArena::AllocSpan<VkDescriptorSetLayout>(handles.tempArena,descriptorCt);
+
+        for(int j = 0; j < descriptorCt; j++)
+        {
+            descriptorSetLayoutCopiesForAlloc[j] = pipelineData.perSceneDescriptorSetLayout;
+        }
+        DescriptorSets::AllocateDescriptorSet(device, pool,  descriptorSetLayoutCopiesForAlloc.data(), pipelineData.perSceneDescriptorSetForFrame[i].data(), descriptorCt);
+
+        for (auto element : pipelineData.perSceneDescriptorSetForFrame[i])
+        {
+            setDebugObjectName(device, VK_OBJECT_TYPE_DESCRIPTOR_SET,debugName, uint64_t(element) );
+        }
+    
     }
     pipelineData.descriptorSetsInitialized = true;
             

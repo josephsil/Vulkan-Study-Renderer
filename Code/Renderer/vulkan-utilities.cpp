@@ -64,14 +64,9 @@ uint32_t Capabilities::findMemoryType(RendererContext rendererHandles, uint32_t 
 }
 
 
-//TODO JS: Descriptor refactor Note 1-
-    //TODO JS: I want to move descriptor allocation to the start of the frame
-    //TODO JS: I want to allocate a varying descriptor set count in this call, and bump through them as I need them
-    //TODO JS: I need to register how many I need for a frame... somewhere
-    //TODO JS: OR: I can special case this for now, and expose something in pipeline group for how many sets there are
-    //TODO JS: Span of sets?
-    //TODO JS: And then in my draw command just consume them
-    //TODO JS: Maybe that's better. 
+//TODO JS1: Descriptor refactor Note 1-
+
+
 void DescriptorSets::AllocateDescriptorSet(VkDevice device, VkDescriptorPool pool, VkDescriptorSetLayout* pdescriptorsetLayout, VkDescriptorSet* pset, uint32_t ct)
 {
     VkDescriptorSetAllocateInfo allocInfo = {};

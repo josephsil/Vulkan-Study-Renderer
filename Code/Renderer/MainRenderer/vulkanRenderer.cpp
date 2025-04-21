@@ -324,13 +324,13 @@ void vulkanRenderer::initializeRendererForScene(Scene* scene) //todo remaining i
 
     //TODO JS: Next validation errors point here, because I'm re-setting the descriptor sets repeatedly.\
     //TODO JS: Either need to refactor  comp shader to be bindless style or address immediate cause.
-    descriptorsetLayoutsDataMipChain = PipelineGroup(getFullRendererContext(), descriptorPool, mipChainLayout.getSpan(), "mip chain layout");
+    descriptorsetLayoutsDataMipChain = PipelineGroup(getFullRendererContext(), descriptorPool, mipChainLayout.getSpan(), HIZDEPTH, "mip chain layout");
     setDebugObjectName(rendererVulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT,"mip chain descriptor layout", 
     uint64_t(descriptorsetLayoutsDataMipChain.pipelineData.perSceneDescriptorSetLayout));
 
     createGraphicsPipeline( rendererResources.shaderLoader->compiledShaders["mipChain"] ,  &descriptorsetLayoutsDataMipChain, {},true, sizeof(glm::vec2));
 
-    descriptorsetLayoutsDataCulling = PipelineGroup(getFullRendererContext(), descriptorPool, cullingLayout.getSpan(), "culling layout");
+    descriptorsetLayoutsDataCulling = PipelineGroup(getFullRendererContext(), descriptorPool, cullingLayout.getSpan(), 1, "culling layout");
     setDebugObjectName(rendererVulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT,"cullingdescriptor layout", 
     uint64_t(descriptorsetLayoutsDataCulling.pipelineData.perSceneDescriptorSetLayout));
 
@@ -340,9 +340,9 @@ void vulkanRenderer::initializeRendererForScene(Scene* scene) //todo remaining i
     createGraphicsPipeline( rendererResources.shaderLoader->compiledShaders["cull"] ,  &descriptorsetLayoutsDataCulling, {},true, sizeof(cullPConstants));
     setDebugObjectName(rendererVulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_PIPELINE,"cullt shader", uint64_t(descriptorsetLayoutsDataCulling.getPipeline(0)));
     
-    descriptorsetLayoutsData = PipelineGroup(getFullRendererContext(), descriptorPool, opaqueLayout.getSpan(), "opaque layout");
+    descriptorsetLayoutsData = PipelineGroup(getFullRendererContext(), descriptorPool, opaqueLayout.getSpan(), 1,  "opaque layout");
     setDebugObjectName(rendererVulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT,"opaquedescriptor layout", uint64_t(descriptorsetLayoutsData.pipelineData.perSceneDescriptorSetLayout));
-    descriptorsetLayoutsDataShadow = PipelineGroup(getFullRendererContext(), descriptorPool, shadowLayout.getSpan(), "shadow layout");
+    descriptorsetLayoutsDataShadow = PipelineGroup(getFullRendererContext(), descriptorPool, shadowLayout.getSpan(), 1,  "shadow layout");
     setDebugObjectName(rendererVulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT,"shadowdescriptor layout", uint64_t(descriptorsetLayoutsDataShadow.pipelineData.perSceneDescriptorSetLayout));
 
    auto swapchainFormat = rendererVulkanObjects.swapchain.image_format;
@@ -547,7 +547,7 @@ void vulkanRenderer::createDescriptorSetPool(RendererContext context, VkDescript
 
 void vulkanRenderer::updateOpaqueDescriptorSets(PipelineGroup* layoutData)
 {
-    layoutData->updateDescriptorSets(opaqueUpdates[currentFrame], currentFrame);
+    layoutData->updateDescriptorSets(opaqueUpdates[currentFrame], currentFrame, 0);
 }
 
 
@@ -692,7 +692,7 @@ std::span<descriptorUpdateData> vulkanRenderer::createShadowDescriptorUpdates(Me
 void vulkanRenderer::updateShadowDescriptorSets(PipelineGroup* layoutData, uint32_t shadowIndex)
 {
     layoutData->
-    updateDescriptorSets(shadowUpdates[currentFrame][shadowIndex], currentFrame);
+    updateDescriptorSets(shadowUpdates[currentFrame][shadowIndex], currentFrame, 0);
 
     
 }
@@ -1348,7 +1348,7 @@ void recordPrimaryRenderPasses( std::span<RenderPassConfig> passes, VkBuffer ind
         auto passInfo = passes[j];
         auto context = passInfo.drawcommandBufferContext;
         assert(context->active);
-        passInfo.pipelineGroup->bindToCommandBuffer(context->commandBuffer, currentFrame); //Often the same -- cache?
+        passInfo.pipelineGroup->bindToCommandBuffer(context->commandBuffer, currentFrame, 0); //Often the same -- cache?
         VkPipelineLayout layout =  passInfo.pipelineGroup->pipelineData.bindlessPipelineLayout; //Often the same -- cache?
         if (context->indexBuffer != passInfo.indexBuffer )
         {
@@ -1461,8 +1461,8 @@ void vulkanRenderer::doMipChainCompute(commandBufferContext commandBufferContext
         descriptorUpdates[1] = {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, distInfo};  //dst view
         descriptorUpdates[2] = {VK_DESCRIPTOR_TYPE_SAMPLER, shadowSamplerInfo}; //draws 
 
-        descriptorsetLayoutsDataMipChain.updateDescriptorSets(descriptorUpdates, _currentFrame);
-        descriptorsetLayoutsDataMipChain.bindToCommandBuffer(commandBufferContext.commandBuffer, _currentFrame, VK_PIPELINE_BIND_POINT_COMPUTE);
+        descriptorsetLayoutsDataMipChain.updateDescriptorSets(descriptorUpdates, _currentFrame, i);
+        descriptorsetLayoutsDataMipChain.bindToCommandBuffer(commandBufferContext.commandBuffer, _currentFrame, i, VK_PIPELINE_BIND_POINT_COMPUTE);
 
         
 
@@ -1473,8 +1473,8 @@ void vulkanRenderer::doMipChainCompute(commandBufferContext commandBufferContext
         auto pushConstants = MemoryArena::Alloc<glm::vec2>(arena);
         *pushConstants = {outputWidth, outputHeight};
         vkCmdPushConstants(commandBufferContext.commandBuffer, descriptorsetLayoutsDataMipChain.pipelineData.bindlessPipelineLayout,VK_SHADER_STAGE_COMPUTE_BIT, 0,
-                          sizeof(int),pushConstants);
-        
+                          sizeof(glm::vec2),pushConstants);
+
         //Dispatch for all the pixels?
         vkCmdDispatch(commandBufferContext.commandBuffer, outputWidth, outputHeight, 1);
 
@@ -1514,8 +1514,8 @@ void vulkanRenderer::updateBindingsComputeCulling(commandBufferContext commandBu
     descriptorUpdates[1] = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, computeDrawBuffer}; //draws 
     descriptorUpdates[2] = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, objectBufferInfo}; //objectData  //
     
-    descriptorsetLayoutsDataCulling.updateDescriptorSets(descriptorUpdates, _currentFrame);
-    descriptorsetLayoutsDataCulling.bindToCommandBuffer(commandBufferContext.commandBuffer, _currentFrame, VK_PIPELINE_BIND_POINT_COMPUTE);
+    descriptorsetLayoutsDataCulling.updateDescriptorSets(descriptorUpdates, _currentFrame, 0);
+    descriptorsetLayoutsDataCulling.bindToCommandBuffer(commandBufferContext.commandBuffer, _currentFrame, 0, VK_PIPELINE_BIND_POINT_COMPUTE);
 
     vkCmdBindPipeline(commandBufferContext.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, descriptorsetLayoutsDataCulling.getPipeline(0));
 }
