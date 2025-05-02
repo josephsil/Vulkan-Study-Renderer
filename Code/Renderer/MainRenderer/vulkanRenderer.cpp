@@ -226,6 +226,7 @@ RendererResources /*todo*/ static_initializeResources(rendererObjects initialize
     shaderLoader->AddShader("lines", L"./Shaders/lines.hlsl");
     shaderLoader->AddShader("cull", L"./Shaders/cull_compute.hlsl", true);
     shaderLoader->AddShader("mipChain", L"./Shaders/mipchain_compute.hlsl", true);
+    shaderLoader->AddShader("debug", L"./Shaders/Shader_Debug_Raymarch.hlsl", false);
 
 
     return {
@@ -353,12 +354,18 @@ void vulkanRenderer::initializeRendererForScene(Scene* scene) //todo remaining i
     const PipelineGroup::graphicsPipelineSettings opaquePipelineSettings =  {.colorFormats = std::span(&swapchainFormat, 1),.depthFormat =  rendererResources.depthBufferInfo.format, .depthWriteEnable = VK_FALSE};
     createGraphicsPipeline( rendererResources.shaderLoader->compiledShaders["triangle_alt"],  &descriptorsetLayoutsData, opaquePipelineSettings,false, sizeof(debugLinePConstants));
     setDebugObjectName(rendererVulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_PIPELINE,"triangle alt shader", uint64_t(descriptorsetLayoutsData.getPipeline(0)));
+    
     createGraphicsPipeline( rendererResources.shaderLoader->compiledShaders["triangle"],  &descriptorsetLayoutsData, opaquePipelineSettings,false, sizeof(debugLinePConstants));
     setDebugObjectName(rendererVulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_PIPELINE,"triangle  shader", uint64_t(descriptorsetLayoutsData.getPipeline(1)));
+
     const PipelineGroup::graphicsPipelineSettings linePipelineSettings =  {std::span(&swapchainFormat, 1), rendererResources.depthBufferInfo.format, VK_CULL_MODE_NONE, VK_PRIMITIVE_TOPOLOGY_LINE_LIST };
     createGraphicsPipeline( rendererResources.shaderLoader->compiledShaders["lines"],  &descriptorsetLayoutsData, linePipelineSettings,false, sizeof(debugLinePConstants));
     setDebugObjectName(rendererVulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_PIPELINE,"lines  shader", uint64_t(descriptorsetLayoutsData.getPipeline(2)));
 
+    
+    const PipelineGroup::graphicsPipelineSettings debugRaymarchPipelineSettings =  {std::span(&swapchainFormat, 1), rendererResources.depthBufferInfo.format, VK_CULL_MODE_FRONT_BIT, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST};
+    createGraphicsPipeline( rendererResources.shaderLoader->compiledShaders["debug"],  &descriptorsetLayoutsData, debugRaymarchPipelineSettings,false, sizeof(debugLinePConstants));
+    setDebugObjectName(rendererVulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_PIPELINE,"debug raymarch shader", uint64_t(descriptorsetLayoutsData.getPipeline(3)));
     //shadow 
     const PipelineGroup::graphicsPipelineSettings shadowPipelineSettings =  {std::span(&swapchainFormat, 0), shadowFormat, VK_CULL_MODE_NONE, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_TRUE, VK_FALSE, VK_TRUE, true };
     createGraphicsPipeline( rendererResources.shaderLoader->compiledShaders["shadow"],  &descriptorsetLayoutsDataShadow, shadowPipelineSettings,false, sizeof(shadowPushConstants));
@@ -374,9 +381,12 @@ void vulkanRenderer::initializeRendererForScene(Scene* scene) //todo remaining i
     createGraphicsPipeline( rendererResources.shaderLoader->compiledShaders["shadow"],  &descriptorsetLayoutsDataShadow, depthPipelineSettings,false, sizeof(shadowPushConstants));
     std::span<VkPipelineShaderStageCreateInfo> triangleShaderSpan =  rendererResources.shaderLoader->compiledShaders["triangle"];
     createGraphicsPipeline( triangleShaderSpan.subspan(0, 1),  &descriptorsetLayoutsData, depthPipelineSettings2,false, sizeof(shadowPushConstants));
-    setDebugObjectName(rendererVulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_PIPELINE,"depth prepass shader", uint64_t(descriptorsetLayoutsData.getPipeline(3)));
+    setDebugObjectName(rendererVulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_PIPELINE,"depth prepass shader", uint64_t(descriptorsetLayoutsData.getPipeline(4)));
     setDebugObjectName(rendererVulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_PIPELINE,"depth prepass shader", uint64_t(descriptorsetLayoutsDataShadow.getPipeline(1)));
-     for (auto kvp : rendererResources.shaderLoader->compiledShaders)
+
+
+
+    for (auto kvp : rendererResources.shaderLoader->compiledShaders)
      {
          for(auto compiled_shader : kvp.second)
          {
@@ -1554,13 +1564,18 @@ void vulkanRenderer::recordUtilityPasses( VkCommandBuffer commandBuffer, int ima
         constants.pos2 = glm::vec4(debugLines[i].end,1.0);
         constants.color = glm::vec4(debugLines[i].color,1.0);
         constants.m = glm::mat4(1.0);
-    
+
+        //Fullscreen quad render
         vkCmdPushConstants(commandBuffer, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                           sizeof(debugLinePConstants), &constants);
-    
         vkCmdDraw(commandBuffer, 2, 1, 0, 0);
     }
 
+
+    // //TODO JS: something other than hardcoded 3
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, descriptorsetLayoutsData.getPipeline(3));
+
+    vkCmdDraw(commandBuffer, 6, 1, 0, 0);
 
     //temp home for imgui
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
