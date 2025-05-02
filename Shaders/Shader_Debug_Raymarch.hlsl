@@ -39,7 +39,7 @@ static float2 fullscreen_quad_positions[6] = {
 
 
 
-#define MAX_STEPS 120
+#define MAX_STEPS 300
 #define MAX_DIST 100.0
 #define EPS .01
 // -spirv -T vs_6_5 -E Vert .\Shader1.hlsl -Fo .\triangle.vert.spv
@@ -55,7 +55,7 @@ VSOutput Vert(VSInput input,  [[vk::builtin("BaseInstance")]]  uint InstanceInde
 	// https://github.com/microsoft/DirectXShaderCompiler/issues/2193 	
  	MyVertexStructure myVertex = BufferTable.Load<MyVertexStructure>((VERTEXOFFSET + VertexIndex) * sizeof(MyVertexStructure));
 #endif
-    float4 vertPos = float4(fullscreen_quad_positions[VertexIndex], 1.0,1.0);
+    float4 vertPos = float4(fullscreen_quad_positions[VertexIndex], 1,1.0);
 
     //
     objectData ubo = uboarr[InstanceIndex];
@@ -184,10 +184,9 @@ FSOutput Frag(VSOutput input)
 
     float _fov = 70.0;
     float aspect = 1.0 / 0.5625;
-    float fov2 = radians(_fov)  * 0.5f;
+    float fov2 = radians(_fov) * 0.5f ;
     float2 screenCoord = uv;
     screenCoord.x *= -aspect;
-    screenCoord.y = screenCoord.y;
     float2 offsets = screenCoord * tan(fov2);
     float3  front = float3(0.0, 0.0, -1.0); // where are we looking at
     float3  up = float3(0.0, 1.0, 0.0); // what we consider to be up
@@ -206,7 +205,8 @@ FSOutput Frag(VSOutput input)
 
 
     float d_out = 0.;
-    for (int j = 0; j < 4; j++)
+    int start = 0;
+    for (int j = start; j < start+10; j++)
     {
         uint InstanceIndex = j;
         objectData  ubo = uboarr[InstanceIndex];
@@ -216,11 +216,10 @@ FSOutput Frag(VSOutput input)
         for(int i = 0; i < MAX_STEPS; i++)
         {
             float3 _point = ray_origin + ray_dir * d;
-            float3 sphere =  uboarr[InstanceIndex].objectSpaceboundsCenter; // (xyz, radius)
-            float4 _sphere = {0, 0, 0, 1};
-            sphere = mul( modelView, float4(_sphere));
+            float4 sphere =  float4(uboarr[InstanceIndex].objectSpaceboundsCenter.xyz, 1);
+            sphere = mul( modelView, sphere);
 
-            float radius = 1.f;
+            float radius = uboarr[InstanceIndex].objectSpaceboundsRadius;
             float ds = length(_point - sphere.xyz)-radius;
             d += ds; 
             if(d > MAX_DIST || ds < EPS) 

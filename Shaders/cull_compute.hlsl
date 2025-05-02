@@ -55,7 +55,7 @@ void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
 	// float4x4 mvp = mul(globals.proj, modelView);
 	float4 center = mul(modelView,float4(0,0,0,1) + object.objectSpaceboundsCenter);
 	// center.z = center.z * -1;
-	float radius = object.objectSpaceboundsRadius; // TODO JS Doesn't respect object scale!! 
+	float radius = object.objectSpaceboundsRadius * 1.5f; // TODO JS Culling doesn't work properly for low FOVs -- scale up to be conservative
  
 	bool visible = true;
 

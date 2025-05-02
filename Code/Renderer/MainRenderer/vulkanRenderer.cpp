@@ -13,6 +13,8 @@
 #include <ImageLibraryImplementations.h>
 #include <General/Array.h>
 #include <General/MemoryArena.h>
+#include <glm/gtx/matrix_decompose.hpp>
+
 #include "../bufferCreation.h"
 #include "../CommandPoolManager.h"
 #include "../gpu-data-structs.h"
@@ -1050,7 +1052,7 @@ std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocato
             outputSpan = MemoryArena::AllocSpan<PerShadowData>(allocator, 1 ); 
             lightViewMatrix = glm::lookAt(lightPos, lightPos + dir, up);
             
-            lightProjection = glm::perspective(glm::radians(spotRadius),
+            lightProjection = glm::perspective(glm::radians((float)spotRadius),
                                       1.0f, 0.1f,
                                       50.0f); //TODO BETTER FAR 
             outputSpan[0] = {lightViewMatrix, lightProjection,  0};
@@ -1220,9 +1222,26 @@ void vulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<std::spa
         ubos[i].props.materialprops = glm::vec4(material.roughness, material.roughness, 0, 0);
         ubos[i].props.color = glm::vec4(material.color,1.0f);
 
-        positionRadius objectBounds = AssetDataAndMemory->meshBoundingSphereRad[scene->objects.meshIndices[i]];
-        objectBounds.objectSpaceRadius *= glm::max(glm::max(scene->objects.scales[i].x, scene->objects.scales[i].y), scene->objects.scales[i].z); //TODO JS move earlier in the frame
-        ubos[i].cullingInfo = objectBounds;
+
+        
+        //Set position and radius for culling
+        //Decompose out scale from the model matrix
+            //todo: better to store radius separately and avoid this calculation?
+        glm::vec3 scale = glm::vec3(1.0);
+        glm::quat _1 = glm::quat();
+        glm::vec3 _2 = glm::vec3(0);
+        glm::vec3 _3;
+        glm::vec4 _4;
+        glm::decompose( (*model), scale, _1, _2, _3, _4);
+        auto model2 = transpose(*model);
+
+
+        positionRadius meshSpacePositionAndRadius = AssetDataAndMemory->meshBoundingSphereRad[scene->objects.meshIndices[i]];
+        float meshRadius = meshSpacePositionAndRadius.radius;
+        float objectScale = glm::max(glm::max( scale.x, scale.x), scale.x);
+        ubos[i].cullingInfo.pos = meshSpacePositionAndRadius.pos;
+        meshRadius *= objectScale;
+        ubos[i].cullingInfo.radius = meshRadius;
     }
     
     FramesInFlightData[currentFrame].uniformBuffers.updateMappedMemory({ubos.data(), (size_t)scene->objectsCount()});
@@ -1572,13 +1591,15 @@ void vulkanRenderer::recordUtilityPasses( VkCommandBuffer commandBuffer, int ima
     }
 
 
-    // //TODO JS: something other than hardcoded 3
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, descriptorsetLayoutsData.getPipeline(3));
-
-    vkCmdDraw(commandBuffer, 6, 1, 0, 0);
-
-    //temp home for imgui
-    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
+    //Debug raymarching pass
+    //Disabled for now
+    // // //TODO JS: something other than hardcoded 3
+    // vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, descriptorsetLayoutsData.getPipeline(3));
+    //
+    // vkCmdDraw(commandBuffer, 6, 1, 0, 0);
+    //
+    // //temp home for imgui
+    // ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
 
     
     vkCmdEndRendering(commandBuffer);
@@ -1830,12 +1851,21 @@ drawBatchConfig CreateRenderPassConfig_new(MemoryArena::memoryArena* allocator, 
                                      ActiveRenderStepData* shadowRenderStepContext,
                                      ActiveRenderStepData* computeRenderStepContext, 
                                      pointerSize pushConstantReference,
-                                      VkBuffer indexBuffer, viewProj cameraViewProj, uint32_t drawOffset, uint32_t passOffset, uint32_t objectCount, depthBiasSettng depthBiasConfig )
+                                      VkBuffer indexBuffer, viewProj cameraViewProjForCulling, uint32_t drawOffset, uint32_t passOffset, uint32_t objectCount, depthBiasSettng depthBiasConfig )
 {
+
+    uint32_t cullFrustumIndex = (passOffset) * 6;
+    if (debug_cull_override)
+    {
+        cullFrustumIndex =  debug_cull_override_index * 6;
+    }
+        
     cullPConstants* cullconstants = MemoryArena::Alloc<cullPConstants>(allocator);
-    *cullconstants = {.view = cameraViewProj.view, .firstDraw = drawOffset, .frustumIndex = (passOffset) * 6, .objectCount = objectCount};
+
+
+    *cullconstants = {.view = cameraViewProjForCulling.view, .firstDraw = drawOffset, .frustumIndex = cullFrustumIndex, .objectCount = objectCount};
     ComputeCullListInfo* cullingInfo = MemoryArena::Alloc<ComputeCullListInfo>(allocator);
-    *cullingInfo =  {.firstDrawIndirectIndex = drawOffset, .drawCount = objectCount, .viewMatrix = cameraViewProj.view, .projMatrix = cameraViewProj.proj, 
+    *cullingInfo =  {.firstDrawIndirectIndex = drawOffset, .drawCount = objectCount, .viewMatrix = cameraViewProjForCulling.view, .projMatrix = cameraViewProjForCulling.proj, 
         .layout = computePipelineData->pipelineData.bindlessPipelineLayout, // just get pipeline layout globally?
        .pushConstantInfo =  {.ptr = cullconstants, .size =  sizeof(cullPConstants) }};
 
@@ -1890,7 +1920,7 @@ drawBatchConfig CreateRenderPassConfig_new(MemoryArena::memoryArena* allocator, 
              .depthAttatchment = renderAttatchmentInfo.depthDraw,
              .colorattatchment = renderAttatchmentInfo.colorDraw,
              .renderingAttatchmentExtent = renderAttatchmentInfo.extents,
-      .matrices =  cameraViewProj,
+      .matrices =  cameraViewProjForCulling,
              .pushConstants = pushConstantReference.ptr,
              .pushConstantsSize = pushConstantReference.size,
              //TODO JS: dynamically set bias per shadow caster, especially for cascades
@@ -1908,7 +1938,7 @@ void    AddOpaquePasses(drawBatchList* targetPassList, shaderLookup shaderGroup,
     
 {
     uint32_t objectsPerDraw = scene->objectsCount();
-    viewProj viewProjMatrices = viewProjFromCamera(scene->sceneCamera);
+    viewProj viewProjMatricesForCulling = viewProjFromCamera(scene->sceneCamera);
 
     
     //Culling debug stuff
@@ -1924,9 +1954,9 @@ void    AddOpaquePasses(drawBatchList* targetPassList, shaderLookup shaderGroup,
     
     if ( debug_cull_override && getFlattenedShadowData(debug_cull_override_index,inputShadowdata, data))
     {
-        viewProjMatrices = { data->view,  data->proj};
+        viewProjMatricesForCulling = { data->view,  data->proj};
         glm::vec4 frustumCornersWorldSpace[8] = {};
-        populateFrustumCornersForSpace(frustumCornersWorldSpace,   glm::inverse(viewProjMatrices.proj * viewProjMatrices.view));
+        populateFrustumCornersForSpace(frustumCornersWorldSpace,   glm::inverse(viewProjMatricesForCulling.proj * viewProjMatricesForCulling.view));
         debugDrawFrustum(frustumCornersWorldSpace);
     }
 
@@ -1934,7 +1964,7 @@ void    AddOpaquePasses(drawBatchList* targetPassList, shaderLookup shaderGroup,
     targetPassList->batchConfigs.push_back(  CreateRenderPassConfig_new(allocator, scene, rendererData,
         {.colorDraw = opaqueTarget, .depthDraw = depthTarget, .extents = targetExtent},
         shaderGroup, computePipelineData, opaqueRenderStepContext, computeRenderStepContext,
-        {.ptr = nullptr, .size = 0}, indexBuffer,viewProjMatrices,targetPassList->drawCount,targetPassList->batchConfigs.size(), objectsPerDraw,{false, 0, 0}
+        {.ptr = nullptr, .size = 0}, indexBuffer,viewProjMatricesForCulling,targetPassList->drawCount,targetPassList->batchConfigs.size(), objectsPerDraw,{false, 0, 0}
         ));
     targetPassList->drawCount += objectsPerDraw;
 

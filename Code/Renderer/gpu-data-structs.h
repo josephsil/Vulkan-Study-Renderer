@@ -29,8 +29,8 @@ struct objectProperties
 
 struct positionRadius
 {
-    alignas(16) glm::vec4 objectSpacePos;
-    alignas(16) glm::float32_t objectSpaceRadius;
+    alignas(16) glm::vec4 pos;
+    alignas(16) glm::float32_t radius;
 };
 
 struct UniformBufferObject

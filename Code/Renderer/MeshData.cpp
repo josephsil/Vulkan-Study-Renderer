@@ -202,5 +202,5 @@ MeshData MeshDataFromObjFile(RendererContext rendererHandles, const char* path)
 
 positionRadius boundingSphereFromMeshBounds(std::span<glm::vec3> boundsCorners)
 {
-    return { {(boundsCorners[0] +  boundsCorners[1]) / 2.0f, 0.0}, glm::distance(boundsCorners[0], boundsCorners[1])};
+    return { {(boundsCorners[0] +  boundsCorners[1]) / 2.0f, 0.0}, glm::distance(boundsCorners[0], boundsCorners[1]) * 0.5f};
 }
