@@ -1,22 +1,23 @@
 #include "CommandPoolManager.h"
 
 #include "BufferAndPool.h"
+#include "RendererDeletionQueue.h"
 #include "./VulkanIncludes/Vulkan_Includes.h"
 #include "VkBootstrap.h" //TODO JS: dont love vkb being in multiple places
 
 QueueData GET_QUEUES(vkb::Device device);
 void createCommandPool(VkDevice device, uint32_t index, VkCommandPool* pool);
 
-CommandPoolManager::CommandPoolManager()
-{
-};
 
-CommandPoolManager::CommandPoolManager(vkb::Device vkbdevice)
+CommandPoolManager::CommandPoolManager(vkb::Device vkbdevice, RendererDeletionQueue* deletionQueue)
 {
     Queues = GET_QUEUES(vkbdevice);
     device = vkbdevice.device;
     createCommandPool(device, Queues.graphicsQueueFamily, &commandPool);
     createCommandPool(device, Queues.transferQueueFamily, &transferCommandPool);
+    
+    deletionQueue->push_backVk(deletionType::CommandPool, uint64_t(commandPool));
+    deletionQueue->push_backVk(deletionType::CommandPool, uint64_t(transferCommandPool));
 }
 
 VkCommandBuffer CommandPoolManager::beginSingleTimeCommands_transfer()

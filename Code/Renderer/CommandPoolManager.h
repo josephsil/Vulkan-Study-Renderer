@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 
+#include "RendererDeletionQueue.h"
 #include "VulkanIncludes/forward-declarations-renderer.h"
 // #include "rendererGlobals.h"
 
@@ -29,8 +30,8 @@ struct CommandPoolManager
 {
 public:
     QueueData Queues;
-    CommandPoolManager();
-    CommandPoolManager(vkb::Device device);
+
+    CommandPoolManager(vkb::Device vkbdevice, RendererDeletionQueue* deletionQueue);
 
     VkCommandPool commandPool;
     VkCommandPool transferCommandPool;

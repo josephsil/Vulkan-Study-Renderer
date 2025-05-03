@@ -181,6 +181,8 @@
     <ClCompile Include="Code\Renderer\MainRenderer\vulkanRenderer.cpp">
 
     </ClCompile>
+    <ClCompile Include="Code\Renderer\MainRenderer\VulkanRendererInternals\DebugLineData.cpp" />
+    <ClCompile Include="Code\Renderer\MainRenderer\VulkanRendererInternals\RendererHelpers.cpp" />
     <ClCompile Include="Code\Renderer\MainRenderer\vulkanRenderer_Initialization.cpp" />
     <ClCompile Include="Code\Renderer\MeshData.cpp">
     </ClCompile>
@@ -237,6 +239,8 @@
     <ClInclude Include="Code\Renderer\gpu-data-structs.h" />
     <ClInclude Include="Code\Renderer\MainRenderer\rendererStructs.h" />
     <ClInclude Include="Code\Renderer\MainRenderer\vulkanRenderer.h" />
+    <ClInclude Include="Code\Renderer\MainRenderer\VulkanRendererInternals\DebugLineData.h" />
+    <ClInclude Include="Code\Renderer\MainRenderer\VulkanRendererInternals\RendererHelpers.h" />
     <ClInclude Include="Code\Renderer\MeshData.h" />
     <ClInclude Include="Code\Renderer\MikkTImpl.h" />
     <ClInclude Include="Code\Renderer\PipelineGroup.h" />

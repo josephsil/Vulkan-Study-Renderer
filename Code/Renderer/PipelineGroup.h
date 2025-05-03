@@ -40,8 +40,9 @@ struct descriptorUpdateData;
         //Initialization
         
 
-        void createGraphicsPipeline(std::span<VkPipelineShaderStageCreateInfo> shaders, graphicsPipelineSettings settings, size_t pconstantSize = 0);
-        void createComputePipeline(VkPipelineShaderStageCreateInfo shader, size_t pconstantSize = 0);
+        void createGraphicsPipeline(std::span<VkPipelineShaderStageCreateInfo> shaders, char* name, graphicsPipelineSettings settings, size_t pconstantSize
+                                        = 0);
+        void createComputePipeline(VkPipelineShaderStageCreateInfo shader, char* name, size_t pconstantSize = 0);
         struct perPipelineData;
 
         //Runtime
@@ -82,13 +83,13 @@ struct descriptorUpdateData;
         // perPipelineData shadowPipelineData;
         //Descriptor set update
         void createDescriptorSets(RendererContext handles, VkDescriptorPool pool, int MAX_FRAMES_IN_FLIGHT, uint32_t descriptorCt, const char* debugName);
+        VkPipeline GetPipelineByName(const char* name);
 
     private:
 
        
         
         VkDevice device;
-     
 
       
         std::vector<VkPipeline> pipelines;
@@ -98,7 +99,7 @@ struct descriptorUpdateData;
 
  
 
-        void createLayout(RendererContext handles, std::span<VkDescriptorSetLayoutBinding> layout);
+        void createLayout(RendererContext handles, std::span<VkDescriptorSetLayoutBinding> layout, const char* debugName);
 
 
      

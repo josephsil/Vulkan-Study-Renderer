@@ -6,6 +6,7 @@
 #include <SDL2/SDL_vulkan.h>
 
 #include "Renderer/VulkanIncludes/VulkanMemory.h"
+#include "VulkanRendererInternals/RendererHelpers.h"
 
 void vulkanRenderer::initializeWindow()
 {
@@ -27,7 +28,7 @@ void vulkanRenderer::initializeWindow()
 
 vkb::PhysicalDevice getPhysicalDevice(vkb::Instance instance,     VkSurfaceKHR surface)
 {
-// #define RENDERDOC_COMPATIBILITY
+#define RENDERDOC_COMPATIBILITY
     const std::vector<const char*> deviceExtensions = {
        VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_MAINTENANCE_4_EXTENSION_NAME, VK_KHR_MAINTENANCE_3_EXTENSION_NAME, VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME, VK_EXT_MUTABLE_DESCRIPTOR_TYPE_EXTENSION_NAME
 #ifndef RENDERDOC_COMPATIBILITY
@@ -120,7 +121,43 @@ vkb::Instance getInstance()
 }
 
 
-rendererObjects static_initializeRendererHandles(SDL_Window* _window, int WIDTH, int HEIGHT)
+ GlobalRendererResources static_initializeResources(rendererObjects initializedrenderer,  MemoryArena::memoryArena* allocationArena, RendererDeletionQueue* deletionQueue, CommandPoolManager* commandPoolmanager)
+{
+    std::vector<VkImage> swapchainImages = initializedrenderer.swapchain.get_images().value();
+    std::vector<VkImageView> swapchainImageViews = initializedrenderer.swapchain.get_image_views().value();
+    for(int i = 0; i < swapchainImageViews.size(); i++)
+    {
+        setDebugObjectName(initializedrenderer.vkbdevice.device, VK_OBJECT_TYPE_IMAGE, "Swapchain image", uint64_t(swapchainImages[i]));
+        setDebugObjectName(initializedrenderer.vkbdevice.device, VK_OBJECT_TYPE_IMAGE_VIEW, "Swapchain image view", uint64_t(swapchainImageViews[i]));
+    }
+
+    for(int i = 0; i < swapchainImageViews.size(); i++)
+    {
+        deletionQueue->push_backVk(deletionType::ImageView, uint64_t(swapchainImageViews[i]));
+    }
+
+    //Load shaders
+    auto shaderLoader =  std::make_unique<ShaderLoader>(initializedrenderer.vkbdevice.device);
+    shaderLoader->AddShader("triangle", L"./Shaders/Shader1_copy.hlsl");
+    shaderLoader->AddShader("triangle_alt", L"./Shaders/shader1.hlsl");
+    shaderLoader->AddShader("shadow", L"./Shaders/bindlessShadow.hlsl");
+    shaderLoader->AddShader("lines", L"./Shaders/lines.hlsl");
+    shaderLoader->AddShader("cull", L"./Shaders/cull_compute.hlsl", true);
+    shaderLoader->AddShader("mipChain", L"./Shaders/mipchain_compute.hlsl", true);
+    shaderLoader->AddShader("debug", L"./Shaders/Shader_Debug_Raymarch.hlsl", false);
+
+
+    return {
+        .shaderLoader = std::move(shaderLoader),
+        .swapchainImages = swapchainImages, 
+        .swapchainImageViews = swapchainImageViews,
+        .depthBufferInfo =  static_createDepthResources(initializedrenderer, allocationArena, deletionQueue, commandPoolmanager),
+        .depthPyramidInfo =  static_createDepthPyramidResources(initializedrenderer, allocationArena, deletionQueue, commandPoolmanager),
+    };
+}
+
+
+rendererObjects initializeVulkanObjects(SDL_Window* _window, int WIDTH, int HEIGHT)
 {
     //Get instance
     auto vkb_instance = getInstance();

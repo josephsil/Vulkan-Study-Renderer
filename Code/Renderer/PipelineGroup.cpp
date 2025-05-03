@@ -1,5 +1,6 @@
+#define STB_DS_IMPLEMENTATION
 #include "PipelineGroup.h"
-
+#include "../../External/stb_ds.h"
 #include <cassert>
 
 #include "rendererGlobals.h"
@@ -28,12 +29,11 @@ VkDescriptorSetLayoutCreateInfo createInfoFromSpan( std::span<VkDescriptorSetLay
 PipelineGroup::PipelineGroup(RendererContext handles, VkDescriptorPool pool, std::span<VkDescriptorSetLayoutBinding> opaqueLayout, uint32_t setsPerFrame, const char* debugName)
 {
     device = handles.device;
-    createLayout(handles , opaqueLayout);
+    createLayout(handles , opaqueLayout, debugName);
     createDescriptorSets(handles, pool, MAX_FRAMES_IN_FLIGHT, setsPerFrame, debugName);
-    
 }
 
-void PipelineGroup::createLayout(RendererContext handles,  std::span<VkDescriptorSetLayoutBinding> layout )
+void PipelineGroup::createLayout(RendererContext handles,  std::span<VkDescriptorSetLayoutBinding> layout, const char* debugName )
 {
     VkDescriptorSetLayoutCreateInfo perSceneLaout = createInfoFromSpan(layout);
 
@@ -56,7 +56,7 @@ void PipelineGroup::createLayout(RendererContext handles,  std::span<VkDescripto
 
     
     VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &perSceneLaout, nullptr, &this->pipelineData.perSceneDescriptorSetLayout));
-    setDebugObjectName(handles.device, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, "PDO layout",(uint64_t)this->pipelineData.perSceneDescriptorSetLayout );
+    setDebugObjectName(handles.device, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, debugName,(uint64_t)this->pipelineData.perSceneDescriptorSetLayout );
     this->pipelineData.slots = layout;
 }
 
@@ -222,7 +222,7 @@ void PipelineGroup::createPipelineLayoutForPipeline(perPipelineData* perPipeline
 
 
 
-void PipelineGroup::createGraphicsPipeline(std::span<VkPipelineShaderStageCreateInfo> shaders, graphicsPipelineSettings settings, size_t pconstantSize)
+void PipelineGroup::createGraphicsPipeline(std::span<VkPipelineShaderStageCreateInfo> shaders, char* name, graphicsPipelineSettings settings, size_t pconstantSize)
 {
     auto pipeline =  &pipelineData;
     createPipelineLayoutForPipeline(pipeline, pconstantSize,false);
@@ -333,12 +333,14 @@ void PipelineGroup::createGraphicsPipeline(std::span<VkPipelineShaderStageCreate
         printf("failed to create graphics pipeline!");
     exit(-1);
     }
+   
+    setDebugObjectName(device, VK_OBJECT_TYPE_PIPELINE,"lines  shader", uint64_t(newGraphicsPipeline));
 
     pipeline->pipelinesInitialized = true;
     pipelines.push_back(newGraphicsPipeline);
 }
 
-void PipelineGroup::createComputePipeline(VkPipelineShaderStageCreateInfo shader, size_t pconstantSize)
+void PipelineGroup::createComputePipeline(VkPipelineShaderStageCreateInfo shader, char* name, size_t pconstantSize)
 {
 
     auto pipeline =  &pipelineData;
@@ -357,7 +359,8 @@ void PipelineGroup::createComputePipeline(VkPipelineShaderStageCreateInfo shader
    
 
     VK_CHECK(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &newPipeline));
-    
+
+    setDebugObjectName(device, VK_OBJECT_TYPE_PIPELINE,"lines  shader", uint64_t(newPipeline));
     pipeline->pipelinesInitialized = true;
     pipelines.push_back(newPipeline);
 }

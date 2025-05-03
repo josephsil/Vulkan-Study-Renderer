@@ -1,5 +1,3 @@
-#ifndef VERTEX_H
-#define VERTEX_H
 #pragma once
 
 #define GLM_FORCE_RADIANS	
@@ -28,4 +26,3 @@ struct VertexHash
     std::size_t operator()(const Vertex& v) const;
 };
 
-#endif

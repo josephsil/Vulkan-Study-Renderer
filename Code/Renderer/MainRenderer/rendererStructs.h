@@ -1,3 +1,4 @@
+#pragma once 
 struct pointerSize
 {
     void* ptr;
@@ -58,6 +59,17 @@ struct acquireImageSemaphore
   
 };
 
+struct rendererObjects
+{
+    vkb::Instance vkbInstance;
+    vkb::PhysicalDevice vkbPhysicalDevice;
+    vkb::Device vkbdevice;
+    VmaAllocator vmaAllocator;
+    VkSurfaceKHR surface; //not sure I need surface for anything except cleanup?
+    vkb::Swapchain swapchain;
+    //maybe move these two
+};
+
 
 struct shaderLookup
 {
@@ -67,9 +79,20 @@ struct shaderLookup
 
 //These map the shader ID in the scene/materials to shader IDs/pipeline groups for each major type
 
-struct ShaderGroups
+struct BindlessObjectShaderGroup
 {
     shaderLookup opaqueShaders;
     shaderLookup shadowShaders;
     shaderLookup cullShaders;
+};
+
+struct ActiveRenderStepData
+{
+    bool active;
+    VkBuffer indexBuffer;
+    VkPipeline boundPipeline;
+    VkCommandBuffer commandBuffer;
+    std::span<VkSemaphore> waitSemaphores;
+    std::span<VkSemaphore> signalSempahores;
+    VkFence* fence;
 };

@@ -2,6 +2,7 @@
 #define GLM_FORCE_RADIANS	
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
+
 #include <span>
 #include <vector>
 #include <glm/glm.hpp>
@@ -31,27 +32,8 @@ struct SDL_Window;
 //Include last //
 
 
-struct ActiveRenderStepData
-{
-    bool active;
-    VkBuffer indexBuffer;
-    VkPipeline boundPipeline;
-    VkCommandBuffer commandBuffer;
-    std::span<VkSemaphore> waitSemaphores;
-    std::span<VkSemaphore> signalSempahores;
-    VkFence* fence;
-};
 
-struct rendererObjects
-{
-    vkb::Instance vkbInstance;
-    vkb::PhysicalDevice vkbPhysicalDevice;
-    vkb::Device vkbdevice;
-    VmaAllocator vmaAllocator;
-    VkSurfaceKHR surface; //not sure I need surface for anything except cleanup?
-    vkb::Swapchain swapchain;
-    //maybe move these two
-};
+
 
 struct depthBiasSettng
 {
@@ -88,31 +70,31 @@ struct drawBatchConfig
     depthBiasSettng depthBiasSetting;
 };
 
-
-struct RendererResources //Buffers, images, etc, used in core rendering -- probably to break up later
+struct PerSceneShadowResources
 {
-    std::unique_ptr<ShaderLoader> shaderLoader;
-
-    std::vector<VkImage> swapchainImages;
-    std::vector<VkImageView> swapchainImageViews;
-    
     std::span<std::span<VkImageView>> shadowMapRenderingImageViews;
     std::span<std::span<VkImageView>> shadowMapSamplingImageViews;
-
-    std::vector<VkSampler> shadowSamplers;
-    std::vector<VkImage> shadowImages;
-    VkSampler depthMipSampler;
+    std::span<VkSampler> shadowSamplers;
+    std::span<VkImage> shadowImages;
     std::span<std::span<DepthPyramidInfo>>WIP_shadowDepthPyramidInfos; //todo js populate
-    std::vector<VmaAllocation> shadowMemory;
+    std::span<VmaAllocation> shadowMemory;
 
+};
+
+struct GlobalRendererResources //Buffers, images, etc, used in core rendering -- probably to break up later
+{
+    std::unique_ptr<ShaderLoader> shaderLoader;
+    std::vector<VkImage> swapchainImages;
+    std::vector<VkImageView> swapchainImageViews;
+    VkSampler depthMipSampler;
     DepthBufferInfo depthBufferInfo;
-
     DepthPyramidInfo depthPyramidInfo;
 };
 
 
-rendererObjects static_initializeRendererHandles(SDL_Window* sdlWin, int WIDTH,int HEIGHT);
-
+rendererObjects initializeVulkanObjects(SDL_Window* sdlWin, int WIDTH,int HEIGHT);
+GlobalRendererResources static_initializeResources(rendererObjects initializedrenderer,  MemoryArena::memoryArena* allocationArena, RendererDeletionQueue* deletionQueue, CommandPoolManager* commandPoolmanager);
+PerSceneShadowResources  init_allocate_shadow_memory(rendererObjects initializedrenderer,  MemoryArena::memoryArena* allocationArena);
 class vulkanRenderer
 {
 
@@ -122,7 +104,7 @@ public:
 
     vulkanRenderer();
     RendererContext getFullRendererContext();
-    BufferCreationContext getRendererForVkObjects();
+    BufferCreationContext getPartialRendererContext();
     void initializeRendererForScene(Scene* scene);
     void Update(Scene* scene);
     void cleanup();
@@ -132,7 +114,8 @@ public:
 private:
 
     rendererObjects rendererVulkanObjects;
-    RendererResources rendererResources;
+    GlobalRendererResources globalResources;
+    PerSceneShadowResources shadowResources;
     std::unique_ptr<CommandPoolManager> commandPoolmanager; 
     std::unique_ptr<RendererDeletionQueue> deletionQueue;
     //Memory allocators
@@ -158,7 +141,7 @@ void updateShadowImageViews(int frame, Scene* scene);
     VkDescriptorSetLayout pushDescriptorSetLayout;
     VkDescriptorSetLayout perMaterialSetLayout;
 
-    ShaderGroups shaderGroups;
+    BindlessObjectShaderGroup shaderGroups;
     PipelineGroup descriptorsetLayoutsData; 
     PipelineGroup descriptorsetLayoutsDataShadow; 
     PipelineGroup descriptorsetLayoutsDataCulling;
@@ -250,11 +233,12 @@ void updateShadowImageViews(int frame, Scene* scene);
 
 
     void createGraphicsPipeline(std::span<VkPipelineShaderStageCreateInfo> shaderStages,
-                                PipelineGroup* descriptorsetdata, PipelineGroup::graphicsPipelineSettings settings, bool compute, size_t pconstantsize);
+                                const char* name, PipelineGroup* descriptorsetdata, PipelineGroup::graphicsPipelineSettings settings, bool compute, size_t
+                                pconstantSize);
     
 
   
-    void drawFrame(Scene* scene);
+    void RenderFrame(Scene* scene);
 
 
     void renderShadowPass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores,

@@ -1,10 +1,8 @@
-
 #include "vulkanRenderer.h"
 #include<glm/gtc/quaternion.hpp>
 #undef main
 #define SDL_MAIN_HANDLED 
 #include <SDL2/SDL.h>
-#include <SDL2/SDL_vulkan.h>
 ////
 #include <cstdlib>
 #include <functional>
@@ -31,33 +29,27 @@
 #include "Scene/Scene.h"
 #include "Scene/Transforms.h"
 #include "../VulkanIncludes/vmaImplementation.h"
-#include "../VulkanIncludes/VulkanMemory.h"
-#include "General/InputHandling.h"
 #include "Renderer/VulkanIncludes/Vulkan_Includes.h"
+#include "VulkanRendererInternals/DebugLineData.h"
+#include "VulkanRendererInternals/RendererHelpers.h"
 
 struct gpuPerShadowData;
-
-
-#pragma region vkb setup
-
-
-#pragma endregion
-
-
-
 std::vector<unsigned int> pastTimes;
 unsigned int averageCbTime;
 unsigned int frames;
 unsigned int MAX_TEXTURES = 120;
-
+TextureData cube_irradiance;
+TextureData cube_specular;
+auto debugLinesManager = DebugLineData();
 //Slowly making this less of a giant class that owns lots of things and moving to these static FNS -- will eventually migrate thewm
-RendererResources /*todo*/  static_initializeResources(rendererObjects initializedrenderer,  MemoryArena::memoryArena* allocationArena, RendererDeletionQueue* deletionQueue,  CommandPoolManager* commandPoolmanager);
-DepthBufferInfo static_createDepthResources(rendererObjects initializedrenderer,  MemoryArena::memoryArena* allocationArena, RendererDeletionQueue* deletionQueue,  CommandPoolManager* commandPoolmanager);
-DepthPyramidInfo static_createDepthPyramidResources(rendererObjects initializedrenderer,  MemoryArena::memoryArena* allocationArena, RendererDeletionQueue* deletionQueue, CommandPoolManager* commandPoolmanager );
-void static_createSyncObjects(VkDevice device,  RendererDeletionQueue* deletionQueue, acquireImageSemaphore* semaphoresToCreate, VkFence* fence);
+
+PerSceneShadowResources  init_allocate_shadow_memory(rendererObjects initializedrenderer,  MemoryArena::memoryArena* allocationArena);
+
 
 vulkanRenderer::vulkanRenderer()
 {
+    this->deletionQueue = std::make_unique<RendererDeletionQueue>(rendererVulkanObjects.vkbdevice, rendererVulkanObjects.vmaAllocator);
+    FramesInFlightData.resize(MAX_FRAMES_IN_FLIGHT);
     //Initialize memory arenas we use throughout renderer 
     this->rendererArena = {};
     MemoryArena::initialize(&rendererArena, 1000000 * 200); // 200mb
@@ -67,59 +59,32 @@ vulkanRenderer::vulkanRenderer()
         // 5mb each //TODO JS: Could be much smaller if I used stable memory for per frame verts and stuff
     }
 
-
-    FramesInFlightData.resize(MAX_FRAMES_IN_FLIGHT);
-
+    //Initialize the window and vulkan renderer
     initializeWindow();
-
-    rendererVulkanObjects = static_initializeRendererHandles(_window, WIDTH, HEIGHT);
+    rendererVulkanObjects = initializeVulkanObjects(_window, WIDTH, HEIGHT);
 
     //Initialize the main datastructures the renderer uses
-
-    this->deletionQueue = std::make_unique<RendererDeletionQueue>(rendererVulkanObjects.vkbdevice, rendererVulkanObjects.vmaAllocator);
-    for (int i = 0; i < rendererResources.swapchainImageViews.size(); i++)
-    {
-        deletionQueue->push_backVk(deletionType::ImageView, uint64_t(rendererResources.swapchainImageViews[i]));
-    }
-
-    commandPoolmanager = std::make_unique<CommandPoolManager>(rendererVulkanObjects.vkbdevice);
-    deletionQueue->push_backVk(deletionType::CommandPool, uint64_t(commandPoolmanager->commandPool));
-    deletionQueue->push_backVk(deletionType::CommandPool, uint64_t(commandPoolmanager->transferCommandPool));
-
-    rendererResources = static_initializeResources(rendererVulkanObjects, &rendererArena, deletionQueue.get(),
+    commandPoolmanager = std::make_unique<CommandPoolManager>(rendererVulkanObjects.vkbdevice, deletionQueue.get());
+    globalResources = static_initializeResources(rendererVulkanObjects, &rendererArena, deletionQueue.get(),
                                                    commandPoolmanager.get());
+    shadowResources = init_allocate_shadow_memory(rendererVulkanObjects, &rendererArena);
 
     //Command buffer stuff
     //semaphores
     for (int i = 0; i < FramesInFlightData.size(); i++)
     {
-        static_createSyncObjects(rendererVulkanObjects.vkbdevice.device, deletionQueue.get(),
-                                 &(FramesInFlightData[i].semaphores), &FramesInFlightData[i].inFlightFence);
+        createSemaphore(rendererVulkanObjects.vkbdevice.device, &(FramesInFlightData[i].semaphores.semaphore), "Per Frame semaphpre", deletionQueue.get());
+        static_createFence(rendererVulkanObjects.vkbdevice.device,  &FramesInFlightData[i].inFlightFence, "Per Frame fence", deletionQueue.get());
         FramesInFlightData[i].deletionQueue = std::make_unique<RendererDeletionQueue>(rendererVulkanObjects.vkbdevice, rendererVulkanObjects.vmaAllocator);
     }
-
-
     //Initialize sceneData
     AssetDataAndMemory = MemoryArena::Alloc<AssetManager>(&rendererArena);
     static_AllocateAssetMemory(&rendererArena, AssetDataAndMemory);
-
-
     //imgui
     initializeDearIMGUI();
-
     //finally
     pastTimes.resize(9999);
 }
-
-
-TextureData cube_irradiance;
-TextureData cube_specular;
-
-// VkSurfaceKHR surface; //todo js 0
-// vkb::Instance vkb_instance; //todo js 0
-// vkb::PhysicalDevice vkb_physicalDevice; //todo js 0
-// vkb::Device vkb_device; //todo js 0
-// vkb::Swapchain vkb_swapchain; //todo js 0
 
 
 RendererContext vulkanRenderer::getFullRendererContext()
@@ -134,7 +99,7 @@ RendererContext vulkanRenderer::getFullRendererContext()
         .rendererdeletionqueue = deletionQueue.get()};
 }
 
-BufferCreationContext vulkanRenderer::getRendererForVkObjects()
+BufferCreationContext vulkanRenderer::getPartialRendererContext()
 {
     return objectCreationContextFromRendererContext(getFullRendererContext());
 }
@@ -145,21 +110,21 @@ void vulkanRenderer::updateShadowImageViews(int frame, Scene* scene)
 {
     int i = frame;
        
-    rendererResources.shadowMapRenderingImageViews[i] =  MemoryArena::AllocSpan<VkImageView>(&rendererArena, MAX_SHADOWMAPS);
-    rendererResources.WIP_shadowDepthPyramidInfos[i] = MemoryArena::AllocSpan<DepthPyramidInfo>(&rendererArena, MAX_SHADOWMAPS);
+    shadowResources.shadowMapRenderingImageViews[i] =  MemoryArena::AllocSpan<VkImageView>(&rendererArena, MAX_SHADOWMAPS);
+    shadowResources.WIP_shadowDepthPyramidInfos[i] = MemoryArena::AllocSpan<DepthPyramidInfo>(&rendererArena, MAX_SHADOWMAPS);
     for (int j = 0; j < MAX_SHADOWMAPS; j++)
     {
-        rendererResources.shadowMapRenderingImageViews[i][j] = TextureUtilities::createImageViewCustomMip(
-            getRendererForVkObjects(), rendererResources.shadowImages[i], shadowFormat,
+        shadowResources.shadowMapRenderingImageViews[i][j] = TextureUtilities::createImageViewCustomMip(
+            getPartialRendererContext(), shadowResources.shadowImages[i], shadowFormat,
             VK_IMAGE_ASPECT_DEPTH_BIT,
             (VkImageViewType)  VK_IMAGE_TYPE_2D,
             1, 
             j,1, 0);
 
-        rendererResources.WIP_shadowDepthPyramidInfos[i][j] = static_createDepthPyramidResources(rendererVulkanObjects, &rendererArena, deletionQueue.get(), commandPoolmanager.get());
+        shadowResources.WIP_shadowDepthPyramidInfos[i][j] = static_createDepthPyramidResources(rendererVulkanObjects, &rendererArena, deletionQueue.get(), commandPoolmanager.get());
     }
 
-    rendererResources.shadowMapSamplingImageViews[i] =  MemoryArena::AllocSpan<VkImageView>(&rendererArena, MAX_SHADOWCASTERS);
+    shadowResources.shadowMapSamplingImageViews[i] =  MemoryArena::AllocSpan<VkImageView>(&rendererArena, MAX_SHADOWCASTERS);
     for (int j = 0; j < MAX_SHADOWCASTERS; j++)
     {
         if (j < glm::min(scene->lightCount, MAX_SHADOWCASTERS))
@@ -171,8 +136,8 @@ void vulkanRenderer::updateShadowImageViews(int frame, Scene* scene)
                 type = VK_IMAGE_VIEW_TYPE_CUBE;
             }
            
-            rendererResources.shadowMapSamplingImageViews[i][j] = TextureUtilities::createImageViewCustomMip(
-                getRendererForVkObjects(), rendererResources.shadowImages[i], shadowFormat,
+            shadowResources.shadowMapSamplingImageViews[i][j] = TextureUtilities::createImageViewCustomMip(
+                getPartialRendererContext(), shadowResources.shadowImages[i], shadowFormat,
                 VK_IMAGE_ASPECT_DEPTH_BIT,
                 (VkImageViewType)  type,
                 ct, 
@@ -182,87 +147,52 @@ void vulkanRenderer::updateShadowImageViews(int frame, Scene* scene)
         }
         else
         {
-            rendererResources.shadowMapSamplingImageViews[i][j] = rendererResources.shadowMapRenderingImageViews[i][j];
+            shadowResources.shadowMapSamplingImageViews[i][j] = shadowResources.shadowMapRenderingImageViews[i][j];
         }
     }
 }
 
-RendererResources /*todo*/ static_initializeResources(rendererObjects initializedrenderer,  MemoryArena::memoryArena* allocationArena, RendererDeletionQueue* deletionQueue, CommandPoolManager* commandPoolmanager)
+
+static PerSceneShadowResources init_allocate_shadow_memory(rendererObjects initializedrenderer,  MemoryArena::memoryArena* allocationArena)
 {
-    std::vector<VkImage> swapchainImages = initializedrenderer.swapchain.get_images().value();
-    std::vector<VkImageView> swapchainImageViews = initializedrenderer.swapchain.get_image_views().value();
-    for(int i = 0; i < swapchainImageViews.size(); i++)
-    {
-        setDebugObjectName(initializedrenderer.vkbdevice.device, VK_OBJECT_TYPE_IMAGE, "Swapchain image", uint64_t(swapchainImages[i]));
-        setDebugObjectName(initializedrenderer.vkbdevice.device, VK_OBJECT_TYPE_IMAGE_VIEW, "Swapchain image view", uint64_t(swapchainImageViews[i]));
-    }
-
-    for(int i = 0; i < swapchainImageViews.size(); i++)
-    {
-        deletionQueue->push_backVk(deletionType::ImageView, uint64_t(swapchainImageViews[i]));
-    }
-
-    //Create shadow image(s) 
-    std::vector<VkImage> shadowImages = {};
-    shadowImages.resize(MAX_FRAMES_IN_FLIGHT);
-    std::vector<VkSampler> shadowSamplers = {};
-    shadowSamplers.resize(MAX_FRAMES_IN_FLIGHT);
-    std::vector<VkSampler> shadowSamplersWithMips = {};
-    shadowSamplersWithMips.resize(MAX_FRAMES_IN_FLIGHT);
-    std::vector<VmaAllocation> shadowMemory = {};
-    shadowMemory.resize(MAX_FRAMES_IN_FLIGHT);
-    
+  
+    //TODO JS: it sucks that these aren't actually initialized in vulkan until later -- split them out? 
+    auto shadowImages = MemoryArena::AllocSpan<VkImage>(allocationArena, MAX_FRAMES_IN_FLIGHT); 
+    auto shadowSamplers = MemoryArena::AllocSpan<VkSampler>(allocationArena, MAX_FRAMES_IN_FLIGHT);
+    auto shadowSamplersWithMips = MemoryArena::AllocSpan<VkSampler>(allocationArena, MAX_FRAMES_IN_FLIGHT);
+    auto shadowMemory = MemoryArena::AllocSpan<VmaAllocation>(allocationArena, MAX_FRAMES_IN_FLIGHT);
     auto shadowMapRenderingImageViews = MemoryArena::AllocSpan<std::span<VkImageView>>(allocationArena, MAX_FRAMES_IN_FLIGHT); 
-
     auto shadowMapSamplingImageViews = MemoryArena::AllocSpan<std::span<VkImageView>>(allocationArena, MAX_FRAMES_IN_FLIGHT);
-    
     auto shadowMapDepthImageInfos = MemoryArena::AllocSpan<std::span<DepthPyramidInfo>>(allocationArena, MAX_FRAMES_IN_FLIGHT); 
 
-    //Load shaders
-
-
-    auto shaderLoader =  std::make_unique<ShaderLoader>(initializedrenderer.vkbdevice.device);
-    shaderLoader->AddShader("triangle", L"./Shaders/Shader1_copy.hlsl");
-    shaderLoader->AddShader("triangle_alt", L"./Shaders/shader1.hlsl");
-    shaderLoader->AddShader("shadow", L"./Shaders/bindlessShadow.hlsl");
-    shaderLoader->AddShader("lines", L"./Shaders/lines.hlsl");
-    shaderLoader->AddShader("cull", L"./Shaders/cull_compute.hlsl", true);
-    shaderLoader->AddShader("mipChain", L"./Shaders/mipchain_compute.hlsl", true);
-    shaderLoader->AddShader("debug", L"./Shaders/Shader_Debug_Raymarch.hlsl", false);
-
-
     return {
-        .shaderLoader = std::move(shaderLoader),
-        .swapchainImages = swapchainImages, 
-        .swapchainImageViews = swapchainImageViews,
+        
         .shadowMapRenderingImageViews = (shadowMapRenderingImageViews),
         .shadowMapSamplingImageViews =  (shadowMapSamplingImageViews),
-        .shadowSamplers = std::move(shadowSamplers),
-        .shadowImages = std::move(shadowImages),
+        .shadowSamplers =shadowSamplers,
+        .shadowImages =shadowImages,
         .WIP_shadowDepthPyramidInfos = shadowMapDepthImageInfos,
-        .shadowMemory = std::move(shadowMemory),
-        .depthBufferInfo =  static_createDepthResources(initializedrenderer, allocationArena, deletionQueue, commandPoolmanager),
-        .depthPyramidInfo =  static_createDepthPyramidResources(initializedrenderer, allocationArena, deletionQueue, commandPoolmanager),
+        .shadowMemory = shadowMemory,
     };
 }
 
-
 //TODO JS: break dependency on Scene -- add some kind of interface or something.
+//TODO JS: The layout creation stuff is awful -- need a full rethink of how layouts are set up and bound to. want a single centralized place.
 void vulkanRenderer::initializeRendererForScene(Scene* scene) //todo remaining initialization refactor
 {
     //shadows
     perLightShadowData = MemoryArena::AllocSpan<std::span<PerShadowData>>(&rendererArena, scene->lightCount);
     for(int i = 0; i < MAX_FRAMES_IN_FLIGHT ; i++)
     {
-        TextureUtilities::createImage(getRendererForVkObjects(),SHADOW_MAP_SIZE, SHADOW_MAP_SIZE,shadowFormat,VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
-               VK_IMAGE_USAGE_SAMPLED_BIT,0,rendererResources.shadowImages[i],rendererResources.shadowMemory[i],1, MAX_SHADOWMAPS, true);
-        createTextureSampler(&rendererResources.shadowSamplers[i], getFullRendererContext(), VK_SAMPLER_ADDRESS_MODE_REPEAT, 0, 1, true);
-        setDebugObjectName(rendererVulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_IMAGE, "SHADOW IMAGE", (uint64_t)(rendererResources.shadowImages[i]));
-        setDebugObjectName(rendererVulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_SAMPLER, "SHADOW IMAGE SAMPLER", (uint64_t)(rendererResources.shadowSamplers[i]));
+        TextureUtilities::createImage(getPartialRendererContext(),SHADOW_MAP_SIZE, SHADOW_MAP_SIZE,shadowFormat,VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
+               VK_IMAGE_USAGE_SAMPLED_BIT,0,shadowResources.shadowImages[i],shadowResources.shadowMemory[i],1, MAX_SHADOWMAPS, true);
+        createTextureSampler(&shadowResources.shadowSamplers[i], getFullRendererContext(), VK_SAMPLER_ADDRESS_MODE_REPEAT, 0, 1, true);
+        setDebugObjectName(rendererVulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_IMAGE, "SHADOW IMAGE", (uint64_t)(shadowResources.shadowImages[i]));
+        setDebugObjectName(rendererVulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_SAMPLER, "SHADOW IMAGE SAMPLER", (uint64_t)(shadowResources.shadowSamplers[i]));
         updateShadowImageViews(i, scene);
     }
 
-    createDepthPyramidSampler(&rendererResources.depthMipSampler, getFullRendererContext(),HIZDEPTH);  
+    createDepthPyramidSampler(&globalResources.depthMipSampler, getFullRendererContext(),HIZDEPTH);  
 
     //Initialize scene-ish objects we don't have a place for yet 
     cubemaplut_utilitytexture_index = AssetDataAndMemory->AddTexture(
@@ -326,51 +256,39 @@ void vulkanRenderer::initializeRendererForScene(Scene* scene) //todo remaining i
         }
     }
 
-    //TODO JS: Next validation errors point here, because I'm re-setting the descriptor sets repeatedly.\
-    //TODO JS: Either need to refactor  comp shader to be bindless style or address immediate cause.
-    descriptorsetLayoutsDataMipChain = PipelineGroup(getFullRendererContext(), descriptorPool, mipChainLayout.getSpan(), HIZDEPTH, "mip chain layout");
-    setDebugObjectName(rendererVulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT,"mip chain descriptor layout", 
-    uint64_t(descriptorsetLayoutsDataMipChain.pipelineData.perSceneDescriptorSetLayout));
 
-    createGraphicsPipeline( rendererResources.shaderLoader->compiledShaders["mipChain"] ,  &descriptorsetLayoutsDataMipChain, {},true, sizeof(glm::vec2));
+    descriptorsetLayoutsDataMipChain = PipelineGroup(getFullRendererContext(), descriptorPool, mipChainLayout.getSpan(), HIZDEPTH, "mip chain layout");
+
+    createGraphicsPipeline( globalResources.shaderLoader->compiledShaders["mipChain"],  "mipChain", &descriptorsetLayoutsDataMipChain, {}, true, sizeof(glm::vec2));
 
     descriptorsetLayoutsDataCulling = PipelineGroup(getFullRendererContext(), descriptorPool, cullingLayout.getSpan(), 1, "culling layout");
-    setDebugObjectName(rendererVulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT,"cullingdescriptor layout", 
-    uint64_t(descriptorsetLayoutsDataCulling.pipelineData.perSceneDescriptorSetLayout));
 
 
     
     //compute
-    createGraphicsPipeline( rendererResources.shaderLoader->compiledShaders["cull"] ,  &descriptorsetLayoutsDataCulling, {},true, sizeof(cullPConstants));
-    setDebugObjectName(rendererVulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_PIPELINE,"cullt shader", uint64_t(descriptorsetLayoutsDataCulling.getPipeline(0)));
+    createGraphicsPipeline( globalResources.shaderLoader->compiledShaders["cull"],  "cull", &descriptorsetLayoutsDataCulling, {}, true, sizeof(cullPConstants));
     
     descriptorsetLayoutsData = PipelineGroup(getFullRendererContext(), descriptorPool, opaqueLayout.getSpan(), 1,  "opaque layout");
-    setDebugObjectName(rendererVulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT,"opaquedescriptor layout", uint64_t(descriptorsetLayoutsData.pipelineData.perSceneDescriptorSetLayout));
     descriptorsetLayoutsDataShadow = PipelineGroup(getFullRendererContext(), descriptorPool, shadowLayout.getSpan(), 1,  "shadow layout");
-    setDebugObjectName(rendererVulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT,"shadowdescriptor layout", uint64_t(descriptorsetLayoutsDataShadow.pipelineData.perSceneDescriptorSetLayout));
 
    auto swapchainFormat = rendererVulkanObjects.swapchain.image_format;
 
 
     //opaque
-    const PipelineGroup::graphicsPipelineSettings opaquePipelineSettings =  {.colorFormats = std::span(&swapchainFormat, 1),.depthFormat =  rendererResources.depthBufferInfo.format, .depthWriteEnable = VK_FALSE};
-    createGraphicsPipeline( rendererResources.shaderLoader->compiledShaders["triangle_alt"],  &descriptorsetLayoutsData, opaquePipelineSettings,false, sizeof(debugLinePConstants));
-    setDebugObjectName(rendererVulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_PIPELINE,"triangle alt shader", uint64_t(descriptorsetLayoutsData.getPipeline(0)));
+    const PipelineGroup::graphicsPipelineSettings opaquePipelineSettings =  {.colorFormats = std::span(&swapchainFormat, 1),.depthFormat =  globalResources.depthBufferInfo.format, .depthWriteEnable = VK_FALSE};
+    createGraphicsPipeline( globalResources.shaderLoader->compiledShaders["triangle_alt"],  "triangle_alt", &descriptorsetLayoutsData,opaquePipelineSettings, false, sizeof(debugLinePConstants));
     
-    createGraphicsPipeline( rendererResources.shaderLoader->compiledShaders["triangle"],  &descriptorsetLayoutsData, opaquePipelineSettings,false, sizeof(debugLinePConstants));
-    setDebugObjectName(rendererVulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_PIPELINE,"triangle  shader", uint64_t(descriptorsetLayoutsData.getPipeline(1)));
+    createGraphicsPipeline( globalResources.shaderLoader->compiledShaders["triangle"],  "triangle", &descriptorsetLayoutsData,opaquePipelineSettings, false, sizeof(debugLinePConstants));
 
-    const PipelineGroup::graphicsPipelineSettings linePipelineSettings =  {std::span(&swapchainFormat, 1), rendererResources.depthBufferInfo.format, VK_CULL_MODE_NONE, VK_PRIMITIVE_TOPOLOGY_LINE_LIST };
-    createGraphicsPipeline( rendererResources.shaderLoader->compiledShaders["lines"],  &descriptorsetLayoutsData, linePipelineSettings,false, sizeof(debugLinePConstants));
-    setDebugObjectName(rendererVulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_PIPELINE,"lines  shader", uint64_t(descriptorsetLayoutsData.getPipeline(2)));
+    const PipelineGroup::graphicsPipelineSettings linePipelineSettings =  {std::span(&swapchainFormat, 1), globalResources.depthBufferInfo.format, VK_CULL_MODE_NONE, VK_PRIMITIVE_TOPOLOGY_LINE_LIST };
+    createGraphicsPipeline( globalResources.shaderLoader->compiledShaders["lines"],  "lines", &descriptorsetLayoutsData,linePipelineSettings, false, sizeof(debugLinePConstants));
 
     
-    const PipelineGroup::graphicsPipelineSettings debugRaymarchPipelineSettings =  {std::span(&swapchainFormat, 1), rendererResources.depthBufferInfo.format, VK_CULL_MODE_FRONT_BIT, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST};
-    createGraphicsPipeline( rendererResources.shaderLoader->compiledShaders["debug"],  &descriptorsetLayoutsData, debugRaymarchPipelineSettings,false, sizeof(debugLinePConstants));
-    setDebugObjectName(rendererVulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_PIPELINE,"debug raymarch shader", uint64_t(descriptorsetLayoutsData.getPipeline(3)));
+    const PipelineGroup::graphicsPipelineSettings debugRaymarchPipelineSettings =  {std::span(&swapchainFormat, 1), globalResources.depthBufferInfo.format, VK_CULL_MODE_FRONT_BIT, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST};
+    createGraphicsPipeline( globalResources.shaderLoader->compiledShaders["debug"],  "debug", &descriptorsetLayoutsData,debugRaymarchPipelineSettings, false, sizeof(debugLinePConstants));
     //shadow 
     const PipelineGroup::graphicsPipelineSettings shadowPipelineSettings =  {std::span(&swapchainFormat, 0), shadowFormat, VK_CULL_MODE_NONE, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_TRUE, VK_FALSE, VK_TRUE, true };
-    createGraphicsPipeline( rendererResources.shaderLoader->compiledShaders["shadow"],  &descriptorsetLayoutsDataShadow, shadowPipelineSettings,false, sizeof(shadowPushConstants));
+    createGraphicsPipeline( globalResources.shaderLoader->compiledShaders["shadow"],  "shadow", &descriptorsetLayoutsDataShadow,shadowPipelineSettings, false, sizeof(shadowPushConstants));
     const PipelineGroup::graphicsPipelineSettings depthPipelineSettings =
         {std::span(&swapchainFormat, 0), shadowFormat, VK_CULL_MODE_NONE, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
         VK_FALSE, VK_TRUE, VK_TRUE, true };
@@ -380,15 +298,13 @@ void vulkanRenderer::initializeRendererForScene(Scene* scene) //todo remaining i
     VK_FALSE, VK_TRUE, VK_FALSE, false };
 
     //TODO JS: need a better way tohandle these depth prepass shaders -- should have their own layout(s), should compile the vertex shader from the actual standard shader, and should group easily for lookup
-    createGraphicsPipeline( rendererResources.shaderLoader->compiledShaders["shadow"],  &descriptorsetLayoutsDataShadow, depthPipelineSettings,false, sizeof(shadowPushConstants));
-    std::span<VkPipelineShaderStageCreateInfo> triangleShaderSpan =  rendererResources.shaderLoader->compiledShaders["triangle"];
-    createGraphicsPipeline( triangleShaderSpan.subspan(0, 1),  &descriptorsetLayoutsData, depthPipelineSettings2,false, sizeof(shadowPushConstants));
-    setDebugObjectName(rendererVulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_PIPELINE,"depth prepass shader", uint64_t(descriptorsetLayoutsData.getPipeline(4)));
-    setDebugObjectName(rendererVulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_PIPELINE,"depth prepass shader", uint64_t(descriptorsetLayoutsDataShadow.getPipeline(1)));
+    createGraphicsPipeline( globalResources.shaderLoader->compiledShaders["shadow"],  "shadow", &descriptorsetLayoutsDataShadow,depthPipelineSettings, false, sizeof(shadowPushConstants));
+    std::span<VkPipelineShaderStageCreateInfo> triangleShaderSpan =  globalResources.shaderLoader->compiledShaders["triangle"];
+    createGraphicsPipeline( triangleShaderSpan.subspan(0, 1),  "triangleShaderSpan", &descriptorsetLayoutsData,depthPipelineSettings2, false, sizeof(shadowPushConstants));
 
 
 
-    for (auto kvp : rendererResources.shaderLoader->compiledShaders)
+    for (auto kvp : globalResources.shaderLoader->compiledShaders)
      {
          for(auto compiled_shader : kvp.second)
          {
@@ -583,14 +499,14 @@ std::span<descriptorUpdateData> vulkanRenderer::createOpaqueDescriptorUpdates(ui
         VkImageView view {};
         if (i < shadowCasterCount)
         {
-            view =  rendererResources.shadowMapSamplingImageViews[frame][i] ;
+            view =  shadowResources.shadowMapSamplingImageViews[frame][i] ;
         }
 
         //Fill out the remaining leftover shadow bindings with something -- using the other shadow view is arbitrary
         //TODO JS: Should have a "default" view maybe? 
         else
         {
-            view = rendererResources.shadowMapRenderingImageViews[frame][0];
+            view = shadowResources.shadowMapRenderingImageViews[frame][0];
         }
         
         assert( &view != VK_NULL_HANDLE);
@@ -602,7 +518,7 @@ std::span<descriptorUpdateData> vulkanRenderer::createOpaqueDescriptorUpdates(ui
 
     VkDescriptorImageInfo* shadowSamplerInfo =  MemoryArena::Alloc<VkDescriptorImageInfo>(arena);
     *shadowSamplerInfo = {
-        .sampler  = rendererResources.shadowSamplers[frame], .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+        .sampler  = shadowResources.shadowSamplers[frame], .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
     };
     
     // VkDescriptorBufferInfo* meshBufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
@@ -659,35 +575,20 @@ std::span<descriptorUpdateData> vulkanRenderer::createOpaqueDescriptorUpdates(ui
 std::span<descriptorUpdateData> vulkanRenderer::createShadowDescriptorUpdates(MemoryArena::memoryArena* arena, uint32_t frame, uint32_t shadowIndex,  std::span<VkDescriptorSetLayoutBinding> layoutBindings)
 {
     //Get data
-    // VkDescriptorBufferInfo* meshBufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
-    // *meshBufferinfo = getDescriptorBufferInfo(FramesInFlightData[frame].meshBuffers);
     VkDescriptorBufferInfo* uniformbufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
     *uniformbufferinfo = getDescriptorBufferInfo(FramesInFlightData[frame].uniformBuffers);
-    // VkDescriptorBufferInfo* shaderglobalsinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
-    // *shaderglobalsinfo = getDescriptorBufferInfo(FramesInFlightData[frame].perLightShadowShaderGlobalsBuffer[shadowIndex]);
 
     VkDescriptorBufferInfo* lightbufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
     *lightbufferinfo = getDescriptorBufferInfo(FramesInFlightData[frame].lightBuffers);
-    // VkDescriptorBufferInfo* shadowBuffersInfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
-    // *shadowBuffersInfo = getDescriptorBufferInfo(FramesInFlightData[frame].shadowDataBuffers);
     
     VkDescriptorBufferInfo* vertBufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
     *vertBufferinfo = FramesInFlightData[frame].deviceVerts.getBufferInfo();
-    
-     // VkDescriptorBufferInfo* meshBufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
-     // *meshBufferinfo = FramesInFlightData[frame].deviceMesh.getBufferInfo();
-
 
     Array<descriptorUpdateData> descriptorUpdates = MemoryArena::AllocSpan<descriptorUpdateData>(arena, 5);
     //Update descriptor sets with data
- 
-    // descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, shaderglobalsinfo});
-    // descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, meshBufferinfo});
+
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, lightbufferinfo});
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, uniformbufferinfo});
-    // descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, shadowBuffersInfo});
-
-
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, vertBufferinfo});
     
     assert(descriptorUpdates.ct == layoutBindings.size());
@@ -711,51 +612,10 @@ void vulkanRenderer::updateShadowDescriptorSets(PipelineGroup* layoutData, uint3
 }
 #pragma endregion
 
-void createSemaphore(VkDevice device,   VkSemaphore* semaphorePtr, const char* debugName, RendererDeletionQueue* deletionQueue)
-{
-    VkSemaphoreCreateInfo semaphoreInfo{};
-    semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-    VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, semaphorePtr));
-    deletionQueue->push_backVk(deletionType::Semaphore,uint64_t(*semaphorePtr));
-    setDebugObjectName(device, VK_OBJECT_TYPE_SEMAPHORE, debugName, uint64_t(*semaphorePtr));
-    
-}
-void static_createSyncObjects(VkDevice device,  RendererDeletionQueue* deletionQueue, acquireImageSemaphore* semaphoresToCreate, VkFence* fence)
-{
-
-    VkFenceCreateInfo fenceInfo{};
-    fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-
-        createSemaphore(device,  &semaphoresToCreate->semaphore, "imageAvailableSemaphores", deletionQueue);
-        // createSemaphore(device,  &semaphoresToCreate->renderFinishedSemaphores, "renderFinishedSemaphores", deletionQueue);
-    //
-    // createSemaphore(device,  &semaphoresToCreate->depthPrepassFinishedSemaphore, "depthPrepassFinishedSemaphore", deletionQueue);
-    //     createSemaphore(device,  &semaphoresToCreate->depthPrepassMipsFinishedSempahore, "depthPrepassMipsFinishedSempahore", deletionQueue);
-    //
-    //     createSemaphore(device,  &semaphoresToCreate->computeFinishedSemaphores, "computeFinishedSemaphores", deletionQueue);
-    //     
-    //     createSemaphore(device,  &semaphoresToCreate->shadowAvailableSemaphores, "shadowAvailableSemaphores", deletionQueue);
-    //     createSemaphore(device,  &semaphoresToCreate->shadowFinishedSemaphores, "shadowFinishedSemaphores", deletionQueue);
-    //
-    //     createSemaphore(device,  &semaphoresToCreate->swapchaintransitionedOutSemaphores, "swapchaintransitionedOutSemaphores", deletionQueue);
-    //     createSemaphore(device,  &semaphoresToCreate->swapchaintransitionedInSemaphores, "swapchaintransitionedInSemaphores", deletionQueue);
-    //  
-    //
-    //     createSemaphore(device,  &semaphoresToCreate->shadowtransitionedOutSemaphores, "shadowtransitionedOutSemaphores", deletionQueue);
-    //     createSemaphore(device,  &semaphoresToCreate->shadowtransitionedInSemaphores, "shadowtransitionedInSemaphores", deletionQueue);
-
-        VK_CHECK(vkCreateFence(device, &fenceInfo, nullptr, fence));
-        deletionQueue->push_backVk(deletionType::Fence, uint64_t(*fence));
-   
-   
-
-}
-
 //TODO JS: none of this belongs here except for actually submitting the updates
 #pragma region per-frame updates 
 
-Transform getCameraTransform(cameraData camera)
+static Transform getCameraTransform(cameraData camera)
 {
     
     Transform output{};
@@ -764,99 +624,8 @@ Transform getCameraTransform(cameraData camera)
 
     return output;
 }
-struct linePair
-{
-    glm::vec3 start;
-    glm::vec3 end;
-    glm::vec3 color;
-};
 
-//zoux code
-VkBufferMemoryBarrier2 bufferBarrier(VkBuffer buffer, VkPipelineStageFlags2 srcStageMask, VkAccessFlags2 srcAccessMask, VkPipelineStageFlags2 dstStageMask, VkAccessFlags2 dstAccessMask)
-{
-    VkBufferMemoryBarrier2 result = { VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2 };
-
-    result.srcStageMask = srcStageMask;
-    result.srcAccessMask = srcAccessMask;
-    result.dstStageMask = dstStageMask;
-    result.dstAccessMask = dstAccessMask;
-    result.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    result.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    result.buffer = buffer;
-    result.offset = 0;
-    result.size = VK_WHOLE_SIZE;
-
-    return result;
-}
-//zoux code
-void pipelineBarrier(VkCommandBuffer commandBuffer, VkDependencyFlags dependencyFlags, size_t bufferBarrierCount, const VkBufferMemoryBarrier2* bufferBarriers, size_t imageBarrierCount, const VkImageMemoryBarrier2* imageBarriers)
-{
-    VkDependencyInfo dependencyInfo = { VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
-    dependencyInfo.dependencyFlags = dependencyFlags;
-    dependencyInfo.bufferMemoryBarrierCount = unsigned(bufferBarrierCount);
-    dependencyInfo.pBufferMemoryBarriers = bufferBarriers;
-    dependencyInfo.imageMemoryBarrierCount = unsigned(imageBarrierCount);
-    dependencyInfo.pImageMemoryBarriers = imageBarriers;
-
-    vkCmdPipelineBarrier2(commandBuffer, &dependencyInfo);
-}
-//zoux code
-VkImageMemoryBarrier2 imageBarrier(VkImage image, VkPipelineStageFlags2 srcStageMask, VkAccessFlags2 srcAccessMask, VkImageLayout oldLayout, VkPipelineStageFlags2 dstStageMask, VkAccessFlags2 dstAccessMask, VkImageLayout newLayout, VkImageAspectFlags aspectMask, uint32_t baseMipLevel, uint32_t levelCount)
-{
-    VkImageMemoryBarrier2 result = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2 };
-
-    result.srcStageMask = srcStageMask;
-    result.srcAccessMask = srcAccessMask;
-    result.dstStageMask = dstStageMask;
-    result.dstAccessMask = dstAccessMask;
-    result.oldLayout = oldLayout;
-    result.newLayout = newLayout;
-    result.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    result.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    result.image = image;
-    result.subresourceRange.aspectMask = aspectMask;
-    result.subresourceRange.baseMipLevel = baseMipLevel;
-    result.subresourceRange.levelCount = levelCount;
-    result.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
-
-    return result;
-}
-
-std::vector<linePair> debugLines;
-
-void debugDrawFrustum(std::span<glm::vec4> frustum)
-{
-    //Back plane
-    debugLines.push_back({{frustum[0]},{frustum[1]}, {1,0,0}});
-    debugLines.push_back({{frustum[1]},{frustum[2]}, {1,0,0}});
-    debugLines.push_back({{frustum[2]},{frustum[3]}, {1,0,0}});
-    debugLines.push_back({{frustum[3]},{frustum[0]}, {1,0,0}});
-
-    //front plane 
-    debugLines.push_back({{frustum[4 + 0]},{frustum[4 + 1]}, {0.5,0,0}});
-    debugLines.push_back({{frustum[4 + 1]},{frustum[4 + 2]}, {0.5,0,0}});
-    debugLines.push_back({{frustum[4 + 2]},{frustum[4 + 3]}, {0.5,0,0}});
-    debugLines.push_back({{frustum[4 + 3]},{frustum[4 + 0]}, {0.5,0,0}});
-
-    //sides 
-    debugLines.push_back({{frustum[0]},{frustum[4 + 0]}, {1,1,1}});
-    debugLines.push_back({{frustum[1]},{frustum[4 + 1]}, {1,1,1}});
-    debugLines.push_back({{frustum[2]},{frustum[4 + 2]}, {1,1,1}});
-    debugLines.push_back({{frustum[3]},{frustum[4 + 3]}, {1,1,1}});
-
-}
-
-void debugDrawCross(glm::vec3 point, float size, glm::vec3 color)
-{
-    glm::vec3 xoffset = (glm::vec3{1,0,0} * (size / 2));
-    glm::vec3 yoffset = (glm::vec3{0,1,0} * (size / 2));
-    glm::vec3 zoffset = (glm::vec3{0,0,1} * (size / 2));
-    debugLines.push_back({point - xoffset, point + xoffset, color});
-    debugLines.push_back({point - yoffset, point + yoffset, color});
-    debugLines.push_back({point - zoffset, point + zoffset, color});
-}
-
-glm::vec4 maxComponentsFromSpan(std::span<glm::vec4> input)
+static glm::vec4 maxComponentsFromSpan(std::span<glm::vec4> input)
 {
 
     float maxX = std::numeric_limits<float>::lowest();
@@ -877,7 +646,7 @@ glm::vec4 maxComponentsFromSpan(std::span<glm::vec4> input)
 }
 
 
-glm::vec4 minComponentsFromSpan(std::span<glm::vec4> input)
+static glm::vec4 minComponentsFromSpan(std::span<glm::vec4> input)
 {
 
     float minX = std::numeric_limits<float>::infinity();
@@ -923,7 +692,7 @@ std::span<glm::vec4> populateFrustumCornersForSpace(std::span<glm::vec4> output_
 }
 
 
-viewProj viewProjFromCamera( cameraData camera)
+static viewProj viewProjFromCamera( cameraData camera)
 {
     Transform cameraTform = getCameraTransform(camera);
     glm::mat4 view = cameraTform.rot * cameraTform.translation;
@@ -937,7 +706,7 @@ viewProj viewProjFromCamera( cameraData camera)
     return {view, proj};
 }
 
-std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocator, cameraData cam, glm::vec3 lightPos, glm::vec3 spotDir, float spotRadius, lightType type)
+static std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocator, cameraData cam, glm::vec3 lightPos, glm::vec3 spotDir, float spotRadius, lightType type)
 {
     viewProj vp = viewProjFromCamera(cam);
     
@@ -951,7 +720,7 @@ std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocato
     }
     glm::mat4 lightViewMatrix = {};
     glm::mat4 lightProjection = {};
-    debugDrawCross(lightPos, 2, {1,1,0});
+    debugLinesManager.addDebugCross(lightPos, 2, {1,1,0});
     std::span<PerShadowData> outputSpan;
     switch (type)
     {
@@ -968,7 +737,7 @@ std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocato
 
          
         
-            debugDrawFrustum(frustumCornersWorldSpace);
+            debugLinesManager.addDebugFrustum(frustumCornersWorldSpace);
 
             float clipRange = cam.farPlane - cam.nearPlane;
             float minZ =  cam.nearPlane;
@@ -1010,7 +779,7 @@ std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocato
                 }
                 frustumCenter /= 8.0f;
 
-                debugDrawCross(frustumCenter, 20, {0,0,1});
+                debugLinesManager.addDebugCross(frustumCenter, 20, {0,0,1});
                
 
    
@@ -1102,7 +871,7 @@ std::span<PerShadowData> calculateLightMatrix(MemoryArena::memoryArena* allocato
 }
 
 
-void updateGlobals(cameraData camera, int lightCount, int cubeMapLutIndex, HostDataBufferObject<ShaderGlobals> globalsBuffer)
+static void updateGlobals(cameraData camera, int lightCount, int cubeMapLutIndex, HostDataBufferObject<ShaderGlobals> globalsBuffer)
 {
     ShaderGlobals globals{};
     viewProj vp = viewProjFromCamera(camera);
@@ -1118,7 +887,7 @@ void updateGlobals(cameraData camera, int lightCount, int cubeMapLutIndex, HostD
 
 }
 
-void updateShadowData(MemoryArena::memoryArena* allocator, std::span<std::span<PerShadowData>> perLightShadowData, Scene* scene, cameraData camera)
+static void updateShadowData(MemoryArena::memoryArena* allocator, std::span<std::span<PerShadowData>> perLightShadowData, Scene* scene, cameraData camera)
 {
     for(int i =0; i <scene->lightCount; i++)
     {
@@ -1128,7 +897,7 @@ void updateShadowData(MemoryArena::memoryArena* allocator, std::span<std::span<P
 }
 
 //from niagara
-glm::vec4 normalizePlane(glm::vec4 p)
+static glm::vec4 normalizePlane(glm::vec4 p)
 {
     return p / length(glm::vec3(p));
 }
@@ -1561,11 +1330,12 @@ void vulkanRenderer::SubmitCommandBuffer(uint32_t commandbufferCt, ActiveRenderS
     
     
 }
+
 void vulkanRenderer::recordUtilityPasses( VkCommandBuffer commandBuffer, int imageIndex)
 {
     VkPipelineLayout layout = descriptorsetLayoutsData.pipelineData.bindlessPipelineLayout;
-    VkRenderingAttachmentInfoKHR dynamicRenderingColorAttatchment = createRenderingAttatchmentStruct(rendererResources.swapchainImageViews[imageIndex], 0.0, false);
-    VkRenderingAttachmentInfoKHR utilityDepthAttatchment =    createRenderingAttatchmentStruct( rendererResources.depthBufferInfo.view, 0.0, false);
+    VkRenderingAttachmentInfoKHR dynamicRenderingColorAttatchment = createRenderingAttatchmentStruct(globalResources.swapchainImageViews[imageIndex], 0.0, false);
+    VkRenderingAttachmentInfoKHR utilityDepthAttatchment =    createRenderingAttatchmentStruct( globalResources.depthBufferInfo.view, 0.0, false);
     BeginRendering(
         &utilityDepthAttatchment,
         1, &dynamicRenderingColorAttatchment,
@@ -1573,17 +1343,12 @@ void vulkanRenderer::recordUtilityPasses( VkCommandBuffer commandBuffer, int ima
     
     //TODO JS: something other than hardcoded 2
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, descriptorsetLayoutsData.getPipeline(2));
-    debugLines.push_back({{0,0,0},{20,40,20}, {0,0,1}});
-    for (int i = 0; i <debugLines.size(); i++)
+    // debugLines.push_back({{0,0,0},{20,40,20}, {0,0,1}});
+    
+    for (int i = 0; i <debugLinesManager.debugLines.size(); i++)
     {
     
-        debugLinePConstants constants;
-        //Light count, vert offset, texture index, and object data index
-        constants.pos1 = glm::vec4(debugLines[i].start,1.0);
-        constants.pos2 = glm::vec4(debugLines[i].end,1.0);
-        constants.color = glm::vec4(debugLines[i].color,1.0);
-        constants.m = glm::mat4(1.0);
-
+        debugLinePConstants constants = debugLinesManager.getDebugLineForRendering(i);
         //Fullscreen quad render
         vkCmdPushConstants(commandBuffer, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                           sizeof(debugLinePConstants), &constants);
@@ -1627,106 +1392,15 @@ bool vulkanRenderer::hasStencilComponent(VkFormat format)
     return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
 }
 
-#pragma region depth
 
-//zeux code
-uint32_t previousPow2(uint32_t v)
+
+void vulkanRenderer::createGraphicsPipeline(std::span<VkPipelineShaderStageCreateInfo> shaderStages, const char* name, PipelineGroup* descriptorsetdata,  PipelineGroup::graphicsPipelineSettings settings, bool compute, size_t pconstantSize)
 {
-    uint32_t r = 1;
-
-    while (r * 2 < v)
-        r *= 2;
-
-    return r;
-}
-
-
-DepthBufferInfo static_createDepthResources(rendererObjects initializedrenderer,  MemoryArena::memoryArena* allocationArena, RendererDeletionQueue* deletionQueue, CommandPoolManager* commandPoolmanager )
-{
-    auto depthFormat = Capabilities::findDepthFormat(initializedrenderer.vkbPhysicalDevice.physical_device);
-    VkImage depthImage;
-                                            //The two null context will get overwritten by the create  calls below
-    DepthBufferInfo bufferInfo = {depthFormat, VK_NULL_HANDLE, VK_NULL_HANDLE, VmaAllocation {}};
-
-
-    BufferCreationContext context = {
-        .device =  initializedrenderer.vkbdevice.device,
-        .allocator =  initializedrenderer.vmaAllocator,
-        .rendererdeletionqueue = deletionQueue,
-        .commandPoolmanager = commandPoolmanager
-    };
-    
-
-    TextureUtilities::createImage(context, initializedrenderer.swapchain.extent.width, initializedrenderer.swapchain.extent.height, bufferInfo.format,
-                                  VK_IMAGE_TILING_OPTIMAL,
-                                  VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-                                  (bufferInfo.image),
-                                 (bufferInfo.vmaAllocation), 1, 1, false, "DEPTH TEXTURE");
-
-    bufferInfo.view = TextureUtilities::createImageViewCustomMip(context,   (bufferInfo.image), bufferInfo.format, VK_IMAGE_ASPECT_DEPTH_BIT, VK_IMAGE_VIEW_TYPE_2D, 1, 0,1, 0);
-
-return bufferInfo;
-}
-
-DepthPyramidInfo static_createDepthPyramidResources(rendererObjects initializedrenderer,  MemoryArena::memoryArena* allocationArena, RendererDeletionQueue* deletionQueue, CommandPoolManager* commandPoolmanager )
-{
-    auto depthFormat = Capabilities::findSupportedFormat(initializedrenderer.vkbPhysicalDevice.physical_device,
-                               {VK_FORMAT_R16_SFLOAT},
-                               VK_IMAGE_TILING_OPTIMAL,
-                               VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT | VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT );
-    //The two null context will get overwritten by the create  calls below
-    std::span<VkImageView> viewsForMips = MemoryArena::AllocSpan<VkImageView>(allocationArena, HIZDEPTH);
-    int depthWidth = previousPow2(initializedrenderer.swapchain.extent.width);
-    int depthHeight = previousPow2(initializedrenderer.swapchain.extent.height);
-    DepthPyramidInfo bufferInfo = {depthFormat, VK_NULL_HANDLE, viewsForMips,  VmaAllocation {}, {depthWidth, depthHeight}};
-
-
-    BufferCreationContext context = {
-        .device =  initializedrenderer.vkbdevice.device,
-        .allocator =  initializedrenderer.vmaAllocator,
-        .rendererdeletionqueue = deletionQueue,
-        .commandPoolmanager = commandPoolmanager
-    };
-
-
-    TextureUtilities::createImage(context, depthWidth,depthHeight, bufferInfo.format,
-                                  VK_IMAGE_TILING_OPTIMAL,
-                                  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-                                  (bufferInfo.image),
-                                 (bufferInfo.vmaAllocation), HIZDEPTH, 1, false, "DEPTH PYRAMID TEXTURE");
-    for(int i = 0; i < bufferInfo.viewsForMips.size(); i++)
-    {
-        bufferInfo.viewsForMips[i] =
-            TextureUtilities::createImageViewCustomMip(context,   (bufferInfo.image), bufferInfo.format, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_VIEW_TYPE_2D, 1, 0,1, i);
-    }
-
-    auto tempBufferAndPool = commandPoolmanager->beginSingleTimeCommands(false);
-    VkImageMemoryBarrier2 barrier11 = imageBarrier(bufferInfo.image,
-     0,
-     0,
-     VK_IMAGE_LAYOUT_UNDEFINED,
-     0,
-     0,
-     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-     VK_IMAGE_ASPECT_COLOR_BIT,
-     0,
-     HIZDEPTH);
-    pipelineBarrier(tempBufferAndPool.buffer,0, 0, 0, 1, &barrier11);
-    commandPoolmanager->endSingleTimeCommands(tempBufferAndPool);
-
-    return bufferInfo;
-}
-
-#pragma endregion
-
-
-
-void vulkanRenderer::createGraphicsPipeline(std::span<VkPipelineShaderStageCreateInfo> shaderStages, PipelineGroup* descriptorsetdata,  PipelineGroup::graphicsPipelineSettings settings, bool compute, size_t pconstantSize)
-{ 
+    auto _name = const_cast<char*>(name);
     if (!compute)
-    descriptorsetdata->createGraphicsPipeline(shaderStages, settings, pconstantSize);
+    descriptorsetdata->createGraphicsPipeline(shaderStages, _name, settings, pconstantSize);
     else
-        descriptorsetdata->createComputePipeline(shaderStages[0], pconstantSize);
+        descriptorsetdata->createComputePipeline(shaderStages[0], _name, pconstantSize);
  
 
 }
@@ -1745,7 +1419,7 @@ void vulkanRenderer::Update(Scene* scene)
     ImGui::Begin("RENDERER Buffer preview window");
     ImGui::Text("TODO");
     int shadowIndex =1;
-    VkDescriptorSet img = GetOrRegisterImguiTextureHandle(rendererResources.shadowSamplers[shadowIndex],rendererResources.shadowMapSamplingImageViews[shadowIndex][3]);
+    VkDescriptorSet img = GetOrRegisterImguiTextureHandle(shadowResources.shadowSamplers[shadowIndex],shadowResources.shadowMapSamplingImageViews[shadowIndex][3]);
     //todo js: need to change image before/after doing this? need to do this toa  copy? not sure -- get valdidation errors around layout
     // VkDescriptorSet img_depth_0 = GetOrRegisterImguiTextureHandle(rendererResources.depthMipSampler,rendererResources.depthBufferInfo.view);
     // VkDescriptorSet img_depth_1 = GetOrRegisterImguiTextureHandle(rendererResources.depthMipSampler,rendererResources.depthPyramidInfo.viewsForMips[4]);
@@ -1758,68 +1432,32 @@ void vulkanRenderer::Update(Scene* scene)
     //Note -- we're not just submitting imgu icalls here, some are from the higher level of the app
     ImGui::Render();
 
-        if (!firstTime[currentFrame])
-        {
-            vkWaitForFences(rendererVulkanObjects.vkbdevice.device, 1, &FramesInFlightData[currentFrame].inFlightFence, VK_TRUE, UINT64_MAX);
-            FramesInFlightData[currentFrame].deletionQueue->FreeQueue();
-            MemoryArena::free(&perFrameArenas[currentFrame]);
-       
-            vkResetFences(rendererVulkanObjects.vkbdevice.device, 1, &FramesInFlightData[currentFrame].inFlightFence);
-      
-        }
-        if (firstTime[currentFrame])
-        {
-            firstTime[currentFrame] = false;
-        }
-        AssetDataAndMemory->Update();
+    auto checkFences = !firstTime[currentFrame];
+    if (checkFences)
+    {
+        vkWaitForFences(rendererVulkanObjects.vkbdevice.device, 1, &FramesInFlightData[currentFrame].inFlightFence, VK_TRUE, UINT64_MAX);
+        FramesInFlightData[currentFrame].deletionQueue->FreeQueue();
+        MemoryArena::free(&perFrameArenas[currentFrame]);
+   
+        vkResetFences(rendererVulkanObjects.vkbdevice.device, 1, &FramesInFlightData[currentFrame].inFlightFence);
+  
+    }
+    if (!checkFences)
+    {
+        firstTime[currentFrame] = false;
+    }
+    AssetDataAndMemory->Update();
 
-        //This stuff belongs here
-     
-        drawFrame(scene);
-        debugLines.clear();
+    //This stuff belongs here
+ 
+    RenderFrame(scene);
+    debugLinesManager.debugLines.clear();
 
-        auto t2 = SDL_GetTicks();
+    auto t2 = SDL_GetTicks();
     
     // vkDeviceWaitIdle(rendererVulkanObjects.vkbdevice.device);
 }
 
-
-
-semaphoreData getSemaphoreDataFromSemaphores(std::span<VkSemaphore> semaphores, MemoryArena::memoryArena* allocator)
-{
-    auto flags = MemoryArena::AllocSpan<VkPipelineStageFlags>(allocator, semaphores.size());
-    for (int i = 0; i <flags.size(); i++)
-    {
-        flags[i] = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    }
-    return {semaphores, flags};
-    
-}
-void transitionImageForRendering(RendererContext context, ActiveRenderStepData* RenderStepContext, VkImage image, VkImageLayout layoutIn, VkImageLayout layoutOut, VkPipelineStageFlags* waitStages, int mipCount, bool depth)
-{
-    VkCommandBufferBeginInfo beginInfo{};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo.flags = 0; // Optional
-    beginInfo.pInheritanceInfo = nullptr; // Optional
-    //Transition swapchain for rendering
-    
-    TextureUtilities::transitionImageLayout(objectCreationContextFromRendererContext(context),image,(VkFormat)0,layoutIn,layoutOut,RenderStepContext->commandBuffer,mipCount, false, depth);
-
-  
-    VkSubmitInfo swapChainInSubmitInfo{};
-    VkPipelineStageFlags _waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-    swapChainInSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    swapChainInSubmitInfo.commandBufferCount = 1;
-    swapChainInSubmitInfo.pWaitDstStageMask = _waitStages;
-    swapChainInSubmitInfo.pCommandBuffers = &RenderStepContext->commandBuffer;
-    swapChainInSubmitInfo.waitSemaphoreCount = (uint32_t)RenderStepContext->waitSemaphores.size();
-    swapChainInSubmitInfo.pWaitSemaphores =RenderStepContext->waitSemaphores.data();
-    swapChainInSubmitInfo.signalSemaphoreCount = RenderStepContext->signalSempahores.size();
-    swapChainInSubmitInfo.pSignalSemaphores = RenderStepContext->signalSempahores.data();
-
-    ///////////////////////// Transition swapChain  />
-    
-}
 VkPipelineStageFlags swapchainWaitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
 VkPipelineStageFlags shadowWaitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
 
@@ -1957,7 +1595,7 @@ void    AddOpaquePasses(drawBatchList* targetPassList, shaderLookup shaderGroup,
         viewProjMatricesForCulling = { data->view,  data->proj};
         glm::vec4 frustumCornersWorldSpace[8] = {};
         populateFrustumCornersForSpace(frustumCornersWorldSpace,   glm::inverse(viewProjMatricesForCulling.proj * viewProjMatricesForCulling.view));
-        debugDrawFrustum(frustumCornersWorldSpace);
+        debugLinesManager.addDebugFrustum(frustumCornersWorldSpace);
     }
 
    
@@ -2081,35 +1719,6 @@ void uploadIndirectCommandBufferForPasses(Scene* scene, AssetManager* rendererDa
     }
 }
 
-void AddBufferTrasnfer(VkBuffer sourceBuffer, VkBuffer targetBuffer, size_t copySize, VkCommandBuffer cmdBuffer)
-{
-         VkBufferMemoryBarrier bufMemBarrier = { VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER };
-        bufMemBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
-        bufMemBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-        bufMemBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        bufMemBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        bufMemBarrier.buffer = sourceBuffer;
-        bufMemBarrier.offset = 0;
-        bufMemBarrier.size = VK_WHOLE_SIZE;
-        vkCmdPipelineBarrier(cmdBuffer, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
-            0, 0, nullptr, 1, &bufMemBarrier, 0, nullptr);
-        
-            
-            //Copy vertex data over
-            BufferUtilities::copyBufferWithCommandBuffer(cmdBuffer, sourceBuffer,
-                targetBuffer, copySize);
-            VkBufferMemoryBarrier bufMemBarrier2 = { VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER };
-            bufMemBarrier2.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-            bufMemBarrier2.dstAccessMask = VK_ACCESS_UNIFORM_READ_BIT; // We created a uniform buffer
-            bufMemBarrier2.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-            bufMemBarrier2.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-            bufMemBarrier2.buffer = targetBuffer;
-            bufMemBarrier2.offset = 0;
-            bufMemBarrier2.size = VK_WHOLE_SIZE;
-            vkCmdPipelineBarrier(cmdBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT,
-                0, 0, nullptr, 1, &bufMemBarrier2, 0, nullptr);
-
-}
 
 ActiveRenderStepData createAndBeginRenderStep(VkDevice device, const char* debugName, const char* cbufferDebugName,  RendererDeletionQueue* deletionQueue, VkCommandPool pool,     std::span<VkSemaphore> waitSemaphores,
     std::span<VkSemaphore> signalSempahores)
@@ -2144,7 +1753,7 @@ ActiveRenderStepData createAndBeginRenderStep(VkDevice device, const char* debug
 }
 
 uint32_t internal_debug_cull_override_index = 0;
-void vulkanRenderer::drawFrame(Scene* scene)
+void vulkanRenderer::RenderFrame(Scene* scene)
 {
     if (debug_cull_override_index != internal_debug_cull_override_index)
     {
@@ -2291,14 +1900,14 @@ void vulkanRenderer::drawFrame(Scene* scene)
     transitionImageForRendering(
     getFullRendererContext(),
     preRenderTransitionsrenderStepContext,
-    rendererResources.swapchainImages[swapChainImageIndex],
+    globalResources.swapchainImages[swapChainImageIndex],
     VK_IMAGE_LAYOUT_UNDEFINED,
     VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, swapchainWaitStages, 1, false);
     
     transitionImageForRendering(
     getFullRendererContext(),
     preRenderTransitionsrenderStepContext,
-    rendererResources.shadowImages[currentFrame],
+    shadowResources.shadowImages[currentFrame],
     VK_IMAGE_LAYOUT_UNDEFINED,
     VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, shadowWaitStages, 1, true);
     
@@ -2313,12 +1922,12 @@ void vulkanRenderer::drawFrame(Scene* scene)
     //Set up draws
     //This is the bulk of the render, the main opaque pass which depends on compute, shadow, opaque, culling, etc
         //Need to make a new "aggregate step" concept to handle this so I can make it a lambda like the rest
-    doMipChainCompute(*mipChainRenderStepContext, &perFrameArenas[currentFrame],  rendererResources.depthPyramidInfo.image,
-                      rendererResources.depthBufferInfo.view, rendererResources.depthPyramidInfo.viewsForMips, rendererResources.depthMipSampler, currentFrame, rendererResources.depthPyramidInfo.depthSize.x,
-                       rendererResources.depthPyramidInfo.depthSize.y);     
+    doMipChainCompute(*mipChainRenderStepContext, &perFrameArenas[currentFrame],  globalResources.depthPyramidInfo.image,
+                      globalResources.depthBufferInfo.view, globalResources.depthPyramidInfo.viewsForMips, globalResources.depthMipSampler, currentFrame, globalResources.depthPyramidInfo.depthSize.x,
+                       globalResources.depthPyramidInfo.depthSize.y);     
     //Create the renderpass
      auto* mainRenderTargetAttatchment = MemoryArena::Alloc<VkRenderingAttachmentInfoKHR>(&perFrameArenas[currentFrame]);
-     *mainRenderTargetAttatchment =  createRenderingAttatchmentStruct(rendererResources.swapchainImageViews[swapChainImageIndex], 0.0, true);
+     *mainRenderTargetAttatchment =  createRenderingAttatchmentStruct(globalResources.swapchainImageViews[swapChainImageIndex], 0.0, true);
 
     //set up all our  draws
     drawBatchList* renderBatches = MemoryArena::Alloc<drawBatchList>(&perFrameArenas[currentFrame]);
@@ -2327,10 +1936,10 @@ void vulkanRenderer::drawFrame(Scene* scene)
      AddShadowPasses(renderBatches, scene, AssetDataAndMemory, &scene->sceneCamera,
                      &perFrameArenas[currentFrame],
                      perLightShadowData, shaderGroups.shadowShaders, &descriptorsetLayoutsDataCulling
-                     ,  shadowRenderStepContext,  computeRenderStepContext,thisFrameData->deviceIndices.data, rendererResources.shadowMapRenderingImageViews[currentFrame]);
+                     ,  shadowRenderStepContext,  computeRenderStepContext,thisFrameData->deviceIndices.data, shadowResources.shadowMapRenderingImageViews[currentFrame]);
 
     VkRenderingAttachmentInfoKHR* depthDrawAttatchment = MemoryArena::Alloc<VkRenderingAttachmentInfoKHR>(&perFrameArenas[currentFrame]);
-    *depthDrawAttatchment = createRenderingAttatchmentStruct( rendererResources.depthBufferInfo.view, 1.0, true);
+    *depthDrawAttatchment = createRenderingAttatchmentStruct( globalResources.depthBufferInfo.view, 1.0, true);
     
     AddOpaquePasses(renderBatches,shaderGroups.opaqueShaders, scene,  AssetDataAndMemory, &perFrameArenas[currentFrame],
                     perLightShadowData,
@@ -2387,13 +1996,13 @@ void vulkanRenderer::drawFrame(Scene* scene)
     transitionImageForRendering(
       getFullRendererContext(),
       beforeOpaqueTransitionOutRenderStepContext,
-      rendererResources.shadowImages[currentFrame],
+      shadowResources.shadowImages[currentFrame],
       VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
       VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, shadowWaitStages, 1, true);
     transitionImageForRendering(
         getFullRendererContext(),
         beforeOpaqueTransitionOutRenderStepContext,
-        rendererResources.swapchainImages[swapChainImageIndex],
+        globalResources.swapchainImages[swapChainImageIndex],
         VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
         VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, swapchainWaitStages, 1, false);
 
@@ -2438,17 +2047,10 @@ void vulkanRenderer::cleanup()
 
     deletionQueue->FreeQueue();
 
-
-    // vkDestroyDescriptorPool(device, descriptorPool, nullptr);
     descriptorsetLayoutsData.cleanup();
     descriptorsetLayoutsDataShadow.cleanup();
     descriptorsetLayoutsDataCulling.cleanup();
     AssetDataAndMemory->Cleanup(); //noop currently
- 
-
-
-
-     // vkb::destroy_surface(vkb_surface);
     destroy_swapchain(rendererVulkanObjects.swapchain);
    
     vkDestroySurfaceKHR(rendererVulkanObjects.vkbInstance.instance, rendererVulkanObjects.surface, nullptr);
@@ -2543,7 +2145,7 @@ void vulkanRenderer::initializeDearIMGUI()
     init_info.PipelineRenderingCreateInfo = {.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO};
     init_info.PipelineRenderingCreateInfo.colorAttachmentCount = 1;
     init_info.PipelineRenderingCreateInfo.pColorAttachmentFormats = &rendererVulkanObjects.swapchain.image_format;
-    init_info.PipelineRenderingCreateInfo.depthAttachmentFormat = rendererResources.depthBufferInfo.format;
+    init_info.PipelineRenderingCreateInfo.depthAttachmentFormat = globalResources.depthBufferInfo.format;
     //init_info.Allocator = nullptr; //
     //init_info.CheckVkResultFn = check_vk_result;
     ImGui_ImplVulkan_Init(&init_info);
