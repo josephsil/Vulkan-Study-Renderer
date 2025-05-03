@@ -141,7 +141,7 @@ void updateShadowImageViews(int frame, Scene* scene);
     VkDescriptorSetLayout pushDescriptorSetLayout;
     VkDescriptorSetLayout perMaterialSetLayout;
 
-    BindlessObjectShaderGroup shaderGroups;
+    BindlessObjectShaderGroup opaqueObjectShaderSets;
     PipelineGroup descriptorsetLayoutsData; 
     PipelineGroup descriptorsetLayoutsDataShadow; 
     PipelineGroup descriptorsetLayoutsDataCulling;

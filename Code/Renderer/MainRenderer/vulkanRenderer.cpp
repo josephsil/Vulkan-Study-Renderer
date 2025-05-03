@@ -41,6 +41,12 @@ unsigned int MAX_TEXTURES = 120;
 TextureData cube_irradiance;
 TextureData cube_specular;
 auto debugLinesManager = DebugLineData();
+//TODO: Eventually, these should vary per material
+uint32_t OPAQUE_PREPASS_SHADER_INDEX = -1;
+uint32_t SHADOW_PREPASS_SHADER_INDEX = -1;
+
+uint32_t DEBUG_LINE_SHADER_INDEX = -1;
+uint32_t  DEBUG_RAYMARCH_SHADER_INDEX =- 1;
 //Slowly making this less of a giant class that owns lots of things and moving to these static FNS -- will eventually migrate thewm
 
 PerSceneShadowResources  init_allocate_shadow_memory(rendererObjects initializedrenderer,  MemoryArena::memoryArena* allocationArena);
@@ -280,12 +286,6 @@ void vulkanRenderer::initializeRendererForScene(Scene* scene) //todo remaining i
     
     createGraphicsPipeline( globalResources.shaderLoader->compiledShaders["triangle"],  "triangle", &descriptorsetLayoutsData,opaquePipelineSettings, false, sizeof(debugLinePConstants));
 
-    const PipelineGroup::graphicsPipelineSettings linePipelineSettings =  {std::span(&swapchainFormat, 1), globalResources.depthBufferInfo.format, VK_CULL_MODE_NONE, VK_PRIMITIVE_TOPOLOGY_LINE_LIST };
-    createGraphicsPipeline( globalResources.shaderLoader->compiledShaders["lines"],  "lines", &descriptorsetLayoutsData,linePipelineSettings, false, sizeof(debugLinePConstants));
-
-    
-    const PipelineGroup::graphicsPipelineSettings debugRaymarchPipelineSettings =  {std::span(&swapchainFormat, 1), globalResources.depthBufferInfo.format, VK_CULL_MODE_FRONT_BIT, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST};
-    createGraphicsPipeline( globalResources.shaderLoader->compiledShaders["debug"],  "debug", &descriptorsetLayoutsData,debugRaymarchPipelineSettings, false, sizeof(debugLinePConstants));
     //shadow 
     const PipelineGroup::graphicsPipelineSettings shadowPipelineSettings =  {std::span(&swapchainFormat, 0), shadowFormat, VK_CULL_MODE_NONE, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_TRUE, VK_FALSE, VK_TRUE, true };
     createGraphicsPipeline( globalResources.shaderLoader->compiledShaders["shadow"],  "shadow", &descriptorsetLayoutsDataShadow,shadowPipelineSettings, false, sizeof(shadowPushConstants));
@@ -297,36 +297,49 @@ void vulkanRenderer::initializeRendererForScene(Scene* scene) //todo remaining i
     {std::span(&swapchainFormat, 0), shadowFormat, VK_CULL_MODE_NONE, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
     VK_FALSE, VK_TRUE, VK_FALSE, false };
 
-    //TODO JS: need a better way tohandle these depth prepass shaders -- should have their own layout(s), should compile the vertex shader from the actual standard shader, and should group easily for lookup
-    createGraphicsPipeline( globalResources.shaderLoader->compiledShaders["shadow"],  "shadow", &descriptorsetLayoutsDataShadow,depthPipelineSettings, false, sizeof(shadowPushConstants));
-    std::span<VkPipelineShaderStageCreateInfo> triangleShaderSpan =  globalResources.shaderLoader->compiledShaders["triangle"];
-    createGraphicsPipeline( triangleShaderSpan.subspan(0, 1),  "triangleShaderSpan", &descriptorsetLayoutsData,depthPipelineSettings2, false, sizeof(shadowPushConstants));
 
 
-
-    for (auto kvp : globalResources.shaderLoader->compiledShaders)
-     {
-         for(auto compiled_shader : kvp.second)
-         {
-             vkDestroyShaderModule(rendererVulkanObjects.vkbdevice.device, compiled_shader.module, nullptr);
-         }
-     }
-    shaderGroups = {};
+    //Create the lookup for bindless/opaque objects
+    opaqueObjectShaderSets = {};
     Array opaqueShaderLookups = MemoryArena::AllocSpan<int>(&rendererArena, descriptorsetLayoutsData.getPipelineCt());
     Array shadowShaderLookups = MemoryArena::AllocSpan<int>(&rendererArena, descriptorsetLayoutsData.getPipelineCt());
-    Array cullShaderLookups = MemoryArena::AllocSpan<int>(&rendererArena, descriptorsetLayoutsData.getPipelineCt());
     for(int i = 0; i < descriptorsetLayoutsData.getPipelineCt(); i++)
     {
         opaqueShaderLookups.push_back( {i});
-                  shadowShaderLookups.push_back({0});
-                  cullShaderLookups.push_back({0});
+        shadowShaderLookups.push_back({0}); //TODO For now, every shader uses the same shadow shader 
     }
-    shaderGroups = {
+    opaqueObjectShaderSets = {
         .opaqueShaders = {opaqueShaderLookups.getSpan(), &descriptorsetLayoutsData},
     .shadowShaders = {shadowShaderLookups.getSpan(), &descriptorsetLayoutsDataShadow},
-    .cullShaders = {cullShaderLookups.getSpan(), &descriptorsetLayoutsDataCulling}
     };
 
+    
+    //TODO JS: need a better way tohandle these depth prepass shaders -- should have their own layout(s), should compile the vertex shader from the actual standard shader, and should group easily for lookup
+    createGraphicsPipeline( globalResources.shaderLoader->compiledShaders["shadow"],  "shadowDepthPrepass", &descriptorsetLayoutsDataShadow, depthPipelineSettings, false, sizeof(shadowPushConstants));
+    std::span<VkPipelineShaderStageCreateInfo> triangleShaderSpan =  globalResources.shaderLoader->compiledShaders["triangle"];
+    createGraphicsPipeline( triangleShaderSpan.subspan(0, 1),  "opaqueDepthPrepass", &descriptorsetLayoutsData, depthPipelineSettings2, false, sizeof(shadowPushConstants));
+    OPAQUE_PREPASS_SHADER_INDEX = descriptorsetLayoutsData.getPipelineCt() -1;
+    SHADOW_PREPASS_SHADER_INDEX = descriptorsetLayoutsDataShadow.getPipelineCt() -1;
+
+    
+    const PipelineGroup::graphicsPipelineSettings linePipelineSettings =  {std::span(&swapchainFormat, 1), globalResources.depthBufferInfo.format, VK_CULL_MODE_NONE, VK_PRIMITIVE_TOPOLOGY_LINE_LIST };
+    createGraphicsPipeline( globalResources.shaderLoader->compiledShaders["lines"],  "lines", &descriptorsetLayoutsData,linePipelineSettings, false, sizeof(debugLinePConstants));
+    DEBUG_LINE_SHADER_INDEX = descriptorsetLayoutsData.getPipelineCt() -1;
+
+    
+    const PipelineGroup::graphicsPipelineSettings debugRaymarchPipelineSettings =  {std::span(&swapchainFormat, 1), globalResources.depthBufferInfo.format, VK_CULL_MODE_FRONT_BIT, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST};
+    createGraphicsPipeline( globalResources.shaderLoader->compiledShaders["debug"],  "debug", &descriptorsetLayoutsData,debugRaymarchPipelineSettings, false, sizeof(debugLinePConstants));
+    DEBUG_RAYMARCH_SHADER_INDEX = descriptorsetLayoutsData.getPipelineCt() -1;
+
+
+    //Cleanup
+    for (auto kvp : globalResources.shaderLoader->compiledShaders)
+    {
+        for(auto compiled_shader : kvp.second)
+        {
+            vkDestroyShaderModule(rendererVulkanObjects.vkbdevice.device, compiled_shader.module, nullptr);
+        }
+    }
 }
 
 //TODO JS: Support changing meshes at runtime
@@ -1114,14 +1127,6 @@ void recordPrimaryRenderPasses( std::span<drawBatchConfig> draws, VkBuffer indir
   
     uint32_t offset_into_struct = offsetof(drawCommandData, command);
 
-    //Cache these at a higher level -- maybe per command buffer/when the command buffer is set? Rn these get invalidated every shadow draw, since they're all new renderpasses 
-    
-    for(int j = 0; j < draws.size(); j++)
-    {
-        //TODO recordDepthPrepass( std::span<RenderPassConfig> passes, VkBuffer indirectCommandsBuffer /*FramesInFlightData[currentFrame].drawBuffers._buffer.data*/, int currentFrame)
-        //TODO GeneratehiZ(int currentFrame)
-    }
-      
     for(int j = 0; j < draws.size(); j++)
     {
         auto passInfo = draws[j];
@@ -1341,8 +1346,7 @@ void vulkanRenderer::recordUtilityPasses( VkCommandBuffer commandBuffer, int ima
         1, &dynamicRenderingColorAttatchment,
         rendererVulkanObjects.swapchain.extent,commandBuffer);
     
-    //TODO JS: something other than hardcoded 2
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, descriptorsetLayoutsData.getPipeline(2));
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, descriptorsetLayoutsData.getPipeline(DEBUG_LINE_SHADER_INDEX));
     // debugLines.push_back({{0,0,0},{20,40,20}, {0,0,1}});
     
     for (int i = 0; i <debugLinesManager.debugLines.size(); i++)
@@ -1358,8 +1362,7 @@ void vulkanRenderer::recordUtilityPasses( VkCommandBuffer commandBuffer, int ima
 
     //Debug raymarching pass
     //Disabled for now
-    // // //TODO JS: something other than hardcoded 3
-    // vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, descriptorsetLayoutsData.getPipeline(3));
+    // vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, descriptorsetLayoutsData.getPipeline(debugRaymarchShaderIndex));
     //
     // vkCmdDraw(commandBuffer, 6, 1, 0, 0);
     //
@@ -1935,13 +1938,13 @@ void vulkanRenderer::RenderFrame(Scene* scene)
 
      AddShadowPasses(renderBatches, scene, AssetDataAndMemory, &scene->sceneCamera,
                      &perFrameArenas[currentFrame],
-                     perLightShadowData, shaderGroups.shadowShaders, &descriptorsetLayoutsDataCulling
+                     perLightShadowData, opaqueObjectShaderSets.shadowShaders, &descriptorsetLayoutsDataCulling
                      ,  shadowRenderStepContext,  computeRenderStepContext,thisFrameData->deviceIndices.data, shadowResources.shadowMapRenderingImageViews[currentFrame]);
 
     VkRenderingAttachmentInfoKHR* depthDrawAttatchment = MemoryArena::Alloc<VkRenderingAttachmentInfoKHR>(&perFrameArenas[currentFrame]);
     *depthDrawAttatchment = createRenderingAttatchmentStruct( globalResources.depthBufferInfo.view, 1.0, true);
     
-    AddOpaquePasses(renderBatches,shaderGroups.opaqueShaders, scene,  AssetDataAndMemory, &perFrameArenas[currentFrame],
+    AddOpaquePasses(renderBatches,opaqueObjectShaderSets.opaqueShaders, scene,  AssetDataAndMemory, &perFrameArenas[currentFrame],
                     perLightShadowData,
                     &descriptorsetLayoutsDataCulling, opaqueRenderStepContext
                     ,  computeRenderStepContext,   mainRenderTargetAttatchment,depthDrawAttatchment, rendererVulkanObjects.swapchain.extent,
@@ -1966,7 +1969,7 @@ void vulkanRenderer::RenderFrame(Scene* scene)
         std::span<simpleMeshPassInfo> newPasses = MemoryArena::copySpan<simpleMeshPassInfo>(&perFrameArenas[currentFrame], oldPasses);
         for(int j =0; j < newPasses.size(); j++)
         {
-            newPasses[j].pipeline = shaderGroups.shadowShaders.pipelineGroup->getPipeline(1); //TODO JS: Avoid hardcoded index 1 for cull shader
+            newPasses[j].pipeline = opaqueObjectShaderSets.shadowShaders.pipelineGroup->getPipeline(SHADOW_PREPASS_SHADER_INDEX); //TODO JS: Avoid hardcoded index 1 for depth prepass shader
         }
         newPass.meshPasses = newPasses;
         newPass.drawRenderStepContext = cullingDepthPrepassRenderStepContext;
@@ -1976,7 +1979,7 @@ void vulkanRenderer::RenderFrame(Scene* scene)
             newPass.depthBiasSetting = {true, 0, 0};
             for(int j =0; j < newPasses.size(); j++)
             {
-                newPasses[j].pipeline = shaderGroups.opaqueShaders.pipelineGroup->getPipeline(shaderGroups.opaqueShaders.pipelineGroup->getPipelineCt() -1); //TODO JS: Avoid hardcoded last index for non-shadow cull shader
+                newPasses[j].pipeline = opaqueObjectShaderSets.opaqueShaders.pipelineGroup->getPipeline(OPAQUE_PREPASS_SHADER_INDEX); //TODO JS: Avoid hardcoded last index for non-shadow depth prepass shader
             }
         }
         renderBatches->batchConfigs.push_back(newPass);

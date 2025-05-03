@@ -1,6 +1,5 @@
-#define STB_DS_IMPLEMENTATION
+
 #include "PipelineGroup.h"
-#include "../../External/stb_ds.h"
 #include <cassert>
 
 #include "rendererGlobals.h"
@@ -68,7 +67,6 @@ void PipelineGroup::bindToCommandBuffer(VkCommandBuffer cmd, uint32_t currentFra
     assert(pipelineData.descriptorSetsInitialized && pipelineData.pipelinesInitialized);
     vkCmdBindDescriptorSets(cmd, bindPoint, this->pipelineData.bindlessPipelineLayout,
         0, 1,
-                                                            //TODO JS1
         &this->pipelineData.perSceneDescriptorSetForFrame[currentFrame][descriptorOffset], 0, nullptr);
 }
 

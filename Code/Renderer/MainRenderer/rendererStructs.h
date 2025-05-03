@@ -78,12 +78,11 @@ struct shaderLookup
 };
 
 //These map the shader ID in the scene/materials to shader IDs/pipeline groups for each major type
-
+//Like, a material has an ID which indexes in here, and here's where we get the diffuse/shadow/depth shaders
 struct BindlessObjectShaderGroup
 {
     shaderLookup opaqueShaders;
     shaderLookup shadowShaders;
-    shaderLookup cullShaders;
 };
 
 struct ActiveRenderStepData
