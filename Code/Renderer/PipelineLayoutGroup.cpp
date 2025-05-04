@@ -1,5 +1,5 @@
 
-#include "PipelineGroup.h"
+#include "PipelineLayoutGroup.h"
 #include <cassert>
 
 #include "rendererGlobals.h"
@@ -15,116 +15,124 @@
 #include <Renderer/RendererContext.h>
 
 
-PipelineGroup::PipelineGroup(RendererContext handles, VkDescriptorPool pool,
-    std::span<pipelineGroupSetInfo> externalDescriptorSetLayouts,
-    std::span<VkDescriptorSetLayoutBinding> perDrawDescriptorSetLayout, uint32_t perDrawSetsPerFrame,
+PipelineLayoutGroup::PipelineLayoutGroup(RendererContext handles, VkDescriptorPool pool,
+    std::span<DescriptorSetRefs> RequiredGeneralDescriptorInfo,
+    std::span<VkDescriptorSetLayoutBinding> PerPipelineDescriptorSetLayout, uint32_t perDrawSetsPerFrame,
     const char* debugName)
 {
     device = handles.device;
 
-    createLayout(handles , externalDescriptorSetLayouts, perDrawDescriptorSetLayout, debugName);
-    initializePerShaderDescriptorSets(handles, pool, MAX_FRAMES_IN_FLIGHT, perDrawSetsPerFrame, debugName);
-}
-
-
-void PipelineGroup::createLayout(RendererContext handles, std::span<pipelineGroupSetInfo> externalDescriptorSetLayouts,
-    std::span<VkDescriptorSetLayoutBinding> perDrawDescriptorSetLayout, const char* debugName )
-{
-    //Create the layouts for sets which are updated externally
-    //Create the layout for sets which are updated from here
-    this->pipelineData.perShaderDescriptorSetLayout = DescriptorSets::createVkDescriptorSetLayout(handles, perDrawDescriptorSetLayout, debugName);
-    this->pipelineData.slots = perDrawDescriptorSetLayout;
-}
-
-//Descriptor offset: Currently I allocate all of my descriptor sets for the whole renderer up front, because there are very few
-//The Mip Chain group  needs multiple descriptor sets, because it has to write to various mip levels, so the offset indices in 
-//Likely that will need a revisit.
-void PipelineGroup::bindToCommandBuffer(VkCommandBuffer cmd, uint32_t currentFrame,  uint32_t descriptorOffset, VkPipelineBindPoint bindPoint)
-{
-    assert(pipelineData.descriptorSetsInitialized && pipelineData.pipelinesInitialized);
-    vkCmdBindDescriptorSets(cmd, bindPoint, this->pipelineData.bindlessPipelineLayout,
-        0, 1,
-        &this->pipelineData.perShaderDescriptorSetForFrame[currentFrame][descriptorOffset], 0, nullptr);
-}
-
-
-
-//Descriptor offset: Currently I allocate all of my descriptor sets for the whole renderer up front, because there are very few
-//The Mip Chain group  needs multiple descriptor sets, because it has to write to various mip levels, so the offset indices in 
-//Likely that will need a revisit.
-void PipelineGroup::updateDescriptorSetsForPipeline(std::span<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame, perPipelineData* perPipelineData, uint32_t descriptorOffset)
-{
-    
-    writeDescriptorSets.clear();
-    writeDescriptorSetsBindingIndices.clear();
-    
-    for(int i = 0; i < descriptorUpdates.size(); i++)
+    if (PerPipelineDescriptorSetLayout.size() != 0)
     {
-        descriptorUpdateData update = descriptorUpdates[i];
-        VkDescriptorSet set = perPipelineData-> perShaderDescriptorSetForFrame[currentFrame][descriptorOffset];
+        createLayout(handles, PerPipelineDescriptorSetLayout, debugName);
+        initializePerShaderDescriptorSets(handles, pool, MAX_FRAMES_IN_FLIGHT, perDrawSetsPerFrame, debugName);
+    }
+    
+    partialPipelinelayoutCreateInfo = {};
+    Array layouts = MemoryArena::AllocSpan<VkDescriptorSetLayout>(handles.tempArena, RequiredGeneralDescriptorInfo.size() + 1);
+    Array DependentSetsPerFrame = MemoryArena::AllocSpan<std::span<VkDescriptorSet>>(handles.arena, RequiredGeneralDescriptorInfo.size() + 1);
+    for (auto requiredDescriptorSets : RequiredGeneralDescriptorInfo)
+    {
+        layouts.push_back(requiredDescriptorSets.layout);
+        DependentSetsPerFrame.push_back(requiredDescriptorSets.perFrameSets);
         
-        if (!writeDescriptorSetsBindingIndices.contains(set))
+    }
+    pipelineData.RequiredGeneralPurposeDescriptorSets = DependentSetsPerFrame.getSpan();
+    if (pipelineData.perShaderDescriptorSetLayout) layouts.push_back(pipelineData.perShaderDescriptorSetLayout);
+    partialPipelinelayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    partialPipelinelayoutCreateInfo.setLayoutCount = (uint32_t)layouts.size(); 
+    partialPipelinelayoutCreateInfo.pSetLayouts = layouts.getSpan().data();
+    
+}
+
+
+void PipelineLayoutGroup::createLayout(RendererContext handles, 
+    std::span<VkDescriptorSetLayoutBinding> PerPipelineDescriptorSetLayout, const char* debugName )
+{
+    if (PerPipelineDescriptorSetLayout.size() == 0)
+    {
+        this->pipelineData.perShaderDescriptorSetLayout = VK_NULL_HANDLE;
+        this->pipelineData.slots= {};
+        return;
+    }
+    //Create the layout for sets which are updated from here
+    this->pipelineData.perShaderDescriptorSetLayout = DescriptorSets::createVkDescriptorSetLayout(handles, PerPipelineDescriptorSetLayout, debugName);
+    this->pipelineData.slots = PerPipelineDescriptorSetLayout;
+}
+
+
+
+void bindDescriptorSet(VkCommandBuffer cmd, std::span<VkDescriptorSet> currentlyBoundSets, VkPipelineLayout layout, VkDescriptorSet set, uint32_t i, VkPipelineBindPoint bindPoint)
+{
+    // assert(set != currentlyBoundSets[i]);
+    assert(layout != VK_NULL_HANDLE);
+    if (currentlyBoundSets[i] ==  set)
+    {
+        return;
+    }
+    currentlyBoundSets[i] = set;
+    vkCmdBindDescriptorSets(cmd, bindPoint, layout,
+     i, 1,
+     &set, 0, nullptr);
+}
+
+//Descriptor offset: Currently I allocate all of my descriptor sets for the whole renderer up front, because there are very few
+//The Mip Chain group  needs multiple descriptor sets, because it has to write to various mip levels, so the offset indices in 
+//Likely that will need a revisit.
+void PipelineLayoutGroup::BindRequiredDescriptorSetsToCommandBuffer(VkCommandBuffer cmd, std::span<VkDescriptorSet> currentlyBoundSets, uint32_t currentFrame,  uint32_t descriptorOffset, VkPipelineBindPoint bindPoint)
+{
+    size_t i =0;
+    //Bind all the general purpose descriptor sets required by this pipeline layout, early out if they're already bound
+    for(i =0;  i < pipelineData.RequiredGeneralPurposeDescriptorSets.size(); i++)
+    {
+        auto descriptorSetDep = pipelineData.RequiredGeneralPurposeDescriptorSets[i];
+        VkDescriptorSet set = VK_NULL_HANDLE;
+        if (descriptorSetDep.size() == 1)
         {
-            writeDescriptorSetsBindingIndices[set] = 0;
-        }
-
-        VkDescriptorSetLayoutBinding bindingInfo = perPipelineData->slots[writeDescriptorSets.size()];
-
-        VkWriteDescriptorSet newSet = {};
-        newSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        newSet.dstBinding = bindingInfo.binding;
-        newSet.dstSet = set;
-        newSet.descriptorCount = update.count;
-        newSet.descriptorType = update.type;
-
-        assert(update.type == bindingInfo.descriptorType);
-        assert(update.count <= bindingInfo.descriptorCount);
-        // assert(bindingIndex == bindingInfo.binding);
-
-        if (update.type == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE || update.type == VK_DESCRIPTOR_TYPE_SAMPLER || update.type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
-        {
-            newSet.pImageInfo = static_cast<VkDescriptorImageInfo*>(update.ptr);
+            set = descriptorSetDep[0]; //This set is not per frame, it's global
         }
         else
         {
-            newSet.pBufferInfo = static_cast<VkDescriptorBufferInfo*>(update.ptr);
+            set = descriptorSetDep[currentFrame];
         }
-    
-        writeDescriptorSets.push_back(newSet);
-        
-        writeDescriptorSetsBindingIndices[set]++;
+        bindDescriptorSet(cmd, currentlyBoundSets,  this->pipelineData.PipelineLayout, set, i, bindPoint);
     }
-    
-    assert(writeDescriptorSets.size() == perPipelineData->slots.size());
 
-    vkUpdateDescriptorSets(device, (uint32_t)writeDescriptorSets.size(), writeDescriptorSets.data(), 0, nullptr);
+    //Bind the descriptors (if any) that are particular to this pipeline layout, early out if they're already bound
+    if(pipelineData.descriptorSetsInitialized && pipelineData.pipelinesInitialized)
+    {
+        auto descriptorSet  = this->pipelineData.PerLayoutDescriptorSets[currentFrame][descriptorOffset];
+        bindDescriptorSet(cmd, currentlyBoundSets,  this->pipelineData.PipelineLayout, descriptorSet, i, bindPoint);
+    }
 }
+
 
 //updates descriptor sets based on vector of descriptorupdatedata, with some light validation that we're binding the right stuff
-void PipelineGroup::updateDescriptorSets(std::span<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame, uint32_t descriptorToUpdate)
+void PipelineLayoutGroup::UpdatePerPipelineDescriptorSets(RendererContext rendererHandles, std::span<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame, uint32_t setToUpdate)
 {
-   updateDescriptorSetsForPipeline(descriptorUpdates, currentFrame, &pipelineData, descriptorToUpdate);
+    if ( pipelineData.PerLayoutDescriptorSets.size() == 0)
+    {
+        return;
+    }
+    DescriptorSets::_updateDescriptorSet_NEW(rendererHandles, pipelineData.PerLayoutDescriptorSets[currentFrame][setToUpdate], pipelineData.slots,  descriptorUpdates);
 }
 
-
-
-
-void PipelineGroup::initializePerShaderDescriptorSets(RendererContext handles, VkDescriptorPool pool, int MAX_FRAMES_IN_FLIGHT,  uint32_t descriptorCt, const char* debugName)
+void PipelineLayoutGroup::initializePerShaderDescriptorSets(RendererContext handles, VkDescriptorPool pool, int MAX_FRAMES_IN_FLIGHT,  uint32_t descriptorCt, const char* debugName)
 {
     assert(!this->pipelineData.descriptorSetsInitialized); // Don't double initialize
-    pipelineData.perShaderDescriptorSetForFrame.resize(MAX_FRAMES_IN_FLIGHT);
+    pipelineData.PerLayoutDescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
     for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
         assert(pipelineData.perShaderDescriptorSetLayout != nullptr);
-        pipelineData.perShaderDescriptorSetForFrame[i] = MemoryArena::AllocSpan<VkDescriptorSet>(handles.arena,descriptorCt);
-        DescriptorSets::CreateDescriptorSetsForLayout(handles, pool, pipelineData.perShaderDescriptorSetForFrame[i], pipelineData.perShaderDescriptorSetLayout, descriptorCt, debugName);
+        pipelineData.PerLayoutDescriptorSets[i] = MemoryArena::AllocSpan<VkDescriptorSet>(handles.arena,descriptorCt);
+        DescriptorSets::CreateDescriptorSetsForLayout(handles, pool, pipelineData.PerLayoutDescriptorSets[i], pipelineData.perShaderDescriptorSetLayout, descriptorCt, debugName);
     
     }
     pipelineData.descriptorSetsInitialized = true;
             
 }
 
-VkPipeline PipelineGroup::getPipeline(int index)
+VkPipeline PipelineLayoutGroup::getPipeline(int index)
 {
     //TODO JS
     // assert(pipelinesInitialized && pipelineLayoutInitialized);
@@ -132,30 +140,22 @@ VkPipeline PipelineGroup::getPipeline(int index)
     return pipelines[index];
 }
 
-uint32_t PipelineGroup::getPipelineCt()
+uint32_t PipelineLayoutGroup::getPipelineCt()
 {
     //TODO JS
     // assert(pipelinesInitialized && pipelineLayoutInitialized);
     return (uint32_t)pipelines.size();
 }
 
-void PipelineGroup::createPipelineLayoutForPipeline(perPipelineData* perPipelineData, size_t pconstantSize, bool compute)
+void PipelineLayoutGroup::createPipelineLayoutForPipeline(perPipelineData* perPipelineData, size_t pconstantSize, char*name, bool compute)
 {
 
     if(perPipelineData->pipelineLayoutInitialized)
     {
         return;
     }
-    
-    std::vector<VkDescriptorSetLayout> layouts ={};
-    if (perPipelineData->perShaderDescriptorSetLayout) layouts.push_back(perPipelineData->perShaderDescriptorSetLayout);
-    
-    VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
-    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutInfo.setLayoutCount = (uint32_t)layouts.size(); // Optional
-    pipelineLayoutInfo.pSetLayouts = layouts.data();
-
-   
+    VkPipelineLayoutCreateInfo pipelineLayoutInfo = partialPipelinelayoutCreateInfo; 
+ 
     //setup push constants
     VkPushConstantRange push_constant = {};
     //this push constant range starts at the beginning
@@ -170,11 +170,12 @@ void PipelineGroup::createPipelineLayoutForPipeline(perPipelineData* perPipeline
         pipelineLayoutInfo.pushConstantRangeCount = 1;
    
 
-    if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &perPipelineData->bindlessPipelineLayout) != VK_SUCCESS)
+    if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &perPipelineData->PipelineLayout) != VK_SUCCESS)
     {
         printf("failed to create pipeline layout!");
     exit(-1);
     }
+    setDebugObjectName(device,VK_OBJECT_TYPE_PIPELINE_LAYOUT, name, (uint64_t)(perPipelineData->PipelineLayout));
     perPipelineData->pipelineLayoutInitialized = true;
   
 }
@@ -182,11 +183,11 @@ void PipelineGroup::createPipelineLayoutForPipeline(perPipelineData* perPipeline
 
 
 
-void PipelineGroup::createGraphicsPipeline(std::span<VkPipelineShaderStageCreateInfo> shaders, char* name, graphicsPipelineSettings settings, size_t pconstantSize)
+void PipelineLayoutGroup::createGraphicsPipeline(std::span<VkPipelineShaderStageCreateInfo> shaders, char* name, graphicsPipelineSettings settings, size_t pconstantSize)
 {
     auto pipeline =  &pipelineData;
-    createPipelineLayoutForPipeline(pipeline, pconstantSize,false);
-    
+    createPipelineLayoutForPipeline(pipeline, pconstantSize,name, false);
+   
     assert(pipeline->pipelineLayoutInitialized);
     VkPipeline newGraphicsPipeline {}; 
 
@@ -272,7 +273,7 @@ void PipelineGroup::createGraphicsPipeline(std::span<VkPipelineShaderStageCreate
     pipelineInfo.pColorBlendState = &colorBlending;
     pipelineInfo.pDynamicState = &dynamicState;
     
-    pipelineInfo.layout = pipeline->bindlessPipelineLayout;
+    pipelineInfo.layout = pipeline->PipelineLayout;
     pipelineInfo.renderPass = VK_NULL_HANDLE;
     pipelineInfo.subpass = 0;
 
@@ -294,23 +295,23 @@ void PipelineGroup::createGraphicsPipeline(std::span<VkPipelineShaderStageCreate
     exit(-1);
     }
    
-    setDebugObjectName(device, VK_OBJECT_TYPE_PIPELINE,"lines  shader", uint64_t(newGraphicsPipeline));
+    setDebugObjectName(device, VK_OBJECT_TYPE_PIPELINE,name, uint64_t(newGraphicsPipeline));
 
     pipeline->pipelinesInitialized = true;
     pipelines.push_back(newGraphicsPipeline);
 }
 
-void PipelineGroup::createComputePipeline(VkPipelineShaderStageCreateInfo shader, char* name, size_t pconstantSize)
+void PipelineLayoutGroup::createComputePipeline(VkPipelineShaderStageCreateInfo shader, char* name, size_t pconstantSize)
 {
 
     auto pipeline =  &pipelineData;
-    createPipelineLayoutForPipeline(pipeline, pconstantSize,true);
+    createPipelineLayoutForPipeline(pipeline, pconstantSize,name, true);
     assert(pipeline->pipelineLayoutInitialized);
     VkPipeline newPipeline {}; 
     
     VkComputePipelineCreateInfo pipelineInfo{};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-    pipelineInfo.layout =  pipeline->bindlessPipelineLayout;
+    pipelineInfo.layout =  pipeline->PipelineLayout;
     VkPipelineShaderStageCreateInfo computeShaderStageInfo = shader;
 
 
@@ -325,7 +326,7 @@ void PipelineGroup::createComputePipeline(VkPipelineShaderStageCreateInfo shader
     pipelines.push_back(newPipeline);
 }
 
-void PipelineGroup::cleanup()
+void PipelineLayoutGroup::cleanup()
 {
     
    
@@ -339,8 +340,8 @@ void PipelineGroup::cleanup()
 }
 
 
-void PipelineGroup::perPipelineData::cleanup(VkDevice device)
+void PipelineLayoutGroup::perPipelineData::cleanup(VkDevice device)
 {
-    vkDestroyPipelineLayout(device, bindlessPipelineLayout, nullptr);
+    vkDestroyPipelineLayout(device, PipelineLayout, nullptr);
     vkDestroyDescriptorSetLayout(device, perShaderDescriptorSetLayout, nullptr);
 }

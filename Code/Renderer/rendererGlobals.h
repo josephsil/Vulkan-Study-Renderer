@@ -9,7 +9,7 @@
 #include <string_view>
 #include <string>
 #include "bufferCreation.h"
-#include "PipelineGroup.h"
+#include "PipelineLayoutGroup.h"
 #include "RendererContext.h"
 #include "VulkanIncludes/forward-declarations-renderer.h"
 struct RendererContext;

@@ -16,7 +16,7 @@
 #include <General/MemoryArena.h>
 #include "../../Shaders/ShaderLoading.h"
 #include "VkBootstrap.h"
-#include "../../PipelineGroup.h"
+#include "../../PipelineLayoutGroup.h"
 #include "Scene/Scene.h"
 #include "../rendererStructs.h"
 #include "Renderer/RendererDeletionQueue.h"

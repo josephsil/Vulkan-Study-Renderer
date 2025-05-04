@@ -131,6 +131,42 @@ void DescriptorSets::CreateDescriptorSetsForLayout(RendererContext handles, VkDe
 
 }
 
+void DescriptorSets::_updateDescriptorSet_NEW(RendererContext rendererHandles, VkDescriptorSet set, std::span<VkDescriptorSetLayoutBinding> setBindingInfo, std::span<descriptorUpdateData> descriptorUpdates)
+{
+    Array<VkWriteDescriptorSet> writeDescriptorSets = MemoryArena::AllocSpan<VkWriteDescriptorSet>(rendererHandles.tempArena, setBindingInfo.size());
+    for(int i = 0; i < descriptorUpdates.size(); i++)
+    {
+        descriptorUpdateData update = descriptorUpdates[i];
+
+        VkDescriptorSetLayoutBinding bindingInfo = setBindingInfo[i];
+
+        VkWriteDescriptorSet newSet = {};
+        newSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        newSet.dstBinding = bindingInfo.binding;
+        newSet.dstSet = set;
+        newSet.descriptorCount = update.count;
+        newSet.descriptorType = update.type;
+
+        assert(update.type == bindingInfo.descriptorType);
+        assert(update.count <= bindingInfo.descriptorCount);
+        // assert(bindingIndex == bindingInfo.binding);
+
+        if (update.type == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE || update.type == VK_DESCRIPTOR_TYPE_SAMPLER || update.type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
+        {
+            newSet.pImageInfo = static_cast<VkDescriptorImageInfo*>(update.ptr);
+        }
+        else
+        {
+            newSet.pBufferInfo = static_cast<VkDescriptorBufferInfo*>(update.ptr);
+        }
+    
+        writeDescriptorSets.push_back(newSet);
+        
+    }
+
+    vkUpdateDescriptorSets(rendererHandles.device, (uint32_t)writeDescriptorSets.size(), writeDescriptorSets.getSpan().data(), 0, nullptr);
+}
+
 VkDescriptorBufferInfo dataBuffer::getBufferInfo()
 {
     VkDescriptorBufferInfo bufferInfo{};

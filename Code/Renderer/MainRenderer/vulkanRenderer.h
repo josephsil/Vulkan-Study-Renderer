@@ -17,7 +17,7 @@
 #include <General/MemoryArena.h>
 #include "../Shaders/ShaderLoading.h"
 #include "VkBootstrap.h"
-#include "../PipelineGroup.h"
+#include "../PipelineLayoutGroup.h"
 #include "Scene/Scene.h"
 #include "rendererStructs.h"
 #include "Renderer/RendererDeletionQueue.h"
@@ -47,14 +47,15 @@ struct drawBatchConfig;
 struct drawBatchList
 {
     uint32_t drawCount;
-    Array<drawBatchConfig> batchConfigs;
+    std::vector<drawBatchConfig> batchConfigs;
 };
 
 struct drawBatchConfig
 {
+    std::string debugName;
     ActiveRenderStepData* drawRenderStepContext;
     ActiveRenderStepData* computeRenderStepContext;
-    PipelineGroup* pipelineGroup; //descriptorsetLayoutsDataShadow
+    PipelineLayoutGroup* pipelineLayoutGroup; //descriptorsetLayoutsDataShadow
     VkBuffer indexBuffer; //FramesInFlightData[currentFrame].indices._buffer.data
     VkIndexType indexBufferType; // VK_INDEX_TYPE_UINT32
     std::span<simpleMeshPassInfo> meshPasses;
@@ -142,27 +143,24 @@ void updateShadowImageViews(int frame, Scene* scene);
     VkDescriptorSetLayout perMaterialSetLayout;
 
     BindlessObjectShaderGroup opaqueObjectShaderSets;
-    PipelineGroup descriptorsetLayoutsData; 
-    PipelineGroup descriptorsetLayoutsDataShadow; 
-    PipelineGroup descriptorsetLayoutsDataCulling;
-    PipelineGroup descriptorsetLayoutsDataMipChain;
+    PipelineLayoutGroup descriptorsetLayoutsData; 
+    PipelineLayoutGroup descriptorsetLayoutsDataShadow; 
+    PipelineLayoutGroup descriptorsetLayoutsDataCulling;
+    PipelineLayoutGroup descriptorsetLayoutsDataMipChain;
 
     
     void createDescriptorSetPool(RendererContext handles, VkDescriptorPool* pool);
-    void updateOpaqueDescriptorSets(PipelineGroup* layoutData);
-    std::span<descriptorUpdateData> createOpaqueDescriptorUpdates(uint32_t frame, int shadowCasterCount, MemoryArena::memoryArena* arena, std::span<VkDescriptorSetLayoutBinding>
+    void UpdatePerFrameDescriptorSets(PipelineLayoutGroup* layoutData);
+    std::span<descriptorUpdateData> createperFrameDescriptorUpdates(uint32_t frame, int shadowCasterCount, MemoryArena::memoryArena* arena, std::span<VkDescriptorSetLayoutBinding>
                                                                   layoutBindings);
     std::span<descriptorUpdateData> createShadowDescriptorUpdates(MemoryArena::memoryArena* arena, uint32_t frame, uint32_t shadowIndex, std::span<VkDescriptorSetLayoutBinding>
                                                                   layoutBindings);
 
-    void updateShadowDescriptorSets(
-        PipelineGroup* layoutData, uint32_t shadowIndex);
 
-    std::span<descriptorUpdateData> opaqueUpdates[MAX_FRAMES_IN_FLIGHT] = {};
+    std::span<descriptorUpdateData> perFrameBindlessUpdates[MAX_FRAMES_IN_FLIGHT] = {};
+    std::span<VkDescriptorSet> perFrameBindlessDescriptorSet = {};
 
     std::span<descriptorUpdateData> computeUpdates[MAX_FRAMES_IN_FLIGHT] = {};
-
-    std::span<std::span<descriptorUpdateData>> shadowUpdates[MAX_FRAMES_IN_FLIGHT] = {};
 
 #pragma endregion
 
@@ -170,7 +168,7 @@ void updateShadowImageViews(int frame, Scene* scene);
     struct per_frame_data
     {
 
-        VkDescriptorSet PerFrameBindlessDescriptorSet;
+        std::span<uint32_t> boundCommandBuffers;
         acquireImageSemaphore semaphores;
         std::unique_ptr<RendererDeletionQueue> deletionQueue;
         VkFence inFlightFence {};
@@ -201,6 +199,8 @@ void updateShadowImageViews(int frame, Scene* scene);
     };
 
     std::vector<per_frame_data> FramesInFlightData;
+    std::span<VkDescriptorSetLayoutBinding> PerFrameBindlessLayoutBindings;
+    VkDescriptorSetLayout PerFrameBindlessLayout;
     bool firstTime[MAX_FRAMES_IN_FLIGHT];
     int firstframe = true;
     int cubemaplut_utilitytexture_index;
@@ -235,7 +235,7 @@ void updateShadowImageViews(int frame, Scene* scene);
 
 
     void createGraphicsPipeline(std::span<VkPipelineShaderStageCreateInfo> shaderStages,
-                                const char* name, PipelineGroup* descriptorsetdata, PipelineGroup::graphicsPipelineSettings settings, bool compute, size_t
+                                const char* name, PipelineLayoutGroup* descriptorsetdata, PipelineLayoutGroup::graphicsPipelineSettings settings, bool compute, size_t
                                 pconstantSize);
     
 

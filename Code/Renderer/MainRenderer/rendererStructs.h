@@ -74,7 +74,7 @@ struct rendererObjects
 struct shaderLookup
 {
     std::span<int> shaderIndices;
-    PipelineGroup* pipelineGroup;
+    PipelineLayoutGroup* pipelineGroup;
 };
 
 //These map the shader ID in the scene/materials to shader IDs/pipeline groups for each major type
@@ -93,5 +93,6 @@ struct ActiveRenderStepData
     VkCommandBuffer commandBuffer;
     std::span<VkSemaphore> waitSemaphores;
     std::span<VkSemaphore> signalSempahores;
+    std::span<VkDescriptorSet> boundDescriptorSets;
     VkFence* fence;
 };
