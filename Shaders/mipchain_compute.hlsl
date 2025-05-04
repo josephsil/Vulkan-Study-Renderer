@@ -1,10 +1,10 @@
 #include "structs.hlsl"
 
-[[vk::binding(0, 0)]]
+[[vk::binding(12, 0)]]
 Texture2D<float4> srcTexture; //could be read only
-[[vk::binding(1, 0)]]
+[[vk::binding(13, 0)]]
 RWTexture2D<float4> dstTexture; //could be write  only
-[[vk::binding(2, 0)]]
+[[vk::binding(14, 0)]]
 SamplerState samplers;
 
 struct mipchainPushConstant

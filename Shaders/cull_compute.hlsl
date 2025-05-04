@@ -31,15 +31,15 @@ struct drawCommandData
 [[vk::push_constant]]
 cullComputeGLobals globals;
 
-[[vk::binding(0,0)]]
+[[vk::binding(12,0)]]
 RWStructuredBuffer<float4> frustumData;
 
 // #ifdef SHADOWPASS
-[[vk::binding(1, 0)]]
+[[vk::binding(13, 0)]]
 RWStructuredBuffer<drawCommandData> drawData;
 // #endif
 // #ifdef SHADOWPASS
-[[vk::binding(2, 0)]]
+[[vk::binding(14, 0)]]
 RWStructuredBuffer<objectData> _objectData;
 // #endif
 

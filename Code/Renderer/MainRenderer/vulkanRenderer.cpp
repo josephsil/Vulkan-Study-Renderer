@@ -79,6 +79,7 @@ vulkanRenderer::vulkanRenderer()
     //semaphores
     for (int i = 0; i < FramesInFlightData.size(); i++)
     {
+        FramesInFlightData[i].PerFrameBindlessDescriptorSet = VK_NULL_HANDLE; 
         createSemaphore(rendererVulkanObjects.vkbdevice.device, &(FramesInFlightData[i].semaphores.semaphore), "Per Frame semaphpre", deletionQueue.get());
         static_createFence(rendererVulkanObjects.vkbdevice.device,  &FramesInFlightData[i].inFlightFence, "Per Frame fence", deletionQueue.get());
         FramesInFlightData[i].deletionQueue = std::make_unique<RendererDeletionQueue>(rendererVulkanObjects.vkbdevice, rendererVulkanObjects.vmaAllocator);
@@ -214,6 +215,26 @@ void vulkanRenderer::initializeRendererForScene(Scene* scene) //todo remaining i
 
     createDescriptorSetPool(getFullRendererContext(), &descriptorPool);
 
+    Array perFrameBindlessLayout = MemoryArena::AllocSpan<VkDescriptorSetLayoutBinding>(&rendererArena, 12);
+    uint32_t _j = 0;
+    perFrameBindlessLayout.push_back({_j++, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL, VK_NULL_HANDLE}); //Globals  0 // per frame
+    perFrameBindlessLayout.push_back({_j++, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, MAX_TEXTURES, VK_SHADER_STAGE_FRAGMENT_BIT,  VK_NULL_HANDLE});// images 1 //per scene?
+    perFrameBindlessLayout.push_back({_j++, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,2, VK_SHADER_STAGE_FRAGMENT_BIT,  VK_NULL_HANDLE});//  cubes 2 //per scene?
+    perFrameBindlessLayout.push_back({_j++, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, MAX_SHADOWMAPS, VK_SHADER_STAGE_FRAGMENT_BIT  }); //SHADOW//  //shadows 3 //per
+    perFrameBindlessLayout.push_back({_j++, VK_DESCRIPTOR_TYPE_SAMPLER, MAX_TEXTURES, VK_SHADER_STAGE_FRAGMENT_BIT , VK_NULL_HANDLE} );//  4  // perscene?
+    perFrameBindlessLayout.push_back({_j++, VK_DESCRIPTOR_TYPE_SAMPLER, 2, VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE}  );//  5 // perscene?
+    perFrameBindlessLayout.push_back({_j++, VK_DESCRIPTOR_TYPE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE}  ); //SHADOW//  //shadows 6 // perscene
+    perFrameBindlessLayout.push_back({_j++, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE} ); //Geometry//  // mesh 7 //per
+    perFrameBindlessLayout.push_back({_j++, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1,  VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE} ); //light//   //8 light info --
+    perFrameBindlessLayout.push_back({_j++, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1,  VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE} );  //9 Object info --
+    perFrameBindlessLayout.push_back({_j++, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE} ); //10 shadow buffer info
+    perFrameBindlessLayout.push_back({_j++, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE} );  //11 vert buffer info\
+
+    auto PerFrameLayout = DescriptorSets::createVkDescriptorSetLayout(getFullRendererContext(), perFrameBindlessLayout.getSpan(), "Per Scene Bindlses Layout");
+    for (int i =0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    {
+        DescriptorSets::CreateDescriptorSetsForLayout(getFullRendererContext(), descriptorPool, {&FramesInFlightData[i].PerFrameBindlessDescriptorSet, 1}, PerFrameLayout, 1, "Per Scene Bindless Set");
+    }
     Array opaqueLayout = MemoryArena::AllocSpan<VkDescriptorSetLayoutBinding>(&rendererArena, 12);
     uint32_t i =0;
     opaqueLayout.push_back({i++, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL, VK_NULL_HANDLE}); //Globals
@@ -227,29 +248,24 @@ void vulkanRenderer::initializeRendererForScene(Scene* scene) //todo remaining i
     opaqueLayout.push_back({i++, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1,  VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE} ); //light
     opaqueLayout.push_back({i++, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1,  VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE} ); //ubo
     opaqueLayout.push_back({i++, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE} ); //shadow matrices
-    
-    opaqueLayout.push_back({i++, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE} ); //vert positoins
+    opaqueLayout.push_back({i++, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE} ); //vert positoins 
 
 
     Array shadowLayout = MemoryArena::AllocSpan<VkDescriptorSetLayoutBinding>(&rendererArena, 5);
-    // shadowLayout.push_back({6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE});
-    // shadowLayout.push_back({7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE});  //Vertices
     shadowLayout.push_back({8, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE}); //light
-    shadowLayout.push_back({9, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE}); //ubo
-    // shadowLayout.push_back({10, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE}); //shadow matrices
-
-    shadowLayout.push_back({11, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE}); //vert positoins
+    shadowLayout.push_back({9, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE}); //ubo // -- why is this needed?
+    shadowLayout.push_back({11, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE}); //vert positoins -- why is this needed?
 
 
     Array cullingLayout = MemoryArena::AllocSpan<VkDescriptorSetLayoutBinding>(&rendererArena, 3);
-    cullingLayout.push_back({0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}); //frustum data
-    cullingLayout.push_back({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}); //draws 
-    cullingLayout.push_back({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}); //objectData
+    cullingLayout.push_back({12, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}); //frustum data
+    cullingLayout.push_back({13, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}); //draws 
+    cullingLayout.push_back({14, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}); //objectData
 
     Array mipChainLayout = MemoryArena::AllocSpan<VkDescriptorSetLayoutBinding>(&rendererArena, 3);
-    mipChainLayout.push_back({0, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}); //depth pyramid inout
-    mipChainLayout.push_back({1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}); //depth pyramid output
-    mipChainLayout.push_back({2, VK_DESCRIPTOR_TYPE_SAMPLER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}); //depth pyramid inout
+    mipChainLayout.push_back({12, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}); //depth pyramid inout
+    mipChainLayout.push_back({13, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}); //depth pyramid output
+    mipChainLayout.push_back({14, VK_DESCRIPTOR_TYPE_SAMPLER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}); //depth pyramid inout
 
     for(int i = 0; i < MAX_FRAMES_IN_FLIGHT ; i++)
     {
@@ -263,19 +279,19 @@ void vulkanRenderer::initializeRendererForScene(Scene* scene) //todo remaining i
     }
 
 
-    descriptorsetLayoutsDataMipChain = PipelineGroup(getFullRendererContext(), descriptorPool, mipChainLayout.getSpan(), HIZDEPTH, "mip chain layout");
+    descriptorsetLayoutsDataMipChain = PipelineGroup(getFullRendererContext(), descriptorPool, {}, mipChainLayout.getSpan(), HIZDEPTH, "mip chain layout");
 
     createGraphicsPipeline( globalResources.shaderLoader->compiledShaders["mipChain"],  "mipChain", &descriptorsetLayoutsDataMipChain, {}, true, sizeof(glm::vec2));
 
-    descriptorsetLayoutsDataCulling = PipelineGroup(getFullRendererContext(), descriptorPool, cullingLayout.getSpan(), 1, "culling layout");
+    descriptorsetLayoutsDataCulling = PipelineGroup(getFullRendererContext(), descriptorPool, {}, cullingLayout.getSpan(), 1, "culling layout");
 
 
     
     //compute
     createGraphicsPipeline( globalResources.shaderLoader->compiledShaders["cull"],  "cull", &descriptorsetLayoutsDataCulling, {}, true, sizeof(cullPConstants));
     
-    descriptorsetLayoutsData = PipelineGroup(getFullRendererContext(), descriptorPool, opaqueLayout.getSpan(), 1,  "opaque layout");
-    descriptorsetLayoutsDataShadow = PipelineGroup(getFullRendererContext(), descriptorPool, shadowLayout.getSpan(), 1,  "shadow layout");
+    descriptorsetLayoutsData = PipelineGroup(getFullRendererContext(), descriptorPool, {}, opaqueLayout.getSpan(), 1,  "opaque layout");
+    descriptorsetLayoutsDataShadow = PipelineGroup(getFullRendererContext(), descriptorPool, {}, shadowLayout.getSpan(), 1,  "shadow layout");
 
    auto swapchainFormat = rendererVulkanObjects.swapchain.image_format;
 
@@ -464,13 +480,13 @@ void vulkanRenderer::createDescriptorSetPool(RendererContext context, VkDescript
     
     std::vector<VkDescriptorPoolSize> sizes =
     {
-        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 20 },
-        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 20 },
-        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 20 },
-        { VK_DESCRIPTOR_TYPE_SAMPLER, 20 },
-        { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 20 },
-        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 20 },
-        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 20 }
+        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 80 },
+        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 80 },
+        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 80 },
+        { VK_DESCRIPTOR_TYPE_SAMPLER, 80 },
+        { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 80 },
+        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 80 },
+        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 80 }
     };
 
     VkDescriptorPoolCreateInfo pool_info = {};
@@ -479,7 +495,7 @@ void vulkanRenderer::createDescriptorSetPool(RendererContext context, VkDescript
     pool_info.poolSizeCount = (uint32_t)sizes.size();
     pool_info.pPoolSizes = sizes.data();
     
-    pool_info.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * 4 * 3; //4 here is the number of descriptorsets  * 3 pipelines
+    pool_info.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * 20 * 20;
     VK_CHECK( vkCreateDescriptorPool(context.device, &pool_info, nullptr, pool));
     context.rendererdeletionqueue->push_backVk(deletionType::descriptorPool,uint64_t(*pool));
     

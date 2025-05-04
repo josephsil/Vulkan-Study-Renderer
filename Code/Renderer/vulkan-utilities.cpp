@@ -64,8 +64,41 @@ uint32_t Capabilities::findMemoryType(RendererContext rendererHandles, uint32_t 
 }
 
 
-//TODO JS1: Descriptor refactor Note 1-
+VkDescriptorSetLayoutCreateInfo  DescriptorSets::createInfoFromSpan( std::span<VkDescriptorSetLayoutBinding> bindings)
+{
+    VkDescriptorSetLayoutCreateInfo _createInfo = {};
+    _createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    // _createInfo.flags =   VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
+    _createInfo.bindingCount = static_cast<uint32_t>(bindings.size());
+    _createInfo.pBindings = bindings.data();
 
+    return _createInfo;
+}
+
+VkDescriptorSetLayout  DescriptorSets::createVkDescriptorSetLayout(RendererContext handles,  std::span<VkDescriptorSetLayoutBinding> layoutBindings,  const char* debugName)
+{
+    VkDescriptorSetLayoutCreateInfo layoutCreateInfo = createInfoFromSpan(layoutBindings);
+    VkDescriptorBindingFlags binding_flags = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT_EXT; 
+    VkDescriptorSetLayoutBindingFlagsCreateInfoEXT extended_info = {VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO_EXT};
+    extended_info.bindingCount = (uint32_t)layoutBindings.size(); 
+    std::span<VkDescriptorBindingFlagsEXT> extFlags = MemoryArena::AllocSpan<VkDescriptorBindingFlagsEXT>(handles.tempArena, layoutBindings.size());
+
+    //enable partially bound bit for all samplers and images
+    for (int i = 0; i < extFlags.size(); i++)
+    {
+        extFlags[i] = (layoutBindings[i].descriptorType == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE || layoutBindings[i].descriptorType == VK_DESCRIPTOR_TYPE_SAMPLER) ? binding_flags : 0;
+    }
+   
+    extended_info.pBindingFlags = extFlags.data();
+    layoutCreateInfo.pNext = &extended_info;
+
+
+
+    VkDescriptorSetLayout _layout = {};
+    VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &layoutCreateInfo, nullptr, &_layout));
+    setDebugObjectName(handles.device, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, debugName,(uint64_t)_layout );
+    return _layout;
+}
 
 void DescriptorSets::AllocateDescriptorSet(VkDevice device, VkDescriptorPool pool, VkDescriptorSetLayout* pdescriptorsetLayout, VkDescriptorSet* pset, uint32_t ct)
 {
@@ -80,6 +113,23 @@ void DescriptorSets::AllocateDescriptorSet(VkDevice device, VkDescriptorPool poo
   
 }
 
+void DescriptorSets::CreateDescriptorSetsForLayout(RendererContext handles, VkDescriptorPool pool, std::span<VkDescriptorSet> sets, VkDescriptorSetLayout layout,   uint32_t descriptorCt, const char* debugName)
+{
+
+    for(int i = 0; i < sets.size(); i++)
+    {
+        auto descriptorSetLayoutCopiesForAlloc = MemoryArena::AllocSpan<VkDescriptorSetLayout>(handles.tempArena,descriptorCt);
+
+        for(int j = 0; j < descriptorCt; j++)
+        {
+            descriptorSetLayoutCopiesForAlloc[j] = layout;
+        }
+
+        DescriptorSets::AllocateDescriptorSet(handles.device, pool,  descriptorSetLayoutCopiesForAlloc.data(), &sets[i], descriptorCt);
+        setDebugObjectName(handles.device, VK_OBJECT_TYPE_DESCRIPTOR_SET,debugName, uint64_t(sets[i]) );
+    }
+
+}
 
 VkDescriptorBufferInfo dataBuffer::getBufferInfo()
 {

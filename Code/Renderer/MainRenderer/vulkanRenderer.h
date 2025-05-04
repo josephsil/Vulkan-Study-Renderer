@@ -169,6 +169,8 @@ void updateShadowImageViews(int frame, Scene* scene);
 
     struct per_frame_data
     {
+
+        VkDescriptorSet PerFrameBindlessDescriptorSet;
         acquireImageSemaphore semaphores;
         std::unique_ptr<RendererDeletionQueue> deletionQueue;
         VkFence inFlightFence {};

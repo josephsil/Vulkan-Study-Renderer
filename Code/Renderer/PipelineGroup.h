@@ -32,10 +32,15 @@ struct descriptorUpdateData;
             bool dynamicBias = false;
         };
 
+        struct pipelineGroupSetInfo
+        {
+            VkDescriptorSetLayout layout;
+            std::span<VkDescriptorSet> setsPerFrame; 
+        };
         
         PipelineGroup()
         {}
-        PipelineGroup(RendererContext handles, VkDescriptorPool pool, std::span<VkDescriptorSetLayoutBinding> opaqueLayout,  uint32_t setsPerFrame, const char* debugName);
+        PipelineGroup(RendererContext handles, VkDescriptorPool pool, std::span<pipelineGroupSetInfo> externalDescriptorSetLayouts, std::span<VkDescriptorSetLayoutBinding> perDrawDescriptorSetLayout,  uint32_t perDrawSetsPerFrame, const char* debugName);
 
         //Initialization
         
@@ -66,12 +71,13 @@ struct descriptorUpdateData;
 
             
             VkPipelineLayout bindlessPipelineLayout;
-            VkDescriptorSetLayout perSceneDescriptorSetLayout = {};
+            std::vector<VkDescriptorSetLayout> ExternalDescriptorSetLayouts = {};
+            VkDescriptorSetLayout perShaderDescriptorSetLayout = {};
             // VkDescriptorSetLayout storageDescriptorLayout = {};
             // VkDescriptorSetLayout imageDescriptorLayout = {};
             // VkDescriptorSetLayout samplerDescriptorLayout = {};
         
-            std::vector<std::span<VkDescriptorSet>> perSceneDescriptorSetForFrame = {};
+            std::vector<std::span<VkDescriptorSet>> perShaderDescriptorSetForFrame = {};
             // std::vector<VkDescriptorSet> storageDescriptorSetForFrame = {};
             // std::vector<VkDescriptorSet> imageDescriptorSetForFrame = {};
             // std::vector<VkDescriptorSet> samplerDescriptorSetForFrame = {};
@@ -82,7 +88,7 @@ struct descriptorUpdateData;
         perPipelineData pipelineData;
         // perPipelineData shadowPipelineData;
         //Descriptor set update
-        void createDescriptorSets(RendererContext handles, VkDescriptorPool pool, int MAX_FRAMES_IN_FLIGHT, uint32_t descriptorCt, const char* debugName);
+        void initializePerShaderDescriptorSets(RendererContext handles, VkDescriptorPool pool, int MAX_FRAMES_IN_FLIGHT, uint32_t descriptorCt, const char* debugName);
         VkPipeline GetPipelineByName(const char* name);
 
     private:
@@ -99,7 +105,8 @@ struct descriptorUpdateData;
 
  
 
-        void createLayout(RendererContext handles, std::span<VkDescriptorSetLayoutBinding> layout, const char* debugName);
+        void createLayout(RendererContext handles, std::span<pipelineGroupSetInfo> externalDescriptorSetLayouts, std::span<
+                          VkDescriptorSetLayoutBinding> perDrawDescriptorSetLayout, const char* debugName);
 
 
      

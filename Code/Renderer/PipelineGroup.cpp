@@ -15,48 +15,25 @@
 #include <Renderer/RendererContext.h>
 
 
-VkDescriptorSetLayoutCreateInfo createInfoFromSpan( std::span<VkDescriptorSetLayoutBinding> bindings)
-{
-    VkDescriptorSetLayoutCreateInfo _createInfo = {};
-    _createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    // _createInfo.flags =   VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
-    _createInfo.bindingCount = static_cast<uint32_t>(bindings.size());
-    _createInfo.pBindings = bindings.data();
-
-    return _createInfo;
-}
-PipelineGroup::PipelineGroup(RendererContext handles, VkDescriptorPool pool, std::span<VkDescriptorSetLayoutBinding> opaqueLayout, uint32_t setsPerFrame, const char* debugName)
+PipelineGroup::PipelineGroup(RendererContext handles, VkDescriptorPool pool,
+    std::span<pipelineGroupSetInfo> externalDescriptorSetLayouts,
+    std::span<VkDescriptorSetLayoutBinding> perDrawDescriptorSetLayout, uint32_t perDrawSetsPerFrame,
+    const char* debugName)
 {
     device = handles.device;
-    createLayout(handles , opaqueLayout, debugName);
-    createDescriptorSets(handles, pool, MAX_FRAMES_IN_FLIGHT, setsPerFrame, debugName);
+
+    createLayout(handles , externalDescriptorSetLayouts, perDrawDescriptorSetLayout, debugName);
+    initializePerShaderDescriptorSets(handles, pool, MAX_FRAMES_IN_FLIGHT, perDrawSetsPerFrame, debugName);
 }
 
-void PipelineGroup::createLayout(RendererContext handles,  std::span<VkDescriptorSetLayoutBinding> layout, const char* debugName )
+
+void PipelineGroup::createLayout(RendererContext handles, std::span<pipelineGroupSetInfo> externalDescriptorSetLayouts,
+    std::span<VkDescriptorSetLayoutBinding> perDrawDescriptorSetLayout, const char* debugName )
 {
-    VkDescriptorSetLayoutCreateInfo perSceneLaout = createInfoFromSpan(layout);
-
-
-    VkDescriptorBindingFlags binding_flags = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT_EXT; 
-    VkDescriptorSetLayoutBindingFlagsCreateInfoEXT extended_info = {VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO_EXT};
-    extended_info.bindingCount = (uint32_t)layout.size(); 
-
-    std::span<VkDescriptorBindingFlagsEXT> extFlags = MemoryArena::AllocSpan<VkDescriptorBindingFlagsEXT>(handles.tempArena, layout.size());
-
-    //enable partially bound bit for all samplers and images
-    for (int i = 0; i < extFlags.size(); i++)
-    {
-        extFlags[i] = (layout[i].descriptorType == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE || layout[i].descriptorType == VK_DESCRIPTOR_TYPE_SAMPLER) ? binding_flags : 0;
-    }
-   
-    extended_info.pBindingFlags = extFlags.data();
-    perSceneLaout.pNext = &extended_info;
-
-
-    
-    VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &perSceneLaout, nullptr, &this->pipelineData.perSceneDescriptorSetLayout));
-    setDebugObjectName(handles.device, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, debugName,(uint64_t)this->pipelineData.perSceneDescriptorSetLayout );
-    this->pipelineData.slots = layout;
+    //Create the layouts for sets which are updated externally
+    //Create the layout for sets which are updated from here
+    this->pipelineData.perShaderDescriptorSetLayout = DescriptorSets::createVkDescriptorSetLayout(handles, perDrawDescriptorSetLayout, debugName);
+    this->pipelineData.slots = perDrawDescriptorSetLayout;
 }
 
 //Descriptor offset: Currently I allocate all of my descriptor sets for the whole renderer up front, because there are very few
@@ -67,7 +44,7 @@ void PipelineGroup::bindToCommandBuffer(VkCommandBuffer cmd, uint32_t currentFra
     assert(pipelineData.descriptorSetsInitialized && pipelineData.pipelinesInitialized);
     vkCmdBindDescriptorSets(cmd, bindPoint, this->pipelineData.bindlessPipelineLayout,
         0, 1,
-        &this->pipelineData.perSceneDescriptorSetForFrame[currentFrame][descriptorOffset], 0, nullptr);
+        &this->pipelineData.perShaderDescriptorSetForFrame[currentFrame][descriptorOffset], 0, nullptr);
 }
 
 
@@ -84,7 +61,7 @@ void PipelineGroup::updateDescriptorSetsForPipeline(std::span<descriptorUpdateDa
     for(int i = 0; i < descriptorUpdates.size(); i++)
     {
         descriptorUpdateData update = descriptorUpdates[i];
-        VkDescriptorSet set = perPipelineData-> perSceneDescriptorSetForFrame[currentFrame][descriptorOffset];
+        VkDescriptorSet set = perPipelineData-> perShaderDescriptorSetForFrame[currentFrame][descriptorOffset];
         
         if (!writeDescriptorSetsBindingIndices.contains(set))
         {
@@ -132,31 +109,15 @@ void PipelineGroup::updateDescriptorSets(std::span<descriptorUpdateData> descrip
 
 
 
-void PipelineGroup::createDescriptorSets(RendererContext handles, VkDescriptorPool pool, int MAX_FRAMES_IN_FLIGHT, uint32_t descriptorCt, const char* debugName)
+void PipelineGroup::initializePerShaderDescriptorSets(RendererContext handles, VkDescriptorPool pool, int MAX_FRAMES_IN_FLIGHT,  uint32_t descriptorCt, const char* debugName)
 {
     assert(!this->pipelineData.descriptorSetsInitialized); // Don't double initialize
-    pipelineData.perSceneDescriptorSetForFrame.resize(MAX_FRAMES_IN_FLIGHT);
+    pipelineData.perShaderDescriptorSetForFrame.resize(MAX_FRAMES_IN_FLIGHT);
     for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        assert(pipelineData.perSceneDescriptorSetLayout != nullptr);
-        pipelineData.perSceneDescriptorSetForFrame[i] = MemoryArena::AllocSpan<VkDescriptorSet>(handles.arena,descriptorCt);
-
-        //Allocate descriptor sets expects one layout per each descriptor set allocated
-        //(I think the expectation is you're allocating big chunks of un-sorted descriptor sets)
-        //For now, since this only happens once at the start of the frame, we'll just copy the layout for the alloc
-        //However this may need a revisit in the future
-        auto descriptorSetLayoutCopiesForAlloc = MemoryArena::AllocSpan<VkDescriptorSetLayout>(handles.tempArena,descriptorCt);
-
-        for(int j = 0; j < descriptorCt; j++)
-        {
-            descriptorSetLayoutCopiesForAlloc[j] = pipelineData.perSceneDescriptorSetLayout;
-        }
-        DescriptorSets::AllocateDescriptorSet(device, pool,  descriptorSetLayoutCopiesForAlloc.data(), pipelineData.perSceneDescriptorSetForFrame[i].data(), descriptorCt);
-
-        for (auto element : pipelineData.perSceneDescriptorSetForFrame[i])
-        {
-            setDebugObjectName(device, VK_OBJECT_TYPE_DESCRIPTOR_SET,debugName, uint64_t(element) );
-        }
+        assert(pipelineData.perShaderDescriptorSetLayout != nullptr);
+        pipelineData.perShaderDescriptorSetForFrame[i] = MemoryArena::AllocSpan<VkDescriptorSet>(handles.arena,descriptorCt);
+        DescriptorSets::CreateDescriptorSetsForLayout(handles, pool, pipelineData.perShaderDescriptorSetForFrame[i], pipelineData.perShaderDescriptorSetLayout, descriptorCt, debugName);
     
     }
     pipelineData.descriptorSetsInitialized = true;
@@ -187,7 +148,7 @@ void PipelineGroup::createPipelineLayoutForPipeline(perPipelineData* perPipeline
     }
     
     std::vector<VkDescriptorSetLayout> layouts ={};
-    if (perPipelineData->perSceneDescriptorSetLayout) layouts.push_back(perPipelineData->perSceneDescriptorSetLayout);
+    if (perPipelineData->perShaderDescriptorSetLayout) layouts.push_back(perPipelineData->perShaderDescriptorSetLayout);
     
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -217,6 +178,7 @@ void PipelineGroup::createPipelineLayoutForPipeline(perPipelineData* perPipeline
     perPipelineData->pipelineLayoutInitialized = true;
   
 }
+
 
 
 
@@ -380,5 +342,5 @@ void PipelineGroup::cleanup()
 void PipelineGroup::perPipelineData::cleanup(VkDevice device)
 {
     vkDestroyPipelineLayout(device, bindlessPipelineLayout, nullptr);
-    vkDestroyDescriptorSetLayout(device, perSceneDescriptorSetLayout, nullptr);
+    vkDestroyDescriptorSetLayout(device, perShaderDescriptorSetLayout, nullptr);
 }
