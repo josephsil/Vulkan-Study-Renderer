@@ -14,6 +14,8 @@
 #include <General/Array.h>
 #include <General/FileCaching.h>
 #include <General/MemoryArena.h>
+
+#include "Renderer/rendererGlobals.h"
 #ifndef WIN32
 #include <unistd.h>
 #endif
@@ -307,13 +309,21 @@ void ShaderLoader::AddShader(const char* name, std::wstring shaderPath, bool com
             vertShaderStageInfo.module = shaderLoad(shaderPaths.path, vert);
             vertShaderStageInfo.pName = "Vert"; //Entry point name 
             VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
+            if (vertShaderStageInfo.module != VK_NULL_HANDLE)
+            {
+                setDebugObjectName(device_, VK_OBJECT_TYPE_SHADER_MODULE, name, (uint64_t)(vertShaderStageInfo.module));
+            }
             fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
             fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
             if (needsCompiled) { shaderCompile(shaderPaths.path, frag); }
             fragShaderStageInfo.module = shaderLoad(shaderPaths.path, frag);
             fragShaderStageInfo.pName = "Frag"; //Entry point name   
             std::vector shaderStages = {vertShaderStageInfo, fragShaderStageInfo};
-            // VkPipelineShaderStageCreateInfo test[] = { vertShaderStageInfo, fragShaderStageInfo };
+             if (fragShaderStageInfo.module != VK_NULL_HANDLE)
+            {
+            setDebugObjectName(device_, VK_OBJECT_TYPE_SHADER_MODULE, name, (uint64_t)fragShaderStageInfo.module);
+            }
+            VkPipelineShaderStageCreateInfo test[] = { vertShaderStageInfo, fragShaderStageInfo };
             compiledShaders.insert({name, shaderStages});
             break;
         }
@@ -327,6 +337,10 @@ void ShaderLoader::AddShader(const char* name, std::wstring shaderPath, bool com
             computeShaderStage.pName = "Main"; //Entry point name
             std::vector shaderStages = {computeShaderStage};
             compiledShaders.insert({name, shaderStages});
+             if (computeShaderStage.module != VK_NULL_HANDLE)
+            {
+            setDebugObjectName(device_, VK_OBJECT_TYPE_SHADER_MODULE, name, (uint64_t)computeShaderStage.module);
+            }
             break;
         }
     }
