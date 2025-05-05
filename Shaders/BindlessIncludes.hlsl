@@ -25,7 +25,8 @@
 // samplerDescriptorSets
 // [[vk::binding(0,0)]]
 // [[vk::binding(0, 0)]]
-cbuffer globals : register(b0) { ShaderGlobals globals; }
+
+cbuffer globals : register(b0, space1) { ShaderGlobals globals; }
 
 [[vk::binding(1, 0)]]
 Texture2D<float4> bindless_textures[];
@@ -55,13 +56,13 @@ RWStructuredBuffer<MyVertexStructure> BufferTable;
 ByteAddressBuffer BufferTable;
 #endif
 
-[[vk::binding(8,0)]]
+[[vk::binding(8,1)]]
 RWStructuredBuffer<MyLightStructure> lights;
-[[vk::binding(9, 0)]]
+[[vk::binding(9, 1)]]
 RWStructuredBuffer<objectData> uboarr;
 
 // #ifdef SHADOWPASS
-[[vk::binding(10, 0)]]
+[[vk::binding(10, 1)]]
 RWStructuredBuffer<perShadowData> shadowMatrices;
 // #endif 
 

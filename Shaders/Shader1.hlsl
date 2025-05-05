@@ -50,6 +50,7 @@ VSOutput Vert(VSInput input,  [[vk::builtin("BaseInstance")]]  uint InstanceInde
     float4 vertPos = positions[VertexIndex];
 vertPos.a = 1.0;
 
+    
     //
     objectData ubo = uboarr[InstanceIndex];
     VSOutput output = (VSOutput)0;

@@ -150,7 +150,9 @@ void updateShadowImageViews(int frame, Scene* scene);
 
     
     void createDescriptorSetPool(RendererContext handles, VkDescriptorPool* pool);
-    void UpdatePerFrameDescriptorSets(PipelineLayoutGroup* layoutData);
+    //TODO 
+    std::span<descriptorUpdateData> createperSceneDescriptorUpdates(uint32_t frame, int shadowCasterCount, MemoryArena::memoryArena* arena, std::span<VkDescriptorSetLayoutBinding>
+                                                              layoutBindings);
     std::span<descriptorUpdateData> createperFrameDescriptorUpdates(uint32_t frame, int shadowCasterCount, MemoryArena::memoryArena* arena, std::span<VkDescriptorSetLayoutBinding>
                                                                   layoutBindings);
     std::span<descriptorUpdateData> createShadowDescriptorUpdates(MemoryArena::memoryArena* arena, uint32_t frame, uint32_t shadowIndex, std::span<VkDescriptorSetLayoutBinding>
@@ -158,8 +160,11 @@ void updateShadowImageViews(int frame, Scene* scene);
 
 
 
-    DescriptorWrapperWIP bindlessDescriptorWrapper;
-    VkDescriptorSetLayout bindlessLayout;
+    DescriptorWrapperWIP scenebindlessDescriptorWrapper;
+    VkDescriptorSetLayout scenebindlessLayout;
+
+    DescriptorWrapperWIP framebindlessDescriptorWrapper;
+    VkDescriptorSetLayout framebindlessLayout;
 
     std::span<descriptorUpdateData> computeUpdates[MAX_FRAMES_IN_FLIGHT] = {};
 

@@ -19,7 +19,7 @@ typedef std::span<descriptorUpdateData> descriptorUpdates;
 
 struct DescriptorWrapperWIP
 {
-    std::span<descriptorUpdates> perFrameUpdates = {};
+    std::span<descriptorUpdates> Updates = {};
     std::span<descriptorSetsForGroup> perFrameDescriptorSets = {};
     std::span<VkDescriptorSetLayoutBinding> layoutBindings;
 };
@@ -72,7 +72,6 @@ struct DescriptorSetRefs
         struct perPipelineData
         {
             bool iscompute;
-            std::span<VkDescriptorSetLayoutBinding> slots;
             VkPipelineLayout layout;
             std::span<DescriptorWrapperWIP> descriptorInfo;
             void cleanup(VkDevice device);

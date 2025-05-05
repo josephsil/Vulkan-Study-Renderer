@@ -13,7 +13,7 @@ struct ShaderGlobals
     float4 lightcount_mode_shadowct_padding;
     float4 lutIDX_lutSamplerIDX_padding_padding;
 };
-cbuffer globals : register(b0) { ShaderGlobals globals; }
+cbuffer globals : register(b0, space1) { ShaderGlobals globals; }
 
 
 struct pconstant
