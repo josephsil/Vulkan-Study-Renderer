@@ -157,8 +157,9 @@ void updateShadowImageViews(int frame, Scene* scene);
                                                                   layoutBindings);
 
 
-    std::span<descriptorUpdateData> perFrameBindlessUpdates[MAX_FRAMES_IN_FLIGHT] = {};
-    std::span<VkDescriptorSet> perFrameBindlessDescriptorSet = {};
+
+    DescriptorWrapperWIP bindlessDescriptorWrapper;
+    VkDescriptorSetLayout bindlessLayout;
 
     std::span<descriptorUpdateData> computeUpdates[MAX_FRAMES_IN_FLIGHT] = {};
 
@@ -199,8 +200,6 @@ void updateShadowImageViews(int frame, Scene* scene);
     };
 
     std::vector<per_frame_data> FramesInFlightData;
-    std::span<VkDescriptorSetLayoutBinding> PerFrameBindlessLayoutBindings;
-    VkDescriptorSetLayout PerFrameBindlessLayout;
     bool firstTime[MAX_FRAMES_IN_FLIGHT];
     int firstframe = true;
     int cubemaplut_utilitytexture_index;
@@ -234,9 +233,6 @@ void updateShadowImageViews(int frame, Scene* scene);
     bool hasStencilComponent(VkFormat format);
 
 
-    void createGraphicsPipeline(std::span<VkPipelineShaderStageCreateInfo> shaderStages,
-                                const char* name, PipelineLayoutGroup* descriptorsetdata, PipelineLayoutGroup::graphicsPipelineSettings settings, bool compute, size_t
-                                pconstantSize);
     
 
   

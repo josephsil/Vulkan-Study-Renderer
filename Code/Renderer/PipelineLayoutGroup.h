@@ -11,6 +11,18 @@ struct RendererContext;
 struct CommandPoolManager;
 struct descriptorUpdateData;
 
+//can have one or more descriptor sets to draw per frame. Most only have one
+//Need multiple for cases where we need to "update" more than once per frame, for non-bindless style drawing
+//TODO should remove this concept and dynamically grab them them from the pool as required
+typedef std::span<VkDescriptorSet> descriptorSetsForGroup;
+typedef std::span<descriptorUpdateData> descriptorUpdates;
+
+struct DescriptorWrapperWIP
+{
+    std::span<descriptorUpdates> perFrameUpdates = {};
+    std::span<descriptorSetsForGroup> perFrameDescriptorSets = {};
+    std::span<VkDescriptorSetLayoutBinding> layoutBindings;
+};
 
 struct DescriptorSetRefs
 {
@@ -18,9 +30,6 @@ struct DescriptorSetRefs
     std::span<VkDescriptorSet> perFrameSets;
 };
 
-//TODO JS: Pipelines identified by slots? Unique perPipelineData based on configuration???
-//
-    //One of these per pipeline *layout*, contains multiple pipelines
     class PipelineLayoutGroup
     {
     public:
@@ -40,22 +49,20 @@ struct DescriptorSetRefs
         
         PipelineLayoutGroup()
         {}
-        PipelineLayoutGroup(RendererContext handles, VkDescriptorPool pool, std::span<DescriptorSetRefs> RequiredGeneralDescriptorInfo, std::span<VkDescriptorSetLayoutBinding> PerPipelineDescriptorSetLayout,  uint32_t perDrawSetsPerFrame, const char* debugName);
+        PipelineLayoutGroup(RendererContext handles, VkDescriptorPool pool,
+   std::span<DescriptorWrapperWIP> descriptorInfo, std::span<VkDescriptorSetLayout> layouts, uint32_t perDrawSetsPerFrame, uint32_t pconstantsize, bool compute,
+    const char* debugName);
 
         //Initialization
         
-
-        void createGraphicsPipeline(std::span<VkPipelineShaderStageCreateInfo> shaders, char* name, graphicsPipelineSettings settings, size_t pconstantSize
-                                        = 0);
+        void createPipeline(std::span<VkPipelineShaderStageCreateInfo> shaders, const char* name, graphicsPipelineSettings settings);
+        void createGraphicsPipeline(std::span<VkPipelineShaderStageCreateInfo> shaders, char* name, graphicsPipelineSettings settings);
         void createComputePipeline(VkPipelineShaderStageCreateInfo shader, char* name, size_t pconstantSize = 0);
         struct perPipelineData;
 
         //Runtime
-        void UpdatePerPipelineDescriptorSets(RendererContext rendererHandles, std::span<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame, uint32_t
-                                             setToUpdate);
         void BindRequiredDescriptorSetsToCommandBuffer(VkCommandBuffer cmd, std::span<VkDescriptorSet> currentlyBoundSets, uint32_t currentFrame, uint32_t descriptorOffset, VkPipelineBindPoint
-                                 bindPoint =
-                                     VK_PIPELINE_BIND_POINT_GRAPHICS);
+                                 bindPoint =VK_PIPELINE_BIND_POINT_GRAPHICS);
 
         VkPipeline getPipeline(int index);
         uint32_t getPipelineCt();
@@ -64,22 +71,10 @@ struct DescriptorSetRefs
   
         struct perPipelineData
         {
+            bool iscompute;
             std::span<VkDescriptorSetLayoutBinding> slots;
-
-            bool pipelineLayoutInitialized = false;
-            bool pipelinesInitialized = false;
-            bool descriptorSetsInitialized = false;
-
-            
-            VkPipelineLayout PipelineLayout;
-            std::span<std::span<VkDescriptorSet>> RequiredGeneralPurposeDescriptorSets;
-            std::vector<VkDescriptorSetLayout> ExternalDescriptorSetLayouts = {};
-            VkDescriptorSetLayout perShaderDescriptorSetLayout = {};
-
-        
-            std::vector<std::span<VkDescriptorSet>> PerLayoutDescriptorSets = {};
-
-
+            VkPipelineLayout layout;
+            std::span<DescriptorWrapperWIP> descriptorInfo;
             void cleanup(VkDevice device);
         };
 
@@ -87,27 +82,12 @@ struct DescriptorSetRefs
         VkPipelineLayoutCreateInfo partialPipelinelayoutCreateInfo; //Has the layouts, but not push constants
         // perPipelineData shadowPipelineData;
         //Descriptor set update
-        void initializePerShaderDescriptorSets(RendererContext handles, VkDescriptorPool pool, int MAX_FRAMES_IN_FLIGHT, uint32_t descriptorCt, const char* debugName);
-        VkPipeline GetPipelineByName(const char* name);
 
     private:
-
-       
-        
         VkDevice device;
-
-      
         std::vector<VkPipeline> pipelines;
-
-        void createLayout(RendererContext handles,  std::span<
-                          VkDescriptorSetLayoutBinding> PerPipelineDescriptorSetLayout, const char* debugName);
-
-
-     
-        void createPipelineLayoutForPipeline(perPipelineData* perPipelineData, size_t pconstantSize, char* name, bool
+        void createPipelineLayoutForGroup(perPipelineData* perPipelineData, size_t pconstantSize, char* name, bool
                                              compute);
-        void UpdatePerPipelineDescriptorSets(std::span<descriptorUpdateData> descriptorUpdates, uint32_t currentFrame, perPipelineData* perPipelineData, uint32_t
-                                             descriptorOffset);
         std::vector<VkWriteDescriptorSet> writeDescriptorSets;
         std::unordered_map<VkDescriptorSet, int> writeDescriptorSetsBindingIndices;
         
