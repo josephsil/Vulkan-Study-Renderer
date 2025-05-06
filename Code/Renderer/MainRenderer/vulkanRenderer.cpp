@@ -183,32 +183,6 @@ static PerSceneShadowResources init_allocate_shadow_memory(rendererObjects initi
     };
 }
 
-DescriptorDataForPipeline allocateDescrptorData(MemoryArena::memoryArena* arena,std::span<VkDescriptorSetLayoutBinding> layoutBindings, uint32_t descriptorSetCt = 1, bool isPerFrame = true)
-{
-
-    int SetsForFrameCt = isPerFrame ? MAX_FRAMES_IN_FLIGHT : 1;
-    descriptorSetsForGroup* _DescriptorSets = MemoryArena::AllocSpan<descriptorSetsForGroup>(arena, SetsForFrameCt).data();
-
-        for (int i = 0; i < SetsForFrameCt; i++)
-        {
-            _DescriptorSets[i] = MemoryArena::AllocSpan<VkDescriptorSet>(arena, descriptorSetCt );
-        }
- 
-    auto _BindlessLayoutBindings = MemoryArena::copySpan<VkDescriptorSetLayoutBinding>(arena, layoutBindings);
-    return {.isPerFrame =  isPerFrame, .descriptorSetsCache = _DescriptorSets, .layoutBindings = _BindlessLayoutBindings };
-}
-
-void PopulateDescriptorRelatedObjects(RendererContext ctx, const char* layoutname, bool isPerFrame, std::span<VkDescriptorSetLayoutBinding> bindingLayout, const char* setname, VkDescriptorPool pool,  DescriptorDataForPipeline* outDescriptorData, VkDescriptorSetLayout* outDescriptorLayout, int descriptorCtPerSet = 1)
-{
-       
-    *outDescriptorData = allocateDescrptorData(ctx.arena, bindingLayout, descriptorCtPerSet, isPerFrame);
-    *outDescriptorLayout = DescriptorSets::createVkDescriptorSetLayout(ctx, outDescriptorData->layoutBindings, layoutname);
-    for (int i =0; i < (isPerFrame ? MAX_FRAMES_IN_FLIGHT : 1); i++)
-    {
-        DescriptorSets::CreateDescriptorSetsForLayout(ctx, pool, outDescriptorData->descriptorSetsCache[i], *outDescriptorLayout, 1, setname);
-    }
-}
-
 
 //TODO JS: break dependency on Scene -- add some kind of interface or something.
 //TODO JS: The layout creation stuff is awful -- need a full rethink of how layouts are set up and bound to. want a single centralized place.
@@ -244,68 +218,72 @@ void vulkanRenderer::initializeRendererForScene(Scene* scene) //todo remaining i
 
     //These aren't actually per scene yet, kinda got halfway through breaking them up
     //They don't actually need to ber per-frame like this, they could just be set once, but for now theyre identical to the per-frame set they were split off from
-    VkDescriptorSetLayoutBinding sceneLayout[6] = {};
+    VkDescriptorSetLayoutBinding sceneLayoutBindings[6] = {};
     
     int _j = 0;
-    sceneLayout[_j++] = VkDescriptorSetLayoutBinding{0, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, MAX_TEXTURES, VK_SHADER_STAGE_FRAGMENT_BIT,  VK_NULL_HANDLE};// images 1 //per scene
-    sceneLayout[_j++] = VkDescriptorSetLayoutBinding{1, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,2, VK_SHADER_STAGE_FRAGMENT_BIT,  VK_NULL_HANDLE};//  cubes 2 //per scene?
+    sceneLayoutBindings[_j++] = VkDescriptorSetLayoutBinding{0, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, MAX_TEXTURES, VK_SHADER_STAGE_FRAGMENT_BIT,  VK_NULL_HANDLE};// images 1 //per scene
+    sceneLayoutBindings[_j++] = VkDescriptorSetLayoutBinding{1, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,2, VK_SHADER_STAGE_FRAGMENT_BIT,  VK_NULL_HANDLE};//  cubes 2 //per scene?
 
-    sceneLayout[_j++] = VkDescriptorSetLayoutBinding{2, VK_DESCRIPTOR_TYPE_SAMPLER, MAX_TEXTURES, VK_SHADER_STAGE_FRAGMENT_BIT , VK_NULL_HANDLE} ;// iamges  4  // perscene
-    sceneLayout[_j++] = VkDescriptorSetLayoutBinding{3, VK_DESCRIPTOR_TYPE_SAMPLER, 2, VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE}  ;// iamges 5  // perscen
+    sceneLayoutBindings[_j++] = VkDescriptorSetLayoutBinding{2, VK_DESCRIPTOR_TYPE_SAMPLER, MAX_TEXTURES, VK_SHADER_STAGE_FRAGMENT_BIT , VK_NULL_HANDLE} ;// iamges  4  // perscene
+    sceneLayoutBindings[_j++] = VkDescriptorSetLayoutBinding{3, VK_DESCRIPTOR_TYPE_SAMPLER, 2, VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE}  ;// iamges 5  // perscen
 
-    sceneLayout[_j++] = VkDescriptorSetLayoutBinding{4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE} ; //Geometry//  // mesh 7 //per scene, for now
-    sceneLayout[_j++] = VkDescriptorSetLayoutBinding{5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE} ;  //11 vert buffer info -- per scene, for now
+    sceneLayoutBindings[_j++] = VkDescriptorSetLayoutBinding{4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE} ; //Geometry//  // mesh 7 //per scene, for now
+    sceneLayoutBindings[_j++] = VkDescriptorSetLayoutBinding{5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, VK_NULL_HANDLE} ;  //11 vert buffer info -- per scene, for now
 
-    PopulateDescriptorRelatedObjects(getFullRendererContext(), "Per Scene Bindlses Layout", false, sceneLayout, "Per Scene Bindless Set", descriptorPool, &scenebindlessDescriptorWrapper, &scenebindlessLayout);
-    perSceneDescriptorUpdates  = CreatePerFrameCollection<std::span<descriptorUpdateData > >(&rendererArena);
-    perFrameDescriptorUpdates  = CreatePerFrameCollection<std::span<descriptorUpdateData > >(&rendererArena);
-       perSceneDescriptorUpdates[0] = createperSceneDescriptorUpdates(0, glm::min(MAX_SHADOWCASTERS, scene->lightCount), &rendererArena, scenebindlessDescriptorWrapper.layoutBindings);
+    perSceneBindlessDescriptorLayout = DescriptorSets::createVkDescriptorSetLayout(getFullRendererContext(), sceneLayoutBindings, "Per Scene Bindlses Layout");
+    perSceneBindlessDescriptorData = CreateDescriptorDataForPipeline(getFullRendererContext(), perSceneBindlessDescriptorLayout, false, sceneLayoutBindings, "Per Scene Bindless Set", descriptorPool);
+    perSceneDescriptorUpdates = createperSceneDescriptorUpdates(0, glm::min(MAX_SHADOWCASTERS, scene->lightCount), &rendererArena, perSceneBindlessDescriptorData.layoutBindings);
 
     _j = 0;
-    VkDescriptorSetLayoutBinding frameLayout[6] = {};
-    frameLayout[_j++] = VkDescriptorSetLayoutBinding{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL, VK_NULL_HANDLE}; //Globals  0 // per frame
-    frameLayout[_j++] = VkDescriptorSetLayoutBinding{1, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, MAX_SHADOWMAPS, VK_SHADER_STAGE_FRAGMENT_BIT  }; //SHADOW//  //shadow images 3 //per scene
-    frameLayout[_j++] = VkDescriptorSetLayoutBinding{2, VK_DESCRIPTOR_TYPE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE}  ; // shadow iamges  6  // perscene
-    frameLayout[_j++] = VkDescriptorSetLayoutBinding{3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1,  VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE} ; //light//   //8 light info -- per frame
-    frameLayout[_j++] = VkDescriptorSetLayoutBinding{4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1,  VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE} ;  //9 Object info -- per frame
-    frameLayout[_j++] = VkDescriptorSetLayoutBinding{5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE} ; //10 shadow buffer info -- per frame
-    PopulateDescriptorRelatedObjects(getFullRendererContext(), "Per Frame Bindlses Layout",  true, frameLayout, "Per Frame Bindless Set", descriptorPool, &framebindlessDescriptorWrapper, &framebindlessLayout);
+    VkDescriptorSetLayoutBinding frameLayoutBindings[6] = {};
+    frameLayoutBindings[_j++] = VkDescriptorSetLayoutBinding{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL, VK_NULL_HANDLE}; //Globals  0 // per frame
+    frameLayoutBindings[_j++] = VkDescriptorSetLayoutBinding{1, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, MAX_SHADOWMAPS, VK_SHADER_STAGE_FRAGMENT_BIT  }; //SHADOW//  //shadow images 3 //per scene
+    frameLayoutBindings[_j++] = VkDescriptorSetLayoutBinding{2, VK_DESCRIPTOR_TYPE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE}  ; // shadow iamges  6  // perscene
+    frameLayoutBindings[_j++] = VkDescriptorSetLayoutBinding{3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1,  VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE} ; //light//   //8 light info -- per frame
+    frameLayoutBindings[_j++] = VkDescriptorSetLayoutBinding{4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1,  VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE} ;  //9 Object info -- per frame
+    frameLayoutBindings[_j++] = VkDescriptorSetLayoutBinding{5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE} ; //10 shadow buffer info -- per frame
 
- 
+    perFrameBindlessLayout = DescriptorSets::createVkDescriptorSetLayout(getFullRendererContext(), frameLayoutBindings, "Per Frame Bindlses Layout");
+    perFrameBindlessDescriptorData = CreateDescriptorDataForPipeline(getFullRendererContext(), perFrameBindlessLayout,  true, frameLayoutBindings, "Per Frame Bindless Set", descriptorPool);
+
+
+    perFrameDescriptorUpdates = MemoryArena::AllocSpan<std::span<descriptorUpdateData>>(&rendererArena, MAX_FRAMES_IN_FLIGHT);
     for(int i = 0; i < MAX_FRAMES_IN_FLIGHT ; i++)
     {
-        perFrameDescriptorUpdates[i] = createperFrameDescriptorUpdates(i, glm::min(MAX_SHADOWCASTERS, scene->lightCount), &rendererArena,  framebindlessDescriptorWrapper.layoutBindings);
+        perFrameDescriptorUpdates[i] = createperFrameDescriptorUpdates(i, glm::min(MAX_SHADOWCASTERS, scene->lightCount), &rendererArena,  perFrameBindlessDescriptorData.layoutBindings);
     }
    
    
-   VkDescriptorSetLayoutBinding cullLayout[3] = {};
-   cullLayout[0] = VkDescriptorSetLayoutBinding{12, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}; //frustum data
-   cullLayout[1] = VkDescriptorSetLayoutBinding{13, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}; //draws 
-   cullLayout[2] = VkDescriptorSetLayoutBinding{14, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}; //objectData
-    DescriptorDataForPipeline cullingDescriptorWrapper = {};
-    VkDescriptorSetLayout _cullingLayout = {};
-    PopulateDescriptorRelatedObjects(getFullRendererContext(), "Culling Layout", true, cullLayout, "Culling Set", descriptorPool, &cullingDescriptorWrapper, &_cullingLayout);
+   VkDescriptorSetLayoutBinding cullLayoutBindings[3] = {};
+   cullLayoutBindings[0] = VkDescriptorSetLayoutBinding{12, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}; //frustum data
+   cullLayoutBindings[1] = VkDescriptorSetLayoutBinding{13, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}; //draws 
+   cullLayoutBindings[2] = VkDescriptorSetLayoutBinding{14, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}; //objectData
+  
+  
+    VkDescriptorSetLayout _cullingLayout = DescriptorSets::createVkDescriptorSetLayout(getFullRendererContext(), cullLayoutBindings, "Culling Layout");
+    DescriptorDataForPipeline cullingDescriptorData = CreateDescriptorDataForPipeline(getFullRendererContext(), _cullingLayout, true, cullLayoutBindings, "Culling Set", descriptorPool);
 
-    VkDescriptorSetLayoutBinding pyramidLayout[3] = {};
-    pyramidLayout[0] = VkDescriptorSetLayoutBinding{12, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}; //depth pyramid inout
-    pyramidLayout[1] = VkDescriptorSetLayoutBinding{13, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}; //depth pyramid output
-    pyramidLayout[2] = VkDescriptorSetLayoutBinding{14, VK_DESCRIPTOR_TYPE_SAMPLER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}; //depth pyramid inout
+    VkDescriptorSetLayoutBinding pyramidLayoutBindings[3] = {};
+    pyramidLayoutBindings[0] = VkDescriptorSetLayoutBinding{12, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}; //depth pyramid inout
+    pyramidLayoutBindings[1] = VkDescriptorSetLayoutBinding{13, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}; //depth pyramid output
+    pyramidLayoutBindings[2] = VkDescriptorSetLayoutBinding{14, VK_DESCRIPTOR_TYPE_SAMPLER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}; //depth pyramid inout
 
-    DescriptorDataForPipeline mipChainDescriptorWrapper = {};
-    VkDescriptorSetLayout _mipchainLayout = {};
-    PopulateDescriptorRelatedObjects(getFullRendererContext(), "MipChain Layout", true, pyramidLayout, "MipChain Set", descriptorPool, &mipChainDescriptorWrapper, &_mipchainLayout, HIZDEPTH);
+  
+   
+    VkDescriptorSetLayout _mipchainLayout = DescriptorSets::createVkDescriptorSetLayout(getFullRendererContext(), pyramidLayoutBindings, "MipChain Layout");
+    DescriptorDataForPipeline mipChainDescriptorData = CreateDescriptorDataForPipeline(getFullRendererContext(), _mipchainLayout, true, pyramidLayoutBindings, "MipChain Set", descriptorPool, HIZDEPTH);
   
 
-    descriptorsetLayoutsDataMipChain = PipelineLayoutGroup(getFullRendererContext(), descriptorPool, {&mipChainDescriptorWrapper, 1}, {&_mipchainLayout, 1}, 1, sizeof(glm::vec2), true, "mip chain layout");
-    descriptorsetLayoutsDataCulling = PipelineLayoutGroup(getFullRendererContext(), descriptorPool, {&cullingDescriptorWrapper, 1}, {&_cullingLayout, 1}, 1,sizeof(cullPConstants), true, "culling layout");
+    descriptorsetLayoutsDataMipChain = PipelineLayoutGroup(getFullRendererContext(), descriptorPool, {&mipChainDescriptorData, 1}, {&_mipchainLayout, 1},  sizeof(glm::vec2), true, "mip chain layout");
+    descriptorsetLayoutsDataCulling = PipelineLayoutGroup(getFullRendererContext(), descriptorPool, {&cullingDescriptorData, 1}, {&_cullingLayout, 1}, sizeof(cullPConstants), true, "culling layout");
     descriptorsetLayoutsDataMipChain.createPipeline( globalResources.shaderLoader->compiledShaders["mipChain"],  "mipChain",  {});
     descriptorsetLayoutsDataCulling.createPipeline( globalResources.shaderLoader->compiledShaders["cull"],  "cull",  {});
 
-    DescriptorDataForPipeline descriptorWrappers[2] = {scenebindlessDescriptorWrapper, framebindlessDescriptorWrapper};
-    VkDescriptorSetLayout layouts[2] = {scenebindlessLayout, framebindlessLayout};
+    DescriptorDataForPipeline descriptorWrappers[2] = {perSceneBindlessDescriptorData, perFrameBindlessDescriptorData};
+    VkDescriptorSetLayout layouts[2] = {perSceneBindlessDescriptorLayout, perFrameBindlessLayout};
 
-    descriptorsetLayoutsData = PipelineLayoutGroup(getFullRendererContext(), descriptorPool, descriptorWrappers,layouts, 1, 256, false, "opaque layout");
-    descriptorsetLayoutsDataShadow = PipelineLayoutGroup(getFullRendererContext(), descriptorPool, descriptorWrappers, layouts, 1, 256, false, "shadow layout");
+    descriptorsetLayoutsData = PipelineLayoutGroup(getFullRendererContext(), descriptorPool, descriptorWrappers,layouts,  256, false, "opaque layout");
+    descriptorsetLayoutsDataShadow = PipelineLayoutGroup(getFullRendererContext(), descriptorPool, descriptorWrappers, layouts,  256, false, "shadow layout");
 
 
 
@@ -1171,8 +1149,8 @@ void recordPrimaryRenderPasses( std::span<drawBatchConfig> draws, VkBuffer indir
         auto passInfo = draws[j];
         auto context = passInfo.drawRenderStepContext;
         assert(context->active);
-        passInfo.pipelineLayoutGroup->BindRequiredDescriptorSetsToCommandBuffer(context->commandBuffer, context->boundDescriptorSets, currentFrame, 0);
-        VkPipelineLayout layout =  passInfo.pipelineLayoutGroup->pipelineData.layout;
+        passInfo.pipelineLayoutGroup->BindRequiredDescriptorSetsToCommandBuffer(context->commandBuffer, context->boundDescriptorSets, currentFrame);
+        VkPipelineLayout layout =  passInfo.pipelineLayoutGroup->layoutData.layout;
         if (context->indexBuffer != passInfo.indexBuffer )
         {
             vkCmdBindIndexBuffer(context->commandBuffer, passInfo.indexBuffer,0,passInfo.indexBufferType);
@@ -1260,6 +1238,10 @@ void vulkanRenderer::doMipChainCompute(ActiveRenderStepData commandBufferContext
 
     
     pipelineBarrier(commandBufferContext.commandBuffer,0, 0, 0, 1, &barrier12);
+
+    auto mipChainDescriptorConfig = &descriptorsetLayoutsDataMipChain.layoutData.descriptorConfiguration[0];
+    auto mipChainDescriptorCache = &mipChainDescriptorConfig->descriptorSetsCaches[currentFrame];
+    mipChainDescriptorCache->resetCacheForFrame();
     for(int i =0; i < HIZDEPTH; i++)
     {
         
@@ -1284,11 +1266,10 @@ void vulkanRenderer::doMipChainCompute(ActiveRenderStepData commandBufferContext
         descriptorUpdates[1] = {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, destinationInfo};  //dst view
         descriptorUpdates[2] = {VK_DESCRIPTOR_TYPE_SAMPLER, shadowSamplerInfo}; //draws 
 
-        auto DescriptorSetSubSetOffset = i;
-        DescriptorSets::_updateDescriptorSet_NEW(getFullRendererContext(), descriptorsetLayoutsDataMipChain.pipelineData.descriptorConfiguration[0].descriptorSetsCache[currentFrame][DescriptorSetSubSetOffset],
-    descriptorsetLayoutsDataMipChain.pipelineData.descriptorConfiguration[0].layoutBindings,  descriptorUpdates); //Update desciptor sets for the compute bindings 
-        descriptorsetLayoutsDataMipChain.BindRequiredDescriptorSetsToCommandBuffer(commandBufferContext.commandBuffer, commandBufferContext.boundDescriptorSets, _currentFrame, DescriptorSetSubSetOffset, VK_PIPELINE_BIND_POINT_COMPUTE);
-
+        auto nextDescriptorSet = mipChainDescriptorCache->getDescriptorSet();
+        DescriptorSets::_updateDescriptorSet_NEW(getFullRendererContext(),nextDescriptorSet, mipChainDescriptorConfig->layoutBindings,  descriptorUpdates); //Update desciptor sets for the compute bindings
+        descriptorsetLayoutsDataMipChain.BindRequiredDescriptorSetsToCommandBuffer(commandBufferContext.commandBuffer, commandBufferContext.boundDescriptorSets, _currentFrame, VK_PIPELINE_BIND_POINT_COMPUTE);
+        mipChainDescriptorCache->markCurrentDescriptorUsed();
         
 
         int outputWidth= pyramidWidth >> i;
@@ -1297,7 +1278,7 @@ void vulkanRenderer::doMipChainCompute(ActiveRenderStepData commandBufferContext
         outputHeight = outputHeight < 1 ? 1 : outputHeight;
         auto pushConstants = MemoryArena::Alloc<glm::vec2>(arena);
         *pushConstants = {outputWidth, outputHeight};
-        vkCmdPushConstants(commandBufferContext.commandBuffer, descriptorsetLayoutsDataMipChain.pipelineData.layout,VK_SHADER_STAGE_COMPUTE_BIT, 0,
+        vkCmdPushConstants(commandBufferContext.commandBuffer, descriptorsetLayoutsDataMipChain.layoutData.layout,VK_SHADER_STAGE_COMPUTE_BIT, 0,
                           sizeof(glm::vec2),pushConstants);
 
         //Dispatch for all the pixels?
@@ -1339,10 +1320,10 @@ void vulkanRenderer::updateBindingsComputeCulling(ActiveRenderStepData commandBu
     descriptorUpdates[1] = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, computeDrawBuffer}; //draws 
     descriptorUpdates[2] = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, objectBufferInfo}; //objectData  //
 
-    DescriptorSets::_updateDescriptorSet_NEW(getFullRendererContext(), descriptorsetLayoutsDataCulling.pipelineData.descriptorConfiguration[0].descriptorSetsCache[currentFrame][0],
-        descriptorsetLayoutsDataCulling.pipelineData.descriptorConfiguration[0].layoutBindings,  descriptorUpdates); //Update desciptor sets for the compute bindings 
+    DescriptorSets::_updateDescriptorSet_NEW(getFullRendererContext(), descriptorsetLayoutsDataCulling.layoutData.descriptorConfiguration[0].descriptorSetsCaches[currentFrame].descriptorSets[0],
+        descriptorsetLayoutsDataCulling.layoutData.descriptorConfiguration[0].layoutBindings,  descriptorUpdates); //Update desciptor sets for the compute bindings 
 
-    descriptorsetLayoutsDataCulling.BindRequiredDescriptorSetsToCommandBuffer(commandBufferContext.commandBuffer, commandBufferContext.boundDescriptorSets, _currentFrame, 0, VK_PIPELINE_BIND_POINT_COMPUTE);
+    descriptorsetLayoutsDataCulling.BindRequiredDescriptorSetsToCommandBuffer(commandBufferContext.commandBuffer, commandBufferContext.boundDescriptorSets, _currentFrame, VK_PIPELINE_BIND_POINT_COMPUTE);
 
     vkCmdBindPipeline(commandBufferContext.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, descriptorsetLayoutsDataCulling.getPipeline(0));
 }
@@ -1375,7 +1356,7 @@ void vulkanRenderer::SubmitCommandBuffer(uint32_t commandbufferCt, ActiveRenderS
 
 void vulkanRenderer::recordUtilityPasses( VkCommandBuffer commandBuffer, int imageIndex)
 {
-    VkPipelineLayout layout = descriptorsetLayoutsData.pipelineData.layout;
+    VkPipelineLayout layout = descriptorsetLayoutsData.layoutData.layout;
     VkRenderingAttachmentInfoKHR dynamicRenderingColorAttatchment = createRenderingAttatchmentStruct(globalResources.swapchainImageViews[imageIndex], 0.0, false);
     VkRenderingAttachmentInfoKHR utilityDepthAttatchment =    createRenderingAttatchmentStruct( globalResources.depthBufferInfo.view, 0.0, false);
     BeginRendering(
@@ -1446,7 +1427,7 @@ int i =0;
 void vulkanRenderer::beforeFirstUpdate()
 {
     //Update per scene descriptor sets (need to move)
-    updateDescriptorSets(getFullRendererContext(), scenebindlessDescriptorWrapper,currentFrame,perSceneDescriptorUpdates);
+    updateDescriptorSets(getFullRendererContext(), perSceneBindlessDescriptorData,0,{&perSceneDescriptorUpdates, 1});
 }
 void vulkanRenderer::Update(Scene* scene)
 {
@@ -1541,7 +1522,7 @@ drawBatchConfig CreateRenderPassConfig_new(const char* name, MemoryArena::memory
     *cullconstants = {.view = cameraViewProjForCulling.view, .firstDraw = drawOffset, .frustumIndex = cullFrustumIndex, .objectCount = objectCount};
     ComputeCullListInfo* cullingInfo = MemoryArena::Alloc<ComputeCullListInfo>(allocator);
     *cullingInfo =  {.firstDrawIndirectIndex = drawOffset, .drawCount = objectCount, .viewMatrix = cameraViewProjForCulling.view, .projMatrix = cameraViewProjForCulling.proj, 
-        .layout = computePipelineData->pipelineData.layout, // just get pipeline layout globally?
+        .layout = computePipelineData->layoutData.layout, // just get pipeline layout globally?
        .pushConstantInfo =  {.ptr = cullconstants, .size =  sizeof(cullPConstants) }};
 
     Array<pipelineBatch> batchedDrawBuckets = MemoryArena::AllocSpan<pipelineBatch>(allocator, shaderGroup.shaderIndices.size());
@@ -1796,7 +1777,7 @@ ActiveRenderStepData createAndBeginRenderStep(VkDevice device, const char* debug
 void updateDescriptorSets(RendererContext context, DescriptorDataForPipeline descriptorData, int currentFrame,  std::span<descriptorUpdates> updates)
 {
     size_t idx = descriptorData.isPerFrame ? currentFrame : 0;
-    DescriptorSets::_updateDescriptorSet_NEW(context, descriptorData.descriptorSetsCache[idx][0], descriptorData.layoutBindings,updates[idx]);
+    DescriptorSets::_updateDescriptorSet_NEW(context, descriptorData.descriptorSetsCaches[idx].descriptorSets[0], descriptorData.layoutBindings,updates[idx]);
 }
 uint32_t internal_debug_cull_override_index = 0;
 void vulkanRenderer::RenderFrame(Scene* scene)
@@ -1818,10 +1799,9 @@ void vulkanRenderer::RenderFrame(Scene* scene)
     
     //Sync data updated from the engine
     updateShadowData(&perFrameArenas[currentFrame], perLightShadowData, scene, scene->sceneCamera);
-
-
+    
     //Update per frame descriptor sets
-    updateDescriptorSets(getFullRendererContext(), framebindlessDescriptorWrapper,currentFrame,perFrameDescriptorUpdates);
+    updateDescriptorSets(getFullRendererContext(), perFrameBindlessDescriptorData,currentFrame,perFrameDescriptorUpdates);
 
     updatePerFrameBuffers(currentFrame, scene->transforms.worldMatrices,scene); 
 
@@ -1943,7 +1923,7 @@ void vulkanRenderer::RenderFrame(Scene* scene)
 
 
     //BIND BINDLESS DATA
-    assert(descriptorsetLayoutsData.pipelineData.layout != nullptr);
+    assert(descriptorsetLayoutsData.layoutData.layout != nullptr);
   
 
 
@@ -2047,7 +2027,7 @@ void vulkanRenderer::RenderFrame(Scene* scene)
 
   
     //Submti the actual Draws
-    recordPrimaryRenderPasses(renderBatches.batchConfigs,thisFrameData->drawBuffers.buffer.data,framebindlessDescriptorWrapper.descriptorSetsCache[currentFrame][0], currentFrame);
+    recordPrimaryRenderPasses(renderBatches.batchConfigs,thisFrameData->drawBuffers.buffer.data,perFrameBindlessDescriptorData.descriptorSetsCaches[currentFrame].descriptorSets[0], currentFrame);
     
     recordUtilityPasses(opaqueRenderStepContext->commandBuffer, swapChainImageIndex);
     //

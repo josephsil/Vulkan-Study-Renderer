@@ -161,12 +161,13 @@ void updateShadowImageViews(int frame, Scene* scene);
 
 
 
-    DescriptorDataForPipeline scenebindlessDescriptorWrapper;
-    VkDescriptorSetLayout scenebindlessLayout;
-    std::span<descriptorUpdates> perSceneDescriptorUpdates = {};
+    DescriptorDataForPipeline perSceneBindlessDescriptorData;
+    VkDescriptorSetLayout perSceneBindlessDescriptorLayout;
+    descriptorUpdates perSceneDescriptorUpdates = {};
 
-    DescriptorDataForPipeline framebindlessDescriptorWrapper;
-    VkDescriptorSetLayout framebindlessLayout;
+    DescriptorDataForPipeline perFrameBindlessDescriptorData;
+    VkDescriptorSetLayout perFrameBindlessLayout;
+    
     std::span<descriptorUpdates> perFrameDescriptorUpdates = {};
 
     std::span<descriptorUpdateData> computeUpdates[MAX_FRAMES_IN_FLIGHT] = {};
@@ -211,7 +212,7 @@ void updateShadowImageViews(int frame, Scene* scene);
     bool firstTime[MAX_FRAMES_IN_FLIGHT];
     int firstframe = true;
     int cubemaplut_utilitytexture_index;
-
+    
     uint32_t currentFrame = 0;
 
     void initializeWindow();
