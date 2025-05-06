@@ -29,15 +29,16 @@ struct VSOutput
 };
 
 // static float2 positions[3] = {
-    // float2(0.0, -0.5),
-    // float2(0.5, 0.5),
-    // float2(-0.5, 0.5)
+// float2(0.0, -0.5),
+// float2(0.5, 0.5),
+// float2(-0.5, 0.5)
 // };
 
 
 // -spirv -T vs_6_5 -E Vert .\Shader1.hlsl -Fo .\triangle.vert.spv
 
-VSOutput Vert(VSInput input,  [[vk::builtin("BaseInstance")]]  uint InstanceIndex : BaseInstance, uint VertexIndex : SV_VertexID)
+VSOutput Vert(VSInput input, [[vk::builtin("BaseInstance")]] uint InstanceIndex : BaseInstance,
+              uint VertexIndex : SV_VertexID)
 {
 #ifdef USE_RW
     MyVertexStructure myVertex = BufferTable[VertexIndex];
@@ -48,16 +49,16 @@ VSOutput Vert(VSInput input,  [[vk::builtin("BaseInstance")]]  uint InstanceInde
  	MyVertexStructure myVertex = BufferTable.Load<MyVertexStructure>((VERTEXOFFSET + VertexIndex) * sizeof(MyVertexStructure));
 #endif
     float4 vertPos = positions[VertexIndex];
-vertPos.a = 1.0;
+    vertPos.a = 1.0;
 
-    
+
     //
     objectData ubo = uboarr[InstanceIndex];
     VSOutput output = (VSOutput)0;
     //
-    float4x4 modelView = mul(globals.view, uboarr[ InstanceIndex].Model);
+    float4x4 modelView = mul(globals.view, uboarr[InstanceIndex].Model);
     float4x4 mvp = mul(globals.projection, modelView);
-    output.Pos = mul(mvp,vertPos);
+    output.Pos = mul(mvp, vertPos);
     output.Texture_ST = myVertex.uv0.xy;
     output.Color = myVertex.normal.xyz;
     output.Normal = myVertex.normal.xyz;
@@ -113,7 +114,6 @@ struct FSInput
 //
 float3x3 calculateNormal(FSInput input)
 {
-   
     // float3 tangentNormal = normalMapTexture.Sample(normalMapSampler, input.UV).xyz * 2.0 - 1.0;
 
     float3 N = normalize(input.Normal);
@@ -123,6 +123,7 @@ float3x3 calculateNormal(FSInput input)
 
     return TBN;
 }
+
 //
 // -spirv -T ps_6_5 -E Frag .\Shader1.hlsl -Fo .\triangle.frag.spv
 
@@ -130,20 +131,20 @@ FSOutput Frag(VSOutput input)
 {
     uint InstanceIndex = 0;
     InstanceIndex = input.InstanceID;
-    FSOutput output;//
+    FSOutput output; //
     float3 diff = saturate(
         bindless_textures[DIFFUSE_INDEX].Sample(bindless_samplers[TEXTURESAMPLERINDEX], input.Texture_ST));
     float3 albedo = pow(diff, 2.2);
     float3 normalMap = (bindless_textures[NORMAL_INDEX].
         Sample(bindless_samplers[NORMALSAMPLERINDEX], input.Texture_ST));
-   
+
     float4 specMap = bindless_textures[SPECULAR_INDEX].Sample(bindless_samplers[TEXTURESAMPLERINDEX], input.Texture_ST);
     float metallic = specMap.a;
     // albedo = 0.33;
-    
+
     normalMap = normalize((2.0 * normalMap) - 1.0);
-    
-    normalMap = normalize(mul(input.TBN,  normalize(normalMap)));
+
+    normalMap = normalize(mul(input.TBN, normalize(normalMap)));
 
     float3 V = normalize(globals.viewPos - input.worldPos);
     float3 reflected = reflect(V, normalMap);
@@ -163,7 +164,7 @@ FSOutput Frag(VSOutput input)
     float3 irradience = cubes[0].SampleLevel(cubeSamplers[0], normalsToCubemapUVs, 1).rgb;
     float3 diffuse = irradience * albedo;
 
-    
+
     float3 reflectedToCubemapUVs = reflected.xzy * float3(1, -1, 1); //TODO JS: fix root cause
     float3 specularcube = cubes[1].SampleLevel(cubeSamplers[1], reflectedToCubemapUVs, roughness * maxReflectionLOD).
                                    rgb;
@@ -172,23 +173,22 @@ FSOutput Frag(VSOutput input)
     float3 specularResult = specularcube * (F * brdfLUT.x + brdfLUT.y);
     float3 ambient = (kD * diffuse + specularResult);
     // output.Color =  getLighting(diff,normalMap, input.worldPos, specMap) * input.Color * irradience;
-//
+    //
     if (getMode())
     {
-        output.Color = getLighting( diff, normalMap, input.worldPos, F0, roughness, metallic);
+        output.Color = getLighting(diff, normalMap, input.worldPos, F0, roughness, metallic);
     }
     else
     {
-        output.Color = ambient + getLighting( diff, normalMap, input.worldPos, F0, roughness, metallic);
+        output.Color = ambient + getLighting(diff, normalMap, input.worldPos, F0, roughness, metallic);
     }
 
-  
 
     //
     output.Color *= input.Color;
-    
+
     output.Color = output.Color / (output.Color + 1.0);
-   
+
     // output.Color = getLighting(model, diff, input.Normal, input.worldPos, F0, roughness, metallic) / 10;
     //TODO: pcf
     //TODO: cascade
@@ -203,8 +203,6 @@ FSOutput Frag(VSOutput input)
     // if (cascadeLevel == 2) output.Color *= float3(0, 1, 0);
     // if (cascadeLevel == 3) output.Color = float3(0.5, 0.5, 0);
 
-    
+
     return output;
 }
-
-

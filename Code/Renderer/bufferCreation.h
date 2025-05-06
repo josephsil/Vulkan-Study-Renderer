@@ -14,22 +14,25 @@ namespace BufferUtilities
                             VkDevice device, VmaAllocation* allocation, VkBuffer* buffer);
     void CreateImage(
         VkImageCreateInfo* pImageCreateInfo,
-        VkImage* pImage, VmaAllocation* pAllocation, VkDevice device, VmaAllocator allocator, const char* debugName = "Bufferutiltiies create image vkimage");
+        VkImage* pImage, VmaAllocation* pAllocation, VkDevice device, VmaAllocator allocator,
+        const char* debugName = "Bufferutiltiies create image vkimage");
 
     //TODO JS: move to cpp file?
     void stageMeshDataBuffer(VmaAllocator allocator, CommandPoolManager* commandPoolManager,
-                             VkDeviceSize bufferSize, VkBuffer& buffer, VmaAllocation& allocation, void* vertices, VkBufferUsageFlags dataTypeFlag);
+                             VkDeviceSize bufferSize, VkBuffer& buffer, VmaAllocation& allocation, void* vertices,
+                             VkBufferUsageFlags dataTypeFlag);
 
     void copyBuffer(CommandPoolManager* commandPoolManager, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
     void copyBufferWithCommandBuffer(VkCommandBuffer cb, VkBuffer srcBuffer, VkBuffer dstBuffer,
-                                 VkDeviceSize size);
-    
+                                     VkDeviceSize size);
+
     void* createHostMappedBuffer(VmaAllocator allocator, VkDeviceSize size,
-                              VkBufferUsageFlags usage, VmaAllocation* allocation, VkBuffer& buffer);
+                                 VkBufferUsageFlags usage, VmaAllocation* allocation, VkBuffer& buffer);
 
     void createDeviceBuffer(VmaAllocator allocator, VkDeviceSize size, VkBufferUsageFlags usage,
-                                           VmaAllocation* allocation, VkBuffer& buffer);
+                            VmaAllocation* allocation, VkBuffer& buffer);
     void createStagingBuffer(VkDeviceSize size,
-                                   VmaAllocation* allocation, VkBuffer& stagingBuffer,  VkDevice device, VmaAllocator allocator, const char* debugName = "Bufferutiltiies create staging buffer buffer");
-   
+                             VmaAllocation* allocation, VkBuffer& stagingBuffer, VkDevice device,
+                             VmaAllocator allocator,
+                             const char* debugName = "Bufferutiltiies create staging buffer buffer");
 }

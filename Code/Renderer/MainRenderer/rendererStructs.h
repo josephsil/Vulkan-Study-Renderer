@@ -1,4 +1,4 @@
-#pragma once 
+#pragma once
 struct pointerSize
 {
     void* ptr;
@@ -19,7 +19,7 @@ struct simpleMeshPassInfo
     std::span<uint32_t> sortedObjectIDs;
 };
 
-struct ComputeCullListInfo 
+struct ComputeCullListInfo
 {
     uint32_t firstDrawIndirectIndex;
     uint32_t drawCount; //always object count?
@@ -30,13 +30,14 @@ struct ComputeCullListInfo
 };
 
 
-struct  semaphoreData
+struct semaphoreData
 {
     std::span<VkSemaphore> semaphores;
     std::span<VkPipelineStageFlags> waitStages;
 };
 
-struct DepthBufferInfo //This is like general image info -- currently only using for depth buffer/etc but need to get away from TextureData.h
+struct DepthBufferInfo
+    //This is like general image info -- currently only using for depth buffer/etc but need to get away from TextureData.h
 {
     VkFormat format;
     VkImage image;
@@ -44,7 +45,7 @@ struct DepthBufferInfo //This is like general image info -- currently only using
     VmaAllocation vmaAllocation;
 };
 
-struct DepthPyramidInfo 
+struct DepthPyramidInfo
 {
     VkFormat format;
     VkImage image;
@@ -55,8 +56,7 @@ struct DepthPyramidInfo
 
 struct acquireImageSemaphore
 {
-    VkSemaphore semaphore {};
-  
+    VkSemaphore semaphore{};
 };
 
 struct rendererObjects

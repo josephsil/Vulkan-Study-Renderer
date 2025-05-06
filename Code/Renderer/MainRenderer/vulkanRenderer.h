@@ -32,18 +32,17 @@ struct SDL_Window;
 //Include last //
 
 
-
-
-
 struct depthBiasSettng
 {
     bool use = false;
     float depthBias;
     float slopeBias;
 };
+
 //TODO JS
 //The idea is using this, and using objectCount in place of cullingFrustumIndex and etc, and objectCount in place of drawOffset
 struct drawBatchConfig;
+
 struct drawBatchList
 {
     uint32_t drawCount;
@@ -60,13 +59,14 @@ struct drawBatchConfig
     VkIndexType indexBufferType; // VK_INDEX_TYPE_UINT32
     std::span<simpleMeshPassInfo> meshPasses;
     ComputeCullListInfo* computeCullingInfo;
-    VkRenderingAttachmentInfoKHR* depthAttatchment; // simpleRenderingAttatchment(rendererResources.shadowMapRenderingImageViews[currentFrame][shadowMapIndex], 1.0)
+    VkRenderingAttachmentInfoKHR* depthAttatchment;
+    // simpleRenderingAttatchment(rendererResources.shadowMapRenderingImageViews[currentFrame][shadowMapIndex], 1.0)
     VkRenderingAttachmentInfoKHR* colorattatchment; //nullptr
     VkExtent2D renderingAttatchmentExtent; //SHADOW_MAP_SIZE
     viewProj matrices;
     //Light count, vert offset, texture index, and object data index
     //constants.shadowIndex = (glm::float32_t)shadowMapIndex;
-    void* pushConstants;    //shadowPushConstants constants;
+    void* pushConstants; //shadowPushConstants constants;
     size_t pushConstantsSize;
     depthBiasSettng depthBiasSetting;
 };
@@ -77,9 +77,8 @@ struct PerSceneShadowResources
     std::span<std::span<VkImageView>> shadowMapSamplingImageViews;
     std::span<VkSampler> shadowSamplers;
     std::span<VkImage> shadowImages;
-    std::span<std::span<DepthPyramidInfo>>WIP_shadowDepthPyramidInfos; //todo js populate
+    std::span<std::span<DepthPyramidInfo>> WIP_shadowDepthPyramidInfos; //todo js populate
     std::span<VmaAllocation> shadowMemory;
-
 };
 
 struct GlobalRendererResources //Buffers, images, etc, used in core rendering -- probably to break up later
@@ -93,12 +92,16 @@ struct GlobalRendererResources //Buffers, images, etc, used in core rendering --
 };
 
 
-rendererObjects initializeVulkanObjects(SDL_Window* sdlWin, int WIDTH,int HEIGHT);
-GlobalRendererResources static_initializeResources(rendererObjects initializedrenderer,  MemoryArena::memoryArena* allocationArena, RendererDeletionQueue* deletionQueue, CommandPoolManager* commandPoolmanager);
-PerSceneShadowResources  init_allocate_shadow_memory(rendererObjects initializedrenderer,  MemoryArena::memoryArena* allocationArena);
+rendererObjects initializeVulkanObjects(SDL_Window* sdlWin, int WIDTH, int HEIGHT);
+GlobalRendererResources static_initializeResources(rendererObjects initializedrenderer,
+                                                   MemoryArena::memoryArena* allocationArena,
+                                                   RendererDeletionQueue* deletionQueue,
+                                                   CommandPoolManager* commandPoolmanager);
+PerSceneShadowResources init_allocate_shadow_memory(rendererObjects initializedrenderer,
+                                                    MemoryArena::memoryArena* allocationArena);
+
 class vulkanRenderer
 {
-
 public:
     AssetManager* AssetDataAndMemory;
     std::unordered_map<VkImageView, VkDescriptorSet> imguiRegisteredTextures;
@@ -114,18 +117,17 @@ public:
     VkDescriptorSet GetOrRegisterImguiTextureHandle(VkSampler sampler, VkImageView imageView);
 
 private:
-
     rendererObjects rendererVulkanObjects;
     GlobalRendererResources globalResources;
     PerSceneShadowResources shadowResources;
-    std::unique_ptr<CommandPoolManager> commandPoolmanager; 
+    std::unique_ptr<CommandPoolManager> commandPoolmanager;
     std::unique_ptr<RendererDeletionQueue> deletionQueue;
     //Memory allocators
     MemoryArena::memoryArena rendererArena{};
     MemoryArena::memoryArena perFrameArenas[MAX_FRAMES_IN_FLIGHT];
-    
+
 #pragma region SDL
-    int WIDTH = 1280  * 1.5;
+    int WIDTH = 1280 * 1.5;
     int HEIGHT = 720 * 1.5;
     struct SDL_Window* _window{nullptr};
 #pragma endregion
@@ -133,32 +135,35 @@ private:
     std::span<std::span<PerShadowData>> perLightShadowData;
 
 
-    
-    
-void updateShadowImageViews(int frame, Scene* scene);
+    void updateShadowImageViews(int frame, Scene* scene);
 
-#pragma region  descriptor sets 
+#pragma region  descriptor sets
     VkDescriptorPool descriptorPool;
     VkDescriptorPool imgui_descriptorPool;
     VkDescriptorSetLayout pushDescriptorSetLayout;
     VkDescriptorSetLayout perMaterialSetLayout;
 
     BindlessObjectShaderGroup opaqueObjectShaderSets;
-    PipelineLayoutGroup descriptorsetLayoutsData; 
-    PipelineLayoutGroup descriptorsetLayoutsDataShadow; 
+    PipelineLayoutGroup descriptorsetLayoutsData;
+    PipelineLayoutGroup descriptorsetLayoutsDataShadow;
     PipelineLayoutGroup descriptorsetLayoutsDataCulling;
     PipelineLayoutGroup descriptorsetLayoutsDataMipChain;
 
-    
+
     void createDescriptorSetPool(RendererContext handles, VkDescriptorPool* pool);
     //TODO 
-    std::span<descriptorUpdateData> createperSceneDescriptorUpdates(uint32_t frame, int shadowCasterCount, MemoryArena::memoryArena* arena, std::span<VkDescriptorSetLayoutBinding>
-                                                              layoutBindings);
-    std::span<descriptorUpdateData> createperFrameDescriptorUpdates(uint32_t frame, int shadowCasterCount, MemoryArena::memoryArena* arena, std::span<VkDescriptorSetLayoutBinding>
+    std::span<descriptorUpdateData> createperSceneDescriptorUpdates(uint32_t frame, int shadowCasterCount,
+                                                                    MemoryArena::memoryArena* arena,
+                                                                    std::span<VkDescriptorSetLayoutBinding>
+                                                                    layoutBindings);
+    std::span<descriptorUpdateData> createperFrameDescriptorUpdates(uint32_t frame, int shadowCasterCount,
+                                                                    MemoryArena::memoryArena* arena,
+                                                                    std::span<VkDescriptorSetLayoutBinding>
+                                                                    layoutBindings);
+    std::span<descriptorUpdateData> createShadowDescriptorUpdates(MemoryArena::memoryArena* arena, uint32_t frame,
+                                                                  uint32_t shadowIndex,
+                                                                  std::span<VkDescriptorSetLayoutBinding>
                                                                   layoutBindings);
-    std::span<descriptorUpdateData> createShadowDescriptorUpdates(MemoryArena::memoryArena* arena, uint32_t frame, uint32_t shadowIndex, std::span<VkDescriptorSetLayoutBinding>
-                                                                  layoutBindings);
-
 
 
     DescriptorDataForPipeline perSceneBindlessDescriptorData;
@@ -167,7 +172,7 @@ void updateShadowImageViews(int frame, Scene* scene);
 
     DescriptorDataForPipeline perFrameBindlessDescriptorData;
     VkDescriptorSetLayout perFrameBindlessLayout;
-    
+
     std::span<descriptorUpdates> perFrameDescriptorUpdates = {};
 
     std::span<descriptorUpdateData> computeUpdates[MAX_FRAMES_IN_FLIGHT] = {};
@@ -177,14 +182,13 @@ void updateShadowImageViews(int frame, Scene* scene);
 
     struct per_frame_data
     {
-
         std::span<uint32_t> boundCommandBuffers;
         acquireImageSemaphore semaphores;
         std::unique_ptr<RendererDeletionQueue> deletionQueue;
-        VkFence inFlightFence {};
+        VkFence inFlightFence{};
 
         std::vector<HostDataBufferObject<ShaderGlobals>> perLightShadowShaderGlobalsBuffer;
-        
+
         HostDataBufferObject<ShaderGlobals> opaqueShaderGlobalsBuffer;
 
 
@@ -195,24 +199,23 @@ void updateShadowImageViews(int frame, Scene* scene);
         HostDataBufferObject<UniformBufferObject> uniformBuffers;
         HostDataBufferObject<gpuvertex> hostMesh;
         dataBuffer deviceMesh;
-        
+
         //Basic data about the light used in all passes 
         HostDataBufferObject<gpulight> lightBuffers;
         HostDataBufferObject<gpuPerShadowData> shadowDataBuffers;
-        
+
         //Draw indirect
         HostDataBufferObject<drawCommandData> drawBuffers;
 
         //Compute culling for draw indirect 
         HostDataBufferObject<glm::vec4> frustumsForCullBuffers;
-
     };
 
     std::vector<per_frame_data> FramesInFlightData;
     bool firstTime[MAX_FRAMES_IN_FLIGHT];
     int firstframe = true;
     int cubemaplut_utilitytexture_index;
-    
+
     uint32_t currentFrame = 0;
 
     void initializeWindow();
@@ -222,40 +225,39 @@ void updateShadowImageViews(int frame, Scene* scene);
 
     //Globals per pass, ubos, and lights are updated every frame
     void updatePerFrameBuffers(unsigned currentFrame, Array<std::span<glm::mat4>> models, Scene* scene);
-    void recordCommandBufferShadowPass(VkCommandBuffer commandBuffer, uint32_t imageIndex, std::span<simpleMeshPassInfo> passes);
+    void recordCommandBufferShadowPass(VkCommandBuffer commandBuffer, uint32_t imageIndex,
+                                       std::span<simpleMeshPassInfo> passes);
 
     void doMipChainCompute(ActiveRenderStepData commandBufferContext, MemoryArena::memoryArena* arena,
-                           VkImage dstImage, VkImageView srcView, std::span<VkImageView> pyramidviews, VkSampler sampler, uint32_t _currentFrame, int
+                           VkImage dstImage, VkImageView srcView, std::span<VkImageView> pyramidviews,
+                           VkSampler sampler, uint32_t _currentFrame, int
                            pyramidWidth, int pyramidHeight);
-    void updateBindingsComputeCulling(ActiveRenderStepData commandBufferContext, MemoryArena::memoryArena* arena, uint32_t _currentFrame);
+    void updateBindingsComputeCulling(ActiveRenderStepData commandBufferContext, MemoryArena::memoryArena* arena,
+                                      uint32_t _currentFrame);
     void SubmitCommandBuffer(uint32_t commandbufferCt,
-                             ActiveRenderStepData* commandBufferContext, semaphoreData waitSemaphores, std::vector<VkSemaphore> signalsemaphores, VkFence
+                             ActiveRenderStepData* commandBufferContext, semaphoreData waitSemaphores,
+                             std::vector<VkSemaphore> signalsemaphores, VkFence
                              waitFence);
     void SubmitCommandBuffer(uint32_t commandbufferCt,
-                           ActiveRenderStepData* commandBufferContext, VkFence
-                           waitFence);
+                             ActiveRenderStepData* commandBufferContext, VkFence
+                             waitFence);
     void recordUtilityPasses(VkCommandBuffer commandBuffer, int imageIndex);
-    void recordCommandBufferOpaquePass(Scene* scene, VkCommandBuffer commandBuffer, uint32_t imageIndex, std::span<simpleMeshPassInfo>
+    void recordCommandBufferOpaquePass(Scene* scene, VkCommandBuffer commandBuffer, uint32_t imageIndex,
+                                       std::span<simpleMeshPassInfo>
                                        batchedDraws);
 
 
     bool hasStencilComponent(VkFormat format);
 
 
-    
-
-  
     void RenderFrame(Scene* scene);
 
 
     void renderShadowPass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores,
                           std::vector<VkSemaphore> signalsemaphores, std::span<simpleMeshPassInfo> passes);
-    void renderOpaquePass( uint32_t commandbufferCt, VkCommandBuffer* commandBuffer, semaphoreData
+    void renderOpaquePass(uint32_t commandbufferCt, VkCommandBuffer* commandBuffer, semaphoreData
                           waitSemaphores, std::vector<VkSemaphore>
                           signalsemaphores, VkFence waitFence);
-
-
-
 };
 
 #pragma region textures

@@ -62,7 +62,11 @@ struct FSOutput
     [[vk::location(0)]] float3 Color : SV_Target;
 };
 
-cbuffer globals : register(b0) { ShaderGlobals globals; }
+cbuffer globals : register(b0)
+{
+    ShaderGlobals globals;
+}
+
 // ShaderGlobals globals;
 
 [[vk::binding(1)]]

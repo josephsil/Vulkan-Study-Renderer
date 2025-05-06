@@ -17,7 +17,6 @@
 //
 
 
-
 // ShaderGlobals globals;
 // uniformDescriptorSets
 // storageDescriptorSets
@@ -25,7 +24,6 @@
 // samplerDescriptorSets
 // [[vk::binding(0,0)]]
 // [[vk::binding(0, 0)]]
-
 
 
 [[vk::binding(0, 0)]]
@@ -61,11 +59,6 @@ RWStructuredBuffer<objectData> uboarr;
 RWStructuredBuffer<perShadowData> shadowMatrices;
 
 
-
-
-
-
-
 #define  DIFFUSE_INDEX  uboarr[InstanceIndex].textureIndexInfo.r
 #define  SPECULAR_INDEX  uboarr[InstanceIndex].textureIndexInfo.g
 #define  NORMAL_INDEX uboarr[InstanceIndex].textureIndexInfo.b
@@ -84,6 +77,7 @@ int getShadowMatrixIndex(MyLightStructure light)
 {
     return light.matrixIDX_matrixCt_padding.r;
 }
+
 int getShadowMatrixCount(MyLightStructure light)
 {
     return light.matrixIDX_matrixCt_padding.g;
@@ -137,7 +131,7 @@ float2 pointShadowDirection(int idx)
 float uvToPointShadow(int idx, float2 uv)
 {
     float2 offset = pointShadowDirection(idx);
-    uv *= float2(0.5,0.33);
+    uv *= float2(0.5, 0.33);
     uv += offset;
     return uv;
 }
@@ -164,27 +158,25 @@ float VectorToDepthValue(float3 Vec)
 
     const float FAR = 10.0;
     const float NEAR = 0.001;
-    float NormZComp = (FAR+NEAR) / (FAR-NEAR) - (2.0*FAR*NEAR)/(FAR-NEAR)/LocalZcomp;
+    float NormZComp = (FAR + NEAR) / (FAR - NEAR) - (2.0 * FAR * NEAR) / (FAR - NEAR) / LocalZcomp;
     return (NormZComp + 1.0) * 0.5;
 }
 
 int findCascadeLevel(int lightIndex, float3 worldPixel)
 {
-    float4 fragPosViewSpace = mul( mul(globals.projection,  globals.view), float4(worldPixel, 1.0));
+    float4 fragPosViewSpace = mul(mul(globals.projection, globals.view), float4(worldPixel, 1.0));
     float depthValue = fragPosViewSpace.z;
     int cascadeLevel = 0;
     for (int i = 0; i < 6; i++) //6 == cascade count
-        {
-        if (depthValue <   -shadowMatrices[lightIndex + i].depth)
+    {
+        if (depthValue < -shadowMatrices[lightIndex + i].depth)
         {
             cascadeLevel = i;
             break;
         }
-        }
+    }
 
     return cascadeLevel;
-
-    
 }
 
 
@@ -193,70 +185,75 @@ float3 getShadow(int index, float3 fragPos)
     MyLightStructure light = lights[index];
     if (getLightType(light) == LIGHT_POINT)
     {
-      
-        float3 fragToLight =  fragPos - light.position_range.xyz ;
+        float3 fragToLight = fragPos - light.position_range.xyz;
         float3 dir = normalize(fragToLight);
         dir = dir.xyz;
-        dir *= float3(1,1,1);
+        dir *= float3(1, 1, 1);
 
-        float distLightSpace = VectorToDepthValue( light.position_range.xyz - fragPos);
-        float dist =  distance(light.position_range.xyz, fragPos) ;
+        float distLightSpace = VectorToDepthValue(light.position_range.xyz - fragPos);
+        float dist = distance(light.position_range.xyz, fragPos);
         float3 proj = dist / 10;
         float3 shadow = (shadowmapCube[index].SampleLevel(cubeSamplers[0], fragToLight, 0.0).r - 0.0) * 1;
         // shadow = pow(shadow, 700);
-        
-       // return proj.z;
+
+        // return proj.z;
         float output;
-        return distLightSpace < (shadow.r ); // float3(proj.z, shadow.r, 1.0);
+        return distLightSpace < (shadow.r); // float3(proj.z, shadow.r, 1.0);
     }
     if (getLightType(light) == LIGHT_SPOT)
     {
         int ARRAY_INDEX = 0;
-        float4x4 lightMat = mul(shadowMatrices[getShadowMatrixIndex(light) +ARRAY_INDEX].proj,  shadowMatrices[getShadowMatrixIndex(light) +ARRAY_INDEX].view);
-        float4 fragPosLightSpace = mul( lightMat, float4(fragPos, 1.0));
+        float4x4 lightMat = mul(shadowMatrices[getShadowMatrixIndex(light) + ARRAY_INDEX].proj,
+                                shadowMatrices[getShadowMatrixIndex(light) + ARRAY_INDEX].view);
+        float4 fragPosLightSpace = mul(lightMat, float4(fragPos, 1.0));
         float3 shadowProjection = (fragPosLightSpace.xyz / fragPosLightSpace.w);
-        float3 shadowUV = shadowProjection   * 0.5 + 0.5;
+        float3 shadowUV = shadowProjection * 0.5 + 0.5;
         shadowUV.z = ARRAY_INDEX;
         // shadowProjection.y *= -1;
-        return shadowmap[index].Sample(shadowmapSampler[0], shadowUV.xyz).r <  shadowProjection.z; //TODO JS: dont sample on branch?
+        return shadowmap[index].Sample(shadowmapSampler[0], shadowUV.xyz).r < shadowProjection.z;
+        //TODO JS: dont sample on branch?
     }
     if (getLightType(light) == LIGHT_DIR)
     {
-
         float SHADOW_MAP_SIZE = 1024;
-        float2 vTexelSize = float2( 1.0/SHADOW_MAP_SIZE , 1.0/SHADOW_MAP_SIZE  );
+        float2 vTexelSize = float2(1.0 / SHADOW_MAP_SIZE, 1.0 / SHADOW_MAP_SIZE);
         int lightIndex = getShadowMatrixIndex(light);
-        int cascadeLevel =  findCascadeLevel(lightIndex, fragPos);
-            float4 fragPosShadowSpace = mul(mul(shadowMatrices[lightIndex + cascadeLevel].proj, shadowMatrices[lightIndex + cascadeLevel].view),  float4(fragPos, 1.0));
-            float3 shadowProjection = (fragPosShadowSpace.xyz / fragPosShadowSpace.w);
-            float3 shadowUV = shadowProjection   * 0.5 + 0.5;
-            shadowUV.z = cascadeLevel;
+        int cascadeLevel = findCascadeLevel(lightIndex, fragPos);
+        float4 fragPosShadowSpace = mul(mul(shadowMatrices[lightIndex + cascadeLevel].proj,
+                                            shadowMatrices[lightIndex + cascadeLevel].view), float4(fragPos, 1.0));
+        float3 shadowProjection = (fragPosShadowSpace.xyz / fragPosShadowSpace.w);
+        float3 shadowUV = shadowProjection * 0.5 + 0.5;
+        shadowUV.z = cascadeLevel;
 
         //Poisson lookup
         //Version from https://web.engr.oregonstate.edu/~mjb/cs519/Projects/Papers/ShaderTricks.pdf -- placheolder
 
         const int SAMPLECOUNT = 12;
-        float2 vTaps[SAMPLECOUNT] = {float2(-0.326212,-0.40581),float2(-0.840144,-0.07358),
-        float2(-0.695914,0.457137),float2(-0.203345,0.620716),
-        float2(0.96234,-0.194983),float2(0.473434,-0.480026),
-        float2(0.519456,0.767022),float2(0.185461,-0.893124),
-        float2(0.507431,0.064425),float2(0.89642,0.412458),
-        float2(-0.32194,-0.932615),float2(-0.791559,-0.59771)};
+        float2 vTaps[SAMPLECOUNT] = {
+            float2(-0.326212, -0.40581), float2(-0.840144, -0.07358),
+            float2(-0.695914, 0.457137), float2(-0.203345, 0.620716),
+            float2(0.96234, -0.194983), float2(0.473434, -0.480026),
+            float2(0.519456, 0.767022), float2(0.185461, -0.893124),
+            float2(0.507431, 0.064425), float2(0.89642, 0.412458),
+            float2(-0.32194, -0.932615), float2(-0.791559, -0.59771)
+        };
 
         float cSampleAccum = 0;
         // Take a sample at the disc’s center
-        cSampleAccum += shadowmap[index].Sample( shadowmapSampler[0], shadowUV.xyz)  > shadowProjection.z;
+        cSampleAccum += shadowmap[index].Sample(shadowmapSampler[0], shadowUV.xyz) > shadowProjection.z;
         // Take 12 samples in disc
-        for ( int nTapIndex = 0; nTapIndex < SAMPLECOUNT; nTapIndex++ )
+        for (int nTapIndex = 0; nTapIndex < SAMPLECOUNT; nTapIndex++)
         {
             float2 vTapCoord = vTexelSize * vTaps[nTapIndex] * 1.5;
-            
+
             // Accumulate samples
-            cSampleAccum += (shadowmap[index].Sample( shadowmapSampler[0],  shadowUV.xyz + float3(vTapCoord.x, vTapCoord.y, 0)).r > shadowProjection.z);
+            cSampleAccum += (shadowmap[index].Sample(shadowmapSampler[0],
+                                                     shadowUV.xyz + float3(vTapCoord.x, vTapCoord.y, 0)).r >
+                shadowProjection.z);
         }
         return saturate((cSampleAccum) / (SAMPLECOUNT + 1));
-        }
-        return -1;
+    }
+    return -1;
 }
 
 float3 getLighting(float3 albedo, float3 inNormal, float3 FragPos, float3 F0, float3 roughness, float metallic)
@@ -266,7 +263,7 @@ float3 getLighting(float3 albedo, float3 inNormal, float3 FragPos, float3 F0, fl
     float3 lightContribution = float3(0, 0, 0);
     // albedo = 1.0;
     // roughness = 1.0;
-// metallic = 0.0;
+    // metallic = 0.0;
     for (int i = 0; i < LIGHTCOUNT; i++)
     {
         MyLightStructure light = lights[i];
@@ -283,8 +280,8 @@ float3 getLighting(float3 albedo, float3 inNormal, float3 FragPos, float3 F0, fl
         {
             lightDir = lightPos;
         }
-        
-        
+
+
         float lightDistance = pow(length(lightPos - FragPos), 2);
 
         float3 halfwayDir = normalize(lightDir + viewDir);
@@ -304,11 +301,11 @@ float3 getLighting(float3 albedo, float3 inNormal, float3 FragPos, float3 F0, fl
             float cosCutoff = (1.0 - (light.position_range.a) / 180);
             float softFactor = 1.2; //TODO JS: paramaterize 
             float cosCutoffOuter = (1.0 - (light.position_range.a * softFactor) / 180);
-            float epsilon   = cosCutoff - cosCutoffOuter ;
-            
-                radiance *= clamp((theta - cosCutoffOuter) / epsilon, 0.0, 1.0);    
+            float epsilon = cosCutoff - cosCutoffOuter;
+
+            radiance *= clamp((theta - cosCutoffOuter) / epsilon, 0.0, 1.0);
         }
-        
+
         float3 Fresnel = fresnelSchlick(max(dot(halfwayDir, viewDir), 0.0), F0);
         float NDF = DistributionGGX(inNormal, halfwayDir, roughness);
         float G = GeometrySmith(inNormal, viewDir, lightDir, roughness);
@@ -320,14 +317,12 @@ float3 getLighting(float3 albedo, float3 inNormal, float3 FragPos, float3 F0, fl
 
         kD *= 1.0 - metallic;
         float NdotL = max(dot(inNormal, lightDir), 0.0);
-       float3 lightAdd = (kD * albedo / PI + specular) * radiance * NdotL;
+        float3 lightAdd = (kD * albedo / PI + specular) * radiance * NdotL;
 
         //Shadow:
 
         if (i < SHADOWCOUNT) //TODO JS: pass in max shadow casters?
         {
-         
-         
             float shadowMapValue = getShadow(i, FragPos);
 
             // if (i == 0)
@@ -338,11 +333,11 @@ float3 getLighting(float3 albedo, float3 inNormal, float3 FragPos, float3 F0, fl
             //TODO: vias by normal
             //TODO: cascade
             // return pow(shadowMapValue, 44);
-           lightAdd *= shadowMapValue;
+            lightAdd *= shadowMapValue;
         }
         //
 
-        lightContribution +=  lightAdd;
+        lightContribution += lightAdd;
     }
 
 

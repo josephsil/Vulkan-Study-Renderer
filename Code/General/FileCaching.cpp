@@ -14,7 +14,7 @@ std::wstring widenString(std::string s);
 
 bool FileCaching::fileExists(std::string_view assetPath)
 {
-return FileCaching::fileExists(widenString(std::string (assetPath)));
+    return fileExists(widenString(std::string(assetPath)));
 }
 
 bool FileCaching::fileExists(std::wstring_view assetPath)
@@ -31,7 +31,7 @@ std::wstring widenString(std::string s)
 
 void FileCaching::saveAssetChangedTime(std::string_view assetPath)
 {
- FileCaching::saveAssetChangedTime(widenString(std::string(assetPath)));
+    saveAssetChangedTime(widenString(std::string(assetPath)));
 }
 
 void FileCaching::saveAssetChangedTime(std::wstring_view assetPath)
@@ -39,8 +39,8 @@ void FileCaching::saveAssetChangedTime(std::wstring_view assetPath)
     struct stat result;
     if (_wstat(assetPath.data(), &result) != 0)
     {
-         printf("Could not read shader file date");
-     exit(-1);
+        printf("Could not read shader file date");
+        exit(-1);
     }
 
     auto modifiedTime = result.st_mtime;
@@ -57,12 +57,11 @@ void FileCaching::saveAssetChangedTime(std::wstring_view assetPath)
 
 bool FileCaching::assetOutOfDate(std::string_view assetPath)
 {
- return FileCaching::assetOutOfDate(widenString(std::string(assetPath)));
+    return assetOutOfDate(widenString(std::string(assetPath)));
 }
 
 long long readdotModifiedTime(std::wstring_view assetPath)
 {
-
     std::wstring assetTimePath = std::wstring(assetPath) + L".modified";
     struct stat result;
     if (_wstat(assetTimePath.data(), &result) != 0)
@@ -99,9 +98,10 @@ void FileCaching::touchFile(std::wstring_view path)
     struct stat result;
     _wstat(path.data(), &result);
     new_times.actime = result.st_atime;
-    new_times.modtime =time(NULL); //current time
+    new_times.modtime = time(nullptr); //current time
     _wutime(path.data(), &new_times);
 }
+
 //TODO JS: Just checking date for now -- prefer some kind of hash
 bool FileCaching::assetOutOfDate(std::wstring_view assetPath)
 {
@@ -112,13 +112,12 @@ bool FileCaching::assetOutOfDate(std::wstring_view assetPath)
     {
         printf("Could not read shader file date");
         assert(false);
-
     }
 
     auto modifiedTime = result.st_mtime;
 
-   
-long long savedTime = readdotModifiedTime(assetPath);
+
+    long long savedTime = readdotModifiedTime(assetPath);
 
     if (savedTime == modifiedTime)
     {

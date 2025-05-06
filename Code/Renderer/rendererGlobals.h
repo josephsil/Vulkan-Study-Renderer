@@ -14,52 +14,50 @@
 #include "General/MemoryArena.h"
 #include "VulkanIncludes/forward-declarations-renderer.h"
 struct RendererContext;
-const static int MAX_SHADOWCASTERS = 8;
-const static int CASCADE_CT = 6;
+static constexpr int MAX_SHADOWCASTERS = 8;
+static constexpr int CASCADE_CT = 6;
 #define MAX_SHADOWMAPS (MAX_SHADOWCASTERS * 8)
-const static int MAX_CAMERAS = 1;
+static constexpr int MAX_CAMERAS = 1;
 
-const static int HIZDEPTH =6;
+static constexpr int HIZDEPTH = 6;
 
-const static int MAX_FRAMES_IN_FLIGHT = 2;
-const static int SWAPCHAIN_SIZE = 3;
-const static int MAX_DRAWINDIRECT_COMMANDS = 200000; //Draw commands per frmae
-const static int MAX_DRAWS_PER_PIPELINE = 2000; //whatever, probably could be dynamic, will fix later 
-const static int MAX_PIPELINES = 80; //whatever, probably could be dynamic, will fix later
-const static int MAX_RENDER_PASSES = 120;//whatever, probably could be dynamic, will fix later
-const VkFormat shadowFormat = VK_FORMAT_D16_UNORM;
+static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
+static constexpr int SWAPCHAIN_SIZE = 3;
+static constexpr int MAX_DRAWINDIRECT_COMMANDS = 200000; //Draw commands per frmae
+static constexpr int MAX_DRAWS_PER_PIPELINE = 2000; //whatever, probably could be dynamic, will fix later 
+static constexpr int MAX_PIPELINES = 80; //whatever, probably could be dynamic, will fix later
+static constexpr int MAX_RENDER_PASSES = 120; //whatever, probably could be dynamic, will fix later
+constexpr VkFormat shadowFormat = VK_FORMAT_D16_UNORM;
 
-template < typename T>
+template <typename T>
 std::span<T> CreatePerFrameCollection(MemoryArena::memoryArena* arena)
 {
     return MemoryArena::AllocSpan<T>(arena, MAX_FRAMES_IN_FLIGHT);
 }
 
-template < typename T >
+template <typename T>
 struct result
 {
     bool success;
     T* t;
 };
-template < typename T >
+
+template <typename T>
 
 
 #ifdef NDEBUG
 const bool enableValidationLayers = false;
 #else
-const bool enableValidationLayers = true;
+constexpr bool enableValidationLayers = true;
 #endif
 
 
-
 // const std::vector<const char*> validationLayers = {
-    // "VK_LAYER_KHRONOS_validation"
+// "VK_LAYER_KHRONOS_validation"
 // };
-const uint32_t SHADOW_MAP_SIZE = 1024;
+constexpr uint32_t SHADOW_MAP_SIZE = 1024;
 
 //deletio nqueue stuff
-
-
 
 
 // const static VkIndexType INDEX_BUFFER_FORMAT = VK_INDEX_TYPE_UINT32;
@@ -72,13 +70,13 @@ enum lightType
 };
 
 
-
 struct renderPassAttatchmentInfo
 {
     VkRenderingAttachmentInfoKHR* colorDraw;
     VkRenderingAttachmentInfoKHR* depthDraw;
     VkExtent2D extents;
 };
+
 struct RenderTextureFormat
 {
     VkFormat ColorFormat;
@@ -101,7 +99,7 @@ struct dataBuffer
     VkDescriptorBufferInfo getBufferInfo();
 };
 
-template < typename T >
+template <typename T>
 struct HostDataBufferObject //todo js: name 
 {
     dataBuffer buffer;
@@ -118,28 +116,29 @@ struct dataBufferAllocationsView
 };
 
 
-template < typename T >
+template <typename T>
 VmaAllocation dataBuffer_getAllocation(HostDataBufferObject<T> d)
 {
     return d.allocation;
 }
 
-template < typename T >
+template <typename T>
 VkBuffer dataBuffer_getVKBuffer(HostDataBufferObject<T> d)
 {
     return d.buffer.data;
 }
 
 
-template < typename T >
+template <typename T>
 VkDescriptorBufferInfo getDescriptorBufferInfo(HostDataBufferObject<T> d)
 {
     return d.buffer.getBufferInfo();
 }
+
 template <typename T>
 std::span<T> HostDataBufferObject<T>::getMappedSpan()
 {
-    return  std::span<T>(static_cast<T*>(buffer.mapped), buffer.size / sizeof(T));
+    return std::span<T>(static_cast<T*>(buffer.mapped), buffer.size / sizeof(T));
 }
 
 template <typename T>
@@ -152,23 +151,24 @@ void HostDataBufferObject<T>::updateMappedMemory(std::span<T> source)
 template <typename T>
 uint32_t HostDataBufferObject<T>::count()
 {
-    return buffer.size / sizeof(T); 
+    return buffer.size / sizeof(T);
 }
 
-template<typename T> HostDataBufferObject<T> createDataBuffer(RendererContext* h, uint32_t size, VkBufferUsageFlags usage)
+template <typename T>
+HostDataBufferObject<T> createDataBuffer(RendererContext* h, uint32_t size, VkBufferUsageFlags usage)
 {
-
-  HostDataBufferObject<T> hostDataBuffer{};
-  hostDataBuffer.buffer.size = sizeof(T) * size;
+    HostDataBufferObject<T> hostDataBuffer{};
+    hostDataBuffer.buffer.size = sizeof(T) * size;
     hostDataBuffer.buffer.mapped = BufferUtilities::createHostMappedBuffer(
-        h->allocator,  hostDataBuffer.buffer.size, usage,
+        h->allocator, hostDataBuffer.buffer.size, usage,
         &hostDataBuffer.allocation,
         hostDataBuffer.buffer.data);
 
-    h->rendererdeletionqueue->push_backVMA(deletionType::vmaBuffer, uint64_t(hostDataBuffer.buffer.data), *&hostDataBuffer.allocation);
+    h->rendererdeletionqueue->push_backVMA(deletionType::vmaBuffer, (uint64_t)(hostDataBuffer.buffer.data),
+                                           *&hostDataBuffer.allocation);
     //add to deletion queue
-   
-  return hostDataBuffer;
+
+    return hostDataBuffer;
 }
 
 struct inputData
@@ -179,15 +179,13 @@ struct inputData
 
 struct Transform
 {
-
     glm::mat4 translation;
-    glm::mat4 rot; 
+    glm::mat4 rot;
 };
 
 
 struct Material
 {
-public:
     uint32_t shaderGroupIndex;
     uint32_t diffuseIndex;
     uint32_t specIndex;
@@ -202,6 +200,7 @@ struct extent
     uint32_t width;
     uint32_t height;
 };
+
 struct cameraData
 {
     glm::vec3 eyePos = glm::vec3(-4.0f, 0.4f, 1.0f);
@@ -211,7 +210,7 @@ struct cameraData
 
     extent extent;
     float fov = 70;
-        
+
     glm::mat4 debug_frozen_culling_v;
     glm::mat4 debug_frozen_culling_p;
 };
@@ -219,4 +218,3 @@ struct cameraData
 
 void registerDebugUtilsFn(PFN_vkSetDebugUtilsObjectNameEXT ptr);
 void setDebugObjectName(VkDevice device, VkObjectType type, std::string name, uint64_t handle);
-

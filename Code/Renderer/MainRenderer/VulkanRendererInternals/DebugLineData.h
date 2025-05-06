@@ -17,6 +17,7 @@ struct DebugLineData
         glm::vec3 end;
         glm::vec3 color;
     };
+
     std::vector<linePair> debugLines;
 
     void addDebugFrustum(std::span<glm::vec4> frustum);

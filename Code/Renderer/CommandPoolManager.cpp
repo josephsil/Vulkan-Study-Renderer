@@ -15,7 +15,7 @@ CommandPoolManager::CommandPoolManager(vkb::Device vkbdevice, RendererDeletionQu
     device = vkbdevice.device;
     createCommandPool(device, Queues.graphicsQueueFamily, &commandPool);
     createCommandPool(device, Queues.transferQueueFamily, &transferCommandPool);
-    
+
     deletionQueue->push_backVk(deletionType::CommandPool, uint64_t(commandPool));
     deletionQueue->push_backVk(deletionType::CommandPool, uint64_t(transferCommandPool));
 }

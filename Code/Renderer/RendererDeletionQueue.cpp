@@ -14,22 +14,22 @@ RendererDeletionQueue::RendererDeletionQueue(VkDevice d, VmaAllocator vmaAllocat
 
 void RendererDeletionQueue::push_backVk(deletionType t, uint64_t vulkanObject)
 {
-    assert (initialized != 0);
+    assert(initialized != 0);
     assert(t != deletionType::vmaBuffer && t != deletionType::VmaImage);
-    deletionList.push_back({t,vulkanObject});
+    deletionList.push_back({t, vulkanObject});
 }
 
 
 void RendererDeletionQueue::push_backVMA(deletionType t, uint64_t vulkanObject, VmaAllocation allocation)
 {
-    assert (initialized != 0);
+    assert(initialized != 0);
     assert(t == deletionType::vmaBuffer || t == deletionType::VmaImage);
-    deletionList.push_back({t,vulkanObject, allocation});
+    deletionList.push_back({t, vulkanObject, allocation});
 }
 
 void RendererDeletionQueue::FreeQueue()
 {
-    for(int i = deletionList.size() -1; i >= 0; i--)
+    for (int i = deletionList.size() - 1; i >= 0; i--)
     {
         deleteableResource resource = deletionList[i];
         // printf("deleting %d %p\n", i,resource.handle);
@@ -37,7 +37,7 @@ void RendererDeletionQueue::FreeQueue()
         {
         case deletionType::vmaBuffer:
             {
-                VulkanMemory::DestroyBuffer(allocator,(VkBuffer)(resource.handle), resource.vmaAllocation);
+                VulkanMemory::DestroyBuffer(allocator, (VkBuffer)(resource.handle), resource.vmaAllocation);
                 break;
             }
         case deletionType::descriptorPool:
@@ -51,18 +51,18 @@ void RendererDeletionQueue::FreeQueue()
                 break;
             }
         case deletionType::Fence:
-           {
+            {
                 vkDestroyFence(device, (VkFence)(resource.handle), nullptr);
                 break;
-           }
+            }
         case deletionType::CommandPool:
             {
-                vkDestroyCommandPool(device,  (VkCommandPool)(resource.handle), nullptr);
+                vkDestroyCommandPool(device, (VkCommandPool)(resource.handle), nullptr);
                 break;
             }
         case deletionType::ImageView:
             {
-                vkDestroyImageView(device,  (VkImageView)(resource.handle), nullptr);
+                vkDestroyImageView(device, (VkImageView)(resource.handle), nullptr);
                 break;
             }
         case deletionType::Image:
@@ -76,19 +76,16 @@ void RendererDeletionQueue::FreeQueue()
                 break;
             }
         case deletionType::VmaImage:
-          {
-                
+            {
                 VulkanMemory::DestroyImage(allocator, (VkImage)(resource.handle), resource.vmaAllocation);
                 break;
-          }
+            }
         case deletionType::Sampler:
             {
                 vkDestroySampler(device, (VkSampler)(resource.handle), nullptr);
                 break;
             }
-       
         }
-        
     }
     deletionList.clear();
 }

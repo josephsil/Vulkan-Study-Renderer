@@ -1,6 +1,6 @@
 #pragma once
 
-using VkPipeline = struct VkPipeline_T*; 
+using VkPipeline = struct VkPipeline_T*;
 struct VkVertexInputBindingDescription;
 struct VkVertexInputAttributeDescription;
 
@@ -36,25 +36,25 @@ using VkDescriptorPool = struct VkDescriptorPool_T*;
 using VkDescriptorSet = struct VkDescriptorSet_T*;
 
 using VkPipelineLayout = struct VkPipelineLayout_T*;
-enum VkSamplerAddressMode :  int; ;
-enum VkImageViewType :  int; ;
+enum VkSamplerAddressMode : int; ;
+enum VkImageViewType : int; ;
 enum VkImageType : int;
 
 using VkQueue = struct VkQueue_T*;
- enum VkFormat :  int; ;
- enum VkImageLayout :  int; ;
- enum VkDescriptorType :  int; ;
- enum VkImageTiling :  int; ;
-typedef uint32_t VkFlags;
-typedef VkFlags VkFormatFeatureFlags;
-typedef VkFlags VkMemoryPropertyFlags;
-typedef VkFlags VkImageAspectFlags;
-typedef VkFlags VkBufferUsageFlags;
-typedef VkFlags VkBufferViewCreateFlags;
-typedef VkFlags VkShaderStageFlags;
-typedef uint64_t VkDeviceSize;
+enum VkFormat : int; ;
+enum VkImageLayout : int; ;
+enum VkDescriptorType : int; ;
+enum VkImageTiling : int; ;
+using VkFlags = uint32_t;
+using VkFormatFeatureFlags = VkFlags;
+using VkMemoryPropertyFlags = VkFlags;
+using VkImageAspectFlags = VkFlags;
+using VkBufferUsageFlags = VkFlags;
+using VkBufferViewCreateFlags = VkFlags;
+using VkShaderStageFlags = VkFlags;
+using VkDeviceSize = uint64_t;
 
- struct VkDescriptorBufferInfo ;
+struct VkDescriptorBufferInfo;
 
 
- struct VkWriteDescriptorSet;
+struct VkWriteDescriptorSet;

@@ -15,8 +15,8 @@ enum class deletionType
     VmaImage,
     Sampler,
     CommandBuffer
-    
 };
+
 struct deleteableResource
 {
     deletionType type;

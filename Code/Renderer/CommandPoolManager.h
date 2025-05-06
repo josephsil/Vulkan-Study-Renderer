@@ -10,7 +10,7 @@ namespace vkb
     struct Device;
 }
 
-struct bufferAndPool; 
+struct bufferAndPool;
 
 struct QueueData
 {
@@ -28,7 +28,6 @@ struct QueueData
 //This is silly -- merge with the apporoach used for drawing
 struct CommandPoolManager
 {
-public:
     QueueData Queues;
 
     CommandPoolManager(vkb::Device vkbdevice, RendererDeletionQueue* deletionQueue);

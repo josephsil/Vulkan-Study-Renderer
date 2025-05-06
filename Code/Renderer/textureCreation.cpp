@@ -18,12 +18,15 @@ struct temporaryTextureInfo
     VkImage textureImage;
     VmaAllocation alloc;
     uint64_t width;
-    uint64_t  height;
-    uint64_t  mipCt;
+    uint64_t height;
+    uint64_t mipCt;
 };
-VkImageView TextureUtilities::createImageViewCustomMip(BufferCreationContext rendererContext, VkImage image, VkFormat format,
-                                              VkImageAspectFlags aspectFlags,
-                                              VkImageViewType type, uint32_t layerCount, uint32_t layer, uint32_t mipCount, uint32_t baseMip)
+
+VkImageView TextureUtilities::createImageViewCustomMip(BufferCreationContext rendererContext, VkImage image,
+                                                       VkFormat format,
+                                                       VkImageAspectFlags aspectFlags,
+                                                       VkImageViewType type, uint32_t layerCount, uint32_t layer,
+                                                       uint32_t mipCount, uint32_t baseMip)
 {
     VkImageViewCreateInfo viewInfo{};
     viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -31,14 +34,15 @@ VkImageView TextureUtilities::createImageViewCustomMip(BufferCreationContext ren
     viewInfo.viewType = type;
     viewInfo.format = format;
     viewInfo.subresourceRange.aspectMask = aspectFlags;
-    viewInfo.subresourceRange.baseMipLevel =baseMip; 
+    viewInfo.subresourceRange.baseMipLevel = baseMip;
     viewInfo.subresourceRange.levelCount = mipCount;
-    viewInfo.subresourceRange.baseArrayLayer = layer; 
+    viewInfo.subresourceRange.baseArrayLayer = layer;
     viewInfo.subresourceRange.layerCount = layerCount;
 
     VkImageView imageView;
     VK_CHECK(vkCreateImageView(rendererContext.device, &viewInfo, nullptr, &imageView));
-    setDebugObjectName(rendererContext.device, VK_OBJECT_TYPE_IMAGE_VIEW, "TextureCreation image view", (uint64_t)imageView);
+    setDebugObjectName(rendererContext.device, VK_OBJECT_TYPE_IMAGE_VIEW, "TextureCreation image view",
+                       (uint64_t)imageView);
     rendererContext.rendererdeletionqueue->push_backVk(deletionType::ImageView, (uint64_t)imageView);
     return imageView;
 }
@@ -48,24 +52,25 @@ VkImageView TextureUtilities::createImageView(BufferCreationContext rendererCont
                                               VkImageAspectFlags aspectFlags,
                                               VkImageViewType type, uint32_t layerCount, uint32_t layer)
 {
-
-    return createImageViewCustomMip(rendererContext, image, format, aspectFlags, type, layerCount, layer, VK_REMAINING_MIP_LEVELS, 0);
+    return createImageViewCustomMip(rendererContext, image, format, aspectFlags, type, layerCount, layer,
+                                    VK_REMAINING_MIP_LEVELS, 0);
 }
 
 
-void TextureUtilities::createImage(BufferCreationContext rendererContext, uint64_t width, uint64_t height, VkFormat format,
+void TextureUtilities::createImage(BufferCreationContext rendererContext, uint64_t width, uint64_t height,
+                                   VkFormat format,
                                    VkImageTiling tiling,
                                    VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image,
-                                   VmaAllocation& allocation, uint32_t miplevels, uint32_t araryLayers, bool cubeCompatible, const char* debugName)
+                                   VmaAllocation& allocation, uint32_t miplevels, uint32_t araryLayers,
+                                   bool cubeCompatible, const char* debugName)
 {
-
     //TODO JS Properties flags to vma 
     VkImageCreateInfo imageInfo{};
 
     imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    imageInfo.imageType = VK_IMAGE_TYPE_2D ;
-    imageInfo.extent.width = (uint32_t)width;
-    imageInfo.extent.height = (uint32_t)height;
+    imageInfo.imageType = VK_IMAGE_TYPE_2D;
+    imageInfo.extent.width = static_cast<uint32_t>(width);
+    imageInfo.extent.height = static_cast<uint32_t>(height);
     imageInfo.extent.depth = 1;
     imageInfo.mipLevels = miplevels;
     imageInfo.arrayLayers = araryLayers;
@@ -80,19 +85,21 @@ void TextureUtilities::createImage(BufferCreationContext rendererContext, uint64
     {
         if (araryLayers > 5 && width == height)
         {
-            imageInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT ; 
+            imageInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
         }
     }
-    BufferUtilities::CreateImage(&imageInfo, &image, &allocation, rendererContext.device, rendererContext.allocator, debugName);
+    BufferUtilities::CreateImage(&imageInfo, &image, &allocation, rendererContext.device, rendererContext.allocator,
+                                 debugName);
     rendererContext.rendererdeletionqueue->push_backVMA(deletionType::VmaImage, uint64_t(image), allocation);
 }
 
 void TextureUtilities::transitionImageLayout(BufferCreationContext rendererContext, VkImage image, VkFormat format,
                                              VkImageLayout oldLayout,
-                                             VkImageLayout newLayout, VkCommandBuffer workingBuffer, uint32_t miplevels, bool useTransferPool, bool depth)
+                                             VkImageLayout newLayout, VkCommandBuffer workingBuffer, uint32_t miplevels,
+                                             bool useTransferPool, bool depth)
 {
     bool usingTempBuffer = workingBuffer == nullptr;
-    bufferAndPool tempBufferAndPool {};
+    bufferAndPool tempBufferAndPool{};
     if (usingTempBuffer)
     {
         //Optional buffer for if the caller wants to submit the command to an existing buffer and manually end it later
@@ -108,7 +115,7 @@ void TextureUtilities::transitionImageLayout(BufferCreationContext rendererConte
     barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.image = image;
-    barrier.subresourceRange.aspectMask = depth ?  VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.aspectMask = depth ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
     barrier.subresourceRange.baseMipLevel = 0; //TODO JS! 
     barrier.subresourceRange.levelCount = miplevels;
     barrier.subresourceRange.baseArrayLayer = 0;
@@ -128,8 +135,9 @@ void TextureUtilities::transitionImageLayout(BufferCreationContext rendererConte
         sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
         destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
     }
-    
-    else if ((oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL || oldLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL) && newLayout ==
+
+    else if ((oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL || oldLayout ==
+            VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL) && newLayout ==
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
     {
         barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
@@ -143,20 +151,20 @@ void TextureUtilities::transitionImageLayout(BufferCreationContext rendererConte
         VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
     {
         barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-            sourceStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        sourceStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
         destinationStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
     }
     else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && (newLayout ==
-    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL || newLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL))
+        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL || newLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL))
     {
         barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-            sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
         destinationStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
     }
     else
     {
         printf("unsupported layout transition!");
-    exit(-1);
+        exit(-1);
     }
 
     vkCmdPipelineBarrier(
@@ -169,8 +177,8 @@ void TextureUtilities::transitionImageLayout(BufferCreationContext rendererConte
         0,
         nullptr,
         1,
-        &barrier );
-        
+        &barrier);
+
 
     if (usingTempBuffer)
         rendererContext.commandPoolmanager->endSingleTimeCommands(tempBufferAndPool);
@@ -180,12 +188,12 @@ void TextureUtilities::generateMipmaps(BufferCreationContext rendererContext, Vk
                                        int32_t texWidth,
                                        int32_t texHeight, uint32_t mipLevels)
 {
-
     bufferAndPool bandp = rendererContext.commandPoolmanager->beginSingleTimeCommands(false);
 
-    
+
     auto commandBuffer = bandp.buffer;
-setDebugObjectName(rendererContext.device, VK_OBJECT_TYPE_COMMAND_BUFFER, "mipmap commandbuffer", uint64_t(bandp.buffer));
+    setDebugObjectName(rendererContext.device, VK_OBJECT_TYPE_COMMAND_BUFFER, "mipmap commandbuffer",
+                       uint64_t(bandp.buffer));
     VkImageMemoryBarrier barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
     barrier.image = image;
@@ -304,5 +312,3 @@ void TextureUtilities::copyBufferToImage(CommandPoolManager* commandPoolManager,
     if (endNow)
         commandPoolManager->endSingleTimeCommands(workingBuffer);
 }
-
-

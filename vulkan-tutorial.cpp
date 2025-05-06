@@ -34,22 +34,22 @@ std::vector<VkDescriptorSet> ImGuiExposedTextures;
 int main()
 {
     printf("NEW ENTRY");
-    
-     // Setup Dear ImGui context
-     IMGUI_CHECKVERSION();
-     ImGui::CreateContext();
-     ImGuiIO& io = ImGui::GetIO();
-     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-     io.ConfigFlags |= ImGuiConfigFlags_NavEnableSetMousePos;
-     ImGuiExposedTextures = {};
+
+    // Setup Dear ImGui context
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableSetMousePos;
+    ImGuiExposedTextures = {};
     //io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
     // io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;         // IF using Docking Branch
-    
-    
+
+
     vulkanRenderer renderer = {};
-    
+
     MemoryArena::memoryArena sceneArena = {};
-    MemoryArena::initialize(&sceneArena, 3 * 1000000);
+    initialize(&sceneArena, 3 * 1000000);
     Scene scene = {};
     InitializeScene(&sceneArena, &scene);
     Add_Scene_Content(renderer.getFullRendererContext(), renderer.AssetDataAndMemory, &scene);
@@ -58,6 +58,7 @@ int main()
 
     return EXIT_SUCCESS;
 }
+
 void updateImgui(bool* captureMouse)
 {
     ImGui_ImplVulkan_NewFrame();
@@ -71,17 +72,13 @@ void updateImgui(bool* captureMouse)
 
     *captureMouse = ImGui::GetIO().WantCaptureMouse;
     ImGui::End();
-
-
 }
+
 void engineLoop(vulkanRenderer* renderer, Scene* scene)
 {
-
     renderer->beforeFirstUpdate(); //TODO JS: Extract non-renderer stuff out
-    while(!QUIT)
+    while (!QUIT)
     {
-
-
         bool imguiCaptureMouse = false;
         updateImgui(&imguiCaptureMouse);
         InputHandler_Update(imguiCaptureMouse);
@@ -91,8 +88,4 @@ void engineLoop(vulkanRenderer* renderer, Scene* scene)
     }
 
     renderer->cleanup();
-    
 }
-
-
-

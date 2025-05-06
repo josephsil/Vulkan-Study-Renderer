@@ -37,14 +37,14 @@
 //     return tgt->children[tgt->children.size() - 1];
 // }
 
-void addChild(localTransform* tgt,localTransform* child)
+void addChild(localTransform* tgt, localTransform* child)
 {
     tgt->children.push_back(child);
 }
 
 void rmChild(localTransform* tgt, localTransform* remove)
 {
-    tgt->children.erase(std::remove(tgt->children.begin(), tgt->children.end(), remove), tgt->children.end());
+    std::erase(tgt->children, remove);
 }
 
 struct stackEntry
@@ -54,11 +54,10 @@ struct stackEntry
 };
 
 
-
 flatlocalTransform* objectTransforms::get(uint64_t ID)
 {
     auto lookup = _transform_lookup[ID];
-    return  &_local_transform_hiearchy[lookup.depth][lookup.index];
+    return &_local_transform_hiearchy[lookup.depth][lookup.index];
 }
 
 void objectTransforms::set(uint64_t ID, glm::mat4 mat)
@@ -69,23 +68,21 @@ void objectTransforms::set(uint64_t ID, glm::mat4 mat)
 
 void objectTransforms::UpdateWorldTransforms()
 {
-
     uint32_t idx = 0;
-    for(int i =0; i < _local_transform_hiearchy.size(); i++)
+    for (int i = 0; i < _local_transform_hiearchy.size(); i++)
     {
-        for(int j = 0; j < _local_transform_hiearchy[i].size(); j++)
+        for (int j = 0; j < _local_transform_hiearchy[i].size(); j++)
         {
             auto transform = _local_transform_hiearchy[i][j];
             if (i != 0)
             {
-                worldMatrices[i][j] = worldMatrices[i-1][transform.parent] * transform.matrix;
+                worldMatrices[i][j] = worldMatrices[i - 1][transform.parent] * transform.matrix;
             }
             else
             {
                 worldMatrices[i][j] = transform.matrix;
             }
             idx++;
-            
         }
     }
 }
@@ -101,18 +98,21 @@ void objectTransforms::RebuildTransformDataFromNodes(MemoryArena::memoryArena* a
     _local_transform_hiearchy.push_back({});
 
     std::stack<stackEntry> queue = {};
-    for(int i = 0; i < rootTransformsView.size(); i++)
+    for (int i = 0; i < rootTransformsView.size(); i++)
     {
         if (rootTransformsView[i]->children.size() != 0)
             queue.push({0, std::span(rootTransformsView[i]->children)});
         _local_transform_hiearchy[0].push_back({rootTransformsView[i]->matrix, rootTransformsView[i]->name, 0});
-        _transform_lookup[rootTransformsView[i]->ID] = {rootTransformsView[i]->depth, (uint32_t)_local_transform_hiearchy[rootTransformsView[i]->depth].size() -1 }; //look up from TFORM ID into flattened hiearchy
+        _transform_lookup[rootTransformsView[i]->ID] = {
+            rootTransformsView[i]->depth,
+            static_cast<uint32_t>(_local_transform_hiearchy[rootTransformsView[i]->depth].size()) - 1
+        }; //look up from TFORM ID into flattened hiearchy
 
-        while(!queue.empty())
+        while (!queue.empty())
         {
             stackEntry* t = &queue.top();
             //We're finished with this node, pop it off the stack
-            if(t->visited >= t->entry.size())
+            if (t->visited >= t->entry.size())
             {
                 queue.pop();
                 continue;
@@ -128,15 +128,20 @@ void objectTransforms::RebuildTransformDataFromNodes(MemoryArena::memoryArena* a
             //Create new flattened transform and lut entry
             assert(t->entry[i]->depth > 0);
             _local_transform_hiearchy[t->entry[i]->depth]
-                .push_back({t->entry[i]->matrix, t->entry[i]->name, (uint8_t)(_local_transform_hiearchy[t->entry[i]->depth -1].size() -1)});
-            _transform_lookup[t->entry[i]->ID] = {t->entry[i]->depth, (uint32_t)_local_transform_hiearchy[t->entry[i]->depth].size() -1 }; //look up from TFORM ID into flattened hiearchy
+                .push_back({
+                    t->entry[i]->matrix, t->entry[i]->name,
+                    static_cast<uint8_t>(_local_transform_hiearchy[t->entry[i]->depth - 1].size() - 1)
+                });
+            _transform_lookup[t->entry[i]->ID] = {
+                t->entry[i]->depth, static_cast<uint32_t>(_local_transform_hiearchy[t->entry[i]->depth].size()) - 1
+            }; //look up from TFORM ID into flattened hiearchy
 
             t->visited++;
         }
     }
 
     //Allocate memory for matrices -- TODO leaks the old ones 
-    for(int i = 0; i < _local_transform_hiearchy.size(); i++)
+    for (int i = 0; i < _local_transform_hiearchy.size(); i++)
     {
         worldMatrices.push_back();
         worldMatrices[i] = MemoryArena::AllocSpan<glm::mat4>(arena, _local_transform_hiearchy[i].size());

@@ -6,14 +6,13 @@ struct VSInput
     [[vk::location(0)]] float3 Position : POSITION0;
     // [[vk::location(1)]] float3 Color : COLOR0;
     // [[vk::location(2)]] float2 Texture_ST : TEXCOORD0;
-   };
+};
 
 
 struct FSOutput
 {
     [[vk::location(0)]] float3 Color : SV_Target;
 };
-
 
 
 struct pconstant
@@ -41,14 +40,15 @@ struct VSOutput
 // #define MATRIXOFFSET pc.unused
 #endif
 
-VSOutput Vert(VSInput input,  [[vk::builtin("BaseInstance")]]  uint InstanceIndex : BaseInstance, uint VertexIndex : SV_VertexID)
+VSOutput Vert(VSInput input, [[vk::builtin("BaseInstance")]] uint InstanceIndex : BaseInstance,
+              uint VertexIndex : SV_VertexID)
 {
     objectData ubo = uboarr[InstanceIndex];
     VSOutput output = (VSOutput)0;
     float4x4 viewProjection;
-///
+    ///
     viewProjection = pc.mat;
-    
+
     float4x4 mvp2 = mul(viewProjection, ubo.Model);
 
     float4 vertPos = positions[VertexIndex];
@@ -73,5 +73,4 @@ struct FSInput
 
 void Frag()
 {
- 
 }

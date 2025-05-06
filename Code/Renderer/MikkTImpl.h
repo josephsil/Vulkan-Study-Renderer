@@ -26,7 +26,6 @@ struct MikktImpl
     MikktImpl();
     void calculateTangents(MeshForMikkt* mesh);
 
-
 private:
     SMikkTSpaceInterface interace{};
     SMikkTSpaceContext context{};

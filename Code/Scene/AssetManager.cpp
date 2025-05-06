@@ -13,17 +13,14 @@
 //No scale for now
 void static_AllocateAssetMemory(MemoryArena::memoryArena* arena, AssetManager* scene)
 {
-
     // arallel arrays per Light
     scene->texturesMetaData = Array(MemoryArena::AllocSpan<TextureMetaData>(arena, ASSET_MAX));
     scene->textures = Array(MemoryArena::AllocSpan<VkDescriptorImageInfo>(arena, ASSET_MAX));
-    scene->backing_meshes =  Array(MemoryArena::AllocSpan<MeshData>(arena, ASSET_MAX));
+    scene->backing_meshes = Array(MemoryArena::AllocSpan<MeshData>(arena, ASSET_MAX));
     scene->meshBoundingSphereRad = Array(MemoryArena::AllocSpan<positionRadius>(arena, ASSET_MAX));
 
     scene->materials = Array(MemoryArena::AllocSpan<Material>(arena, OBJECT_MAX));
-
 }
-
 
 
 //TODO JS PRIMS:
@@ -34,13 +31,16 @@ void static_AllocateAssetMemory(MemoryArena::memoryArena* arena, AssetManager* s
 //So things like, get the index back from this and then index in to these vecs to update them
 //At some point in the future I can replace this with a more sophisticated reference system if I need
 //Even just returning a pointer is probably plenty, then I can sort the lists, prune stuff, etc.
-int AssetManager::AddMaterial(float roughness, float metallic, glm::vec3 color, textureSetIDs textureindex, uint32_t pipeline)
+int AssetManager::AddMaterial(float roughness, float metallic, glm::vec3 color, textureSetIDs textureindex,
+                              uint32_t pipeline)
 {
-  materials.push_back(Material{
-        .shaderGroupIndex = pipeline, .diffuseIndex = textureindex.diffuseIndex, .specIndex   = textureindex.specIndex, .normalIndex = textureindex.normIndex, .metallic = metallic, .roughness = roughness, .color = color
+    materials.push_back(Material{
+        .shaderGroupIndex = pipeline, .diffuseIndex = textureindex.diffuseIndex, .specIndex = textureindex.specIndex,
+        .normalIndex = textureindex.normIndex, .metallic = metallic, .roughness = roughness, .color = color
     });
-    return materials.size() -1;
+    return materials.size() - 1;
 }
+
 void AssetManager::Update()
 {
     //noop
@@ -51,7 +51,7 @@ uint32_t AssetManager::getOffsetFromMeshID(int id)
     uint32_t indexcount = 0;
     for (int i = 0; i < id; i++)
     {
-        indexcount += (uint32_t)backing_meshes[i].indices.size();
+        indexcount += static_cast<uint32_t>(backing_meshes[i].indices.size());
     }
     return indexcount;
 }
@@ -61,7 +61,7 @@ uint32_t AssetManager::getIndexCount()
     uint32_t indexcount = 0;
     for (int i = 0; i < meshCount; i++)
     {
-        indexcount += (uint32_t)backing_meshes[i].indices.size();
+        indexcount += static_cast<uint32_t>(backing_meshes[i].indices.size());
     }
     return indexcount;
 }
@@ -71,41 +71,39 @@ uint32_t AssetManager::getVertexCount()
     uint32_t vertexCount = 0;
     for (int i = 0; i < meshCount; i++)
     {
-        vertexCount += (uint32_t)backing_meshes[i].vertices.size();
+        vertexCount += static_cast<uint32_t>(backing_meshes[i].vertices.size());
     }
     return vertexCount;
 }
 
 
-
-
-
 int AssetManager::materialTextureCount()
 {
-    return  textures.size();
+    return textures.size();
 }
 
 
 int AssetManager::AddTexture(TextureData T)
 {
     //What we need to render the texture. 
-    textures.push_back( T.vkImageInfo);
+    textures.push_back(T.vkImageInfo);
     texturesMetaData.push_back(T.metaData);
-    return textures.size() -1;
+    return textures.size() - 1;
 }
+
 textureSetIDs AssetManager::AddTextureSet(TextureData D, TextureData S, TextureData N)
 {
     auto dI = AddTexture(D);
     auto sI = AddTexture(S);
     auto nI = AddTexture(N);
-    return {(uint32_t)dI, (uint32_t)sI, (uint32_t)nI};
+    return {static_cast<uint32_t>(dI), static_cast<uint32_t>(sI), static_cast<uint32_t>(nI)};
 }
 
 int AssetManager::AddBackingMesh(MeshData M)
 {
     backing_meshes.push_back(M);
     meshBoundingSphereRad.push_back(boundingSphereFromMeshBounds(M.boundsCorners));
-    return meshCount ++;
+    return meshCount++;
 }
 
 //TODO JS: 

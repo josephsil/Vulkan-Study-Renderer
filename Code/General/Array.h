@@ -6,7 +6,7 @@
 #endif
 #include <glm/common.hpp>
 
-template < typename T >
+template <typename T>
 struct Array
 {
     T* data = nullptr;
@@ -14,7 +14,10 @@ struct Array
     size_t capacity;
 
 
-    Array(){};
+    Array()
+    {
+    };
+
     Array(T* d, size_t _size)
     {
         assert(!std::is_void_v<T>);
@@ -25,7 +28,7 @@ struct Array
 
     Array(T* d, size_t _ct, size_t _size)
     {
-     assert(!std::is_void_v<T>);
+        assert(!std::is_void_v<T>);
         data = d;
         capacity = _size;
         ct = _ct;
@@ -33,12 +36,12 @@ struct Array
 
     Array(std::span<T> span)
     {
-     assert(!std::is_void_v<T>);
+        assert(!std::is_void_v<T>);
         data = span.data();
         capacity = span.size();
         ct = 0;
     }
-    
+
     T& operator[](const size_t i)
     {
         assert(i < ct);
@@ -47,25 +50,26 @@ struct Array
 
     T& back()
     {
-        return data[ct-1];
+        return data[ct - 1];
     }
-    
+
     void push_back()
     {
-        assert (ct < capacity);
-        ct++; 
+        assert(ct < capacity);
+        ct++;
     }
+
     void push_back(T entry)
     {
-        assert (ct < capacity);
+        assert(ct < capacity);
         data[ct++] = entry;
     }
 
-     std::span<T> push_back_span(std::initializer_list<T> il)
+    std::span<T> push_back_span(std::initializer_list<T> il)
     {
         assert(ct + il.size() <capacity);
         int start = ct;
-        for(auto entry : il)
+        for (auto entry : il)
         {
             this->push_back(entry);
         }
@@ -85,8 +89,7 @@ struct Array
         return std::span<T>(data, glm::min(ct, size));
     }
 
-    inline size_t size() const { return ct; }
-    inline size_t size_bytes() const { return sizeof(T) * ct; }
-    inline size_t capacity_bytes() const { return sizeof(T) * capacity;}
-    
+    size_t size() const { return ct; }
+    size_t size_bytes() const { return sizeof(T) * ct; }
+    size_t capacity_bytes() const { return sizeof(T) * capacity; }
 };

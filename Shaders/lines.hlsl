@@ -13,7 +13,11 @@ struct ShaderGlobals
     float4 lightcount_mode_shadowct_padding;
     float4 lutIDX_lutSamplerIDX_padding_padding;
 };
-cbuffer globals : register(b0, space1) { ShaderGlobals globals; }
+
+cbuffer globals : register(b0, space1)
+{
+    ShaderGlobals globals;
+}
 
 
 struct pconstant
@@ -26,7 +30,6 @@ struct pconstant
 
 [[vk::push_constant]]
 pconstant pc;
-
 
 
 struct FSOutput
@@ -43,8 +46,6 @@ struct VSOutput
 
 VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
 {
- 
-
     VSOutput output = (VSOutput)0;
 
 
@@ -66,7 +67,7 @@ struct FSInput
 
 FSOutput Frag(VSOutput input)
 {
- FSOutput output = (FSOutput)0;
-    output.Color =  pc.color.xyz;
+    FSOutput output = (FSOutput)0;
+    output.Color = pc.color.xyz;
     return output;
 }

@@ -1,4 +1,3 @@
-
 #pragma once
 
 #define GLM_FORCE_RADIANS	
@@ -17,9 +16,10 @@ struct TextureMetaData;
 
 struct gltfMesh
 {
-     std::span<MeshData> submeshes;
-     std::span<uint32_t> materialIndices;
+    std::span<MeshData> submeshes;
+    std::span<uint32_t> materialIndices;
 };
+
 struct gltfNode
 {
     int meshidx;
@@ -27,14 +27,14 @@ struct gltfNode
     // glm::mat4 placeholder;
     std::span<int> children;
     glm::vec3 scale;
-        glm::quat rotation;
-        glm::vec3 translation;
+    glm::quat rotation;
+    glm::vec3 translation;
 };
 
 struct material
 {
-    glm::vec3 baseColorFactor;  
-    glm::float32_t metallicFactor;   
+    glm::vec3 baseColorFactor;
+    glm::float32_t metallicFactor;
     glm::float32_t roughnessFactor;
     glm::float32_t normalStrength;
     glm::float32_t occlusionStrength;
@@ -45,6 +45,7 @@ struct material
     //texture indices?
     //roughness/metal?
 };
+
 struct gltfdata
 {
     //TODO JS: to span of spans for submeshes 

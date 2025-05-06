@@ -6,17 +6,19 @@
 
 struct CommandPoolManager;
 struct deleteableResource;
-namespace  MemoryArena
+
+namespace MemoryArena
 {
     struct memoryArena;
 }
-    //TODO JS: pass an arena in
+
+//TODO JS: pass an arena in
 
 //Renderer stuff various subsystems will need to access
 struct RendererContext
 {
     VkPhysicalDevice physicalDevice;
-    VkDevice device; 
+    VkDevice device;
     CommandPoolManager* textureCreationcommandPoolmanager;
     VmaAllocator allocator;
     MemoryArena::memoryArena* arena;
@@ -27,7 +29,7 @@ struct RendererContext
 //Like renderercontext, but doesn't need cpu memory arenas or the physical device
 struct BufferCreationContext
 {
-    VkDevice device; 
+    VkDevice device;
     VmaAllocator allocator;
     RendererDeletionQueue* rendererdeletionqueue;
     CommandPoolManager* commandPoolmanager;
@@ -35,5 +37,8 @@ struct BufferCreationContext
 
 inline BufferCreationContext objectCreationContextFromRendererContext(RendererContext r)
 {
-    return {.device = r.device, .allocator = r.allocator, .rendererdeletionqueue = r.rendererdeletionqueue, .commandPoolmanager = r.textureCreationcommandPoolmanager};
+    return {
+        .device = r.device, .allocator = r.allocator, .rendererdeletionqueue = r.rendererdeletionqueue,
+        .commandPoolmanager = r.textureCreationcommandPoolmanager
+    };
 }

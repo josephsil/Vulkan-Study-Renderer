@@ -18,6 +18,7 @@ struct textureSetIDs
     uint32_t specIndex;
     uint32_t normIndex;
 };
+
 //Objects have like, transformation info, ref to their mesh, ref to their material
 //Not sure on ref to material. Really I only have one shader right now
 struct TextureMetaData;
@@ -27,6 +28,7 @@ class AssetManager;
 
 
 void static_AllocateAssetMemory(MemoryArena::memoryArena* arena, AssetManager* scene);
+
 class AssetManager
 {
 public:
@@ -35,18 +37,18 @@ public:
 
 #pragma region scene
 
-#pragma endregion    
+#pragma endregion
 
 #pragma region RendererData
 
-    
+
     int meshCount = 0;
     Array<Material> materials;
     Array<VkDescriptorImageInfo> textures; //What we need to render the textures
     Array<TextureMetaData> texturesMetaData; //Other info about the texture in parallel array
     Array<MeshData> backing_meshes;
     Array<positionRadius> meshBoundingSphereRad;
-    
+
 
     //Returns the index to the object in the vectors
     int AddMaterial(float roughness, float metallic, glm::vec3 color, textureSetIDs textureindex, uint32_t pipeline);
@@ -63,7 +65,4 @@ public:
     void Cleanup();
 
 #pragma endregion
-
-private:
-
 };

@@ -1,4 +1,3 @@
-
 #include "vulkan-utilities.h"
 
 #include <cassert>
@@ -9,7 +8,6 @@
 #include "TextureData.h"
 #include <General/MemoryArena.h>
 #include "VulkanIncludes/Vulkan_Includes.h"
-
 
 
 VkFormat Capabilities::findDepthFormat(VkPhysicalDevice physicalDevice)
@@ -60,11 +58,11 @@ uint32_t Capabilities::findMemoryType(RendererContext rendererHandles, uint32_t 
     }
 
     printf("failed to find suitable memory type!");
-    exit (-1);
+    exit(-1);
 }
 
 
-VkDescriptorSetLayoutCreateInfo  DescriptorSets::createInfoFromSpan( std::span<VkDescriptorSetLayoutBinding> bindings)
+VkDescriptorSetLayoutCreateInfo DescriptorSets::createInfoFromSpan(std::span<VkDescriptorSetLayoutBinding> bindings)
 {
     VkDescriptorSetLayoutCreateInfo _createInfo = {};
     _createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -75,32 +73,41 @@ VkDescriptorSetLayoutCreateInfo  DescriptorSets::createInfoFromSpan( std::span<V
     return _createInfo;
 }
 
-VkDescriptorSetLayout  DescriptorSets::createVkDescriptorSetLayout(RendererContext handles,  std::span<VkDescriptorSetLayoutBinding> layoutBindings,  const char* debugName)
+VkDescriptorSetLayout DescriptorSets::createVkDescriptorSetLayout(RendererContext handles,
+                                                                  std::span<VkDescriptorSetLayoutBinding>
+                                                                  layoutBindings, const char* debugName)
 {
     VkDescriptorSetLayoutCreateInfo layoutCreateInfo = createInfoFromSpan(layoutBindings);
-    VkDescriptorBindingFlags binding_flags = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT_EXT; 
-    VkDescriptorSetLayoutBindingFlagsCreateInfoEXT extended_info = {VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO_EXT};
-    extended_info.bindingCount = (uint32_t)layoutBindings.size(); 
-    std::span<VkDescriptorBindingFlagsEXT> extFlags = MemoryArena::AllocSpan<VkDescriptorBindingFlagsEXT>(handles.tempArena, layoutBindings.size());
+    VkDescriptorBindingFlags binding_flags = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT_EXT;
+    VkDescriptorSetLayoutBindingFlagsCreateInfoEXT extended_info = {
+        VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO_EXT
+    };
+    extended_info.bindingCount = static_cast<uint32_t>(layoutBindings.size());
+    std::span<VkDescriptorBindingFlagsEXT> extFlags = MemoryArena::AllocSpan<VkDescriptorBindingFlagsEXT>(
+        handles.tempArena, layoutBindings.size());
 
     //enable partially bound bit for all samplers and images
     for (int i = 0; i < extFlags.size(); i++)
     {
-        extFlags[i] = (layoutBindings[i].descriptorType == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE || layoutBindings[i].descriptorType == VK_DESCRIPTOR_TYPE_SAMPLER) ? binding_flags : 0;
+        extFlags[i] = (layoutBindings[i].descriptorType == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE || layoutBindings[i].
+                          descriptorType == VK_DESCRIPTOR_TYPE_SAMPLER)
+                          ? binding_flags
+                          : 0;
     }
-   
+
     extended_info.pBindingFlags = extFlags.data();
     layoutCreateInfo.pNext = &extended_info;
 
 
-
     VkDescriptorSetLayout _layout = {};
     VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &layoutCreateInfo, nullptr, &_layout));
-    setDebugObjectName(handles.device, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, debugName,(uint64_t)_layout );
+    setDebugObjectName(handles.device, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, debugName, (uint64_t)_layout);
     return _layout;
 }
 
-void DescriptorSets::AllocateDescriptorSet(VkDevice device, VkDescriptorPool pool, VkDescriptorSetLayout* pdescriptorsetLayout, VkDescriptorSet* pset, uint32_t ct)
+void DescriptorSets::AllocateDescriptorSet(VkDevice device, VkDescriptorPool pool,
+                                           VkDescriptorSetLayout* pdescriptorsetLayout, VkDescriptorSet* pset,
+                                           uint32_t ct)
 {
     VkDescriptorSetAllocateInfo allocInfo = {};
     allocInfo.pNext = nullptr;
@@ -110,31 +117,34 @@ void DescriptorSets::AllocateDescriptorSet(VkDevice device, VkDescriptorPool poo
     allocInfo.pSetLayouts = pdescriptorsetLayout;
     VkResult result = vkAllocateDescriptorSets(device, &allocInfo, pset);
     VK_CHECK(result);
-  
 }
 
-void DescriptorSets::CreateDescriptorSetsForLayout(RendererContext handles, VkDescriptorPool pool, std::span<VkDescriptorSet> sets, VkDescriptorSetLayout layout,   uint32_t descriptorCt, const char* debugName)
+void DescriptorSets::CreateDescriptorSetsForLayout(RendererContext handles, VkDescriptorPool pool,
+                                                   std::span<VkDescriptorSet> sets, VkDescriptorSetLayout layout,
+                                                   uint32_t descriptorCt, const char* debugName)
 {
-
-    for(int i = 0; i < sets.size(); i++)
+    for (int i = 0; i < sets.size(); i++)
     {
-        auto descriptorSetLayoutCopiesForAlloc = MemoryArena::AllocSpan<VkDescriptorSetLayout>(handles.tempArena,descriptorCt);
+        auto descriptorSetLayoutCopiesForAlloc = MemoryArena::AllocSpan<VkDescriptorSetLayout>(
+            handles.tempArena, descriptorCt);
 
-        for(int j = 0; j < descriptorCt; j++)
+        for (int j = 0; j < descriptorCt; j++)
         {
             descriptorSetLayoutCopiesForAlloc[j] = layout;
         }
 
-        DescriptorSets::AllocateDescriptorSet(handles.device, pool,  descriptorSetLayoutCopiesForAlloc.data(), &sets[i], descriptorCt);
-        setDebugObjectName(handles.device, VK_OBJECT_TYPE_DESCRIPTOR_SET,debugName, uint64_t(sets[i]) );
+        AllocateDescriptorSet(handles.device, pool, descriptorSetLayoutCopiesForAlloc.data(), &sets[i], descriptorCt);
+        setDebugObjectName(handles.device, VK_OBJECT_TYPE_DESCRIPTOR_SET, debugName, uint64_t(sets[i]));
     }
-
 }
 
-void DescriptorSets::_updateDescriptorSet_NEW(RendererContext rendererHandles, VkDescriptorSet set, std::span<VkDescriptorSetLayoutBinding> setBindingInfo, std::span<descriptorUpdateData> descriptorUpdates)
+void DescriptorSets::_updateDescriptorSet_NEW(RendererContext rendererHandles, VkDescriptorSet set,
+                                              std::span<VkDescriptorSetLayoutBinding> setBindingInfo,
+                                              std::span<descriptorUpdateData> descriptorUpdates)
 {
-    Array<VkWriteDescriptorSet> writeDescriptorSets = MemoryArena::AllocSpan<VkWriteDescriptorSet>(rendererHandles.tempArena, setBindingInfo.size());
-    for(int i = 0; i < descriptorUpdates.size(); i++)
+    Array<VkWriteDescriptorSet> writeDescriptorSets = MemoryArena::AllocSpan<VkWriteDescriptorSet>(
+        rendererHandles.tempArena, setBindingInfo.size());
+    for (int i = 0; i < descriptorUpdates.size(); i++)
     {
         descriptorUpdateData update = descriptorUpdates[i];
 
@@ -151,7 +161,8 @@ void DescriptorSets::_updateDescriptorSet_NEW(RendererContext rendererHandles, V
         assert(update.count <= bindingInfo.descriptorCount);
         // assert(bindingIndex == bindingInfo.binding);
 
-        if (update.type == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE || update.type == VK_DESCRIPTOR_TYPE_SAMPLER || update.type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
+        if (update.type == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE || update.type == VK_DESCRIPTOR_TYPE_SAMPLER || update.type
+            == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
         {
             newSet.pImageInfo = static_cast<VkDescriptorImageInfo*>(update.ptr);
         }
@@ -159,12 +170,12 @@ void DescriptorSets::_updateDescriptorSet_NEW(RendererContext rendererHandles, V
         {
             newSet.pBufferInfo = static_cast<VkDescriptorBufferInfo*>(update.ptr);
         }
-    
+
         writeDescriptorSets.push_back(newSet);
-        
     }
 
-    vkUpdateDescriptorSets(rendererHandles.device, (uint32_t)writeDescriptorSets.size(), writeDescriptorSets.getSpan().data(), 0, nullptr);
+    vkUpdateDescriptorSets(rendererHandles.device, static_cast<uint32_t>(writeDescriptorSets.size()),
+                           writeDescriptorSets.getSpan().data(), 0, nullptr);
 }
 
 VkDescriptorBufferInfo dataBuffer::getBufferInfo()
@@ -175,4 +186,3 @@ VkDescriptorBufferInfo dataBuffer::getBufferInfo()
     bufferInfo.range = size;
     return bufferInfo;
 }
-

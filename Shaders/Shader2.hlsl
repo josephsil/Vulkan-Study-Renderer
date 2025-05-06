@@ -1,4 +1,5 @@
 #include "BindlessIncludes.hlsl"
+
 //
 struct VSInput
 {
@@ -27,9 +28,9 @@ struct VSOutput
 };
 
 
-
 // -spirv -T vs_6_5 -E Vert .\Shader1.hlsl -Fo .\triangle.vert.spv
-VSOutput Vert(VSInput input,  [[vk::builtin("BaseInstance")]]  uint InstanceIndex : BaseInstance, uint VertexIndex : SV_VertexID)
+VSOutput Vert(VSInput input, [[vk::builtin("BaseInstance")]] uint InstanceIndex : BaseInstance,
+              uint VertexIndex : SV_VertexID)
 {
 #ifdef USE_RW
     MyVertexStructure myVertex = BufferTable[VertexIndex];
@@ -40,7 +41,7 @@ VSOutput Vert(VSInput input,  [[vk::builtin("BaseInstance")]]  uint InstanceInde
  	MyVertexStructure myVertex = BufferTable.Load<MyVertexStructure>((VERTEXOFFSET + VertexIndex) * sizeof(MyVertexStructure));
 #endif
     float4 vertPos = positions[VertexIndex];
-vertPos.a = 1.0;
+    vertPos.a = 1.0;
     objectData ubo = uboarr[InstanceIndex];
     VSOutput output = (VSOutput)0;
     float4x4 modelView = mul(globals.view, ubo.Model);
@@ -119,7 +120,7 @@ FSOutput Frag(VSOutput input)
 
     objectData ubo = uboarr[OBJECTINDEX];
 
-    
+
     float3 diff = saturate(
         bindless_textures[DIFFUSE_INDEX].Sample(bindless_samplers[TEXTURESAMPLERINDEX], input.Texture_ST));
     float3 albedo = pow(diff, 2.2);
@@ -173,6 +174,6 @@ FSOutput Frag(VSOutput input)
     output.Color = output.Color / (output.Color + 1.0);
     //	output.Color = pow(output.Color, 1.0/2.2); 
     // output.Color = reflected;
-    output.Color  = 1.0f;
+    output.Color = 1.0f;
     return output;
 }

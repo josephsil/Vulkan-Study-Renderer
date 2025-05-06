@@ -12,11 +12,11 @@ struct objectData
     float _f1;
     float _f2;
     float4 color;
-    
+
     //Culling info
     //This data is really per model, not per object, but I'm lazy
-    float4 objectSpaceboundsCenter;  
-    float objectSpaceboundsRadius;  
+    float4 objectSpaceboundsCenter;
+    float objectSpaceboundsRadius;
 };
 
 struct ShaderGlobals

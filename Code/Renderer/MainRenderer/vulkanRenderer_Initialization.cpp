@@ -26,15 +26,16 @@ void vulkanRenderer::initializeWindow()
 }
 
 
-vkb::PhysicalDevice getPhysicalDevice(vkb::Instance instance,     VkSurfaceKHR surface)
+vkb::PhysicalDevice getPhysicalDevice(vkb::Instance instance, VkSurfaceKHR surface)
 {
 #define RENDERDOC_COMPATIBILITY
     const std::vector<const char*> deviceExtensions = {
-       VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_MAINTENANCE_4_EXTENSION_NAME, VK_KHR_MAINTENANCE_3_EXTENSION_NAME, VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME, VK_EXT_MUTABLE_DESCRIPTOR_TYPE_EXTENSION_NAME
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_MAINTENANCE_4_EXTENSION_NAME, VK_KHR_MAINTENANCE_3_EXTENSION_NAME,
+        VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME, VK_EXT_MUTABLE_DESCRIPTOR_TYPE_EXTENSION_NAME
 #ifndef RENDERDOC_COMPATIBILITY
         ,
         VK_EXT_HOST_IMAGE_COPY_EXTENSION_NAME
-#endif 
+#endif
         //for image copy:
         // VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, VK_KHR_COPY_COMMANDS_2_EXTENSION_NAME, VK_KHR_FORMAT_FEATURE_FLAGS_2_EXTENSION_NAME,
     };
@@ -51,36 +52,35 @@ vkb::PhysicalDevice getPhysicalDevice(vkb::Instance instance,     VkSurfaceKHR s
     features13.dynamicRendering = VK_TRUE;
     features13.synchronization2 = VK_TRUE;
     features12.samplerFilterMinmax = VK_TRUE;
-    
 
-   
+
     vkb::PhysicalDeviceSelector phys_device_selector(instance);
     auto physicalDeviceBuilderResult = phys_device_selector
                                        .set_minimum_version(1, 3)
                                        .set_surface(surface)
                                        .require_separate_transfer_queue()
-    .set_required_features(features)
-    .set_required_features_11(features11)
+                                       .set_required_features(features)
+                                       .set_required_features_11(features11)
                                        .set_required_features_12(features12)
-    // .set_required_features({.})
-    .set_required_features_13(features13)
+                                       // .set_required_features({.})
+                                       .set_required_features_13(features13)
                                        //NOTE: Not supporting gpus without dedicated queue 
                                        .require_separate_compute_queue()
                                        .add_required_extensions(deviceExtensions)
 #ifndef RENDERDOC_COMPATIBILITY
                                         .add_required_extension_features(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_IMAGE_COPY_FEATURES_EXT)
-#endif 
-                                       .select();
+#endif
+        .select();
 
 
     if (!physicalDeviceBuilderResult)
     {
-        printf("Failed to create Physical Device %s \n",  physicalDeviceBuilderResult.error().message().data());
+        printf("Failed to create Physical Device %s \n", physicalDeviceBuilderResult.error().message().data());
         exit(1);
     }
 
-    auto a =physicalDeviceBuilderResult.value().get_extensions();
-    for(auto& v : a)
+    auto a = physicalDeviceBuilderResult.value().get_extensions();
+    for (auto& v : a)
     {
         printf("%s \n", v.c_str());
     }
@@ -106,9 +106,9 @@ vkb::Instance getInstance()
 {
     vkb::InstanceBuilder instance_builder;
     auto instanceBuilderResult = instance_builder
-                                  // .request_validation_layers()
+                                 // .request_validation_layers()
                                  .use_default_debug_messenger()
-    .enable_extension(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)
+                                 .enable_extension(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)
                                  .require_api_version(1, 3, 255)
                                  .build();
     if (!instanceBuilderResult)
@@ -121,23 +121,28 @@ vkb::Instance getInstance()
 }
 
 
- GlobalRendererResources static_initializeResources(rendererObjects initializedrenderer,  MemoryArena::memoryArena* allocationArena, RendererDeletionQueue* deletionQueue, CommandPoolManager* commandPoolmanager)
+GlobalRendererResources static_initializeResources(rendererObjects initializedrenderer,
+                                                   MemoryArena::memoryArena* allocationArena,
+                                                   RendererDeletionQueue* deletionQueue,
+                                                   CommandPoolManager* commandPoolmanager)
 {
     std::vector<VkImage> swapchainImages = initializedrenderer.swapchain.get_images().value();
     std::vector<VkImageView> swapchainImageViews = initializedrenderer.swapchain.get_image_views().value();
-    for(int i = 0; i < swapchainImageViews.size(); i++)
+    for (int i = 0; i < swapchainImageViews.size(); i++)
     {
-        setDebugObjectName(initializedrenderer.vkbdevice.device, VK_OBJECT_TYPE_IMAGE, "Swapchain image", uint64_t(swapchainImages[i]));
-        setDebugObjectName(initializedrenderer.vkbdevice.device, VK_OBJECT_TYPE_IMAGE_VIEW, "Swapchain image view", uint64_t(swapchainImageViews[i]));
+        setDebugObjectName(initializedrenderer.vkbdevice.device, VK_OBJECT_TYPE_IMAGE, "Swapchain image",
+                           uint64_t(swapchainImages[i]));
+        setDebugObjectName(initializedrenderer.vkbdevice.device, VK_OBJECT_TYPE_IMAGE_VIEW, "Swapchain image view",
+                           uint64_t(swapchainImageViews[i]));
     }
 
-    for(int i = 0; i < swapchainImageViews.size(); i++)
+    for (int i = 0; i < swapchainImageViews.size(); i++)
     {
         deletionQueue->push_backVk(deletionType::ImageView, uint64_t(swapchainImageViews[i]));
     }
 
     //Load shaders
-    auto shaderLoader =  std::make_unique<ShaderLoader>(initializedrenderer.vkbdevice.device);
+    auto shaderLoader = std::make_unique<ShaderLoader>(initializedrenderer.vkbdevice.device);
     shaderLoader->AddShader("triangle", L"./Shaders/Shader1_copy.hlsl");
     shaderLoader->AddShader("triangle_alt", L"./Shaders/shader1.hlsl");
     shaderLoader->AddShader("shadow", L"./Shaders/bindlessShadow.hlsl");
@@ -149,10 +154,12 @@ vkb::Instance getInstance()
 
     return {
         .shaderLoader = std::move(shaderLoader),
-        .swapchainImages = swapchainImages, 
+        .swapchainImages = swapchainImages,
         .swapchainImageViews = swapchainImageViews,
-        .depthBufferInfo =  static_createDepthResources(initializedrenderer, allocationArena, deletionQueue, commandPoolmanager),
-        .depthPyramidInfo =  static_createDepthPyramidResources(initializedrenderer, allocationArena, deletionQueue, commandPoolmanager),
+        .depthBufferInfo = static_createDepthResources(initializedrenderer, allocationArena, deletionQueue,
+                                                       commandPoolmanager),
+        .depthPyramidInfo = static_createDepthPyramidResources(initializedrenderer, allocationArena, deletionQueue,
+                                                               commandPoolmanager),
     };
 }
 
@@ -184,29 +191,30 @@ rendererObjects initializeVulkanObjects(SDL_Window* _window, int WIDTH, int HEIG
     auto vkb_device = getDevice(vkb_physicalDevice);
 
     // vkCopyImageToMemoryEXT = (PFN_vkCopyImageToMemoryEXT)VkGetCopy(device, "vkCopyImageToMemoryEXT");
-    auto allocator = VulkanMemory::GetAllocator(vkb_device.device, vkb_physicalDevice.physical_device, vkb_instance.instance);
-    
+    auto allocator = VulkanMemory::GetAllocator(vkb_device.device, vkb_physicalDevice.physical_device,
+                                                vkb_instance.instance);
+
     //TODO JS: organize FPs somewhere
-    registerDebugUtilsFn((PFN_vkSetDebugUtilsObjectNameEXT)vkGetDeviceProcAddr(vkb_device.device, "vkSetDebugUtilsObjectNameEXT"));
+    registerDebugUtilsFn(
+        (PFN_vkSetDebugUtilsObjectNameEXT)vkGetDeviceProcAddr(vkb_device.device, "vkSetDebugUtilsObjectNameEXT"));
 
     //Swapchain
     vkb::SwapchainBuilder swapchain_builder{vkb_device};
 
     auto vkb_swapchain = swapchain_builder
-                    .use_default_format_selection()
-                    .set_desired_present_mode(VK_PRESENT_MODE_MAILBOX_KHR)
-                    .set_desired_extent(WIDTH, HEIGHT)
-                    .build()
-                    .value();
+                         .use_default_format_selection()
+                         .set_desired_present_mode(VK_PRESENT_MODE_MAILBOX_KHR)
+                         .set_desired_extent(WIDTH, HEIGHT)
+                         .build()
+                         .value();
 
 
     return {
-    .vkbInstance = vkb_instance,
-    .vkbPhysicalDevice = vkb_physicalDevice,
-    .vkbdevice = vkb_device,
-    .vmaAllocator = allocator, 
-    .surface = surface,  //not sure I need surface for anything except cleanup?
-    .swapchain = vkb_swapchain,
+        .vkbInstance = vkb_instance,
+        .vkbPhysicalDevice = vkb_physicalDevice,
+        .vkbdevice = vkb_device,
+        .vmaAllocator = allocator,
+        .surface = surface, //not sure I need surface for anything except cleanup?
+        .swapchain = vkb_swapchain,
     };
-
 }

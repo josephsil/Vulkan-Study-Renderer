@@ -23,22 +23,22 @@ struct RendererContext;
 //TODO JS, use this temporarily when building the mesh.... not sure what to do with it
 struct temporaryloadingMesh
 {
-    std::span<Vertex> vertices; 
+    std::span<Vertex> vertices;
     std::span<uint32_t> indices;
     bool tangentsLoaded = false;
-
 };
 
 struct MeshData
 {
-    std::span<Vertex> vertices; 
-    std::span<uint32_t> indices; 
+    std::span<Vertex> vertices;
+    std::span<uint32_t> indices;
     std::span<glm::vec3> boundsCorners;
     int id; //TODO JS: needed?
 };
 
 positionRadius boundingSphereFromMeshBounds(std::span<glm::vec3> boundsCorners);
 MeshData MeshDataFromSpans(std::span<Vertex> vertices,
-         std::span<uint32_t> indices);
+                           std::span<uint32_t> indices);
 MeshData MeshDataFromObjFile(RendererContext rendererHandles, const char* path);
-MeshData FinalizeMeshDataFromTempMesh(MemoryArena::memoryArena* outputArena, MemoryArena::memoryArena* tempArena, temporaryloadingMesh tempMesh);
+MeshData FinalizeMeshDataFromTempMesh(MemoryArena::memoryArena* outputArena, MemoryArena::memoryArena* tempArena,
+                                      temporaryloadingMesh tempMesh);

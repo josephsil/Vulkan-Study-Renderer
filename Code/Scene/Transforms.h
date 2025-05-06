@@ -32,11 +32,12 @@ struct localTransform
     std::string name;
     uint64_t ID;
     uint8_t depth;
-    std::vector<localTransform*> children; 
+    std::vector<localTransform*> children;
 };
 
-std::shared_ptr<localTransform> DEBUG_CREATE_CHILD(localTransform* tgt, std::string childName, uint64_t ID, glm::mat4 childMat);
-void addChild(localTransform* tgt,localTransform* child);
+std::shared_ptr<localTransform> DEBUG_CREATE_CHILD(localTransform* tgt, std::string childName, uint64_t ID,
+                                                   glm::mat4 childMat);
+void addChild(localTransform* tgt, localTransform* child);
 void rmChild(localTransform* tgt, localTransform* remove);
 
 
@@ -55,6 +56,7 @@ struct flatlocalTransform
     std::string name;
     uint8_t parent; // Parent is always one level up 
 };
+
 //Data the scene uses for transforms
 struct objectTransforms
 {
@@ -62,7 +64,7 @@ struct objectTransforms
     //Split out? Remove?
     std::vector<localTransform> transformNodes;
     Array<localTransform*> rootTransformsView;
-        
+
 
     //world matrices we upload to gpu
     //Add validation to make sure they've been updated?
@@ -76,8 +78,8 @@ struct objectTransforms
     flatlocalTransform* get(uint64_t ID);
     //used by get
     std::vector<flT_lookup> _transform_lookup;
-    
-    void set (uint64_t ID, glm::mat4 mat);
+
+    void set(uint64_t ID, glm::mat4 mat);
     void UpdateWorldTransforms();
     void RebuildTransformDataFromNodes(MemoryArena::memoryArena* arena);
 };

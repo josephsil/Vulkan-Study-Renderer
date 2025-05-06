@@ -4,19 +4,22 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <vector>
+
 struct __VkDrawINDEXEDIndirectCommand
 {
-    uint32_t    indexCount;
-    uint32_t    instanceCount;
-    uint32_t    firstIndex;
-    int32_t     vertexOffset;
-    uint32_t    firstInstance;
+    uint32_t indexCount;
+    uint32_t instanceCount;
+    uint32_t firstIndex;
+    int32_t vertexOffset;
+    uint32_t firstInstance;
 };
-struct __VkDrawIndirectCommand {
-    uint32_t    vertexCount;
-    uint32_t    instanceCount;
-    uint32_t    firstVertex;
-    uint32_t    firstInstance;
+
+struct __VkDrawIndirectCommand
+{
+    uint32_t vertexCount;
+    uint32_t instanceCount;
+    uint32_t firstVertex;
+    uint32_t firstInstance;
 };
 
 struct objectProperties
@@ -39,7 +42,7 @@ struct UniformBufferObject
     alignas(16) glm::mat4 Normal;
     //Per object properties -- indices and material props
     objectProperties props;
-    
+
     //Culling info
     //This data is really per model, not per object, but I'm lazy
     positionRadius cullingInfo;
@@ -69,7 +72,6 @@ struct shadowPushConstants
 };
 
 
-
 struct PerShadowData
 {
     glm::mat4 view;
@@ -87,10 +89,10 @@ struct gpuPerShadowData
 
 struct debugLinePConstants
 {
-        glm::mat4 m;
-        glm::vec4 pos1;
-        glm::vec4 pos2;
-        glm::vec4 color;
+    glm::mat4 m;
+    glm::vec4 pos1;
+    glm::vec4 pos2;
+    glm::vec4 color;
 };
 
 //Compute
@@ -101,7 +103,6 @@ struct cullPConstants
     uint32_t frustumIndex;
     uint32_t objectCount;
 };
-
 
 
 struct gpuvertex

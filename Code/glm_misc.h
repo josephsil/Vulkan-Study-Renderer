@@ -5,4 +5,4 @@
 #define GLM_GTC_quaternion
 #include <glm/gtx/quaternion.hpp>
 
-glm::quat OrientationFromYawPitch(glm::vec2 yawPitch );
+glm::quat OrientationFromYawPitch(glm::vec2 yawPitch);

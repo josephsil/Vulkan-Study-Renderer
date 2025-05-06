@@ -4,30 +4,28 @@
 #include "Vertex.h"
 
 
-
 MeshForMikkt::MeshForMikkt(MemoryArena::memoryArena* alloc, std::span<Vertex> verts, std::span<uint32_t> indices)
+{
+    //TODO JS: pass in temp allocator?
+    pos = MemoryArena::AllocSpan<glm::vec3>(alloc, verts.size());
+    norm = MemoryArena::AllocSpan<glm::vec3>(alloc, verts.size());
+    tan = MemoryArena::AllocSpan<glm::vec4>(alloc, verts.size());
+    uv = MemoryArena::AllocSpan<glm::vec3>(alloc, verts.size());
+    idx = indices;
+    for (int i = 0; i < verts.size(); i++)
     {
-        
-        //TODO JS: pass in temp allocator?
-        pos = MemoryArena::AllocSpan<glm::vec3>(alloc, verts.size());
-        norm = MemoryArena::AllocSpan<glm::vec3>(alloc, verts.size());
-        tan = MemoryArena::AllocSpan<glm::vec4>(alloc, verts.size());
-        uv = MemoryArena::AllocSpan<glm::vec3>(alloc, verts.size());
-        idx = indices;
-        for (int i = 0; i < verts.size(); i++)
-        {
-            pos[i] = {verts[i].pos.x, verts[i].pos.y, verts[i].pos.z};
-            norm[i] = {verts[i].normal.x, verts[i].normal.y, verts[i].normal.z};
-            uv[i] = {verts[i].texCoord.x, verts[i].texCoord.y, verts[i].texCoord.z};
-        }
+        pos[i] = {verts[i].pos.x, verts[i].pos.y, verts[i].pos.z};
+        norm[i] = {verts[i].normal.x, verts[i].normal.y, verts[i].normal.z};
+        uv[i] = {verts[i].texCoord.x, verts[i].texCoord.y, verts[i].texCoord.z};
     }
+}
 #pragma region mikkt
 
 int MikktImpl::face_count(const SMikkTSpaceContext* context)
 {
     auto mesh = static_cast<MeshForMikkt*>(context->m_pUserData);
 
-    return ((int)mesh->idx.size() / 3);
+    return (static_cast<int>(mesh->idx.size()) / 3);
 }
 
 int MikktImpl::faceverts(const SMikkTSpaceContext* context, int iFace)

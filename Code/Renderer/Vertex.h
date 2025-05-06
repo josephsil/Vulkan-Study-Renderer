@@ -25,4 +25,3 @@ struct VertexHash
 {
     std::size_t operator()(const Vertex& v) const;
 };
-
