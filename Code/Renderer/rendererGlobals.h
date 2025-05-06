@@ -6,11 +6,12 @@
 
 #include <glm/glm.hpp>
 #include <span>
-#include <string_view>
+
 #include <string>
 #include "bufferCreation.h"
 #include "PipelineLayoutGroup.h"
 #include "RendererContext.h"
+#include "General/MemoryArena.h"
 #include "VulkanIncludes/forward-declarations-renderer.h"
 struct RendererContext;
 const static int MAX_SHADOWCASTERS = 8;
@@ -27,6 +28,12 @@ const static int MAX_DRAWS_PER_PIPELINE = 2000; //whatever, probably could be dy
 const static int MAX_PIPELINES = 80; //whatever, probably could be dynamic, will fix later
 const static int MAX_RENDER_PASSES = 120;//whatever, probably could be dynamic, will fix later
 const VkFormat shadowFormat = VK_FORMAT_D16_UNORM;
+
+template < typename T>
+std::span<T> CreatePerFrameCollection(MemoryArena::memoryArena* arena)
+{
+    return MemoryArena::AllocSpan<T>(arena, MAX_FRAMES_IN_FLIGHT);
+}
 
 template < typename T >
 struct result

@@ -33,16 +33,16 @@ Texture2D<float4> bindless_textures[];
 [[vk::binding(2,0)]]
 TextureCube cubes[];
 
-[[vk::binding(3, 0)]]
+[[vk::binding(3, 1)]]
 Texture2DArray<float4> shadowmap[];
-[[vk::binding(3, 0)]]
+[[vk::binding(3, 1)]]
 TextureCube shadowmapCube[];
 
 [[vk::binding(4, 0)]]
 SamplerState bindless_samplers[];
 [[vk::binding(5,0)]]
 SamplerState cubeSamplers[];
-[[vk::binding(6, 0)]]
+[[vk::binding(6, 1)]]
 SamplerState shadowmapSampler[];
 
 

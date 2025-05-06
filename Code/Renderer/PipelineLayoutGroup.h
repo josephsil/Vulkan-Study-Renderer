@@ -4,7 +4,6 @@
 #include <unordered_map>
 #include <vector>
 #include "Renderer/VulkanIncludes/Vulkan_Includes.h"
-
 struct Vertex;
 //Forward declaration
 struct RendererContext;
@@ -17,18 +16,13 @@ struct descriptorUpdateData;
 typedef std::span<VkDescriptorSet> descriptorSetsForGroup;
 typedef std::span<descriptorUpdateData> descriptorUpdates;
 
-struct DescriptorWrapperWIP
+struct DescriptorDataForPipeline
 {
-    std::span<descriptorUpdates> Updates = {};
-    std::span<descriptorSetsForGroup> perFrameDescriptorSets = {};
+    bool isPerFrame;
+    descriptorSetsForGroup* descriptorSetsCache; //Either an array of size MAX_FRAMES_IN_FLIGHT or 1 descriptorSetsForGroup depending on isPerFrame
     std::span<VkDescriptorSetLayoutBinding> layoutBindings;
 };
 
-struct DescriptorSetRefs
-{
-    VkDescriptorSetLayout layout;
-    std::span<VkDescriptorSet> perFrameSets;
-};
 
     class PipelineLayoutGroup
     {
@@ -50,7 +44,7 @@ struct DescriptorSetRefs
         PipelineLayoutGroup()
         {}
         PipelineLayoutGroup(RendererContext handles, VkDescriptorPool pool,
-   std::span<DescriptorWrapperWIP> descriptorInfo, std::span<VkDescriptorSetLayout> layouts, uint32_t perDrawSetsPerFrame, uint32_t pconstantsize, bool compute,
+   std::span<DescriptorDataForPipeline> descriptorInfo, std::span<VkDescriptorSetLayout> layouts, uint32_t perDrawSetsPerFrame, uint32_t pconstantsize, bool compute,
     const char* debugName);
 
         //Initialization
@@ -61,7 +55,7 @@ struct DescriptorSetRefs
         struct perPipelineData;
 
         //Runtime
-        void BindRequiredDescriptorSetsToCommandBuffer(VkCommandBuffer cmd, std::span<VkDescriptorSet> currentlyBoundSets, uint32_t currentFrame, uint32_t descriptorOffset, VkPipelineBindPoint
+        void BindRequiredDescriptorSetsToCommandBuffer(VkCommandBuffer cmd, std::span<VkDescriptorSet> currentlyBoundSets, uint32_t currentFrame, uint32_t descriptorIndex, VkPipelineBindPoint
                                  bindPoint =VK_PIPELINE_BIND_POINT_GRAPHICS);
 
         VkPipeline getPipeline(int index);
@@ -73,7 +67,7 @@ struct DescriptorSetRefs
         {
             bool iscompute;
             VkPipelineLayout layout;
-            std::span<DescriptorWrapperWIP> descriptorInfo;
+            std::span<DescriptorDataForPipeline> descriptorConfiguration;
             void cleanup(VkDevice device);
         };
 

@@ -108,6 +108,7 @@ public:
     BufferCreationContext getPartialRendererContext();
     void initializeRendererForScene(Scene* scene);
     void Update(Scene* scene);
+    void beforeFirstUpdate();
     void cleanup();
     void initializeDearIMGUI();
     VkDescriptorSet GetOrRegisterImguiTextureHandle(VkSampler sampler, VkImageView imageView);
@@ -160,11 +161,13 @@ void updateShadowImageViews(int frame, Scene* scene);
 
 
 
-    DescriptorWrapperWIP scenebindlessDescriptorWrapper;
+    DescriptorDataForPipeline scenebindlessDescriptorWrapper;
     VkDescriptorSetLayout scenebindlessLayout;
+    std::span<descriptorUpdates> perSceneDescriptorUpdates = {};
 
-    DescriptorWrapperWIP framebindlessDescriptorWrapper;
+    DescriptorDataForPipeline framebindlessDescriptorWrapper;
     VkDescriptorSetLayout framebindlessLayout;
+    std::span<descriptorUpdates> perFrameDescriptorUpdates = {};
 
     std::span<descriptorUpdateData> computeUpdates[MAX_FRAMES_IN_FLIGHT] = {};
 

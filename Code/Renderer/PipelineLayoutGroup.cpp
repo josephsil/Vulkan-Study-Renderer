@@ -16,13 +16,13 @@
 
 
 PipelineLayoutGroup::PipelineLayoutGroup(RendererContext handles, VkDescriptorPool pool,
-   std::span<DescriptorWrapperWIP> descriptorInfo, std::span<VkDescriptorSetLayout> layouts, uint32_t perDrawSetsPerFrame, uint32_t pconstantsize, bool compute,
+   std::span<DescriptorDataForPipeline> descriptorInfo, std::span<VkDescriptorSetLayout> layouts, uint32_t perDrawSetsPerFrame, uint32_t pconstantsize, bool compute,
     const char* debugName)
 {
     device = handles.device;
 
     partialPipelinelayoutCreateInfo = {};
-    pipelineData.descriptorInfo = MemoryArena::copySpan(handles.arena,descriptorInfo);
+    pipelineData.descriptorConfiguration = MemoryArena::copySpan(handles.arena,descriptorInfo);
 
     partialPipelinelayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     partialPipelinelayoutCreateInfo.setLayoutCount = (uint32_t)layouts.size(); 
@@ -53,22 +53,19 @@ void bindDescriptorSet(VkCommandBuffer cmd, std::span<VkDescriptorSet> currently
 //Likely that will need a revisit.
 //TODO JS: Really need a mechanism to ensure descriptor sets have been updated at least once
 //TODO JS: Some kind of global per frame lookup or whatever  they register to.
-void PipelineLayoutGroup::BindRequiredDescriptorSetsToCommandBuffer(VkCommandBuffer cmd, std::span<VkDescriptorSet> currentlyBoundSets, uint32_t currentFrame,  uint32_t descriptorOffset, VkPipelineBindPoint bindPoint)
+void PipelineLayoutGroup::BindRequiredDescriptorSetsToCommandBuffer(VkCommandBuffer cmd, std::span<VkDescriptorSet> currentlyBoundSets, uint32_t currentFrame,  uint32_t descriptorIndex, VkPipelineBindPoint bindPoint)
 {
     size_t i =0;
     //Bind all the general purpose descriptor sets required by this pipeline layout, early out if they're already bound
-    for(i =0;  i < pipelineData.descriptorInfo.size(); i++)
+    for(i =0;  i < pipelineData.descriptorConfiguration.size(); i++)
     {
-        auto descriptorSetDep = pipelineData.descriptorInfo[i].perFrameDescriptorSets;
+        auto descriptorData = pipelineData.descriptorConfiguration[i];
+        auto descriptorSetsPerFrame = descriptorData.descriptorSetsCache;
         VkDescriptorSet set = {};
-        if (descriptorSetDep.size() == 1)
-        {
-            set = descriptorSetDep[0][descriptorOffset]; //This set is not per frame, it's global
-        }
-        else
-        {
-            set = descriptorSetDep[currentFrame][descriptorOffset];
-        }
+        size_t isPerFrameOffset = descriptorData.isPerFrame ? currentFrame : 0;
+        set = descriptorSetsPerFrame[isPerFrameOffset][descriptorIndex]; 
+   
+    
         bindDescriptorSet(cmd, currentlyBoundSets,  this->pipelineData.layout, set, i, bindPoint);
     }
 }
