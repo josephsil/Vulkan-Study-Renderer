@@ -76,7 +76,8 @@ void updateImgui(bool* captureMouse)
 }
 void engineLoop(vulkanRenderer* renderer, Scene* scene)
 {
-    
+
+    renderer->beforeFirstUpdate(); //TODO JS: Extract non-renderer stuff out
     while(!QUIT)
     {
 

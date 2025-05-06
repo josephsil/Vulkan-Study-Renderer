@@ -26,53 +26,39 @@
 // [[vk::binding(0,0)]]
 // [[vk::binding(0, 0)]]
 
-cbuffer globals : register(b0, space1) { ShaderGlobals globals; }
 
-[[vk::binding(1, 0)]]
+
+[[vk::binding(0, 0)]]
 Texture2D<float4> bindless_textures[];
-[[vk::binding(2,0)]]
+[[vk::binding(1,0)]]
 TextureCube cubes[];
-
-[[vk::binding(3, 1)]]
-Texture2DArray<float4> shadowmap[];
-[[vk::binding(3, 1)]]
-TextureCube shadowmapCube[];
-
-[[vk::binding(4, 0)]]
+[[vk::binding(2, 0)]]
 SamplerState bindless_samplers[];
-[[vk::binding(5,0)]]
+[[vk::binding(3,0)]]
 SamplerState cubeSamplers[];
-[[vk::binding(6, 1)]]
-SamplerState shadowmapSampler[];
-
-
-
-
-
-[[vk::binding(7,0)]]
+[[vk::binding(4,0)]]
 #ifdef USE_RW
 RWStructuredBuffer<MyVertexStructure> BufferTable;
 #else
 ByteAddressBuffer BufferTable;
 #endif
-
-[[vk::binding(8,1)]]
-RWStructuredBuffer<MyLightStructure> lights;
-[[vk::binding(9, 1)]]
-RWStructuredBuffer<objectData> uboarr;
-
-// #ifdef SHADOWPASS
-[[vk::binding(10, 1)]]
-RWStructuredBuffer<perShadowData> shadowMatrices;
-// #endif 
-
-// #ifdef SHADOWPASS
-[[vk::binding(11, 0)]]
+[[vk::binding(5, 0)]]
 RWStructuredBuffer<float4> positions;
-// #endif 
 
-// #ifdef SHADOWPASS
-// #endif 
+//[[vk::binding(0, 1)]]
+cbuffer globals : register(b0, space1) { ShaderGlobals globals; }
+[[vk::binding(1, 1)]]
+Texture2DArray<float4> shadowmap[];
+[[vk::binding(1, 1)]]
+TextureCube shadowmapCube[];
+[[vk::binding(2, 1)]]
+SamplerState shadowmapSampler[];
+[[vk::binding(3,1)]]
+RWStructuredBuffer<MyLightStructure> lights;
+[[vk::binding(4, 1)]]
+RWStructuredBuffer<objectData> uboarr;
+[[vk::binding(5, 1)]]
+RWStructuredBuffer<perShadowData> shadowMatrices;
 
 
 
