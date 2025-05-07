@@ -223,7 +223,7 @@ void AddBufferTrasnfer(VkBuffer sourceBuffer, VkBuffer targetBuffer, size_t copy
                          0, 0, nullptr, 1, &bufMemBarrier2, 0, nullptr);
 }
 
-void transitionImageForRendering(RendererContext context, ActiveRenderStepData* RenderStepContext, VkImage image,
+void TransitionImageForRendering(RendererContext context, ActiveRenderStepData* RenderStepContext, VkImage image,
                                  VkImageLayout layoutIn, VkImageLayout layoutOut, VkPipelineStageFlags* waitStages,
                                  int mipCount, bool depth)
 {

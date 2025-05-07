@@ -1,3 +1,4 @@
+#pragma once 
 #include <General/GLM_IMPL.h>
 
 #include "../../CommandPoolManager.h"
@@ -42,6 +43,6 @@ VkImageMemoryBarrier2 imageBarrier(VkImage image, VkPipelineStageFlags2 srcStage
 
 
 void AddBufferTrasnfer(VkBuffer sourceBuffer, VkBuffer targetBuffer, size_t copySize, VkCommandBuffer cmdBuffer);
-void transitionImageForRendering(RendererContext context, ActiveRenderStepData* RenderStepContext, VkImage image,
+void TransitionImageForRendering(RendererContext context, ActiveRenderStepData* RenderStepContext, VkImage image,
                                  VkImageLayout layoutIn, VkImageLayout layoutOut, VkPipelineStageFlags* waitStages,
                                  int mipCount, bool depth);

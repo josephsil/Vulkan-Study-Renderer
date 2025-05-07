@@ -14,7 +14,7 @@ struct linePair
 
 std::vector<linePair> debugLines;
 
-void DebugLineData::addDebugFrustum(std::span<glm::vec4> frustum)
+void DebugLineData::AddDebugFrustum(std::span<glm::vec4> frustum)
 {
     //Back plane
     debugLines.push_back({{frustum[0]}, {frustum[1]}, {1, 0, 0}});

@@ -58,17 +58,6 @@ struct acquireImageSemaphore
     VkSemaphore semaphore{};
 };
 
-struct rendererObjects
-{
-    vkb::Instance vkbInstance;
-    vkb::PhysicalDevice vkbPhysicalDevice;
-    vkb::Device vkbdevice;
-    VmaAllocator vmaAllocator;
-    VkSurfaceKHR surface; //not sure I need surface for anything except cleanup?
-    vkb::Swapchain swapchain;
-    //maybe move these two
-};
-
 
 
 
@@ -80,6 +69,7 @@ struct ActiveRenderStepData
     VkBuffer indexBuffer;
     VkPipeline boundPipeline;
     VkCommandBuffer commandBuffer;
+    VkQueue Queue; 
     std::span<VkSemaphore> waitSemaphores;
     std::span<VkSemaphore> signalSempahores;
     std::span<VkDescriptorSet> boundDescriptorSets;

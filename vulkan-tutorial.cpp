@@ -11,7 +11,7 @@
 #include "Renderer/TextureData.h"
 #include "Renderer/gltf/gltfLoading.h"
 #include "Scene/Scene.h"
-#include "Code/Renderer/MainRenderer/vulkanRenderer.h"
+#include "Code/Renderer/MainRenderer/VulkanRenderer.h"
 //RENDERER TODOS:
 /*
  * -Submeshes
@@ -28,7 +28,7 @@
  * -Physics?
  */
 
-void engineLoop(vulkanRenderer* renderer, Scene* scene);
+void engineLoop(VulkanRenderer* renderer, Scene* scene);
 std::vector<VkDescriptorSet> ImGuiExposedTextures;
 
 int main()
@@ -46,7 +46,7 @@ int main()
     // io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;         // IF using Docking Branch
 
 
-    vulkanRenderer renderer = {};
+    VulkanRenderer renderer = {};
 
     MemoryArena::memoryArena sceneArena = {};
     initialize(&sceneArena, 3 * 1000000);
@@ -54,7 +54,7 @@ int main()
     InitializeScene(&sceneArena, &scene);
     Add_Scene_Content(renderer.getFullRendererContext(), renderer.AssetDataAndMemory, &scene);
     sceneCountData sceneData = {.objectCount = scene.objectsCount(), .lightCount = scene.lightCount, .lightTypes = scene.lightTypes.getSpan()};
-    renderer.initializeRendererForScene(sceneData );
+    renderer.InitializeRendererForScene(sceneData );
     renderer.initializePipelines( scene.lightCount);
     engineLoop(&renderer, &scene);
 
@@ -76,9 +76,9 @@ void updateImgui(bool* captureMouse)
     ImGui::End();
 }
 
-void engineLoop(vulkanRenderer* renderer, Scene* scene)
+void engineLoop(VulkanRenderer* renderer, Scene* scene)
 {
-    renderer->beforeFirstUpdate(); //TODO JS: Extract non-renderer stuff out
+    renderer->BeforeFirstUpdate(); //TODO JS: Extract non-renderer stuff out
     while (!QUIT)
     {
         bool imguiCaptureMouse = false;
@@ -90,5 +90,5 @@ void engineLoop(vulkanRenderer* renderer, Scene* scene)
         // renderer->cleanup();
     }
 
-    renderer->cleanup();
+    renderer->Cleanup();
 }

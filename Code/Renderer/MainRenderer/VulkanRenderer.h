@@ -1,3 +1,4 @@
+#pragma once 
 #include <General/GLM_Impl.h>
 #include <General/Array.h>
 // #include "rendererGlobals.h"
@@ -23,75 +24,8 @@ struct SDL_Window;
 //Include last //
 
 
-struct depthBiasSettng
-{
-    bool use = false;
-    float depthBias;
-    float slopeBias;
-};
-
-//TODO JS
-//The idea is using this, and using objectCount in place of cullingFrustumIndex and etc, and objectCount in place of drawOffset
-struct drawBatchConfig;
-
-struct commonRenderPassData 
-{
-    //name <- not common
-    Allocator tempAllocator;
-    Scene* scenePtr;
-    AssetManager* assetDataPtr;
-    VkPipelineLayout cullLayout; //todo
-    PipelineLayoutManager* pipelineManagerPtr;
-    ActiveRenderStepData* computeRenderStepContext; //todo
-
-    VkBuffer indexBuffer;
 
 
-};
-struct perRenderPassConfig
-{
-    char* name;
-    renderPassAttatchmentInfo attatchmentInfo;
-    std::span<FullShaderHandle> shaderGroup;
-    PipelineLayoutHandle layoutGroup;
-    ActiveRenderStepData* StepContext;
-    pointerSize pushConstant;
-    viewProj cameraViewProjForCulling;
-    uint32_t drawOffset;
-    uint32_t objectCount;
-    depthBiasSettng depthBiasConfig;
-    
-};
-struct drawBatchList
-{
-    uint32_t drawCount;
-    std::vector<drawBatchConfig> batchConfigs;
-    void EmplaceConfig(const char* name,
-                       commonRenderPassData* context,
-                       perRenderPassConfig passCreationConfig);
-};
-
-struct drawBatchConfig
-{
-    std::string debugName;
-    ActiveRenderStepData* drawRenderStepContext;
-    ActiveRenderStepData* computeRenderStepContext;
-    PipelineLayoutHandle _NEW_pipelineLayoutGroup; //descriptorsetLayoutsDataShadow
-    VkBuffer indexBuffer; //FramesInFlightData[currentFrame].indices._buffer.data
-    VkIndexType indexBufferType; // VK_INDEX_TYPE_UINT32
-    std::span<simpleMeshPassInfo> meshPasses;
-    ComputeCullListInfo* computeCullingInfo;
-    VkRenderingAttachmentInfoKHR* depthAttatchment;
-    VkRenderingAttachmentInfoKHR* colorattatchment; //nullptr
-    VkExtent2D renderingAttatchmentExtent; //SHADOW_MAP_SIZE
-    viewProj matrices;
-    void* pushConstants; //shadowPushConstants constants;
-    size_t pushConstantsSize;
-    depthBiasSettng depthBiasSetting;
-    drawBatchConfig(const char* name,
-    commonRenderPassData* context,
-    perRenderPassConfig passCreationConfig);
-};
 
 struct PerSceneShadowResources
 {
@@ -122,20 +56,20 @@ GlobalRendererResources static_initializeResources(rendererObjects initializedre
 PerSceneShadowResources init_allocate_shadow_memory(rendererObjects initializedrenderer,
                                                     MemoryArena::memoryArena* allocationArena);
 
-class vulkanRenderer
+class VulkanRenderer
 {
 public:
     AssetManager* AssetDataAndMemory;
     std::unordered_map<VkImageView, VkDescriptorSet> imguiRegisteredTextures;
 
-    vulkanRenderer();
+    VulkanRenderer();
     RendererContext getFullRendererContext();
     BufferCreationContext getPartialRendererContext();
     void initializePipelines(size_t shadowCasterCount);
-    void initializeRendererForScene(sceneCountData sceneCountData);
+    void InitializeRendererForScene(sceneCountData sceneCountData);
     void Update(Scene* scene);
-    void beforeFirstUpdate();
-    void cleanup();
+    void BeforeFirstUpdate();
+    void Cleanup();
     void initializeDearIMGUI();
     VkDescriptorSet GetOrRegisterImguiTextureHandle(VkSampler sampler, VkImageView imageView);
 
@@ -158,7 +92,7 @@ private:
     std::span<std::span<PerShadowData>> perLightShadowData;
 
 
-    void updateShadowImageViews(int frame, sceneCountData lightData);
+    void UpdateShadowImageViews(int frame, sceneCountData lightData);
 
 #pragma region  descriptor sets
     VkDescriptorPool descriptorPool;
@@ -176,15 +110,15 @@ private:
 
     void createDescriptorSetPool(RendererContext handles, VkDescriptorPool* pool);
     //TODO 
-    std::span<descriptorUpdateData> createperSceneDescriptorUpdates(uint32_t frame, int shadowCasterCount,
+    std::span<descriptorUpdateData> CreatePerSceneDescriptorUpdates(uint32_t frame, int shadowCasterCount,
                                                                     MemoryArena::memoryArena* arena,
                                                                     std::span<VkDescriptorSetLayoutBinding>
                                                                     layoutBindings);
-    std::span<descriptorUpdateData> createperFrameDescriptorUpdates(uint32_t frame, int shadowCasterCount,
+    std::span<descriptorUpdateData> CreatePerFrameDescriptorUpdates(uint32_t frame, int shadowCasterCount,
                                                                     MemoryArena::memoryArena* arena,
                                                                     std::span<VkDescriptorSetLayoutBinding>
                                                                     layoutBindings);
-    std::span<descriptorUpdateData> createShadowDescriptorUpdates(MemoryArena::memoryArena* arena, uint32_t frame,
+    std::span<descriptorUpdateData> CreateShadowDescriptorUpdates(MemoryArena::memoryArena* arena, uint32_t frame,
                                                                   uint32_t shadowIndex,
                                                                   std::span<VkDescriptorSetLayoutBinding>
                                                                   layoutBindings);
@@ -239,31 +173,22 @@ private:
 
     void initializeWindow();
 
-    void populateMeshBuffers();
-    void createUniformBuffers(int objectsCount, int lightCount);
+    void PopulateMeshBuffers();
+    void CreateUniformBuffers(int objectsCount, int lightCount);
 
     //Globals per pass, ubos, and lights are updated every frame
     void updatePerFrameBuffers(unsigned currentFrame, Array<std::span<glm::mat4>> models, Scene* scene);
-    void recordCommandBufferShadowPass(VkCommandBuffer commandBuffer, uint32_t imageIndex,
-                                       std::span<simpleMeshPassInfo> passes);
 
-    void doMipChainCompute(ActiveRenderStepData commandBufferContext, MemoryArena::memoryArena* arena,
+
+    void RecordMipChainCompute(ActiveRenderStepData commandBufferContext, MemoryArena::memoryArena* arena,
                            VkImage dstImage, VkImageView srcView, std::span<VkImageView> pyramidviews,
                            VkSampler sampler, uint32_t _currentFrame, int
                            pyramidWidth, int pyramidHeight);
     void updateBindingsComputeCulling(ActiveRenderStepData commandBufferContext, MemoryArena::memoryArena* arena,
                                       uint32_t _currentFrame);
-    void SubmitCommandBuffer(uint32_t commandbufferCt,
-                             ActiveRenderStepData* commandBufferContext, semaphoreData waitSemaphores,
-                             std::vector<VkSemaphore> signalsemaphores, VkFence
-                             waitFence);
-    void SubmitCommandBuffer(uint32_t commandbufferCt,
-                             ActiveRenderStepData* commandBufferContext, VkFence
-                             waitFence);
-    void recordUtilityPasses(VkCommandBuffer commandBuffer, int imageIndex);
-    void recordCommandBufferOpaquePass(Scene* scene, VkCommandBuffer commandBuffer, uint32_t imageIndex,
-                                       std::span<simpleMeshPassInfo>
-                                       batchedDraws);
+
+
+    void RecordUtilityPasses(VkCommandBuffer commandBuffer, int imageIndex);
 
 
     bool hasStencilComponent(VkFormat format);
@@ -271,12 +196,6 @@ private:
 
     void RenderFrame(Scene* scene);
 
-
-    void renderShadowPass(uint32_t currentFrame, uint32_t imageIndex, semaphoreData waitSemaphores,
-                          std::vector<VkSemaphore> signalsemaphores, std::span<simpleMeshPassInfo> passes);
-    void renderOpaquePass(uint32_t commandbufferCt, VkCommandBuffer* commandBuffer, semaphoreData
-                          waitSemaphores, std::vector<VkSemaphore>
-                          signalsemaphores, VkFence waitFence);
 };
 
 

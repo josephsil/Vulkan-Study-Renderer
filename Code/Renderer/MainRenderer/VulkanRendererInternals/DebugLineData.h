@@ -20,7 +20,7 @@ struct DebugLineData
 
     std::vector<linePair> debugLines;
 
-    void addDebugFrustum(std::span<glm::vec4> frustum);
+    void AddDebugFrustum(std::span<glm::vec4> frustum);
     void addDebugCross(glm::vec3 point, float size, glm::vec3 color);
     debugLinePConstants getDebugLineForRendering(size_t i);
 };

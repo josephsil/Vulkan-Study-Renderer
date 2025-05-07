@@ -11,6 +11,7 @@
 #include "bufferCreation.h"
 #include "MainRenderer/PipelineManager/PipelineLayoutManager.h"
 #include "RendererContext.h"
+#include "VkBootstrap.h"
 #include "General/MemoryArena.h"
 #include "VulkanIncludes/forward-declarations-renderer.h"
 struct RendererContext;
@@ -74,6 +75,24 @@ struct viewProj
     glm::mat4 view;
     glm::mat4 proj;
 };
+struct rendererObjects
+{
+    vkb::Instance vkbInstance;
+    vkb::PhysicalDevice vkbPhysicalDevice;
+    vkb::Device vkbdevice;
+    VmaAllocator vmaAllocator;
+    VkSurfaceKHR surface; //not sure I need surface for anything except cleanup?
+    vkb::Swapchain swapchain;
+    //maybe move these two
+};
+
+struct depthBiasSettng
+{
+    bool use = false;
+    float depthBias;
+    float slopeBias;
+};
+
 
 struct renderPassAttatchmentInfo
 {
@@ -135,7 +154,7 @@ VkBuffer dataBuffer_getVKBuffer(HostDataBufferObject<T> d)
 
 
 template <typename T>
-VkDescriptorBufferInfo getDescriptorBufferInfo(HostDataBufferObject<T> d)
+VkDescriptorBufferInfo GetDescriptorBufferInfo(HostDataBufferObject<T> d)
 {
     return d.buffer.getBufferInfo();
 }

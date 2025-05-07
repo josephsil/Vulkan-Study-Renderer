@@ -1,4 +1,4 @@
-#include "vulkanRenderer.h"
+#include "VulkanRenderer.h"
 
 #undef main
 #define SDL_MAIN_HANDLED 
@@ -8,7 +8,7 @@
 #include "Renderer/VulkanIncludes/VulkanMemory.h"
 #include "VulkanRendererInternals/RendererHelpers.h"
 
-void vulkanRenderer::initializeWindow()
+void VulkanRenderer::initializeWindow()
 {
     // We initialize SDL and create a window with it. 
     SDL_Init(SDL_INIT_VIDEO);
