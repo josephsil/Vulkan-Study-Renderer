@@ -1,15 +1,15 @@
 #include "PipelineLayoutGroup.h"
 #include <cassert>
 
-#include "rendererGlobals.h"
-#include "vulkan-utilities.h"
-#include "VulkanIncludes/Vulkan_Includes.h"
+#include "../../../rendererGlobals.h"
+#include "../../../vulkan-utilities.h"
+#include "../../../VulkanIncludes/Vulkan_Includes.h"
 
 //TODO JS: break this dependency
 #include <atldef.h>
 #include <span>
 
-#include "gpu-data-structs.h"
+#include "../../../gpu-data-structs.h"
 #include <General/MemoryArena.h>
 #include <Renderer/RendererContext.h>
 
@@ -17,18 +17,20 @@
 //Descriptor set pool stuff: 
 void PreAllocatedDescriptorSetPool::resetCacheForFrame()
 {
+    descriptorsUsed = SIZE_MAX;
     descriptorsUsed = 0;
 }
 
-VkDescriptorSet PreAllocatedDescriptorSetPool::getDescriptorSet()
+VkDescriptorSet PreAllocatedDescriptorSetPool::getNextDescriptorSet()
+{
+    activeDescriptorSet = descriptorsUsed++;
+    return descriptorSets[activeDescriptorSet];
+}
+VkDescriptorSet PreAllocatedDescriptorSetPool::peekNextDescriptorSet()
 {
     return descriptorSets[descriptorsUsed];
 }
 
-void PreAllocatedDescriptorSetPool::markCurrentDescriptorUsed()
-{
-    descriptorsUsed++;
-}
 
 DescriptorDataForPipeline constructDescriptorDataObject(MemoryArena::memoryArena* arena,
                                                         std::span<VkDescriptorSetLayoutBinding> layoutBindings,
@@ -40,7 +42,7 @@ DescriptorDataForPipeline constructDescriptorDataObject(MemoryArena::memoryArena
 
     for (int i = 0; i < SetsForFrameCt; i++)
     {
-        _DescriptorSets[i] = {0, MemoryArena::AllocSpan<VkDescriptorSet>(arena, descriptorSetPoolSize)};
+        (_DescriptorSets[i]) = PreAllocatedDescriptorSetPool(arena, descriptorSetPoolSize);
     }
 
     auto _BindlessLayoutBindings = MemoryArena::copySpan<VkDescriptorSetLayoutBinding>(arena, layoutBindings);
@@ -49,35 +51,6 @@ DescriptorDataForPipeline constructDescriptorDataObject(MemoryArena::memoryArena
     };
 }
 
-DescriptorDataForPipeline CreateDescriptorDataForPipeline(RendererContext ctx, VkDescriptorSetLayout layout,
-                                                          bool isPerFrame,
-                                                          std::span<VkDescriptorSetLayoutBinding> bindingLayout,
-                                                          const char* setname, VkDescriptorPool pool,
-                                                          int descriptorSetPoolSize)
-{
-    //Construct DescriptorDataForPipeline
-    int SetsForFrameCt = isPerFrame ? MAX_FRAMES_IN_FLIGHT : 1;
-    PreAllocatedDescriptorSetPool* _DescriptorSets = MemoryArena::AllocSpan<PreAllocatedDescriptorSetPool>(
-        ctx.arena, SetsForFrameCt).data();
-    for (int i = 0; i < SetsForFrameCt; i++)
-    {
-        _DescriptorSets[i] = {0, MemoryArena::AllocSpan<VkDescriptorSet>(ctx.arena, descriptorSetPoolSize)};
-    }
-    auto bindlessLayoutBindings = MemoryArena::copySpan<VkDescriptorSetLayoutBinding>(ctx.arena, bindingLayout);
-
-    DescriptorDataForPipeline outDescriptorData = {
-        .isPerFrame = isPerFrame, .descriptorSetsCaches = _DescriptorSets, .layoutBindings = bindlessLayoutBindings
-    };
-
-    //initialize the VKdescriptorSets
-    for (int i = 0; i < (isPerFrame ? MAX_FRAMES_IN_FLIGHT : 1); i++)
-    {
-        DescriptorSets::CreateDescriptorSetsForLayout(
-            ctx, pool, outDescriptorData.descriptorSetsCaches[i].descriptorSets, layout, 1, setname);
-    }
-
-    return outDescriptorData;
-}
 
 
 PipelineLayoutGroup::PipelineLayoutGroup(RendererContext handles, VkDescriptorPool pool,
@@ -130,7 +103,8 @@ void PipelineLayoutGroup::BindRequiredDescriptorSetsToCommandBuffer(VkCommandBuf
         VkDescriptorSet set = {};
         size_t isPerFrameOffset = descriptorData.isPerFrame ? currentFrame : 0;
         PreAllocatedDescriptorSetPool* c = &descriptorData.descriptorSetsCaches[isPerFrameOffset];
-        set = descriptorData.descriptorSetsCaches[isPerFrameOffset].descriptorSets[(c->descriptorsUsed)];
+        assert(c->activeDescriptorSet != SIZE_MAX, "Uninitialized descriptor pool");
+        set = descriptorData.descriptorSetsCaches[isPerFrameOffset].descriptorSets[(c->activeDescriptorSet)];
 
 
         bindDescriptorSet(cmd, currentlyBoundSets, this->layoutData.layout, set, i, bindPoint);
@@ -138,7 +112,7 @@ void PipelineLayoutGroup::BindRequiredDescriptorSetsToCommandBuffer(VkCommandBuf
 }
 
 
-VkPipeline PipelineLayoutGroup::getPipeline(int index)
+VkPipeline PipelineLayoutGroup::getPipeline(size_t index)
 {
     assert(index < pipelines.size());
     return pipelines[index];
@@ -175,6 +149,7 @@ void PipelineLayoutGroup::createPipelineLayoutForGroup(PerPipelineLayoutData* pe
     }
     setDebugObjectName(device, VK_OBJECT_TYPE_PIPELINE_LAYOUT, name, (uint64_t)(perPipelineData->layout));
 }
+
 
 void PipelineLayoutGroup::createPipeline(std::span<VkPipelineShaderStageCreateInfo> shaders, const char* name,
                                          graphicsPipelineSettings settings)
@@ -342,3 +317,5 @@ void PipelineLayoutGroup::PerPipelineLayoutData::cleanup(VkDevice device)
     vkDestroyPipelineLayout(device, layout, nullptr);
     // vkDestroyDescriptorSetLayout(device, perShaderDescriptorSetLayout, nullptr);
 }
+
+

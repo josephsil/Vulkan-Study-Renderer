@@ -1,4 +1,5 @@
 #pragma once
+
 struct pointerSize
 {
     void* ptr;
@@ -74,7 +75,7 @@ struct rendererObjects
 struct shaderLookup
 {
     std::span<int> shaderIndices;
-    PipelineLayoutGroup* pipelineGroup;
+    PipelineLayoutHandle pipelineGroupHandle;
 };
 
 //These map the shader ID in the scene/materials to shader IDs/pipeline groups for each major type

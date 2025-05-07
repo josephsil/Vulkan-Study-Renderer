@@ -17,7 +17,7 @@
 #include <General/MemoryArena.h>
 #include "../Shaders/ShaderLoading.h"
 #include "VkBootstrap.h"
-#include "../PipelineLayoutGroup.h"
+#include "PipelineManager/PipelineLayoutManager.h"
 #include "Scene/Scene.h"
 #include "rendererStructs.h"
 #include "Renderer/RendererDeletionQueue.h"
@@ -54,18 +54,15 @@ struct drawBatchConfig
     std::string debugName;
     ActiveRenderStepData* drawRenderStepContext;
     ActiveRenderStepData* computeRenderStepContext;
-    PipelineLayoutGroup* pipelineLayoutGroup; //descriptorsetLayoutsDataShadow
+    PipelineLayoutHandle _NEW_pipelineLayoutGroup; //descriptorsetLayoutsDataShadow
     VkBuffer indexBuffer; //FramesInFlightData[currentFrame].indices._buffer.data
     VkIndexType indexBufferType; // VK_INDEX_TYPE_UINT32
     std::span<simpleMeshPassInfo> meshPasses;
     ComputeCullListInfo* computeCullingInfo;
     VkRenderingAttachmentInfoKHR* depthAttatchment;
-    // simpleRenderingAttatchment(rendererResources.shadowMapRenderingImageViews[currentFrame][shadowMapIndex], 1.0)
     VkRenderingAttachmentInfoKHR* colorattatchment; //nullptr
     VkExtent2D renderingAttatchmentExtent; //SHADOW_MAP_SIZE
     viewProj matrices;
-    //Light count, vert offset, texture index, and object data index
-    //constants.shadowIndex = (glm::float32_t)shadowMapIndex;
     void* pushConstants; //shadowPushConstants constants;
     size_t pushConstantsSize;
     depthBiasSettng depthBiasSetting;
@@ -144,10 +141,11 @@ private:
     VkDescriptorSetLayout perMaterialSetLayout;
 
     BindlessObjectShaderGroup opaqueObjectShaderSets;
-    PipelineLayoutGroup descriptorsetLayoutsData;
-    PipelineLayoutGroup descriptorsetLayoutsDataShadow;
-    PipelineLayoutGroup descriptorsetLayoutsDataCulling;
-    PipelineLayoutGroup descriptorsetLayoutsDataMipChain;
+    PipelineLayoutManager pipelineLayoutManager{};
+    PipelineLayoutHandle opaqueLayoutIDX;
+    PipelineLayoutHandle shadowLayoutIDX;
+    PipelineLayoutHandle cullingLayoutIDX;
+    PipelineLayoutHandle mipChainLayoutIDX;
 
 
     void createDescriptorSetPool(RendererContext handles, VkDescriptorPool* pool);
@@ -166,12 +164,7 @@ private:
                                                                   layoutBindings);
 
 
-    DescriptorDataForPipeline perSceneBindlessDescriptorData;
-    VkDescriptorSetLayout perSceneBindlessDescriptorLayout;
     descriptorUpdates perSceneDescriptorUpdates = {};
-
-    DescriptorDataForPipeline perFrameBindlessDescriptorData;
-    VkDescriptorSetLayout perFrameBindlessLayout;
 
     std::span<descriptorUpdates> perFrameDescriptorUpdates = {};
 
@@ -259,6 +252,8 @@ private:
                           waitSemaphores, std::vector<VkSemaphore>
                           signalsemaphores, VkFence waitFence);
 };
+
+
 
 #pragma region textures
 

@@ -178,6 +178,34 @@ void DescriptorSets::_updateDescriptorSet_NEW(RendererContext rendererHandles, V
                            writeDescriptorSets.getSpan().data(), 0, nullptr);
 }
 
+DescriptorDataForPipeline DescriptorSets::CreateDescriptorDataForPipeline(RendererContext ctx,
+    VkDescriptorSetLayout layout, bool isPerFrame, std::span<VkDescriptorSetLayoutBinding> bindingLayout,
+    const char* setname, VkDescriptorPool pool, int descriptorSetPoolSize)
+{
+    //Construct DescriptorDataForPipeline
+    int SetsForFrameCt = isPerFrame ? MAX_FRAMES_IN_FLIGHT : 1;
+    PreAllocatedDescriptorSetPool* _DescriptorSets = MemoryArena::AllocSpan<PreAllocatedDescriptorSetPool>(
+        ctx.arena, SetsForFrameCt).data();
+    for (int i = 0; i < SetsForFrameCt; i++)
+    {
+        (_DescriptorSets[i]) = PreAllocatedDescriptorSetPool(ctx.arena, descriptorSetPoolSize);
+    }
+    auto bindlessLayoutBindings = MemoryArena::copySpan<VkDescriptorSetLayoutBinding>(ctx.arena, bindingLayout);
+
+    DescriptorDataForPipeline outDescriptorData = {
+        .isPerFrame = isPerFrame, .descriptorSetsCaches = _DescriptorSets, .layoutBindings = bindlessLayoutBindings
+    };
+
+    //initialize the VKdescriptorSets
+    for (int i = 0; i < (isPerFrame ? MAX_FRAMES_IN_FLIGHT : 1); i++)
+    {
+        DescriptorSets::CreateDescriptorSetsForLayout(
+            ctx, pool, outDescriptorData.descriptorSetsCaches[i].descriptorSets, layout, 1, setname);
+    }
+
+    return outDescriptorData;
+}
+
 VkDescriptorBufferInfo dataBuffer::getBufferInfo()
 {
     VkDescriptorBufferInfo bufferInfo{};

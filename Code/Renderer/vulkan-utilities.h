@@ -34,6 +34,13 @@ namespace DescriptorSets
     void _updateDescriptorSet_NEW(RendererContext rendererHandles, VkDescriptorSet set,
                                   std::span<VkDescriptorSetLayoutBinding> setBindingInfo, std::span
                                   <descriptorUpdateData> descriptorUpdates);
+
+    
+    DescriptorDataForPipeline CreateDescriptorDataForPipeline(RendererContext ctx, VkDescriptorSetLayout layout,
+                                                              bool isPerFrame,
+                                                              std::span<VkDescriptorSetLayoutBinding> bindingLayout,
+                                                              const char* setname, VkDescriptorPool pool,
+                                                              int descriptorSetPoolSize = 1);
 }
 
 namespace Capabilities

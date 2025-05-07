@@ -64,6 +64,13 @@ struct Array
         assert(ct < capacity);
         data[ct++] = entry;
     }
+    
+    template <typename... Args>
+    void emplace_back(Args&&... args)
+    {
+        assert(ct < capacity);
+        new (&data[ct++]) T(std::forward<Args>(args)...);
+    }
 
     std::span<T> push_back_span(std::initializer_list<T> il)
     {
