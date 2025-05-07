@@ -18,12 +18,19 @@ namespace MemoryArena
     struct memoryArena;
 }
 
+struct sceneCountData
+{
+    size_t objectCount = 0;
+    size_t lightCount = 0;
+    std::span<lightType> lightTypes;
+};
+
 //"Gameplay"/engine scene -- extracted from the renderer scene, needs to get cleaner separation 
 struct Scene
 {
     struct Objects
     {
-        int objectsCount = 0;
+        size_t objectsCount = 0;
         //Parallel arrays per-object
         Array<glm::vec3> translations;
         Array<glm::quat> rotations;
@@ -33,6 +40,13 @@ struct Scene
         Array<uint64_t> transformIDs;
     };
 
+    // arallel arrays per Light
+    size_t lightCount;
+    Array<glm::vec4> lightposandradius;
+    Array<glm::vec4> lightcolorAndIntensity;
+    Array<glm::vec4> lightDir;
+    Array<lightType> lightTypes;
+    
     Objects objects;
     cameraData sceneCamera;
 
@@ -45,21 +59,16 @@ struct Scene
     int AddSpotLight(glm::vec3 position, glm::vec3 dir, glm::vec3 color, float radius, float intensity);
     int AddPointLight(glm::vec3 position, glm::vec3 color, float intensity);
 
-    // arallel arrays per Light
-    int lightCount = 0;
-    Array<glm::vec4> lightposandradius;
-    Array<glm::vec4> lightcolorAndIntensity;
-    Array<glm::vec4> lightDir;
-    Array<lightType> lightTypes;
+
 
 
     int AddObject(int meshIndexTODO, int materialIndex, glm::vec3 position,
                   glm::quat rotation, glm::vec3 scale = glm::vec3(1), localTransform* parent = nullptr,
                   std::string name = "");
-    int objectsCount();
+    size_t objectsCount();
 
     //TODO JS: This probably belongs in the rendering side
-    int getShadowDataIndex(int idx);
+    static int getShadowDataIndex(int idx, ::std::span<lightType> lightTypes);
 
 private:
     int AddLight(glm::vec3 position, glm::vec3 dir = glm::vec3(-1), glm::vec3 color = glm::vec3(1), float radius = 1,

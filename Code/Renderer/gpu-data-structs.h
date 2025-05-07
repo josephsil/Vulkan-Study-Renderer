@@ -1,8 +1,6 @@
 #pragma once
 #include "VulkanIncludes/forward-declarations-renderer.h"
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/quaternion.hpp>
+#include <General/GLM_IMPL.h>
 #include <vector>
 
 struct __VkDrawINDEXEDIndirectCommand

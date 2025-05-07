@@ -141,7 +141,7 @@ int Scene::AddObject(int meshIndexTODO, int materialIndex,
 }
 
 
-int Scene::objectsCount()
+size_t Scene::objectsCount()
 {
     return objects.objectsCount;
 }
@@ -231,7 +231,7 @@ void Scene::lightSort()
     }
 }
 
-int Scene::getShadowDataIndex(int idx)
+int Scene::getShadowDataIndex(int idx, std::span<lightType> lightTypes)
 {
     int output = 0;
     for (int i = 0; i < idx; i++)

@@ -1,4 +1,6 @@
 #pragma once
+#include "../VulkanIncludes/forward-declarations-renderer.h"
+#include <General/GLM_IMPL.h>
 
 struct pointerSize
 {
@@ -6,11 +8,7 @@ struct pointerSize
     uint32_t size;
 };
 
-struct viewProj
-{
-    glm::mat4 view;
-    glm::mat4 proj;
-};
+
 
 struct simpleMeshPassInfo
 {
@@ -72,19 +70,9 @@ struct rendererObjects
 };
 
 
-struct shaderLookup
-{
-    std::span<int> shaderIndices;
-    PipelineLayoutHandle pipelineGroupHandle;
-};
 
-//These map the shader ID in the scene/materials to shader IDs/pipeline groups for each major type
-//Like, a material has an ID which indexes in here, and here's where we get the diffuse/shadow/depth shaders
-struct BindlessObjectShaderGroup
-{
-    shaderLookup opaqueShaders;
-    shaderLookup shadowShaders;
-};
+
+
 
 struct ActiveRenderStepData
 {

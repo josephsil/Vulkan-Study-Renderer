@@ -178,6 +178,7 @@
       <BasicRuntimeChecks Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
       </BasicRuntimeChecks>
     </ClCompile>
+    <ClCompile Include="Code\Renderer\MainRenderer\PipelineManager\Internal\DrawBatches.cpp" />
     <ClCompile Include="Code\Renderer\MainRenderer\PipelineManager\Internal\PipelineLayoutGroup.cpp">
       <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -380,6 +381,7 @@
     <ClInclude Include="Code\game.h" />
     <ClInclude Include="Code\General\Array.h" />
     <ClInclude Include="Code\General\FileCaching.h" />
+    <ClInclude Include="Code\General\GLM_impl.h" />
     <ClInclude Include="Code\General\InputHandling.h" />
     <ClInclude Include="Code\General\MemoryArena.h" />
     <ClInclude Include="Code\glm_misc.h" />
@@ -389,6 +391,7 @@
     <ClInclude Include="Code\Renderer\gltf\gltfLoading.h" />
     <ClInclude Include="Code\Renderer\gltf\gltf_impl.h" />
     <ClInclude Include="Code\Renderer\gpu-data-structs.h" />
+    <ClInclude Include="Code\Renderer\MainRenderer\PipelineManager\Internal\DrawBatches.h" />
     <ClInclude Include="Code\Renderer\MainRenderer\PipelineManager\Internal\PipelineLayoutGroup.h" />
     <ClInclude Include="Code\Renderer\MainRenderer\PipelineManager\PipelineLayoutManager.h" />
     <ClInclude Include="Code\Renderer\MainRenderer\rendererStructs.h" />

@@ -4,6 +4,7 @@
 #include <span>
 using aOFFSET = ptrdiff_t;
 
+
 namespace MemoryArena
 {
     struct memoryArena
@@ -75,3 +76,4 @@ namespace MemoryArena
         return ret;
     }
 }
+typedef MemoryArena::memoryArena* Allocator;

@@ -35,6 +35,10 @@ VkPipeline PipelineLayoutManager::GetPipeline(PipelineLayoutHandle pipelineIdx, 
 {
     return  pipelineLayoutGroups[pipelineIdx].getPipeline(shaderIDX);
 }
+VkPipeline PipelineLayoutManager::GetPipeline(FullShaderHandle handle)
+{
+    return  pipelineLayoutGroups[handle.layout].getPipeline(handle.shader);
+}
 
 DescriptorDataForPipeline* PipelineLayoutManager::GetDescriptordata(PipelineLayoutHandle pipelineIdx,
     size_t descriptorSetIndex)
@@ -69,10 +73,13 @@ VkPipelineLayout PipelineLayoutManager::GetLayout(PipelineLayoutHandle handle)
     return pipelineLayoutGroups[handle].layoutData.layout;
 }
 
-void PipelineLayoutManager::createPipeline(PipelineLayoutHandle i, std::span<VkPipelineShaderStageCreateInfo> shaders, const char* name,
-    graphicsPipelineSettings settings)
+FullShaderHandle PipelineLayoutManager::createPipeline(PipelineLayoutHandle i,
+                                                       std::span<VkPipelineShaderStageCreateInfo> shaders,
+                                                       const char* name,
+                                                       graphicsPipelineSettings settings)
 {
     pipelineLayoutGroups[i].createPipeline(shaders, name, settings);
+    return {i, pipelineLayoutGroups[i].getPipelineCt() -1};
 }
 
 size_t PipelineLayoutManager::TODO_REMOVEgetPipelineCt(PipelineLayoutHandle handle)
@@ -86,4 +93,24 @@ void PipelineLayoutManager::cleanup()
     {
         pipelineLayoutGroups[i].cleanup();
     }
+}
+
+BindlessObjectShaderGroup::BindlessObjectShaderGroup(MemoryArena::memoryArena* a, size_t ct)
+{
+    auto backing = MemoryArena::AllocSpan<FullShaderHandle>(a, ct * 3);
+    opaqueShaders = Array(backing.subspan(0, ct));
+    shadowShaders = Array(backing.subspan(ct, ct));
+    depthOnlyShaders = Array(backing.subspan(ct*2, ct));
+    
+}
+
+BindlessObjectShaderGroup::BindlessObjectShaderGroup()
+{
+}
+
+void BindlessObjectShaderGroup::push_back(FullShaderHandle o, FullShaderHandle s, FullShaderHandle d)
+{
+    opaqueShaders.push_back(o);
+    shadowShaders.push_back(s);
+    depthOnlyShaders.push_back(d);
 }

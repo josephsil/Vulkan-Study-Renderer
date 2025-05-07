@@ -53,7 +53,9 @@ int main()
     Scene scene = {};
     InitializeScene(&sceneArena, &scene);
     Add_Scene_Content(renderer.getFullRendererContext(), renderer.AssetDataAndMemory, &scene);
-    renderer.initializeRendererForScene(&scene);
+    sceneCountData sceneData = {.objectCount = scene.objectsCount(), .lightCount = scene.lightCount, .lightTypes = scene.lightTypes.getSpan()};
+    renderer.initializeRendererForScene(sceneData );
+    renderer.initializePipelines( scene.lightCount);
     engineLoop(&renderer, &scene);
 
     return EXIT_SUCCESS;
@@ -83,6 +85,7 @@ void engineLoop(vulkanRenderer* renderer, Scene* scene)
         updateImgui(&imguiCaptureMouse);
         InputHandler_Update(imguiCaptureMouse);
         scene->Update();
+        
         renderer->Update(scene); //TODO JS: Extract non-renderer stuff out
         // renderer->cleanup();
     }

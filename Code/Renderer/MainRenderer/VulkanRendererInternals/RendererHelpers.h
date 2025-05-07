@@ -1,15 +1,4 @@
-#pragma once
-#define GLM_FORCE_RADIANS	
-#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#include <span>
-#include <vector>
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/quaternion.hpp>
-#include <General/Array.h>
-// #include "rendererGlobals.h"
-#include <functional>
+#include <General/GLM_IMPL.h>
 
 #include "../../CommandPoolManager.h"
 #include "../../gpu-data-structs.h"

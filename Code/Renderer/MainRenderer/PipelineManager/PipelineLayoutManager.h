@@ -21,10 +21,10 @@ struct descriptorUpdateData;
 typedef size_t PipelineLayoutHandle;
 typedef size_t ShaderHandle;
 
-struct fullPipelineHandle
+struct FullShaderHandle
 {
-    PipelineLayoutHandle x;
-    ShaderHandle y;
+    PipelineLayoutHandle layout;
+    ShaderHandle shader;
 };
 //can have one or more descriptor sets to draw per frame. Most only have one
 //Need multiple for cases where we need to "update" more than once per frame, for non-bindless style drawing
@@ -78,6 +78,7 @@ struct  PipelineLayoutManager
                                         const char* debugName);
 
     VkPipeline GetPipeline(PipelineLayoutHandle handle, ShaderHandle shaderIDX);
+    VkPipeline GetPipeline(FullShaderHandle handle);
     DescriptorDataForPipeline* GetDescriptordata(PipelineLayoutHandle handle, ShaderHandle descriptorSetIndex);
 
     void BindRequiredSetsToCommandBuffer(PipelineLayoutHandle handle, VkCommandBuffer cmd, std::span<VkDescriptorSet> currentlyBoundSets,
@@ -86,10 +87,24 @@ struct  PipelineLayoutManager
 
     void ResetForFrame(size_t forFrame);
     VkPipelineLayout GetLayout(PipelineLayoutHandle handle);
-    
-    void createPipeline(PipelineLayoutHandle i, std::span<VkPipelineShaderStageCreateInfo> shaders, const char* name,
-                    graphicsPipelineSettings settings);
+
+    FullShaderHandle createPipeline(PipelineLayoutHandle i, std::span<VkPipelineShaderStageCreateInfo> shaders,
+                                    const char* name,
+                                    graphicsPipelineSettings settings);
 
     size_t TODO_REMOVEgetPipelineCt(PipelineLayoutHandle handle);
     void cleanup();
 };
+
+//These map the shader ID in the scene/materials to shader IDs/pipeline groups for each major type
+//Like, a material has an ID which indexes in here, and here's where we get the diffuse/shadow/depth shaders
+struct BindlessObjectShaderGroup
+{
+    Array<FullShaderHandle> opaqueShaders;
+    Array<FullShaderHandle> shadowShaders;
+    Array<FullShaderHandle> depthOnlyShaders;
+    BindlessObjectShaderGroup(MemoryArena::memoryArena*, size_t ct);
+    BindlessObjectShaderGroup();
+    void push_back(FullShaderHandle o, FullShaderHandle s, FullShaderHandle d);
+};
+

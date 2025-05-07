@@ -1,13 +1,4 @@
-#pragma once
-#define GLM_FORCE_RADIANS	
-#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-
-#include <span>
-#include <vector>
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/quaternion.hpp>
+#include <General/GLM_Impl.h>
 #include <General/Array.h>
 // #include "rendererGlobals.h"
 #include <functional>
@@ -43,10 +34,41 @@ struct depthBiasSettng
 //The idea is using this, and using objectCount in place of cullingFrustumIndex and etc, and objectCount in place of drawOffset
 struct drawBatchConfig;
 
+struct commonRenderPassData 
+{
+    //name <- not common
+    Allocator tempAllocator;
+    Scene* scenePtr;
+    AssetManager* assetDataPtr;
+    VkPipelineLayout cullLayout; //todo
+    PipelineLayoutManager* pipelineManagerPtr;
+    ActiveRenderStepData* computeRenderStepContext; //todo
+
+    VkBuffer indexBuffer;
+
+
+};
+struct perRenderPassConfig
+{
+    char* name;
+    renderPassAttatchmentInfo attatchmentInfo;
+    std::span<FullShaderHandle> shaderGroup;
+    PipelineLayoutHandle layoutGroup;
+    ActiveRenderStepData* StepContext;
+    pointerSize pushConstant;
+    viewProj cameraViewProjForCulling;
+    uint32_t drawOffset;
+    uint32_t objectCount;
+    depthBiasSettng depthBiasConfig;
+    
+};
 struct drawBatchList
 {
     uint32_t drawCount;
     std::vector<drawBatchConfig> batchConfigs;
+    void EmplaceConfig(const char* name,
+                       commonRenderPassData* context,
+                       perRenderPassConfig passCreationConfig);
 };
 
 struct drawBatchConfig
@@ -66,6 +88,9 @@ struct drawBatchConfig
     void* pushConstants; //shadowPushConstants constants;
     size_t pushConstantsSize;
     depthBiasSettng depthBiasSetting;
+    drawBatchConfig(const char* name,
+    commonRenderPassData* context,
+    perRenderPassConfig passCreationConfig);
 };
 
 struct PerSceneShadowResources
@@ -106,7 +131,8 @@ public:
     vulkanRenderer();
     RendererContext getFullRendererContext();
     BufferCreationContext getPartialRendererContext();
-    void initializeRendererForScene(Scene* scene);
+    void initializePipelines(size_t shadowCasterCount);
+    void initializeRendererForScene(sceneCountData sceneCountData);
     void Update(Scene* scene);
     void beforeFirstUpdate();
     void cleanup();
@@ -132,7 +158,7 @@ private:
     std::span<std::span<PerShadowData>> perLightShadowData;
 
 
-    void updateShadowImageViews(int frame, Scene* scene);
+    void updateShadowImageViews(int frame, sceneCountData lightData);
 
 #pragma region  descriptor sets
     VkDescriptorPool descriptorPool;

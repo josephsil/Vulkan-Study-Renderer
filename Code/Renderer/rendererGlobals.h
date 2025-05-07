@@ -14,7 +14,7 @@
 #include "General/MemoryArena.h"
 #include "VulkanIncludes/forward-declarations-renderer.h"
 struct RendererContext;
-static constexpr int MAX_SHADOWCASTERS = 8;
+static constexpr size_t MAX_SHADOWCASTERS = 8;
 static constexpr int CASCADE_CT = 6;
 #define MAX_SHADOWMAPS (MAX_SHADOWCASTERS * 8)
 static constexpr int MAX_CAMERAS = 1;
@@ -69,6 +69,11 @@ enum lightType
     LIGHT_SPOT = 2,
 };
 
+struct viewProj
+{
+    glm::mat4 view;
+    glm::mat4 proj;
+};
 
 struct renderPassAttatchmentInfo
 {

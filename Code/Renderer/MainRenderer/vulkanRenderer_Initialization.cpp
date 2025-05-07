@@ -164,6 +164,8 @@ GlobalRendererResources static_initializeResources(rendererObjects initializedre
 }
 
 
+
+
 rendererObjects initializeVulkanObjects(SDL_Window* _window, int WIDTH, int HEIGHT)
 {
     //Get instance
