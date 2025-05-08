@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
-#include "../../VulkanIncludes/forward-declarations-renderer.h"
+
+#include <Renderer/VulkanIncludes/forward-declarations-renderer.h>
 
 struct BufferCreationContext;
 class RendererDeletionQueue;

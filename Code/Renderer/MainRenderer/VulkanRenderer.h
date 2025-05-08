@@ -9,7 +9,7 @@
 #include <Renderer/RendererDeletionQueue.h>
 #include <Renderer/VulkanBuffers/HostDataBuffer.h>
 #include <Renderer/MainRenderer/rendererStructs.h>
-#include <VkBootstrap.h>
+
 #include <Renderer/CommandPoolManager.h>
 #include <Renderer/gpu-data-structs.h>
 #include <Renderer/Shaders/ShaderLoading.h>

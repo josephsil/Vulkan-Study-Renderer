@@ -5,11 +5,10 @@
 #include <cstdio>
 #include <cstdlib>
 
-#include "../../BufferAndPool.h"
-#include "../../bufferCreation.h"
-#include "../../CommandPoolManager.h"
-#include "../../rendererGlobals.h"
-#include "../../VulkanIncludes/Vulkan_Includes.h"
+#include <Renderer/VulkanBuffers/bufferCreation.h>
+#include <Renderer/CommandPoolManager.h>
+#include <Renderer/rendererGlobals.h>
+#include <Renderer/VulkanIncludes/Vulkan_Includes.h>
 #include "Renderer/RendererContext.h"
 
 
