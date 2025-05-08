@@ -41,7 +41,7 @@ struct RenderBatchCreationConfig
 };
 struct RenderBatchQueue
 {
-    uint32_t drawCount;
+    size_t drawCount;
     std::vector<RenderBatch> batchConfigs;
     void EmplaceBatch(const char* name,
                        CommonRenderPassData* context,
@@ -63,7 +63,7 @@ struct RenderBatch
     VkExtent2D renderingAttatchmentExtent; //SHADOW_MAP_SIZE
     viewProj matrices;
     void* pushConstants; //shadowPushConstants constants;
-    size_t pushConstantsSize;
+    uint32_t pushConstantsSize;
     depthBiasSettng depthBiasSetting;
     RenderBatch(const char* name,
     CommonRenderPassData* context,

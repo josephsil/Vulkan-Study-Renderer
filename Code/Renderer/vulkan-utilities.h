@@ -28,9 +28,9 @@ namespace DescriptorSets
                                                       std::span<VkDescriptorSetLayoutBinding> layoutBindings,
                                                       const char* debugName);
     void AllocateDescriptorSet(VkDevice device, VkDescriptorPool pool, VkDescriptorSetLayout* pdescriptorsetLayout,
-                               VkDescriptorSet* pset, uint32_t ct);
+                               VkDescriptorSet* pset, size_t ct);
     void CreateDescriptorSetsForLayout(RendererContext handles, VkDescriptorPool pool, std::span<VkDescriptorSet> sets,
-                                       VkDescriptorSetLayout layout, uint32_t descriptorCt, const char* debugName);
+                                       VkDescriptorSetLayout layout, size_t descriptorCt, const char* debugName);
     void _updateDescriptorSet_NEW(RendererContext rendererHandles, VkDescriptorSet set,
                                   std::span<VkDescriptorSetLayoutBinding> setBindingInfo, std::span
                                   <descriptorUpdateData> descriptorUpdates);

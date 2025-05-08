@@ -31,12 +31,12 @@ void static_AllocateAssetMemory(MemoryArena::memoryArena* arena, AssetManager* s
 //So things like, get the index back from this and then index in to these vecs to update them
 //At some point in the future I can replace this with a more sophisticated reference system if I need
 //Even just returning a pointer is probably plenty, then I can sort the lists, prune stuff, etc.
-int AssetManager::AddMaterial(float roughness, float metallic, glm::vec3 color, textureSetIDs textureindex,
+size_t AssetManager::AddMaterial(float roughness, float metallic, glm::vec3 color, textureSetIDs textureindex,
                               uint32_t pipeline)
 {
     materials.push_back(Material{
-        .shaderGroupIndex = pipeline, .diffuseIndex = textureindex.diffuseIndex, .specIndex = textureindex.specIndex,
-        .normalIndex = textureindex.normIndex, .metallic = metallic, .roughness = roughness, .color = color
+        .shaderGroupIndex = pipeline, .diffuseIndex = static_cast<uint32_t>(textureindex.diffuseIndex), .specIndex =  static_cast<uint32_t>(textureindex.specIndex),
+        .normalIndex =  static_cast<uint32_t>(textureindex.normIndex), .metallic = metallic, .roughness = roughness, .color = color
     });
     return materials.size() - 1;
 }
@@ -77,13 +77,13 @@ uint32_t AssetManager::getVertexCount()
 }
 
 
-int AssetManager::materialTextureCount()
+size_t AssetManager::materialTextureCount()
 {
     return textures.size();
 }
 
 
-int AssetManager::AddTexture(TextureData T)
+size_t AssetManager::AddTexture(TextureData T)
 {
     //What we need to render the texture. 
     textures.push_back(T.vkImageInfo);
@@ -99,7 +99,7 @@ textureSetIDs AssetManager::AddTextureSet(TextureData D, TextureData S, TextureD
     return {static_cast<uint32_t>(dI), static_cast<uint32_t>(sI), static_cast<uint32_t>(nI)};
 }
 
-int AssetManager::AddBackingMesh(MeshData M)
+size_t AssetManager::AddBackingMesh(MeshData M)
 {
     backing_meshes.push_back(M);
     meshBoundingSphereRad.push_back(boundingSphereFromMeshBounds(M.boundsCorners));

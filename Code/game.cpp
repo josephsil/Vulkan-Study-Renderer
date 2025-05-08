@@ -9,15 +9,15 @@
 
 void Add_Scene_Content(RendererContext rendererContext, AssetManager* rendererData, Scene* scene)
 {
-    std::vector<int> randomMeshes;
-    std::vector<int> randomMaterials;
+    std::vector<size_t> randomMeshes;
+    std::vector<size_t> randomMaterials;
     scene->sceneCamera.extent = {16, 10}; // ????
 
-    int defaultTexture = rendererData->AddTexture(createTexture(rendererContext, "textures/blank.png", DIFFUSE));
-    int defaultSPec = rendererData->AddTexture(createTexture(rendererContext, "textures/default_roug.tga", SPECULAR));
-    int defaultNormal = rendererData->AddTexture(createTexture(rendererContext, "textures/blank.png", SPECULAR));
+    size_t defaultTexture = rendererData->AddTexture(createTexture(rendererContext, "textures/blank.png", DIFFUSE));
+    size_t defaultSPec = rendererData->AddTexture(createTexture(rendererContext, "textures/default_roug.tga", SPECULAR));
+    size_t defaultNormal = rendererData->AddTexture(createTexture(rendererContext, "textures/blank.png", SPECULAR));
 
-    int placeholderMatidx;
+    size_t placeholderMatidx;
     auto placeholderTextureidx = rendererData->AddTextureSet(
         createTexture(rendererContext, "textures/pbr_cruiser-panels/space-cruiser-panels2_albedo.png",
                       DIFFUSE, VK_IMAGE_VIEW_TYPE_2D),
@@ -26,7 +26,7 @@ void Add_Scene_Content(RendererContext rendererContext, AssetManager* rendererDa
         createTexture(rendererContext, "textures/pbr_cruiser-panels/space-cruiser-panels2_normal-dx.png",
                       NORMAL, VK_IMAGE_VIEW_TYPE_2D));
 
-    placeholderMatidx = rendererData->AddMaterial(0.2, 0, glm::vec3(1.0f), placeholderTextureidx, 1);
+    placeholderMatidx = rendererData->AddMaterial(0.2f, 0, glm::vec3(1.0f), placeholderTextureidx, 1);
     randomMaterials.push_back(placeholderMatidx);
 
 
@@ -37,7 +37,7 @@ void Add_Scene_Content(RendererContext rendererContext, AssetManager* rendererDa
                       SPECULAR, VK_IMAGE_VIEW_TYPE_2D),
         createTexture(rendererContext, "textures/pbr_cruiser-panels/space-cruiser-panels2_normal-dx.png",
                       NORMAL, VK_IMAGE_VIEW_TYPE_2D));
-    placeholderMatidx = rendererData->AddMaterial(0.2, 0, glm::vec3(1.0f), placeholderTextureidx, 0);
+    placeholderMatidx = rendererData->AddMaterial(0.2f, 0, glm::vec3(1.0f), placeholderTextureidx, 0);
     randomMaterials.push_back(placeholderMatidx);
 
 
@@ -61,11 +61,11 @@ void Add_Scene_Content(RendererContext rendererContext, AssetManager* rendererDa
     //TODO JS: to span of spans for submeshes
 
 #pragma region gltf adding stuff --- todo move to fn
-    std::span<std::span<int>> meshLUT = MemoryArena::AllocSpan<std::span<int>>(
+    std::span<std::span<size_t>> meshLUT = MemoryArena::AllocSpan<std::span<size_t>>(
         rendererContext.tempArena, gltf.meshes.size());
-    std::span<int> textureLUT = MemoryArena::AllocSpan<int>(rendererContext.tempArena, gltf.textures.size());
-    std::span<int> materialLUT = MemoryArena::AllocSpan<int>(rendererContext.tempArena, gltf.materials.size());
-    std::span<int> parent = MemoryArena::AllocSpan<int>(rendererContext.tempArena, gltf.objects.size());
+    std::span<size_t> textureLUT = MemoryArena::AllocSpan<size_t>(rendererContext.tempArena, gltf.textures.size());
+    std::span<size_t> materialLUT = MemoryArena::AllocSpan<size_t>(rendererContext.tempArena, gltf.materials.size());
+    std::span<size_t> parent = MemoryArena::AllocSpan<size_t>(rendererContext.tempArena, gltf.objects.size());
     std::span<bool> created = MemoryArena::AllocSpan<bool>(rendererContext.tempArena, gltf.objects.size());
     std::span<localTransform*> tforms = MemoryArena::AllocSpan<localTransform*>(
         rendererContext.tempArena, gltf.objects.size());
@@ -77,7 +77,7 @@ void Add_Scene_Content(RendererContext rendererContext, AssetManager* rendererDa
 
     for (int i = 0; i < gltf.meshes.size(); i++)
     {
-        meshLUT[i] = MemoryArena::AllocSpan<int>(rendererContext.tempArena, gltf.meshes[i].submeshes.size());
+        meshLUT[i] = MemoryArena::AllocSpan<size_t>(rendererContext.tempArena, gltf.meshes[i].submeshes.size());
         for (int j = 0; j < gltf.meshes[i].submeshes.size(); j++)
         {
             meshLUT[i][j] = rendererData->AddBackingMesh(gltf.meshes[i].submeshes[j]);
@@ -123,9 +123,9 @@ void Add_Scene_Content(RendererContext rendererContext, AssetManager* rendererDa
                 auto mesh = gltf.meshes[gltf.objects[i].meshidx];
                 for (int j = 0; j < mesh.submeshes.size(); j++)
                 {
-                    int gltfMatIDX = mesh.materialIndices[j];
-                    int sceneMatIDX = materialLUT[mesh.materialIndices[j]];
-                    int objectID = 0;
+                    size_t gltfMatIDX = mesh.materialIndices[j];
+                    size_t sceneMatIDX = materialLUT[mesh.materialIndices[j]];
+                    size_t objectID = 0;
                     localTransform* parentTransform = (parent[i] != -1) ? tforms[parent[i]] : nullptr;
                     //TODO JS: add objcet that takes matrix
                     objectID = scene->AddObject(
@@ -152,7 +152,7 @@ void Add_Scene_Content(RendererContext rendererContext, AssetManager* rendererDa
     }
 #endif
 #pragma endregion
-    printf("objects count: %d \n", scene->objects.objectsCount);
+    printf("objects count: %llu \n", scene->objects.objectsCount);
     // #else
     gltf = GltfLoadMeshes(rendererContext, "Meshes/pig.glb");
     placeholderTextureidx = rendererData->AddTextureSet(
@@ -162,7 +162,7 @@ void Add_Scene_Content(RendererContext rendererContext, AssetManager* rendererDa
         createTexture(rendererContext, "textures/pbr_stainless-steel/used-stainless-steel2_normal-dx.png",
                       NORMAL));
 
-    placeholderMatidx = rendererData->AddMaterial(0.2, 0, glm::vec3(1.0f), placeholderTextureidx, 1);
+    placeholderMatidx = rendererData->AddMaterial(0.2f, 0, glm::vec3(1.0f), placeholderTextureidx, 1);
     randomMaterials.push_back(placeholderMatidx);
 
     randomMeshes.push_back(rendererData->AddBackingMesh(gltf.meshes[0].submeshes[0]));
@@ -170,7 +170,7 @@ void Add_Scene_Content(RendererContext rendererContext, AssetManager* rendererDa
         rendererData->AddBackingMesh(GltfLoadMeshes(rendererContext, "Meshes/cubesphere.glb").meshes[0].submeshes[0]));
     randomMeshes.push_back(rendererData->AddBackingMesh(MeshDataFromObjFile(rendererContext, "Meshes/monkey.obj")));
 
-    int cube = rendererData->AddBackingMesh(GltfLoadMeshes(rendererContext, "Meshes/cube.glb").meshes[0].submeshes[0]);
+    size_t cube = rendererData->AddBackingMesh(GltfLoadMeshes(rendererContext, "Meshes/cube.glb").meshes[0].submeshes[0]);
 
     //direciton light
 

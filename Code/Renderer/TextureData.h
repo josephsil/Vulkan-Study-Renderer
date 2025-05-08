@@ -24,10 +24,10 @@ struct textureFormatInfo
 {
     VkFormat format;
     VkImageType type;
-    uint64_t width;
-    uint64_t height;
-    uint64_t mipCt;
-    uint64_t layerCt;
+    uint32_t width;
+    uint32_t height;
+    uint32_t mipCt;
+    uint32_t layerCt;
 };
 
 struct TextureMetaData

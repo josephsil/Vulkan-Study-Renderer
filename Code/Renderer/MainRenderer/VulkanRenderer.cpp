@@ -1,5 +1,4 @@
 #include "VulkanRenderer.h"
-#include<General/GLM_impl.h>
 #undef main
 #define SDL_MAIN_HANDLED 
 #include <SDL2/SDL.h>
@@ -54,7 +53,7 @@ FullShaderHandle  DEBUG_RAYMARCH_SHADER_INDEX ={SIZE_MAX,SIZE_MAX};
 
 PerSceneShadowResources  init_allocate_shadow_memory(rendererObjects initializedrenderer,  MemoryArena::memoryArena* allocationArena);
 VkDescriptorSet UpdateAndGetBindlessDescriptorSetForFrame(RendererContext context, DescriptorDataForPipeline descriptorData, int currentFrame,  std::span<descriptorUpdates> updates);
-int UpdateDrawCommanddataDrawIndirectCommands(std::span<drawCommandData> targetDrawCommandSpan, std::span<uint32_t> objectIDtoSortedObjectID, std::span<uint32_t> objectIDtoMeshID, std::span<uint32_t>meshIDtoFirstIndex, std::span<uint32_t> meshIDtoIndexCount);
+size_t UpdateDrawCommanddataDrawIndirectCommands(std::span<drawCommandData> targetDrawCommandSpan, std::span<uint32_t> objectIDtoSortedObjectID, std::span<uint32_t> objectIDtoMeshID, std::span<uint32_t>meshIDtoFirstIndex, std::span<uint32_t> meshIDtoIndexCount);
 
 VulkanRenderer::VulkanRenderer()
 {
@@ -137,12 +136,12 @@ void VulkanRenderer::UpdateShadowImageViews(int frame, sceneCountData lightData)
     }
 
     shadowResources.shadowMapSamplingImageViews[i] =  MemoryArena::AllocSpan<VkImageView>(&rendererArena, MAX_SHADOWCASTERS);
-    for (int j = 0; j < MAX_SHADOWCASTERS; j++)
+    for (size_t j = 0; j < MAX_SHADOWCASTERS; j++)
     {
         if (j < glm::min(lightData.lightCount, MAX_SHADOWCASTERS))
         {
             VkImageViewType type = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
-            int ct = shadowCountFromLightType(lightData.lightTypes[j]);
+            uint32_t ct = (uint32_t)shadowCountFromLightType(lightData.lightTypes[j]);
             if ((lightType)lightData.lightTypes[j] == LIGHT_POINT)
             {
                 type = VK_IMAGE_VIEW_TYPE_CUBE;
@@ -153,7 +152,7 @@ void VulkanRenderer::UpdateShadowImageViews(int frame, sceneCountData lightData)
                 VK_IMAGE_ASPECT_DEPTH_BIT,
                 (VkImageViewType)  type,
                 ct, 
-                Scene::getShadowDataIndex(j, lightData.lightTypes), 1, 0);
+                (uint32_t)Scene::getShadowDataIndex(j, lightData.lightTypes), 1, 0);
 
          
         }
@@ -208,7 +207,7 @@ void VulkanRenderer::initializePipelines(size_t shadowCasterCount)
 
     perSceneBindlessDescriptorLayout = DescriptorSets::createVkDescriptorSetLayout(getFullRendererContext(), sceneLayoutBindings, "Per Scene Bindlses Layout");
     auto perSceneBindlessDescriptorData = DescriptorSets::CreateDescriptorDataForPipeline(getFullRendererContext(), perSceneBindlessDescriptorLayout, false, sceneLayoutBindings, "Per Scene Bindless Set", descriptorPool);
-    perSceneDescriptorUpdates = CreatePerSceneDescriptorUpdates(0, glm::min(MAX_SHADOWCASTERS, shadowCasterCount), &rendererArena, perSceneBindlessDescriptorData.layoutBindings);
+    perSceneDescriptorUpdates = CreatePerSceneDescriptorUpdates(0, &rendererArena, perSceneBindlessDescriptorData.layoutBindings);
 
     VkDescriptorSetLayoutBinding frameLayoutBindings[6] = {};
     frameLayoutBindings[0] = VkDescriptorSetLayoutBinding{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL, VK_NULL_HANDLE}; //Globals  0 // per frame
@@ -359,7 +358,7 @@ void VulkanRenderer::PopulateMeshBuffers()
     auto Indices = MemoryArena::AllocSpan<uint32_t>(getFullRendererContext().arena, indexCt);
     size_t vert = 0;
     size_t _vert = 0;
-    size_t meshoffset = 0;
+    uint32_t meshoffset = 0;
     for (int j = 0; j < AssetDataAndMemory->meshCount; j++)
     {
         MeshData mesh = AssetDataAndMemory->backing_meshes[j];
@@ -385,7 +384,7 @@ void VulkanRenderer::PopulateMeshBuffers()
             
             Positoins[_vert++] = mesh.vertices[i].pos;
         }
-        meshoffset += mesh.vertices.size();
+        meshoffset += static_cast<uint32_t>(mesh.vertices.size());
     }
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
@@ -397,7 +396,7 @@ void VulkanRenderer::PopulateMeshBuffers()
 }
 
 //TODO JS: https://gpuopen-librariesandsdks.github.io/VulkanMemoryAllocator/html/usage_patterns.html advanced
-void VulkanRenderer::CreateUniformBuffers(int objectsCount, int lightCount)
+void VulkanRenderer::CreateUniformBuffers(size_t objectsCount, size_t lightCount)
 {
     VkDeviceSize globalsSize = sizeof(ShaderGlobals);
     VkDeviceSize ubosSize = sizeof(UniformBufferObject) * objectsCount;
@@ -489,7 +488,7 @@ void VulkanRenderer::createDescriptorSetPool(RendererContext context, VkDescript
 
 
 
-std::span<descriptorUpdateData> VulkanRenderer::CreatePerSceneDescriptorUpdates(uint32_t frame, int shadowCasterCount, MemoryArena::memoryArena* arena, std::span<VkDescriptorSetLayoutBinding> layoutBindings)
+std::span<descriptorUpdateData> VulkanRenderer::CreatePerSceneDescriptorUpdates(uint32_t frame, MemoryArena::memoryArena* arena, std::span<VkDescriptorSetLayoutBinding> layoutBindings)
 {
     //sceme
     auto imageInfos = AssetDataAndMemory->textures.getSpan();
@@ -525,7 +524,7 @@ std::span<descriptorUpdateData> VulkanRenderer::CreatePerSceneDescriptorUpdates(
    return descriptorUpdates.getSpan();
 }
 
-std::span<descriptorUpdateData> VulkanRenderer::CreatePerFrameDescriptorUpdates(uint32_t frame, int shadowCasterCount, MemoryArena::memoryArena* arena, std::span<VkDescriptorSetLayoutBinding> layoutBindings)
+std::span<descriptorUpdateData> VulkanRenderer::CreatePerFrameDescriptorUpdates(uint32_t frame, size_t shadowCasterCount, MemoryArena::memoryArena* arena, std::span<VkDescriptorSetLayoutBinding> layoutBindings)
 {
     std::span<VkDescriptorImageInfo> shadows = MemoryArena::AllocSpan<VkDescriptorImageInfo>(arena, MAX_SHADOWMAPS);
     
@@ -627,7 +626,7 @@ std::span<descriptorUpdateData> VulkanRenderer::CreateShadowDescriptorUpdates(Me
 
 
 
-static void updateGlobals(cameraData camera, int lightCount, int cubeMapLutIndex, HostDataBufferObject<ShaderGlobals> globalsBuffer)
+static void updateGlobals(cameraData camera, size_t lightCount, size_t cubeMapLutIndex, HostDataBufferObject<ShaderGlobals> globalsBuffer)
 {
     ShaderGlobals globals{};
     viewProj vp = LightAndCameraHelpers::CalcViewProjFromCamera(camera);
@@ -727,7 +726,7 @@ void VulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<std::spa
     //Ubos
     auto ubos = MemoryArena::AllocSpan<UniformBufferObject>(tempArena,scene->objectsCount());
 
-    for (int i = 0; i < ubos.size(); i++)
+    for (size_t i = 0; i < ubos.size(); i++)
     {
         auto lookup = scene->transforms._transform_lookup[i];
         glm::mat4* model = &models[lookup.depth][lookup.index];
@@ -739,8 +738,13 @@ void VulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<std::spa
         // int i = drawIndices[j];
         Material material = AssetDataAndMemory->materials[scene->objects.materials[i]];
         
-        ubos[i].props.indexInfo = glm::vec4(material.diffuseIndex, (AssetDataAndMemory->getOffsetFromMeshID(scene->objects.meshIndices[i])),
-                                       material.diffuseIndex, 44);
+        ubos[i].props.indexInfo = glm::vec4(
+        (material.diffuseIndex),
+            AssetDataAndMemory->getOffsetFromMeshID(scene->objects.meshIndices[i]),
+                                       
+                                       (material.diffuseIndex),
+                                       
+                                       static_cast<uint32_t>(44));
 
         ubos[i].props.textureInfo = glm::vec4(material.diffuseIndex, material.specIndex, material.normalIndex, -1.0);
 
@@ -896,7 +900,7 @@ void RecordCommandBufferCulling(ActiveRenderStepData commandBufferContext, uint3
 
 }
 void VulkanRenderer::RecordMipChainCompute(ActiveRenderStepData commandBufferContext, Allocator arena, VkImage dstImage,
-    VkImageView srcView, std::span<VkImageView> pyramidviews, VkSampler sampler, uint32_t _currentFrame, int pyramidWidth, int pyramidHeight)
+    VkImageView srcView, std::span<VkImageView> pyramidviews, VkSampler sampler, uint32_t _currentFrame, uint32_t pyramidWidth, uint32_t pyramidHeight)
 {
     assert(commandBufferContext.active);
     auto descriptorData = pipelineLayoutManager.GetDescriptordata(mipChainLayoutIDX, 0);
@@ -983,7 +987,7 @@ void VulkanRenderer::RecordMipChainCompute(ActiveRenderStepData commandBufferCon
     }
 
 }
-void VulkanRenderer::RecordUtilityPasses( VkCommandBuffer commandBuffer, int imageIndex)
+void VulkanRenderer::RecordUtilityPasses( VkCommandBuffer commandBuffer, size_t imageIndex)
 {
     auto opaqueBindlessLayoutGroup =  pipelineLayoutManager.GetPipeline(DEBUG_LINE_SHADER_INDEX);
     VkPipelineLayout layout = pipelineLayoutManager.GetLayout(opaqueLayoutIDX);
@@ -1034,7 +1038,7 @@ void RecordIndirectCommandBufferForPasses(Scene* scene, AssetManager* rendererDa
         drawCommands[i].objectIndex = -1;
     }
    
-    uint32_t objectsPerDraw = scene->objectsCount();
+    size_t objectsPerDraw = scene->objectsCount();
     
     std::span<uint32_t> objectIDtoMeshID = MemoryArena::AllocSpan<uint32_t>(allocator, objectsPerDraw);
     std::span<uint32_t> objectIDtoSortedObjectID = MemoryArena::AllocSpan<uint32_t>(allocator, objectsPerDraw);
@@ -1043,14 +1047,14 @@ void RecordIndirectCommandBufferForPasses(Scene* scene, AssetManager* rendererDa
     uint32_t indexCtoffset = 0;
     for(size_t i = 0; i < objectsPerDraw; i++)
     {
-        objectIDtoMeshID[i] = scene->objects.meshIndices[i];
-        objectIDtoSortedObjectID[i] = i; //
+        objectIDtoMeshID[i] = static_cast<uint32_t>(scene->objects.meshIndices[i]);
+        objectIDtoSortedObjectID[i] =  static_cast<uint32_t>(i); //
     }
     for(size_t i = 0; i < rendererData->backing_meshes.size(); i++)
     {
         meshIDtoFirstIndex[i] = indexCtoffset;
-        meshIDtoIndexCount[i] =rendererData->backing_meshes[i].indices.size();
-        indexCtoffset += rendererData->backing_meshes[i].indices.size();
+        meshIDtoIndexCount[i] =  static_cast<uint32_t>(rendererData->backing_meshes[i].indices.size());
+        indexCtoffset +=  static_cast<uint32_t>(rendererData->backing_meshes[i].indices.size());
     }
 
     
@@ -1153,7 +1157,7 @@ void SubmitCommandBuffer(ActiveRenderStepData* commandBufferContext)
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &commandBufferContext->commandBuffer;
 
-    submitInfo.signalSemaphoreCount = commandBufferContext->signalSempahores.size();
+    submitInfo.signalSemaphoreCount = (uint32_t)commandBufferContext->signalSempahores.size();
     submitInfo.pSignalSemaphores = commandBufferContext->signalSempahores.data();
     
     //Submit pass 
@@ -1259,11 +1263,11 @@ RenderBatchCreationConfig  CreateOpaquePassesConfig(RenderBatchQueue* targetPass
                                      )
     
 {
-    uint32_t objectsPerDraw = passData.scenePtr->objectsCount();
+    uint32_t objectsPerDraw = (uint32_t)passData.scenePtr->objectsCount();
     viewProj viewProjMatricesForCulling = LightAndCameraHelpers::CalcViewProjFromCamera(passData.scenePtr->sceneCamera);
     //Culling debug stuff
     PerShadowData* data = MemoryArena::Alloc<PerShadowData>(passData.tempAllocator);
-    int shadowDrawCt = 0;
+    size_t shadowDrawCt = 0;
     for(int i =0; i <inputShadowdata.size(); i++)
     {
         shadowDrawCt += inputShadowdata[i].size();
@@ -1306,15 +1310,15 @@ std::span<RenderBatchCreationConfig> CreateShadowPassConfigs(RenderBatchQueue* t
                                      ActiveRenderStepData* shadowRenderStepContext,
                                      std::span<VkImageView> shadowMapRenderingViews)
 {
-    uint32_t objectsPerDraw =config.scenePtr->objectsCount();
+    uint32_t objectsPerDraw = (uint32_t)config.scenePtr->objectsCount();
 
     auto shadowCasterCt =  glm::min(config.scenePtr->lightCount, MAX_SHADOWCASTERS); 
     Array resultConfigs = MemoryArena::AllocSpan<RenderBatchCreationConfig>(config.tempAllocator, shadowCasterCt * 6);
-    for(int i = 0; i < glm::min(config.scenePtr->lightCount, MAX_SHADOWCASTERS); i ++)
+    for(size_t i = 0; i < glm::min(config.scenePtr->lightCount, MAX_SHADOWCASTERS); i ++)
     {
         lightType type = (lightType)config.scenePtr->lightTypes[i];
-        int lightSubpasses = shadowCountFromLightType(type);
-        for (int j = 0; j < lightSubpasses; j++)
+        size_t lightSubpasses = shadowCountFromLightType(type);
+        for (size_t j = 0; j < lightSubpasses; j++)
         {
             auto view = inputShadowdata[i][j].view;
             auto proj =  inputShadowdata[i][j].proj;
@@ -1345,7 +1349,7 @@ std::span<RenderBatchCreationConfig> CreateShadowPassConfigs(RenderBatchQueue* t
     return resultConfigs.getSpan();
 }
 
-int UpdateDrawCommanddataDrawIndirectCommands(std::span<drawCommandData> targetDrawCommandSpan, std::span<uint32_t> objectIDtoSortedObjectID, std::span<uint32_t> objectIDtoMeshID, std::span<uint32_t>meshIDtoFirstIndex, std::span<uint32_t> meshIDtoIndexCount)
+size_t UpdateDrawCommanddataDrawIndirectCommands(std::span<drawCommandData> targetDrawCommandSpan, std::span<uint32_t> objectIDtoSortedObjectID, std::span<uint32_t> objectIDtoMeshID, std::span<uint32_t>meshIDtoFirstIndex, std::span<uint32_t> meshIDtoIndexCount)
 {
     for (size_t j = 0; j < targetDrawCommandSpan.size(); j++)
     {
@@ -1595,8 +1599,8 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     //This is the bulk of the render, the main opaque pass which depends on compute, shadow, opaque, culling, etc
         //Need to make a new "aggregate step" concept to handle this so I can make it a lambda like the rest
     RecordMipChainCompute(*mipChainRenderStepContext, &perFrameArenas[currentFrame],  globalResources.depthPyramidInfo.image,
-                      globalResources.depthBufferInfo.view, globalResources.depthPyramidInfo.viewsForMips, globalResources.depthMipSampler, currentFrame, globalResources.depthPyramidInfo.depthSize.x,
-                       globalResources.depthPyramidInfo.depthSize.y);     
+                          globalResources.depthBufferInfo.view, globalResources.depthPyramidInfo.viewsForMips, globalResources.depthMipSampler, currentFrame, globalResources.depthPyramidInfo.depthSize.x,
+                          globalResources.depthPyramidInfo.depthSize.y);     
 
     //Create the renderpass
      auto* mainRenderTargetAttatchment = MemoryArena::Alloc<VkRenderingAttachmentInfoKHR>(&perFrameArenas[currentFrame]);
@@ -1714,7 +1718,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     //Render
     VkPresentInfoKHR presentInfo{};
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-    presentInfo.waitSemaphoreCount = postRenderTransitionOutStepContext->signalSempahores.size();
+    presentInfo.waitSemaphoreCount = static_cast<uint32_t>(postRenderTransitionOutStepContext->signalSempahores.size());
     presentInfo.pWaitSemaphores = postRenderTransitionOutStepContext->signalSempahores.data();
     presentInfo.swapchainCount = 1;
     presentInfo.pSwapchains = {&rendererVulkanObjects.swapchain.swapchain};

@@ -14,9 +14,9 @@ namespace MemoryArena
 
 struct textureSetIDs
 {
-    uint32_t diffuseIndex;
-    uint32_t specIndex;
-    uint32_t normIndex;
+    size_t diffuseIndex;
+    size_t specIndex;
+    size_t normIndex;
 };
 
 //Objects have like, transformation info, ref to their mesh, ref to their material
@@ -32,7 +32,7 @@ void static_AllocateAssetMemory(MemoryArena::memoryArena* arena, AssetManager* s
 class AssetManager
 {
 public:
-    int materialTextureCount();
+    size_t materialTextureCount();
 
 
 #pragma region scene
@@ -51,15 +51,15 @@ public:
 
 
     //Returns the index to the object in the vectors
-    int AddMaterial(float roughness, float metallic, glm::vec3 color, textureSetIDs textureindex, uint32_t pipeline);
+    size_t AddMaterial(float roughness, float metallic, glm::vec3 color, textureSetIDs textureindex, uint32_t pipeline);
     uint32_t getIndexCount();
     uint32_t getVertexCount();
     uint32_t getOffsetFromMeshID(int id);
     positionRadius GetBoundingSphere(int idx); //TODO JS: Change to use mesh idx
     //TODO JS: these are temporary
-    int AddTexture(TextureData T);
+    size_t AddTexture(TextureData T);
     textureSetIDs AddTextureSet(TextureData D, TextureData S, TextureData N);
-    int AddBackingMesh(MeshData M);
+    size_t AddBackingMesh(MeshData M);
 
     void Update();
     void Cleanup();

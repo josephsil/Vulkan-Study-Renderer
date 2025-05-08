@@ -150,7 +150,7 @@ void loadScalarAttributeshort(Array<glm::vec4>* target, const unsigned short* _s
         color.x = _shorts[i * stride + 0];
         color.y = _shorts[i * stride + 1];
         color.z = _shorts[i * stride + 2];
-        color.w = stride == 4 ? _shorts[i * stride + 3] : 1.0;
+        color.w = stride == 4 ? _shorts[i * stride + 3] : 1.0f;
         target->push_back(color);
     }
 }
@@ -163,17 +163,17 @@ void loadScalarAttributefloat(Array<glm::vec4>* target, const float* _floats, si
         color.x = _floats[i * stride + 0];
         color.y = _floats[i * stride + 1];
         color.z = _floats[i * stride + 2];
-        color.w = stride == 4 ? _floats[i * stride + 3] : 1.0;
+        color.w = stride == 4 ? _floats[i * stride + 3] : 1.0f;
         target->push_back(color);
     }
 }
 
-void loadAttributeOrDefault(Array<glm::vec4>* target, tinygltf::Model* model, tinygltf::Primitive* prim, uint32_t idxCt,
+void loadAttributeOrDefault(Array<glm::vec4>* target, tinygltf::Model* model, tinygltf::Primitive* prim, size_t idxCt,
                             std::string attribute, glm::vec4 _default)
 {
     if (!prim->attributes.contains(attribute))
     {
-        for (int i = 0; i < idxCt; i++)
+        for (size_t i = 0; i < idxCt; i++)
         {
             target->push_back(_default);
         }
@@ -190,9 +190,9 @@ void loadAttributeOrDefault(Array<glm::vec4>* target, tinygltf::Model* model, ti
     // assert (accessor.type == TINYGLTF_TYPE_VEC3);
     if (accessor.type == TINYGLTF_TYPE_SCALAR)
     {
-        int countPerIDX = accessor.count / idxCt;
+        size_t countPerIDX = accessor.count / idxCt;
         assert(countPerIDX == 1 || countPerIDX == 3 || countPerIDX == 4);
-        stride = countPerIDX;
+        stride = (uint8_t)countPerIDX;
         switch (accessor.componentType)
         {
         case (TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT):
@@ -271,12 +271,12 @@ temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygl
     auto tangentvec = Array(MemoryArena::AllocSpan<glm::vec4>(tempArena, indxCt));
     bool tangentsLoaded = false;
 
-    uint32_t primIndexOffset = 0;
+    size_t primIndexOffset = 0;
 
     accessor = model->accessors[prim.attributes["POSITION"]];
     tinygltf::BufferView& bufferView = model->bufferViews[accessor.bufferView];
     tinygltf::Buffer& buffer = model->buffers[bufferView.buffer];
-    uint32_t primIdxCount = accessor.count;
+    size_t primIdxCount = accessor.count;
     auto positions = reinterpret_cast<const float*>(&buffer.data[bufferView.byteOffset + accessor.
         byteOffset]);
 
@@ -354,7 +354,7 @@ temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygl
         auto indices16 = reinterpret_cast<const uint16_t*>(indicesData);
         for (size_t i = 0; i < accessor.count; i++)
         {
-            _indices.push_back(indices16[i] + primIndexOffset);
+            _indices.push_back((uint32_t)indices16[i] + (uint32_t)primIndexOffset);
         }
     }
     else if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT)
@@ -363,7 +363,7 @@ temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygl
         auto indices32 = reinterpret_cast<const uint32_t*>(indicesData);
         for (size_t i = 0; i < accessor.count; i++)
         {
-            _indices.push_back(indices32[i] + primIndexOffset);
+            _indices.push_back((uint32_t)indices32[i] + (uint32_t)primIndexOffset);
         }
     }
     for (int i = 0; i < positionvec.size(); i++)
@@ -431,10 +431,10 @@ gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
     for (int i = 0; i < meshCt; i++)
     {
         setCursor(tempArena);
-        uint32_t submeshCt = model.meshes[i].primitives.size();
+        size_t submeshCt = model.meshes[i].primitives.size();
         std::span<MeshData> submeshes = MemoryArena::AllocSpan<MeshData>(permanentArena, submeshCt);
         std::span<uint32_t> submeshMats = MemoryArena::AllocSpan<uint32_t>(permanentArena, submeshCt);
-        for (int j = 0; j < submeshCt; j++)
+        for (size_t j = 0; j < submeshCt; j++)
         {
             temporaryloadingMesh tempMesh = geoFromGLTFMesh(tempArena, &model, model.meshes[i].primitives[j]);
 
@@ -468,10 +468,10 @@ gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
             gltfmaterial.pbrMetallicRoughness.baseColorFactor[0], gltfmaterial.pbrMetallicRoughness.baseColorFactor[1],
             gltfmaterial.pbrMetallicRoughness.baseColorFactor[2]
         };
-        materials[i].metallicFactor = gltfmaterial.pbrMetallicRoughness.metallicFactor;
-        materials[i].roughnessFactor = gltfmaterial.pbrMetallicRoughness.roughnessFactor;
-        materials[i].normalStrength = gltfmaterial.normalTexture.scale;
-        materials[i].occlusionStrength = gltfmaterial.occlusionTexture.strength;
+        materials[i].metallicFactor = static_cast<glm::float32_t>(gltfmaterial.pbrMetallicRoughness.metallicFactor);
+        materials[i].roughnessFactor = static_cast<glm::float32_t>(gltfmaterial.pbrMetallicRoughness.roughnessFactor);
+        materials[i].normalStrength =  static_cast<glm::float32_t>(gltfmaterial.normalTexture.scale);
+        materials[i].occlusionStrength = static_cast<glm::float32_t>(gltfmaterial.occlusionTexture.strength);
     }
 
     auto textureImportCommandBuffer = handles.textureCreationcommandPoolmanager->beginSingleTimeCommands(true);

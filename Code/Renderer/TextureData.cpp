@@ -135,7 +135,6 @@ TextureData createTexture(RendererContext rendererContext, const char* OUTPUT_PA
     assert(textureImageView != VK_NULL_HANDLE);
     VkSampler textureSampler = {};
     createTextureSampler(&textureSampler, rendererContext, samplerMode, 0, ktxResult.dimensionsInfo.mipCt);
-    rendererContext = rendererContext;
 
     TextureData texture =
     {

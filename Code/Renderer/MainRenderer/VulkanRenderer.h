@@ -84,8 +84,8 @@ private:
     MemoryArena::memoryArena perFrameArenas[MAX_FRAMES_IN_FLIGHT];
 
 #pragma region SDL
-    int WIDTH = 1280 * 1.5;
-    int HEIGHT = 720 * 1.5;
+    int WIDTH = (int)(1280 * 1.5);
+    int HEIGHT = (int)(720 * 1.5);
     struct SDL_Window* _window{nullptr};
 #pragma endregion
     glm::mat4 freezeView = {};
@@ -110,11 +110,11 @@ private:
 
     void createDescriptorSetPool(RendererContext handles, VkDescriptorPool* pool);
     //TODO 
-    std::span<descriptorUpdateData> CreatePerSceneDescriptorUpdates(uint32_t frame, int shadowCasterCount,
+    std::span<descriptorUpdateData> CreatePerSceneDescriptorUpdates(uint32_t frame,
                                                                     MemoryArena::memoryArena* arena,
                                                                     std::span<VkDescriptorSetLayoutBinding>
                                                                     layoutBindings);
-    std::span<descriptorUpdateData> CreatePerFrameDescriptorUpdates(uint32_t frame, int shadowCasterCount,
+    std::span<descriptorUpdateData> CreatePerFrameDescriptorUpdates(uint32_t frame, size_t shadowCasterCount,
                                                                     MemoryArena::memoryArena* arena,
                                                                     std::span<VkDescriptorSetLayoutBinding>
                                                                     layoutBindings);
@@ -166,29 +166,29 @@ private:
 
     std::vector<per_frame_data> FramesInFlightData;
     bool firstTime[MAX_FRAMES_IN_FLIGHT];
-    int firstframe = true;
-    int cubemaplut_utilitytexture_index;
+    bool firstframe = true;
+    size_t cubemaplut_utilitytexture_index;
 
     uint32_t currentFrame = 0;
 
     void initializeWindow();
 
     void PopulateMeshBuffers();
-    void CreateUniformBuffers(int objectsCount, int lightCount);
+    void CreateUniformBuffers(size_t objectsCount, size_t lightCount);
 
     //Globals per pass, ubos, and lights are updated every frame
     void updatePerFrameBuffers(unsigned currentFrame, Array<std::span<glm::mat4>> models, Scene* scene);
 
 
     void RecordMipChainCompute(ActiveRenderStepData commandBufferContext, MemoryArena::memoryArena* arena,
-                           VkImage dstImage, VkImageView srcView, std::span<VkImageView> pyramidviews,
-                           VkSampler sampler, uint32_t _currentFrame, int
-                           pyramidWidth, int pyramidHeight);
+                               VkImage dstImage, VkImageView srcView, std::span<VkImageView> pyramidviews,
+                               VkSampler sampler, uint32_t _currentFrame, uint32_t
+                               pyramidWidth, uint32_t pyramidHeight);
     void updateBindingsComputeCulling(ActiveRenderStepData commandBufferContext, MemoryArena::memoryArena* arena,
                                       uint32_t _currentFrame);
 
 
-    void RecordUtilityPasses(VkCommandBuffer commandBuffer, int imageIndex);
+    void RecordUtilityPasses(VkCommandBuffer commandBuffer, size_t imageIndex);
 
 
     bool hasStencilComponent(VkFormat format);

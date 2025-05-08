@@ -35,9 +35,9 @@ struct Scene
         Array<glm::vec3> translations;
         Array<glm::quat> rotations;
         Array<glm::vec3> scales;
-        Array<uint32_t> meshIndices;
-        Array<uint32_t> materials;
-        Array<uint64_t> transformIDs;
+        Array<uint32_t> meshIndices; //for renderer 
+        Array<uint32_t> materials; //for renderer 
+        Array<size_t> transformIDs;
     };
 
     // arallel arrays per Light
@@ -62,13 +62,13 @@ struct Scene
 
 
 
-    int AddObject(int meshIndexTODO, int materialIndex, glm::vec3 position,
-                  glm::quat rotation, glm::vec3 scale = glm::vec3(1), localTransform* parent = nullptr,
-                  std::string name = "");
+    size_t AddObject(unsigned long long meshIndexTODO, unsigned long long materialIndex, glm::vec3 position,
+                     glm::quat rotation, glm::vec3 scale = glm::vec3(1), localTransform* parent = nullptr,
+                     std::string name = "");
     size_t objectsCount();
 
     //TODO JS: This probably belongs in the rendering side
-    static int getShadowDataIndex(int idx, ::std::span<lightType> lightTypes);
+    static size_t getShadowDataIndex(size_t idx, std::span<lightType> lightTypes);
 
 private:
     int AddLight(glm::vec3 position, glm::vec3 dir = glm::vec3(-1), glm::vec3 color = glm::vec3(1), float radius = 1,
@@ -81,4 +81,4 @@ private:
 //No scale for now
 void InitializeScene(MemoryArena::memoryArena* arena, Scene* scene);
 
-int shadowCountFromLightType(lightType t);
+size_t shadowCountFromLightType(lightType t);

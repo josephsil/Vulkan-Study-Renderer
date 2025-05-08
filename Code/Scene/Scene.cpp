@@ -4,6 +4,12 @@
 #include "glm_misc.h"
 #include "Transforms.h"
 #include "General/Array.h"
+#include "General/Array.h"
+#include "General/Array.h"
+#include "General/Array.h"
+#include "General/Array.h"
+#include "General/Array.h"
+#include "General/Array.h"
 #include "General/InputHandling.h"
 #include "General/MemoryArena.h"
 
@@ -17,7 +23,7 @@ void InitializeScene(MemoryArena::memoryArena* arena, Scene* scene)
     scene->objects.scales = Array(MemoryArena::AllocSpan<glm::vec3>(arena, OBJECT_MAX));
     scene->objects.materials = Array(MemoryArena::AllocSpan<uint32_t>(arena, OBJECT_MAX));
     scene->objects.meshIndices = Array(MemoryArena::AllocSpan<uint32_t>(arena, OBJECT_MAX));
-    scene->objects.transformIDs = Array(MemoryArena::AllocSpan<uint64_t>(arena, OBJECT_MAX));
+    scene->objects.transformIDs = Array(MemoryArena::AllocSpan<size_t>(arena, OBJECT_MAX));
 
     //Lights 
     scene->lightposandradius = Array(MemoryArena::AllocSpan<glm::vec4>(arena, LIGHT_MAX));
@@ -35,7 +41,7 @@ void InitializeScene(MemoryArena::memoryArena* arena, Scene* scene)
     scene->transforms.rootTransformsView = Array(MemoryArena::AllocSpan<localTransform*>(arena, OBJECT_MAX));
 }
 
-int shadowCountFromLightType(lightType t)
+size_t shadowCountFromLightType(lightType t)
 {
     return t == LIGHT_POINT ? 6 : t == LIGHT_DIR ? CASCADE_CT : 1;
 }
@@ -105,17 +111,17 @@ void Scene::Update()
 }
 
 
-int Scene::AddObject(int meshIndexTODO, int materialIndex,
+size_t Scene::AddObject(size_t meshIndexTODO, size_t materialIndex,
                      glm::vec3 position, glm::quat rotation, glm::vec3 scale, localTransform* parent, std::string name)
 {
     //TODD JS: version that can add
     // objects.meshes.push_back(mesh);
-    objects.materials.push_back(materialIndex);
+    objects.materials.push_back(static_cast<uint32_t>(materialIndex));
     objects.translations.push_back(position);
     objects.rotations.push_back(rotation);
     objects.scales.push_back(scale);
     // transforms.worldMatrices.push_back(glm::mat4(1.0));
-    objects.meshIndices.push_back(meshIndexTODO);
+    objects.meshIndices.push_back(static_cast<uint32_t>(meshIndexTODO));
     objects.transformIDs.push_back(objects.transformIDs.size());
 
     //TODO JS: When we use real objects, we'll only create transforms with these ids
@@ -123,9 +129,13 @@ int Scene::AddObject(int meshIndexTODO, int materialIndex,
 
     if (parent != nullptr)
     {
-        transforms.transformNodes.push_back({
-            glm::mat4(1.0), "CHILD", objects.transformIDs[objects.objectsCount], parent->depth + 1u, {}
-        });
+        localTransform newT = {
+        .matrix =  glm::mat4(1.0),
+        .name = "CHILD",
+        .ID = objects.transformIDs[objects.objectsCount],
+        .depth = static_cast<uint8_t>(parent->depth + 1),
+        .children =  {}};
+        transforms.transformNodes.push_back(newT);
         addChild(parent, &transforms.transformNodes[transforms.transformNodes.size() - 1]);
     }
     else
@@ -231,10 +241,10 @@ void Scene::lightSort()
     }
 }
 
-int Scene::getShadowDataIndex(int idx, std::span<lightType> lightTypes)
+size_t Scene::getShadowDataIndex(size_t idx, std::span<lightType> lightTypes)
 {
-    int output = 0;
-    for (int i = 0; i < idx; i++)
+    size_t output = 0;
+    for (size_t i = 0; i < idx; i++)
     {
         lightType type = lightTypes[i];
         output += shadowCountFromLightType(type);

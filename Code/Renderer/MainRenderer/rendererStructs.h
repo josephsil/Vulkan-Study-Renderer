@@ -44,13 +44,18 @@ struct DepthBufferInfo
     VmaAllocation vmaAllocation;
 };
 
+struct imageSize
+{
+    uint32_t x;
+    uint32_t y;
+};
 struct DepthPyramidInfo
 {
     VkFormat format;
     VkImage image;
     std::span<VkImageView> viewsForMips;
     VmaAllocation vmaAllocation;
-    glm::vec2 depthSize;
+    imageSize depthSize;
 };
 
 struct acquireImageSemaphore

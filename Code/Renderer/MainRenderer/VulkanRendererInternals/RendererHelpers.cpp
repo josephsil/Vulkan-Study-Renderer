@@ -25,7 +25,6 @@ DepthBufferInfo static_createDepthResources(rendererObjects initializedrenderer,
                                             CommandPoolManager* commandPoolmanager)
 {
     auto depthFormat = Capabilities::findDepthFormat(initializedrenderer.vkbPhysicalDevice.physical_device);
-    VkImage depthImage;
     //The two null context will get overwritten by the create  calls below
     DepthBufferInfo bufferInfo = {depthFormat, VK_NULL_HANDLE, VK_NULL_HANDLE, VmaAllocation{}};
 
@@ -65,8 +64,8 @@ DepthPyramidInfo static_createDepthPyramidResources(rendererObjects initializedr
                                                          VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT);
     //The two null context will get overwritten by the create  calls below
     std::span<VkImageView> viewsForMips = MemoryArena::AllocSpan<VkImageView>(allocationArena, HIZDEPTH);
-    int depthWidth = previousPow2(initializedrenderer.swapchain.extent.width);
-    int depthHeight = previousPow2(initializedrenderer.swapchain.extent.height);
+    uint32_t depthWidth = previousPow2(initializedrenderer.swapchain.extent.width);
+    uint32_t depthHeight = previousPow2(initializedrenderer.swapchain.extent.height);
     DepthPyramidInfo bufferInfo = {
         depthFormat, VK_NULL_HANDLE, viewsForMips, VmaAllocation{}, {depthWidth, depthHeight}
     };
@@ -246,7 +245,7 @@ void TransitionImageForRendering(RendererContext context, ActiveRenderStepData* 
     swapChainInSubmitInfo.pCommandBuffers = &RenderStepContext->commandBuffer;
     swapChainInSubmitInfo.waitSemaphoreCount = static_cast<uint32_t>(RenderStepContext->waitSemaphores.size());
     swapChainInSubmitInfo.pWaitSemaphores = RenderStepContext->waitSemaphores.data();
-    swapChainInSubmitInfo.signalSemaphoreCount = RenderStepContext->signalSempahores.size();
+    swapChainInSubmitInfo.signalSemaphoreCount = static_cast<uint32_t>(RenderStepContext->signalSempahores.size());
     swapChainInSubmitInfo.pSignalSemaphores = RenderStepContext->signalSempahores.data();
 
     ///////////////////////// Transition swapChain  />

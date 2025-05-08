@@ -29,9 +29,11 @@ void RendererDeletionQueue::push_backVMA(deletionType t, uint64_t vulkanObject, 
 
 void RendererDeletionQueue::FreeQueue()
 {
-    for (int i = deletionList.size() - 1; i >= 0; i--)
+
+    for (auto it = deletionList.rbegin(); it != deletionList.rend(); ++it)
     {
-        deleteableResource resource = deletionList[i];
+    
+        deleteableResource resource = *it;
         // printf("deleting %d %p\n", i,resource.handle);
         switch (resource.type)
         {

@@ -107,13 +107,13 @@ VkDescriptorSetLayout DescriptorSets::createVkDescriptorSetLayout(RendererContex
 
 void DescriptorSets::AllocateDescriptorSet(VkDevice device, VkDescriptorPool pool,
                                            VkDescriptorSetLayout* pdescriptorsetLayout, VkDescriptorSet* pset,
-                                           uint32_t ct)
+                                           size_t ct)
 {
     VkDescriptorSetAllocateInfo allocInfo = {};
     allocInfo.pNext = nullptr;
     allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     allocInfo.descriptorPool = pool;
-    allocInfo.descriptorSetCount = ct;
+    allocInfo.descriptorSetCount = (uint32_t)ct;
     allocInfo.pSetLayouts = pdescriptorsetLayout;
     VkResult result = vkAllocateDescriptorSets(device, &allocInfo, pset);
     VK_CHECK(result);
@@ -121,14 +121,14 @@ void DescriptorSets::AllocateDescriptorSet(VkDevice device, VkDescriptorPool poo
 
 void DescriptorSets::CreateDescriptorSetsForLayout(RendererContext handles, VkDescriptorPool pool,
                                                    std::span<VkDescriptorSet> sets, VkDescriptorSetLayout layout,
-                                                   uint32_t descriptorCt, const char* debugName)
+                                                   size_t descriptorCt, const char* debugName)
 {
-    for (int i = 0; i < sets.size(); i++)
+    for (size_t i = 0; i < sets.size(); i++)
     {
         auto descriptorSetLayoutCopiesForAlloc = MemoryArena::AllocSpan<VkDescriptorSetLayout>(
             handles.tempArena, descriptorCt);
 
-        for (int j = 0; j < descriptorCt; j++)
+        for (size_t j = 0; j < descriptorCt; j++)
         {
             descriptorSetLayoutCopiesForAlloc[j] = layout;
         }

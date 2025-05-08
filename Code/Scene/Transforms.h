@@ -30,7 +30,7 @@ struct localTransform
 {
     glm::mat4 matrix;
     std::string name;
-    uint64_t ID;
+    size_t ID;
     uint8_t depth;
     std::vector<localTransform*> children;
 };

@@ -53,14 +53,14 @@ RenderBatch::RenderBatch(const char* name, CommonRenderPassData* context, Render
     }
     for (uint32_t i = 0; i < passCreationConfig.objectCount; i++)
     {
-        int shaderGroupIndex = context->assetDataPtr->materials[context->scenePtr->objects.materials[i]].shaderGroupIndex;
-        int pipelineIndex =passCreationConfig.shaderGroup[shaderGroupIndex].shader;
+        uint32_t shaderGroupIndex = context->assetDataPtr->materials[context->scenePtr->objects.materials[i]].shaderGroupIndex;
+        uint32_t pipelineIndex = (uint32_t)passCreationConfig.shaderGroup[shaderGroupIndex].shader;
         batchedDrawBuckets[pipelineIndex].objectIndices.push_back(i);
     }
     
     Array _meshPasses = MemoryArena::AllocSpan<simpleMeshPassInfo>(context->tempAllocator, MAX_PIPELINES);
     uint32_t drawOffsetAtTheStartOfOpaque = passCreationConfig.drawOffset;
-    int subspanOffset = 0;
+    uint32_t subspanOffset = 0;
     for (size_t i = 0; i < batchedDrawBuckets.size(); i++)
     {
         auto drawBatch =  batchedDrawBuckets[i];
@@ -76,7 +76,7 @@ RenderBatch::RenderBatch(const char* name, CommonRenderPassData* context, Render
         _meshPasses.push_back({.firstIndex = firstIndex, .ct = (uint32_t)indices.ct, .pipeline = context->pipelineManagerPtr->GetPipeline(shaderID.layout, shaderID.shader),
             .sortedObjectIDs =  drawBatch.objectIndices.getSpan()});
 
-        subspanOffset += indices.ct;
+        subspanOffset += (uint32_t)indices.ct;
     }
     auto s = std::string(name);
     

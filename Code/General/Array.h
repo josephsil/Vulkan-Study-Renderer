@@ -83,10 +83,10 @@ struct Array
         std::span<T>(start, il.size());
     }
 
-    std::span<T> pushUninitializedSubspan(int spanSize)
+    std::span<T> pushUninitializedSubspan(size_t spanSize)
     {
         assert(ct + spanSize < capacity);
-        int start = ct;
+        size_t start = ct;
         ct += spanSize;
         return this->getSpan().subspan(start, spanSize);
     }

@@ -107,7 +107,7 @@ void PipelineLayoutGroup::BindRequiredDescriptorSetsToCommandBuffer(VkCommandBuf
         set = descriptorData.descriptorSetsCaches[isPerFrameOffset].descriptorSets[(c->activeDescriptorSet)];
 
 
-        bindDescriptorSet(cmd, currentlyBoundSets, this->layoutData.layout, set, i, bindPoint);
+        bindDescriptorSet(cmd, currentlyBoundSets, this->layoutData.layout, set, (uint32_t)i, bindPoint);
     }
 }
 
