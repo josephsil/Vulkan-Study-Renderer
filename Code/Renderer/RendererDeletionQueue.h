@@ -24,8 +24,9 @@ struct deleteableResource
     VmaAllocation vmaAllocation; // usually not defined 
 };
 
-struct RendererDeletionQueue
+class RendererDeletionQueue
 {
+public: 
     RendererDeletionQueue(VkDevice d, VmaAllocator vmaAllocator);
     void push_backVk(deletionType t, uint64_t vulkanObject);
     void push_backVMA(deletionType t, uint64_t vulkanObject, VmaAllocation allocation);

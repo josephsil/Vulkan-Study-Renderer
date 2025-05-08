@@ -5,12 +5,12 @@
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 
-#include "vertex.h"
+#include "../vertex.h"
 
 #pragma region forward declarations
 #include <span>
 
-#include "gpu-data-structs.h"
+#include "../gpu-data-structs.h"
 #pragma endregion
 
 namespace MemoryArena
@@ -36,9 +36,12 @@ struct MeshData
     int id; //TODO JS: needed?
 };
 
-positionRadius boundingSphereFromMeshBounds(std::span<glm::vec3> boundsCorners);
-MeshData MeshDataFromSpans(std::span<Vertex> vertices,
-                           std::span<uint32_t> indices);
-MeshData MeshDataFromObjFile(RendererContext rendererHandles, const char* path);
-MeshData FinalizeMeshDataFromTempMesh(MemoryArena::memoryArena* outputArena, MemoryArena::memoryArena* tempArena,
-                                      temporaryloadingMesh tempMesh);
+namespace MeshDataCreation
+{
+    positionRadius boundingSphereFromMeshBounds(std::span<glm::vec3> boundsCorners);
+    MeshData MeshDataFromSpans(std::span<Vertex> vertices,
+                               std::span<uint32_t> indices);
+    MeshData MeshDataFromObjFile(RendererContext rendererHandles, const char* path);
+    MeshData FinalizeMeshDataFromTempMesh(MemoryArena::memoryArena* outputArena, MemoryArena::memoryArena* tempArena,
+                                          temporaryloadingMesh tempMesh);
+}

@@ -1,6 +1,6 @@
 #pragma once
 #include <span>
-#include <glm/glm.hpp>
+#include <General/GLM_IMPL.h>
 #include <mikktspace.h>
 struct Vertex;
 

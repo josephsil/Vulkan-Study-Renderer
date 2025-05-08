@@ -1,9 +1,10 @@
 #include "game.h"
 
 //TODO JS: I'd love to include less
-#include "Renderer/meshData.h"
-#include "Renderer/TextureData.h"
+#include "Renderer/MeshCreation/meshData.h"
+#include "Renderer/TextureCreation/TextureData.h"
 #include "Renderer/gltf/gltfLoading.h"
+#include "Renderer/MeshCreation/MeshData.h"
 #include "Scene/AssetManager.h"
 #include "Scene/Scene.h"
 
@@ -13,17 +14,17 @@ void Add_Scene_Content(RendererContext rendererContext, AssetManager* rendererDa
     std::vector<size_t> randomMaterials;
     scene->sceneCamera.extent = {16, 10}; // ????
 
-    size_t defaultTexture = rendererData->AddTexture(createTexture(rendererContext, "textures/blank.png", DIFFUSE));
-    size_t defaultSPec = rendererData->AddTexture(createTexture(rendererContext, "textures/default_roug.tga", SPECULAR));
-    size_t defaultNormal = rendererData->AddTexture(createTexture(rendererContext, "textures/blank.png", SPECULAR));
+    size_t defaultTexture = rendererData->AddTexture(TextureCreation::CreateTexture(rendererContext, "textures/blank.png", DIFFUSE));
+    size_t defaultSPec = rendererData->AddTexture(TextureCreation::CreateTexture(rendererContext, "textures/default_roug.tga", SPECULAR));
+    size_t defaultNormal = rendererData->AddTexture(TextureCreation::CreateTexture(rendererContext, "textures/blank.png", SPECULAR));
 
     size_t placeholderMatidx;
     auto placeholderTextureidx = rendererData->AddTextureSet(
-        createTexture(rendererContext, "textures/pbr_cruiser-panels/space-cruiser-panels2_albedo.png",
+        TextureCreation::CreateTexture(rendererContext, "textures/pbr_cruiser-panels/space-cruiser-panels2_albedo.png",
                       DIFFUSE, VK_IMAGE_VIEW_TYPE_2D),
-        createTexture(rendererContext, "textures/pbr_cruiser-panels/space-cruiser-panels2_roughness_metallic.tga",
+        TextureCreation::CreateTexture(rendererContext, "textures/pbr_cruiser-panels/space-cruiser-panels2_roughness_metallic.tga",
                       SPECULAR, VK_IMAGE_VIEW_TYPE_2D),
-        createTexture(rendererContext, "textures/pbr_cruiser-panels/space-cruiser-panels2_normal-dx.png",
+        TextureCreation::CreateTexture(rendererContext, "textures/pbr_cruiser-panels/space-cruiser-panels2_normal-dx.png",
                       NORMAL, VK_IMAGE_VIEW_TYPE_2D));
 
     placeholderMatidx = rendererData->AddMaterial(0.2f, 0, glm::vec3(1.0f), placeholderTextureidx, 1);
@@ -31,11 +32,11 @@ void Add_Scene_Content(RendererContext rendererContext, AssetManager* rendererDa
 
 
     placeholderTextureidx = rendererData->AddTextureSet(
-        createTexture(rendererContext, "textures/pbr_cruiser-panels/space-cruiser-panels2_albedo.png",
+        TextureCreation::CreateTexture(rendererContext, "textures/pbr_cruiser-panels/space-cruiser-panels2_albedo.png",
                       DIFFUSE, VK_IMAGE_VIEW_TYPE_2D),
-        createTexture(rendererContext, "textures/pbr_cruiser-panels/space-cruiser-panels2_roughness_metallic.tga",
+        TextureCreation::CreateTexture(rendererContext, "textures/pbr_cruiser-panels/space-cruiser-panels2_roughness_metallic.tga",
                       SPECULAR, VK_IMAGE_VIEW_TYPE_2D),
-        createTexture(rendererContext, "textures/pbr_cruiser-panels/space-cruiser-panels2_normal-dx.png",
+        TextureCreation::CreateTexture(rendererContext, "textures/pbr_cruiser-panels/space-cruiser-panels2_normal-dx.png",
                       NORMAL, VK_IMAGE_VIEW_TYPE_2D));
     placeholderMatidx = rendererData->AddMaterial(0.2f, 0, glm::vec3(1.0f), placeholderTextureidx, 0);
     randomMaterials.push_back(placeholderMatidx);
@@ -157,9 +158,9 @@ void Add_Scene_Content(RendererContext rendererContext, AssetManager* rendererDa
     gltf = GltfLoadMeshes(rendererContext, "Meshes/pig.glb");
     placeholderTextureidx = rendererData->AddTextureSet(
         gltf.textures[gltf.materials[0].diffIndex],
-        createTexture(rendererContext, "textures/pbr_stainless-steel/used-stainless-steel2_roughness.png",
+        TextureCreation::CreateTexture(rendererContext, "textures/pbr_stainless-steel/used-stainless-steel2_roughness.png",
                       SPECULAR),
-        createTexture(rendererContext, "textures/pbr_stainless-steel/used-stainless-steel2_normal-dx.png",
+        TextureCreation::CreateTexture(rendererContext, "textures/pbr_stainless-steel/used-stainless-steel2_normal-dx.png",
                       NORMAL));
 
     placeholderMatidx = rendererData->AddMaterial(0.2f, 0, glm::vec3(1.0f), placeholderTextureidx, 1);
@@ -168,7 +169,7 @@ void Add_Scene_Content(RendererContext rendererContext, AssetManager* rendererDa
     randomMeshes.push_back(rendererData->AddBackingMesh(gltf.meshes[0].submeshes[0]));
     randomMeshes.push_back(
         rendererData->AddBackingMesh(GltfLoadMeshes(rendererContext, "Meshes/cubesphere.glb").meshes[0].submeshes[0]));
-    randomMeshes.push_back(rendererData->AddBackingMesh(MeshDataFromObjFile(rendererContext, "Meshes/monkey.obj")));
+    randomMeshes.push_back(rendererData->AddBackingMesh(MeshDataCreation::MeshDataFromObjFile(rendererContext, "Meshes/monkey.obj")));
 
     size_t cube = rendererData->AddBackingMesh(GltfLoadMeshes(rendererContext, "Meshes/cube.glb").meshes[0].submeshes[0]);
 

@@ -4,7 +4,6 @@
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
-#include <glm/common.hpp>
 
 template <typename T>
 struct Array
@@ -91,9 +90,12 @@ struct Array
         return this->getSpan().subspan(start, spanSize);
     }
 
+    size_t _min(size_t a, size_t b) {
+        return (a < b) ? a : b;
+    }
     std::span<T> getSpan(size_t size = INT_MAX)
     {
-        return std::span<T>(data, glm::min(ct, size));
+        return std::span<T>(data, _min(ct, size));
     }
 
     size_t size() const { return ct; }

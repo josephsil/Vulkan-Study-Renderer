@@ -6,35 +6,34 @@
 #include <cstdlib>
 #include <functional>
 #include <span>
-#include "../Vertex.h"
+#include <Renderer/Vertex.h>
 #include <ImageLibraryImplementations.h>
 #include <General/Array.h>
 #include <General/MemoryArena.h>
+#include <General/GLM_impl.h>
 #include <glm/gtx/matrix_decompose.hpp>
 
-#include "../bufferCreation.h"
-#include "../CommandPoolManager.h"
-#include "../gpu-data-structs.h"
-#include "../meshData.h"
+#include <Renderer/VulkanBuffers/bufferCreation.h>
+#include <Renderer/CommandPoolManager.h>
+#include <Renderer/gpu-data-structs.h>
+#include <Renderer/MeshCreation/meshData.h>
 #include <Scene/AssetManager.h>
-
-#include "glm_misc.h"
-#include "imgui.h"
-#include "../RendererInterface.h"
-#include "../textureCreation.h"
-#include "../TextureData.h"
-#include "../vulkan-utilities.h"
+#include <imgui.h>
+#include <Renderer/RendererInterface.h>
+#include <Renderer/TextureCreation/Internal/TextureCreationUtilities.h>
+#include <Renderer/TextureCreation/TextureData.h>
+#include <Renderer/vulkan-utilities.h>
 #include "backends/imgui_impl_sdl2.h"
 #include "backends/imgui_impl_vulkan.h"
-#include "../rendererGlobals.h"
-#include "Scene/Scene.h"
-#include "Scene/Transforms.h"
-#include "../VulkanIncludes/vmaImplementation.h"
-#include "VulkanRendererInternals/DrawBatches.h"
-#include "Renderer/VulkanIncludes/Vulkan_Includes.h"
-#include "VulkanRendererInternals/DebugLineData.h"
-#include "VulkanRendererInternals/LightAndCameraHelpers.h"
-#include "VulkanRendererInternals/RendererHelpers.h"
+#include <Renderer/rendererGlobals.h>
+#include <Scene/Scene.h>
+#include <Scene/Transforms.h>
+#include <Renderer/VulkanIncludes/vmaImplementation.h>
+#include <Renderer/MainRenderer/VulkanRendererInternals/DrawBatches.h>
+#include <Renderer/VulkanIncludes/Vulkan_Includes.h>
+#include <Renderer/MainRenderer/VulkanRendererInternals/DebugLineData.h>
+#include <Renderer/MainRenderer/VulkanRendererInternals/LightAndCameraHelpers.h>
+#include <Renderer/MainRenderer/VulkanRendererInternals/RendererHelpers.h>
 
 struct gpuPerShadowData;
 std::vector<unsigned int> pastTimes;
@@ -58,7 +57,7 @@ size_t UpdateDrawCommanddataDrawIndirectCommands(std::span<drawCommandData> targ
 VulkanRenderer::VulkanRenderer()
 {
     this->deletionQueue = std::make_unique<RendererDeletionQueue>(rendererVulkanObjects.vkbdevice, rendererVulkanObjects.vmaAllocator);
-    FramesInFlightData.resize(MAX_FRAMES_IN_FLIGHT);
+  
     
     //Initialize memory arenas we use throughout renderer 
     this->rendererArena = {};
@@ -68,6 +67,7 @@ VulkanRenderer::VulkanRenderer()
         MemoryArena::initialize(&perFrameArenas[i], 100000 * 50);
         // 50mb each //TODO JS: Could be much smaller if I used stable memory for per frame verts and stuff
     }
+
 
     opaqueObjectShaderSets = BindlessObjectShaderGroup(&rendererArena, 10);
     
@@ -81,6 +81,7 @@ VulkanRenderer::VulkanRenderer()
     shadowResources = init_allocate_shadow_memory(rendererVulkanObjects, &rendererArena);
 
 
+    FramesInFlightData = MemoryArena::AllocSpan<per_frame_data>(&rendererArena, MAX_FRAMES_IN_FLIGHT);
     //Command buffer stuff
     //semaphores
     for (int i = 0; i < FramesInFlightData.size(); i++)
@@ -319,19 +320,19 @@ void VulkanRenderer::InitializeRendererForScene(sceneCountData sceneCountData) /
     {
         TextureUtilities::createImage(getPartialRendererContext(),SHADOW_MAP_SIZE, SHADOW_MAP_SIZE,shadowFormat,VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
                VK_IMAGE_USAGE_SAMPLED_BIT,0,shadowResources.shadowImages[i],shadowResources.shadowMemory[i],1, MAX_SHADOWMAPS, true);
-        createTextureSampler(&shadowResources.shadowSamplers[i], getFullRendererContext(), VK_SAMPLER_ADDRESS_MODE_REPEAT, 0, 1, true);
+        TextureCreation::createTextureSampler(&shadowResources.shadowSamplers[i], getFullRendererContext(), VK_SAMPLER_ADDRESS_MODE_REPEAT, 0, 1, true);
         setDebugObjectName(rendererVulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_IMAGE, "SHADOW IMAGE", (uint64_t)(shadowResources.shadowImages[i]));
         setDebugObjectName(rendererVulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_SAMPLER, "SHADOW IMAGE SAMPLER", (uint64_t)(shadowResources.shadowSamplers[i]));
         UpdateShadowImageViews(i, sceneCountData);
     }
 
-    createDepthPyramidSampler(&globalResources.depthMipSampler, getFullRendererContext(),HIZDEPTH);  
+    TextureCreation::createDepthPyramidSampler(&globalResources.depthMipSampler, getFullRendererContext(),HIZDEPTH);  
 
     //Initialize scene-ish objects we don't have a place for yet 
     cubemaplut_utilitytexture_index = AssetDataAndMemory->AddTexture(
-        createTexture(getFullRendererContext(), "textures/outputLUT.png", TextureType::DATA_DONT_COMPRESS));
-    cube_irradiance = createTexture(getFullRendererContext(), "textures/output_cubemap2_diff8.ktx2", TextureType::CUBE);
-    cube_specular = createTexture(getFullRendererContext(), "textures/output_cubemap2_spec8.ktx2", TextureType::CUBE);
+        TextureCreation::CreateTexture(getFullRendererContext(), "textures/outputLUT.png", TextureType::DATA_DONT_COMPRESS));
+    cube_irradiance = TextureCreation::CreateTexture(getFullRendererContext(), "textures/output_cubemap2_diff8.ktx2", TextureType::CUBE);
+    cube_specular = TextureCreation::CreateTexture(getFullRendererContext(), "textures/output_cubemap2_spec8.ktx2", TextureType::CUBE);
 
     CreateUniformBuffers(sceneCountData.objectCount,sceneCountData.lightCount);
 
@@ -408,12 +409,6 @@ void VulkanRenderer::CreateUniformBuffers(size_t objectsCount, size_t lightCount
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        FramesInFlightData[i].perLightShadowShaderGlobalsBuffer.resize(MAX_SHADOWCASTERS);
-
-        for (size_t j = 0; j < MAX_SHADOWCASTERS ; j++)
-        {
-            FramesInFlightData[i].perLightShadowShaderGlobalsBuffer[j] = createDataBuffer<ShaderGlobals>(&context, 1, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
-        }
 
        
 
@@ -1201,7 +1196,7 @@ void VulkanRenderer::Update(Scene* scene)
     //Note -- we're not just submitting imgu icalls here, some are from the higher level of the app
     ImGui::Render();
 
-    auto checkFences = !firstTime[currentFrame];
+    auto checkFences = !firstRunOfFrame[currentFrame];
     if (checkFences)
     {
         vkWaitForFences(rendererVulkanObjects.vkbdevice.device, 1, &FramesInFlightData[currentFrame].inFlightFence, VK_TRUE, UINT64_MAX);
@@ -1214,7 +1209,7 @@ void VulkanRenderer::Update(Scene* scene)
     }
     if (!checkFences)
     {
-        firstTime[currentFrame] = false;
+        firstRunOfFrame[currentFrame] = false;
     }
     AssetDataAndMemory->Update();
 

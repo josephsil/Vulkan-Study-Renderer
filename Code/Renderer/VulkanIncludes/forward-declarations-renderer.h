@@ -1,4 +1,5 @@
 #pragma once
+#include <glm/fwd.hpp>
 
 using VkPipeline = struct VkPipeline_T*;
 struct VkVertexInputBindingDescription;
@@ -45,7 +46,7 @@ enum VkFormat : int; ;
 enum VkImageLayout : int; ;
 enum VkDescriptorType : int; ;
 enum VkImageTiling : int; ;
-using VkFlags = uint32_t;
+using VkFlags = glm::uint32_t;
 using VkFormatFeatureFlags = VkFlags;
 using VkMemoryPropertyFlags = VkFlags;
 using VkImageAspectFlags = VkFlags;

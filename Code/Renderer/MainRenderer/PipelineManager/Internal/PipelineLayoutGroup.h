@@ -6,11 +6,10 @@
 
 #include "General/MemoryArena.h"
 #include "Renderer/MainRenderer/PipelineManager/PipelineLayoutManager.h"
-#include "Renderer/VulkanIncludes/Vulkan_Includes.h"
 struct Vertex;
 //Forward declaration
 struct RendererContext;
-struct CommandPoolManager;
+class CommandPoolManager;
 struct descriptorUpdateData;
 
 

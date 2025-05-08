@@ -1,15 +1,16 @@
-#include "textureCreation.h"
+#include "TextureCreationUtilities.h"
 
 #include <atldef.h>
 #include <cassert>
 #include <cstdio>
 #include <cstdlib>
 
-#include "BufferAndPool.h"
-#include "bufferCreation.h"
-#include "CommandPoolManager.h"
-#include "rendererGlobals.h"
-#include "VulkanIncludes/Vulkan_Includes.h"
+#include "../../BufferAndPool.h"
+#include "../../bufferCreation.h"
+#include "../../CommandPoolManager.h"
+#include "../../rendererGlobals.h"
+#include "../../VulkanIncludes/Vulkan_Includes.h"
+#include "Renderer/RendererContext.h"
 
 
 //todo js
@@ -99,7 +100,7 @@ void TextureUtilities::transitionImageLayout(BufferCreationContext rendererConte
                                              bool useTransferPool, bool depth)
 {
     bool usingTempBuffer = workingBuffer == nullptr;
-    bufferAndPool tempBufferAndPool{};
+    CommandBufferPoolQueue tempBufferAndPool{};
     if (usingTempBuffer)
     {
         //Optional buffer for if the caller wants to submit the command to an existing buffer and manually end it later
@@ -188,7 +189,7 @@ void TextureUtilities::generateMipmaps(BufferCreationContext rendererContext, Vk
                                        int32_t texWidth,
                                        int32_t texHeight, uint32_t mipLevels)
 {
-    bufferAndPool bandp = rendererContext.commandPoolmanager->beginSingleTimeCommands(false);
+    CommandBufferPoolQueue bandp = rendererContext.commandPoolmanager->beginSingleTimeCommands(false);
 
 
     auto commandBuffer = bandp.buffer;

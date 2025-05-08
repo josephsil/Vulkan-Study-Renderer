@@ -1,10 +1,10 @@
 #include "MeshData.h"
-#include "MikkTImpl.h"
+#include <Renderer/MikkTImpl.h>
 #include <unordered_map>
-#include "RendererContext.h"
+#include <Renderer/RendererContext.h>
 #include <General/Array.h>
-#include "bufferCreation.h"
-#include "gpu-data-structs.h"
+#include <Renderer/VulkanBuffers/bufferCreation.h>
+#include <Renderer/gpu-data-structs.h>
 #include <General/MemoryArena.h>
 #include <MeshLibraryImplementations.h>
 
@@ -12,7 +12,8 @@
 
 int MESHID = 0;
 
-MeshData MeshDataFromSpans(std::span<Vertex> vertices,
+
+MeshData MeshDataCreation::MeshDataFromSpans(std::span<Vertex> vertices,
                            std::span<uint32_t> indices)
 {
     MeshData m = {};
@@ -23,7 +24,7 @@ MeshData MeshDataFromSpans(std::span<Vertex> vertices,
 }
 
 //TODO JS: not sure what the interface should be like, but playing with this idea of a temporary/scratch mesh and then a final mesh
-MeshData FinalizeMeshDataFromTempMesh(MemoryArena::memoryArena* outputArena, MemoryArena::memoryArena* tempArena,
+MeshData MeshDataCreation::FinalizeMeshDataFromTempMesh(MemoryArena::memoryArena* outputArena, MemoryArena::memoryArena* tempArena,
                                       temporaryloadingMesh tempMesh)
 {
     //Generate MikkT tangents
@@ -183,7 +184,7 @@ temporaryloadingMesh geoFromObjPath(MemoryArena::memoryArena* tempArena, const c
     return {_vertices.getSpan(), _indices.getSpan(), false};
 }
 
-MeshData MeshDataFromObjFile(RendererContext rendererHandles, const char* path)
+MeshData MeshDataCreation::MeshDataFromObjFile(RendererContext rendererHandles, const char* path)
 {
     setCursor(rendererHandles.tempArena);
     const char* ext = strrchr(path, '.');
@@ -194,7 +195,7 @@ MeshData MeshDataFromObjFile(RendererContext rendererHandles, const char* path)
     return mesh;
 }
 
-positionRadius boundingSphereFromMeshBounds(std::span<glm::vec3> boundsCorners)
+positionRadius MeshDataCreation::boundingSphereFromMeshBounds(std::span<glm::vec3> boundsCorners)
 {
     return {{(boundsCorners[0] + boundsCorners[1]) / 2.0f, 0.0}, distance(boundsCorners[0], boundsCorners[1]) * 0.5f};
 }

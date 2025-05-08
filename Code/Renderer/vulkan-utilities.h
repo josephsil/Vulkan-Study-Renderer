@@ -1,11 +1,10 @@
 #pragma once
 #include <span>
-#include <unordered_map>
 #include <vector>
-#include "Renderer/VulkanIncludes/Vulkan_Includes.h"
-
-#include "VulkanIncludes/forward-declarations-renderer.h"
-#include "rendererGlobals.h"
+#include <Renderer/VulkanIncludes/forward-declarations-renderer.h>
+#include <Renderer/rendererGlobals.h>
+#include <Renderer/RendererSharedTypes.h>
+#include <Renderer/MainRenderer/PipelineManager/PipelineLayoutManager.h>
 
 
 namespace MemoryArena
@@ -17,7 +16,7 @@ struct Vertex;
 class AssetManager;
 //Forward declaration
 struct RendererContext;
-struct CommandPoolManager;
+class CommandPoolManager;
 
 
 namespace DescriptorSets

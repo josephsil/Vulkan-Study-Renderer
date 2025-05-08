@@ -1,13 +1,8 @@
-#include "vulkan-utilities.h"
-
+#include <Renderer/vulkan-utilities.h>
 #include <cassert>
-
-#include "bufferCreation.h"
 #include <General/Array.h>
-#include "RendererContext.h"
-#include "TextureData.h"
+#include <Renderer/RendererContext.h>
 #include <General/MemoryArena.h>
-#include "VulkanIncludes/Vulkan_Includes.h"
 
 
 VkFormat Capabilities::findDepthFormat(VkPhysicalDevice physicalDevice)

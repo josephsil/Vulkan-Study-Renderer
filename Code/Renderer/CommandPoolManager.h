@@ -10,7 +10,12 @@ namespace vkb
     struct Device;
 }
 
-struct bufferAndPool;
+struct CommandBufferPoolQueue
+{
+    VkCommandBuffer buffer;
+    VkCommandPool pool;
+    VkQueue queue;
+};
 
 struct QueueData
 {
@@ -26,19 +31,19 @@ struct QueueData
 
 
 //This is silly -- merge with the apporoach used for drawing
-struct CommandPoolManager
+class CommandPoolManager
 {
+public:
     QueueData Queues;
-
     CommandPoolManager(vkb::Device vkbdevice, RendererDeletionQueue* deletionQueue);
 
     VkCommandPool commandPool;
     VkCommandPool transferCommandPool;
     VkCommandBuffer beginSingleTimeCommands_transfer();
-    bufferAndPool beginSingleTimeCommands(bool useTransferPoolInsteadOfGraphicsPool); //TODO JS: can i move to cpp?
+    CommandBufferPoolQueue beginSingleTimeCommands(bool useTransferPoolInsteadOfGraphicsPool); //TODO JS: can i move to cpp?
 
     void endSingleTimeCommands(VkCommandBuffer buffer);
-    void endSingleTimeCommands(bufferAndPool commandBuffer);
+    void endSingleTimeCommands(CommandBufferPoolQueue commandBuffer);
 
 private:
     VkDevice device;

@@ -2,6 +2,8 @@
 #include "Renderer/rendererGlobals.h"
 #include <General/GLM_impl.h>
 
+#include "Renderer/RendererSharedTypes.h"
+
 
 struct DebugLineData;
 struct PerShadowData;

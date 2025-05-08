@@ -1,20 +1,19 @@
 #define DEBUG 
 #include "TextureData.h"
 #include <ImageLibraryImplementations.h>
-#include "vulkan-utilities.h"
-#include "VulkanIncludes/Vulkan_Includes.h"
+#include <Renderer/vulkan-utilities.h>
+#include <Renderer/VulkanIncludes/Vulkan_Includes.h>
 
-#include "VulkanIncludes/VulkanMemory.h"
+#include <Renderer/VulkanIncludes/VulkanMemory.h>
 
 #include <cassert>
 #include <iostream>
 #include <ktxvulkan.h>
 
-#include "BufferAndPool.h"
-#include "bufferCreation.h"
-#include "CommandPoolManager.h"
-#include <General/MemoryArena.h>
-#include "textureCreation.h"
+
+#include <Renderer/VulkanBuffers/bufferCreation.h>
+#include <Renderer/CommandPoolManager.h>
+#include <Renderer/TextureCreation/internal/TextureCreationUtilities.h>
 #include <General/FileCaching.h>
 
 //Everywhere in the actual renderer we use ktx textures, but sometimes we load other textures from disk before caching them to ktx
@@ -37,7 +36,7 @@ static void cacheKTXFromTempTexture(RendererContext rendererContext, nonKTXTextu
 TextureMetaData GetOrLoadTexture(RendererContext rendererContext, const char* path, VkFormat format,
                                  TextureType textureType, bool use_mipmaps, bool compress);
 
-TextureData createTexture(RendererContext rendererContext, const char* path, TextureType type, VkImageViewType viewType)
+TextureData TextureCreation::CreateTexture(RendererContext rendererContext, const char* path, TextureType type, VkImageViewType viewType)
 {
     VkFormat inputFormat;
     VkSamplerAddressMode mode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
@@ -116,16 +115,16 @@ TextureData createTexture(RendererContext rendererContext, const char* path, Tex
 
 //TODO JS: these constructors suck and are error prone, was just easier refactor
 //FROM LOADED GLTF 
-TextureData createTexture(RendererContext rendererContext, const char* OUTPUT_PATH, const char* textureName,
+TextureData TextureCreation::CreateTexture(RendererContext rendererContext, const char* OUTPUT_PATH, const char* textureName,
                           VkFormat format, VkSamplerAddressMode samplerMode, unsigned char* pixels, uint64_t width,
-                          uint64_t height, int mipCt, bufferAndPool commandbuffer, bool compress)
+                          uint64_t height, int mipCt, CommandBufferPoolQueue* commandbuffer, bool compress)
 {
     nonKTXTextureInfo staging = createTextureImage(rendererContext, pixels, width, height, format, true);
     //TODO JS: no gaurantee taking output path data works -- not null terminated rght?
     cacheKTXFromTempTexture(rendererContext, staging, OUTPUT_PATH, format, DIFFUSE, mipCt != 0, compress);
 
 
-    auto ktxResult = createImageKTX(rendererContext, OUTPUT_PATH, DIFFUSE, true, true, &commandbuffer);
+    auto ktxResult = createImageKTX(rendererContext, OUTPUT_PATH, DIFFUSE, true, true, commandbuffer);
     VkFormat loadedFormat = ktxResult.dimensionsInfo.format;
     auto layerct = ktxResult.dimensionsInfo.layerCt;
     auto textureImage = ktxResult.textureImage;
@@ -154,11 +153,11 @@ TextureData createTexture(RendererContext rendererContext, const char* OUTPUT_PA
 }
 
 //FROM CACHED GLTF 
-TextureData createTexture(RendererContext rendererContext, const char* OUTPUT_PATH, const char* textureName,
+TextureData TextureCreation::CreateTexture(RendererContext rendererContext, const char* OUTPUT_PATH, const char* textureName,
                           VkFormat format, VkSamplerAddressMode samplerMode,
-                          uint64_t width, uint64_t height, int mipCt, bufferAndPool commandbuffer)
+                          uint64_t width, uint64_t height, int mipCt, CommandBufferPoolQueue* commandbuffer)
 {
-    auto ktxResult = createImageKTX(rendererContext, OUTPUT_PATH, DIFFUSE, true, true, &commandbuffer);
+    auto ktxResult = createImageKTX(rendererContext, OUTPUT_PATH, DIFFUSE, true, true, commandbuffer);
     VkFormat loadedFormat = ktxResult.dimensionsInfo.format;
 
     auto textureImageView = createTextureImageView(rendererContext, ktxResult, VK_IMAGE_VIEW_TYPE_2D);
@@ -423,7 +422,7 @@ TextureMetaData GetOrLoadTexture(RendererContext rendererContext, const char* pa
     {
         maxmip = cubeMips;
 
-        auto ktxResult = createImageKTX(rendererContext, path, textureType, true);
+        auto ktxResult = TextureCreation::createImageKTX(rendererContext, path, textureType, true);
         VkFormat loadedFormat = ktxResult.dimensionsInfo.format;
 
 
@@ -448,7 +447,7 @@ TextureMetaData GetOrLoadTexture(RendererContext rendererContext, const char* pa
         FileCaching::saveAssetChangedTime(path);
     }
 
-    return createImageKTX(rendererContext, ktxPath.data(), textureType, use_mipmaps, false);
+    return TextureCreation::createImageKTX(rendererContext, ktxPath.data(), textureType, use_mipmaps, false);
 }
 
 
@@ -459,7 +458,7 @@ TextureMetaData GetOrLoadTexture(RendererContext rendererContext, const char* pa
 //     vkDestroyImageView(rendererContext.device, textureImageView, nullptr);
 // 	   VulkanMemory::DestroyImage(rendererContext.allocator, textureImage, textureImageMemory);
 // }
-void createDepthPyramidSampler(VkSampler* textureSampler, RendererContext rendererContext, uint32_t maxMip)
+void TextureCreation::createDepthPyramidSampler(VkSampler* textureSampler, RendererContext rendererContext, uint32_t maxMip)
 {
     VkPhysicalDeviceProperties properties{};
     vkGetPhysicalDeviceProperties(rendererContext.physicalDevice, &properties);
@@ -488,7 +487,7 @@ void createDepthPyramidSampler(VkSampler* textureSampler, RendererContext render
     rendererContext.rendererdeletionqueue->push_backVk(deletionType::Sampler, uint64_t(*textureSampler));
 }
 
-void createTextureSampler(VkSampler* textureSampler, RendererContext rendererContext, VkSamplerAddressMode mode,
+void TextureCreation::createTextureSampler(VkSampler* textureSampler, RendererContext rendererContext, VkSamplerAddressMode mode,
                           float bias, uint32_t maxMip, bool shadow)
 {
     VkPhysicalDeviceProperties properties{};
@@ -591,7 +590,7 @@ void cacheKTXFromTempTexture(RendererContext rendererContext, nonKTXTextureInfo 
     VulkanMemory::DestroyImage(rendererContext.allocator, tempTexture.textureImage, tempTexture.alloc);
 }
 
-VkImageView createTextureImageView(RendererContext rendererContext, TextureMetaData data, VkImageViewType type)
+VkImageView TextureCreation::createTextureImageView(RendererContext rendererContext, TextureMetaData data, VkImageViewType type)
 {
     VkImageView view = TextureUtilities::createImageView(objectCreationContextFromRendererContext(rendererContext),
                                                          data.textureImage, data.dimensionsInfo.format,
@@ -699,8 +698,8 @@ static nonKTXTextureInfo createtempTextureFromPath(RendererContext rendererConte
 }
 
 
-TextureMetaData createImageKTX(RendererContext rendererContext, const char* path, TextureType type, bool mips,
-                               bool useExistingBuffer, bufferAndPool* buffer)
+TextureMetaData TextureCreation::createImageKTX(RendererContext rendererContext, const char* path, TextureType type, bool mips,
+                               bool useExistingBuffer, CommandBufferPoolQueue* buffer)
 {
     ktxVulkanDeviceInfo vdi;
     ktxVulkanTexture texture;
@@ -708,7 +707,7 @@ TextureMetaData createImageKTX(RendererContext rendererContext, const char* path
     ktxTexture2* kTexture;
     KTX_error_code ktxresult;
 
-    bufferAndPool workingTextureBuffer;
+    CommandBufferPoolQueue workingTextureBuffer;
     if (!useExistingBuffer)
     {
         workingTextureBuffer = rendererContext.textureCreationcommandPoolmanager->beginSingleTimeCommands(false);

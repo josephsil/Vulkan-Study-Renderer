@@ -1,8 +1,9 @@
 #include "RendererHelpers.h"
 
-#include "Renderer/BufferAndPool.h"
-#include "Renderer/textureCreation.h"
-#include "Renderer/vulkan-utilities.h"
+#include <Renderer/VulkanBuffers/bufferCreation.h>
+#include <Renderer/RendererContext.h>
+#include <Renderer/TextureCreation/Internal/TextureCreationUtilities.h>
+#include <Renderer/vulkan-utilities.h>
 
 
 #pragma region depth

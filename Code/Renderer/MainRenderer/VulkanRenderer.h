@@ -1,18 +1,20 @@
 #pragma once 
-#include <General/GLM_Impl.h>
 #include <General/Array.h>
+#include <General/GLM_Impl.h>
 // #include "rendererGlobals.h"
 #include <functional>
 
-#include "../CommandPoolManager.h"
-#include "../gpu-data-structs.h"
 #include <General/MemoryArena.h>
-#include "../Shaders/ShaderLoading.h"
-#include "VkBootstrap.h"
-#include "PipelineManager/PipelineLayoutManager.h"
-#include "Scene/Scene.h"
-#include "rendererStructs.h"
-#include "Renderer/RendererDeletionQueue.h"
+#include <Renderer/RendererContext.h>
+#include <Renderer/RendererDeletionQueue.h>
+#include <Renderer/VulkanBuffers/HostDataBuffer.h>
+#include <Renderer/MainRenderer/rendererStructs.h>
+#include <VkBootstrap.h>
+#include <Renderer/CommandPoolManager.h>
+#include <Renderer/gpu-data-structs.h>
+#include <Renderer/Shaders/ShaderLoading.h>
+#include <Renderer/MainRenderer/PipelineManager/PipelineLayoutManager.h>
+#include <Scene/Scene.h>
 // My stuff 
 struct gpulight;
 struct gpuvertex;
@@ -60,7 +62,6 @@ class VulkanRenderer
 {
 public:
     AssetManager* AssetDataAndMemory;
-    std::unordered_map<VkImageView, VkDescriptorSet> imguiRegisteredTextures;
 
     VulkanRenderer();
     RendererContext getFullRendererContext();
@@ -74,25 +75,23 @@ public:
     VkDescriptorSet GetOrRegisterImguiTextureHandle(VkSampler sampler, VkImageView imageView);
 
 private:
+    std::unordered_map<VkImageView, VkDescriptorSet> imguiRegisteredTextures;
+    struct per_frame_data;
     rendererObjects rendererVulkanObjects;
     GlobalRendererResources globalResources;
     PerSceneShadowResources shadowResources;
     std::unique_ptr<CommandPoolManager> commandPoolmanager;
     std::unique_ptr<RendererDeletionQueue> deletionQueue;
+    
     //Memory allocators
     MemoryArena::memoryArena rendererArena{};
     MemoryArena::memoryArena perFrameArenas[MAX_FRAMES_IN_FLIGHT];
 
-#pragma region SDL
     int WIDTH = (int)(1280 * 1.5);
     int HEIGHT = (int)(720 * 1.5);
     struct SDL_Window* _window{nullptr};
-#pragma endregion
     glm::mat4 freezeView = {};
     std::span<std::span<PerShadowData>> perLightShadowData;
-
-
-    void UpdateShadowImageViews(int frame, sceneCountData lightData);
 
 #pragma region  descriptor sets
     VkDescriptorPool descriptorPool;
@@ -106,10 +105,21 @@ private:
     PipelineLayoutHandle shadowLayoutIDX;
     PipelineLayoutHandle cullingLayoutIDX;
     PipelineLayoutHandle mipChainLayoutIDX;
+    
+    descriptorUpdates perSceneDescriptorUpdates = {};
+    std::span<descriptorUpdates> perFrameDescriptorUpdates = {};
+    std::span<descriptorUpdateData> computeUpdates[MAX_FRAMES_IN_FLIGHT] = {};
 
+    
+    std::span<per_frame_data> FramesInFlightData;
+    bool firstRunOfFrame[MAX_FRAMES_IN_FLIGHT];
+    bool isFirstFrame = true;
+    size_t cubemaplut_utilitytexture_index;
+    uint32_t currentFrame = 0;
 
+    void UpdateShadowImageViews(int frame, sceneCountData lightData);
+    
     void createDescriptorSetPool(RendererContext handles, VkDescriptorPool* pool);
-    //TODO 
     std::span<descriptorUpdateData> CreatePerSceneDescriptorUpdates(uint32_t frame,
                                                                     MemoryArena::memoryArena* arena,
                                                                     std::span<VkDescriptorSetLayoutBinding>
@@ -124,11 +134,6 @@ private:
                                                                   layoutBindings);
 
 
-    descriptorUpdates perSceneDescriptorUpdates = {};
-
-    std::span<descriptorUpdates> perFrameDescriptorUpdates = {};
-
-    std::span<descriptorUpdateData> computeUpdates[MAX_FRAMES_IN_FLIGHT] = {};
 
 #pragma endregion
 
@@ -139,12 +144,7 @@ private:
         acquireImageSemaphore semaphores;
         std::unique_ptr<RendererDeletionQueue> deletionQueue;
         VkFence inFlightFence{};
-
-        std::vector<HostDataBufferObject<ShaderGlobals>> perLightShadowShaderGlobalsBuffer;
-
         HostDataBufferObject<ShaderGlobals> opaqueShaderGlobalsBuffer;
-
-
         HostDataBufferObject<glm::vec4> hostVerts;
         dataBuffer deviceVerts;
         HostDataBufferObject<uint32_t> hostIndices;
@@ -164,12 +164,6 @@ private:
         HostDataBufferObject<glm::vec4> frustumsForCullBuffers;
     };
 
-    std::vector<per_frame_data> FramesInFlightData;
-    bool firstTime[MAX_FRAMES_IN_FLIGHT];
-    bool firstframe = true;
-    size_t cubemaplut_utilitytexture_index;
-
-    uint32_t currentFrame = 0;
 
     void initializeWindow();
 

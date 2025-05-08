@@ -5,10 +5,11 @@
 #include <cstdio>
 #include <cstring>
 
-#include "VulkanIncludes/VulkanMemory.h"
-#include "VulkanIncludes/vmaImplementation.h"
-#include "CommandPoolManager.h"
-#include "rendererGlobals.h"
+#include <Renderer/VulkanIncludes/VulkanMemory.h>
+#include <Renderer/VulkanIncludes/vmaImplementation.h>
+#include <Renderer/CommandPoolManager.h>
+#include <Renderer/rendererGlobals.h>
+
 
 void createBuffer(VmaAllocator allocator, VkDeviceSize size, VkBufferUsageFlags usage, VmaAllocationCreateFlags flags,
                   VmaAllocation* allocation, VkBuffer* buffer, VmaAllocationInfo* outAllocInfo)

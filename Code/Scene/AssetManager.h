@@ -1,9 +1,9 @@
 #pragma once
-#include "glm/glm.hpp"
 #include <General/Array.h>
 #include <Renderer/rendererGlobals.h>
 
-#include "Renderer/TextureData.h"
+#include "Renderer/RendererSharedTypes.h"
+#include "Renderer/TextureCreation/TextureData.h"
 //
 struct positionRadius;
 

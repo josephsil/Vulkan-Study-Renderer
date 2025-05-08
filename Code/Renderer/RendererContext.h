@@ -1,10 +1,9 @@
 #pragma once
 
 #include "RendererDeletionQueue.h"
-#include "General/Array.h"
 #include "VulkanIncludes/forward-declarations-renderer.h"
 
-struct CommandPoolManager;
+class CommandPoolManager;
 struct deleteableResource;
 
 namespace MemoryArena

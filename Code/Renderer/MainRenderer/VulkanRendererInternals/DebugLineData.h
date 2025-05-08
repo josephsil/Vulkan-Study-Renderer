@@ -1,11 +1,7 @@
-#pragma once
-#define GLM_FORCE_RADIANS	
-#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
+
 #include <span>
 #include <vector>
-#include <glm/vec3.hpp>
-#include <glm/vec4.hpp>
+#include <General/GLM_impl.h>
 
 #include "Renderer/gpu-data-structs.h"
 

@@ -1,11 +1,7 @@
-#define GLM_FORCE_RADIANS	
-#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#define GLM_GTC_quaternion
-#include "glm/glm.hpp"
+#include <General/GLM_IMPL.h>
 #include "AssetManager.h"
-#include <Renderer/MeshData.h> // TODO JS: I want to separate the backing data from the scene 
-#include <Renderer/TextureData.h> // TODO JS: I want to separate the backing data from the scene 
+#include <Renderer/MeshCreation/meshData.h> // TODO JS: I want to separate the backing data from the scene 
+#include <Renderer/TextureCreation/TextureData.h> // TODO JS: I want to separate the backing data from the scene 
 #include <General/MemoryArena.h>
 #include "engineGlobals.h"
 #include "General/Array.h"
@@ -102,7 +98,7 @@ textureSetIDs AssetManager::AddTextureSet(TextureData D, TextureData S, TextureD
 size_t AssetManager::AddBackingMesh(MeshData M)
 {
     backing_meshes.push_back(M);
-    meshBoundingSphereRad.push_back(boundingSphereFromMeshBounds(M.boundsCorners));
+    meshBoundingSphereRad.push_back(MeshDataCreation::boundingSphereFromMeshBounds(M.boundsCorners));
     return meshCount++;
 }
 

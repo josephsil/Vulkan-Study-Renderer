@@ -1,0 +1,66 @@
+#pragma once
+
+#pragma region forward declarations
+#include <cstdint>
+
+
+#include "../RendererContext.h"
+#include  "../VulkanIncludes/Vulkan_Includes.h"
+struct CommandBufferPoolQueue;
+using ktxTexture2 = struct ktxTexture2;
+using ktxVulkanTexture = struct ktxVulkanTexture;
+
+#pragma endregion
+enum TextureType
+{
+    DIFFUSE,
+    SPECULAR,
+    NORMAL,
+    CUBE,
+    LINEAR_DATA,
+    DATA_DONT_COMPRESS
+};
+
+struct textureFormatInfo
+{
+    VkFormat format;
+    VkImageType type;
+    uint32_t width;
+    uint32_t height;
+    uint32_t mipCt;
+    uint32_t layerCt;
+};
+
+struct TextureMetaData
+{
+    VkImage textureImage;
+    textureFormatInfo dimensionsInfo;
+    VkDeviceMemory ktxMemory;
+};
+
+
+struct TextureData
+{
+    VkDescriptorImageInfo vkImageInfo; //Info necessary for rendering
+    TextureMetaData metaData; //Other metadata for the renderer/engine to use someday
+};
+
+namespace TextureCreation
+{
+    static TextureMetaData createImageKTX(RendererContext rendererContext, const char* path, TextureType type, bool mips,
+                                          bool useExistingBuffer = false, CommandBufferPoolQueue* buffer = nullptr);
+    static VkImageView createTextureImageView(RendererContext rendererContext, TextureMetaData data, VkImageViewType type);
+    void createTextureSampler(VkSampler* textureSampler, RendererContext rendererContext, VkSamplerAddressMode mode,
+                              float bias, uint32_t maxMip, bool shadow = false);
+    void createDepthPyramidSampler(VkSampler* textureSampler, RendererContext rendererContext, uint32_t maxMip);
+    //FILEPATH PATH 
+    TextureData CreateTexture(RendererContext rendererContext, const char* path, TextureType type,
+                              VkImageViewType viewType = static_cast<VkImageViewType>(-1));
+    //GLTF PATH 
+    TextureData CreateTexture(RendererContext rendererContext, const char* OUTPUT_PATH, const char* textureName,
+                              VkFormat format, VkSamplerAddressMode samplerMode, unsigned char* pixels, uint64_t width,
+                              uint64_t height, int mipCt, CommandBufferPoolQueue* commandbuffer, bool compress);
+    TextureData CreateTexture(RendererContext rendererContext, const char* OUTPUT_PATH, const char* textureName,
+                              VkFormat format, VkSamplerAddressMode samplerMode,
+                              uint64_t width, uint64_t height, int mipCt, CommandBufferPoolQueue* commandbuffer);
+}

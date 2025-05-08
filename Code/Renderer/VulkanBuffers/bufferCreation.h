@@ -1,11 +1,8 @@
 #pragma once
-
-#include <glm/fwd.hpp>
-
-#include "VulkanIncludes/forward-declarations-renderer.h"
+#include <Renderer/VulkanIncludes/forward-declarations-renderer.h>
 
 //Forward declaration
-struct CommandPoolManager;
+class CommandPoolManager;
 struct Vertex;
 
 namespace BufferUtilities

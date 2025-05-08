@@ -1,13 +1,8 @@
 #pragma once
-
-#define GLM_FORCE_RADIANS	
-#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <span>
-#include <glm/glm.hpp>
-#include<glm/gtc/quaternion.hpp>
+#include <General/GLM_IMPL.h>
 
-#include "Renderer/TextureData.h"
+#include "Renderer/TextureCreation/TextureData.h"
 
 
 struct RendererContext;

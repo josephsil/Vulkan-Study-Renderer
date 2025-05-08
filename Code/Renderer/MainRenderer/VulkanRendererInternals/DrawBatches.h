@@ -1,7 +1,9 @@
 #pragma once
 #include "General/MemoryArena.h"
 #include "Renderer/rendererGlobals.h"
+#include "Renderer/RendererSharedTypes.h"
 #include "Renderer/MainRenderer/rendererStructs.h"
+#include "Renderer/MainRenderer/PipelineManager/PipelineLayoutManager.h"
 #include "Renderer/VulkanIncludes/forward-declarations-renderer.h"
 
 struct ActiveRenderStepData;

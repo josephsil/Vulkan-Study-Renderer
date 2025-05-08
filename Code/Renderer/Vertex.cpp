@@ -1,7 +1,6 @@
-#include "Vertex.h"
-#include <array>
-#include "VulkanIncludes/Vulkan_Includes.h"
-#include "glm/gtx/hash.hpp"
+#include <Renderer/Vertex.h>
+#include <General/GLM_impl.h>
+#include <glm/gtx/hash.hpp>
 
 
 std::size_t VertexHash::operator()(const Vertex& v) const

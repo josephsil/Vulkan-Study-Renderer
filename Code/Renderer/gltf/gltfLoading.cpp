@@ -1,19 +1,18 @@
 #include "gltfLoading.h"
 #include "Renderer/VulkanIncludes/Vulkan_Includes.h"
 
-#include <Renderer/MeshData.h>
+#include <Renderer/MeshCreation/meshData.h>
 #include <General/MemoryArena.h>
 #include <General/Array.h>
-
+#include <General/GLM_impl.h>
 #include <General/FileCaching.h>
 #include <glm/gtx/matrix_decompose.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #define TINYGLTF_NO_STB_IMAGE
 #include "gltf_impl.h"
-#include <Renderer/BufferAndPool.h>
 #include <Renderer/CommandPoolManager.h>
 #include <Renderer/RendererContext.h>
-#include <Renderer/TextureData.h>
+#include <Renderer/TextureCreation/TextureData.h>
 
 //Default tinyobj load image fn
 bool LoadImageData(tinygltf::Image* image, const int image_idx, std::string* err,
@@ -439,7 +438,7 @@ gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
             temporaryloadingMesh tempMesh = geoFromGLTFMesh(tempArena, &model, model.meshes[i].primitives[j]);
 
             //TODO JS: at some point move this out to run on the whole mesh, rather than submeshes 
-            submeshes[j] = FinalizeMeshDataFromTempMesh(permanentArena, tempArena, tempMesh);
+            submeshes[j] = MeshDataCreation::FinalizeMeshDataFromTempMesh(permanentArena, tempArena, tempMesh);
             submeshMats[j] = model.meshes[i].primitives[j].material;
             assert(
                 model.meshes[i].primitives[j].material != -1 && "-1 Material index (no material) not supported. TODO.");
@@ -507,14 +506,14 @@ gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
             assert(image.pixel_type == TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE);
             assert(image.bits == 8);
 
-            textures[i] = createTexture(handles, cachedImagePath.data(), name.data(), VK_FORMAT_R8G8B8A8_SRGB,
+            textures[i] = TextureCreation::CreateTexture(handles, cachedImagePath.data(), name.data(), VK_FORMAT_R8G8B8A8_SRGB,
                                         VK_SAMPLER_ADDRESS_MODE_REPEAT, image.image.data(), image.width, image.height,
-                                        6, textureImportCommandBuffer, true);
+                                        6, &textureImportCommandBuffer, true);
         }
         else
-            textures[i] = createTexture(handles, cachedImagePath.data(), name.data(), VK_FORMAT_R8G8B8A8_SRGB,
+            textures[i] = TextureCreation::CreateTexture(handles, cachedImagePath.data(), name.data(), VK_FORMAT_R8G8B8A8_SRGB,
                                         VK_SAMPLER_ADDRESS_MODE_REPEAT, image.width, image.height, 6,
-                                        textureImportCommandBuffer);
+                                        &textureImportCommandBuffer);
     }
 
     handles.textureCreationcommandPoolmanager->endSingleTimeCommands(textureImportCommandBuffer);

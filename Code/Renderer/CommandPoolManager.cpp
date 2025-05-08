@@ -1,6 +1,5 @@
 #include "CommandPoolManager.h"
 
-#include "BufferAndPool.h"
 #include "RendererDeletionQueue.h"
 #include "./VulkanIncludes/Vulkan_Includes.h"
 #include "VkBootstrap.h" //TODO JS: dont love vkb being in multiple places
@@ -25,7 +24,7 @@ VkCommandBuffer CommandPoolManager::beginSingleTimeCommands_transfer()
     return beginSingleTimeCommands(true).buffer;
 }
 
-bufferAndPool CommandPoolManager::beginSingleTimeCommands(
+CommandBufferPoolQueue CommandPoolManager::beginSingleTimeCommands(
     bool useTransferPoolInsteadOfGraphicsPool)
 {
     VkCommandBufferAllocateInfo allocInfo{};
@@ -43,7 +42,7 @@ bufferAndPool CommandPoolManager::beginSingleTimeCommands(
 
     vkBeginCommandBuffer(commandBuffer, &beginInfo);
 
-    bufferAndPool result = {
+    CommandBufferPoolQueue result = {
         commandBuffer, useTransferPoolInsteadOfGraphicsPool ? transferCommandPool : commandPool,
         useTransferPoolInsteadOfGraphicsPool ? Queues.transferQueue : Queues.graphicsQueue
     };
@@ -65,7 +64,7 @@ void CommandPoolManager::endSingleTimeCommands(VkCommandBuffer buffer)
     vkFreeCommandBuffers(device, transferCommandPool, 1, &buffer);
 }
 
-void CommandPoolManager::endSingleTimeCommands(bufferAndPool bufferAndPool)
+void CommandPoolManager::endSingleTimeCommands(CommandBufferPoolQueue bufferAndPool)
 {
     vkEndCommandBuffer(bufferAndPool.buffer);
 

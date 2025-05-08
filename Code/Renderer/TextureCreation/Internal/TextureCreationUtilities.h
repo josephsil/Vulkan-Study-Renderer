@@ -1,10 +1,10 @@
 #pragma once
 #include <cstdint>
-#include "VulkanIncludes/forward-declarations-renderer.h"
+#include "../../VulkanIncludes/forward-declarations-renderer.h"
 
 struct BufferCreationContext;
-struct RendererDeletionQueue;
-struct CommandPoolManager;
+class RendererDeletionQueue;
+class CommandPoolManager;
 
 namespace TextureUtilities
 {

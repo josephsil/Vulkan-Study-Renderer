@@ -1,6 +1,6 @@
 #include "LightAndCameraHelpers.h"
 #include "DebugLineData.h"
-#include "glm_misc.h"
+
 #include "Renderer/gpu-data-structs.h"
 
 viewProj LightAndCameraHelpers::CalcViewProjFromCamera(cameraData camera)

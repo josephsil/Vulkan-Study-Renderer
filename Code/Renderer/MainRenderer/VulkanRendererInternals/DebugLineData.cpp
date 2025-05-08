@@ -1,8 +1,6 @@
 #include "DebugLineData.h"
 
 #include <span>
-#include <glm/vec4.hpp>
-
 #include "Renderer/gpu-data-structs.h"
 
 struct linePair
