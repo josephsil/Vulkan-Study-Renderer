@@ -760,7 +760,7 @@ void VulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<std::spa
         auto model2 = transpose(*model);
 
 
-        positionRadius meshSpacePositionAndRadius = AssetDataAndMemory->meshBoundingSphereRad[scene->objects.meshIndices[i]];
+        positionRadius meshSpacePositionAndRadius =  AssetDataAndMemory->meshBoundingSphereRad[scene->objects.meshIndices[i]];
         float meshRadius = meshSpacePositionAndRadius.radius;
         float objectScale = glm::max(glm::max( scale.x, scale.x), scale.x);
         ubos[i].cullingInfo.pos = meshSpacePositionAndRadius.pos;

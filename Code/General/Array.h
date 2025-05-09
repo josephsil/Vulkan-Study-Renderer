@@ -102,3 +102,75 @@ struct Array
     size_t size_bytes() const { return sizeof(T) * ct; }
     size_t capacity_bytes() const { return sizeof(T) * capacity; }
 };
+
+template <typename T>
+struct Array2
+{
+    T* data = nullptr;
+    size_t ct;
+    size_t capacity;
+
+
+    Array2()
+    {
+    };
+
+    Array2(T* d, size_t _size)
+    {
+        assert(!std::is_void_v<T>);
+        data = d;
+        capacity = _size;
+        ct = 0;
+    }
+
+    Array2(T* d, size_t _ct, size_t _size)
+    {
+        assert(!std::is_void_v<T>);
+        data = d;
+        capacity = _size;
+        ct = _ct;
+    }
+
+    Array2(std::span<T> span)
+    {
+        assert(!std::is_void_v<T>);
+        data = span.data();
+        capacity = span.size();
+        ct = 0;
+    }
+
+    T& operator[](const size_t i)
+    {
+        assert(i < ct);
+        return data[i];
+    }
+
+    
+    template <typename... Args>
+    void emplace_back(Args&&... args)
+    {
+        assert(ct < capacity);
+        new (&data[ct++]) T(std::forward<Args>(args)...);
+    }
+
+
+    std::span<T> pushUninitializedSubspan(size_t spanSize)
+    {
+        assert(ct + spanSize < capacity);
+        size_t start = ct;
+        ct += spanSize;
+        return this->getSpan().subspan(start, spanSize);
+    }
+
+    size_t _min(size_t a, size_t b) {
+        return (a < b) ? a : b;
+    }
+    std::span<T> getSpan(size_t size = INT_MAX)
+    {
+        return std::span<T>(data, _min(ct, size));
+    }
+
+    size_t size() const { return ct; }
+    size_t size_bytes() const { return sizeof(T) * ct; }
+    size_t capacity_bytes() const { return sizeof(T) * capacity; }
+};

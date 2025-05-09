@@ -12,6 +12,7 @@
 #include "Renderer/gltf/gltfLoading.h"
 #include "Scene/Scene.h"
 #include "Code/Renderer/MainRenderer/VulkanRenderer.h"
+#include "General/ImportThreads.h"
 //RENDERER TODOS:
 /*
  * -Submeshes
@@ -33,7 +34,21 @@ std::vector<VkDescriptorSet> ImGuiExposedTextures;
 
 int main()
 {
-    printf("NEW ENTRY");
+
+    ImportThreads t;
+    printf("THREADS \n");
+    MemoryArena::memoryArena threadArena  {};
+    initialize(&threadArena, 3 * 1000000);
+    InitializeImportThreads(&threadArena, &t);
+    for(int i =0; i < 600; i++)
+    {
+        SubmitRequest(&t, i * i);
+    }
+    auto r = WaitForAllRequests(&t, 1);
+    auto code = r ? 0 : -100;
+
+    printf("NEW ENTRY \n");
+    exit(code);
 
     // Setup Dear ImGui context
     IMGUI_CHECKVERSION();
