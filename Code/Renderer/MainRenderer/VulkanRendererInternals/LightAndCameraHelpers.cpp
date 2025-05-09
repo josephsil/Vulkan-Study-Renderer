@@ -129,7 +129,7 @@ std::span<PerShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryArena
         
             debugLinesManager->AddDebugFrustum(frustumCornersWorldSpace);
 
-            float clipRange = cam.farPlane - cam.nearPlane;
+            float clipRange = (cam.farPlane - cam.nearPlane);
             float minZ =  cam.nearPlane;
             float maxZ =  cam.nearPlane + clipRange;
 
@@ -142,12 +142,14 @@ std::span<PerShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryArena
                 float p = (i + 1) / static_cast<float>(CASCADE_CT);
                 float log = minZ * std::pow(ratio, p);
                 float uniform = minZ + range * p;
-                float d = 0.92f * (log - uniform) + uniform;
+                float d = 0.96f * (log - uniform) + uniform;
                 cascadeSplits[i] = (d - cam.nearPlane) / clipRange;
             }
 
+
             for (int i = 0; i < CASCADE_CT; i++)
             {
+                glm::vec3 debugPos = glm::vec3(cam.eyePos);
                 float splitDist = cascadeSplits[i];
                 float lastSplitDist = i == 0 ? 0 : cascadeSplits[i-1]; 
                 
@@ -157,7 +159,7 @@ std::span<PerShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryArena
                     frustumCornersWorldSpacev3[j] = glm::vec3(frustumCornersWorldSpace[j]);
                 }
                 for(int j = 0; j < 4; j++)
-                {
+                { //Dont think this is right, think my frustum is oriented differently
                     glm::vec3 dist = frustumCornersWorldSpacev3[j + 4] - frustumCornersWorldSpacev3[j];
                     frustumCornersWorldSpacev3[j + 4] = frustumCornersWorldSpacev3[j] + (dist * splitDist);
                     frustumCornersWorldSpacev3[j] = frustumCornersWorldSpacev3[j] + (dist * lastSplitDist);
@@ -169,18 +171,17 @@ std::span<PerShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryArena
                 }
                 frustumCenter /= 8.0f;
 
-                debugLinesManager->addDebugCross(frustumCenter, 20, {0,0,1});
-               
-
-   
                 float radius = 0.0f;
                 for (uint32_t i = 0; i < 8; i++) {
                     float distance = glm::length(glm::vec3(frustumCornersWorldSpacev3[i]) - frustumCenter);
                     radius = glm::max<float>(radius, distance);
                 }
-                
                 radius = std::ceil(radius * 16.0f) / 16.0f;
-                float offset = 12.0;
+
+
+                debugLinesManager->addDebugCross(debugPos, 2, {0,static_cast<float>(i) /  static_cast<float>(CASCADE_CT),0});
+               
+                float distanceOffset = 9.0;
 
 
                 //Texel clamping
@@ -195,14 +196,12 @@ std::span<PerShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryArena
                 transformedCenter.x = floor(transformedCenter.x);
                 transformedCenter.y = floor(transformedCenter.y);
                 transformedCenter = texelInverse * transformedCenter ;
-
-
                 //Compute output matrices
-                lightViewMatrix = glm::lookAt(glm::vec3(transformedCenter)  + ((dir * maxExtents) * offset), glm::vec3(transformedCenter), up);
-                glm::mat4 lightOrthoMatrix = glm::ortho(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, 0.0f, (maxExtents.z - minExtents.z) * offset);
+                lightViewMatrix = glm::lookAt(glm::vec3(transformedCenter)  + ((dir * maxExtents) * distanceOffset), glm::vec3(transformedCenter), up);
+                glm::mat4 lightOrthoMatrix = glm::ortho(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, 0.0f, (maxExtents.z - minExtents.z) * distanceOffset);
 
                 lightProjection =  lightOrthoMatrix;
-                outputSpan[i] = {lightViewMatrix, lightProjection,  (cam.nearPlane + splitDist * clipRange) * -1.0f};
+                outputSpan[i] = {lightViewMatrix, lightProjection,  ((cam.nearPlane + splitDist * clipRange) ) * -1.0f};
             }
             return  outputSpan.subspan(0,CASCADE_CT);
         }

@@ -17,7 +17,7 @@ static constexpr int MAX_DRAWS_PER_PIPELINE = 2000; //whatever, probably could b
 static constexpr int MAX_PIPELINES = 80; //whatever, probably could be dynamic, will fix later
 static constexpr int MAX_RENDER_PASSES = 120; //whatever, probably could be dynamic, will fix later
 constexpr VkFormat shadowFormat = VK_FORMAT_D16_UNORM;
-constexpr uint32_t SHADOW_MAP_SIZE = 1024;
+constexpr uint32_t SHADOW_MAP_SIZE = 2048;
 
 template <typename T>
 std::span<T > CreatePerFrameCollection(MemoryArena::memoryArena* arena)
