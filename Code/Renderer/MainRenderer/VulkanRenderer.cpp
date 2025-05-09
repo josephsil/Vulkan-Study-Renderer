@@ -1248,7 +1248,7 @@ bool GetFlattenedShadowDataForIndex(int index, std::span<std::span<PerShadowData
 
 
 
-RenderBatchCreationConfig  CreateOpaquePassesConfig(RenderBatchQueue* targetPassList, std::span<FullShaderHandle> shaderGroup, CommonRenderPassData passData,
+RenderBatchCreationConfig  CreateOpaquePassesConfig(uint32_t firstObject, std::span<FullShaderHandle> shaderGroup, CommonRenderPassData passData,
                                      std::span<std::span<PerShadowData>> inputShadowdata,
                                      PipelineLayoutHandle layoutGroup,
                                      ActiveRenderStepData* opaqueRenderStepContext,
@@ -1259,6 +1259,7 @@ RenderBatchCreationConfig  CreateOpaquePassesConfig(RenderBatchQueue* targetPass
     
 {
     uint32_t objectsPerDraw = (uint32_t)passData.scenePtr->objectsCount();
+    uint32_t nextFirstObject =firstObject;
     viewProj viewProjMatricesForCulling = LightAndCameraHelpers::CalcViewProjFromCamera(passData.scenePtr->sceneCamera);
     //Culling debug stuff
     PerShadowData* data = MemoryArena::Alloc<PerShadowData>(passData.tempAllocator);
@@ -1267,7 +1268,7 @@ RenderBatchCreationConfig  CreateOpaquePassesConfig(RenderBatchQueue* targetPass
     {
         shadowDrawCt += inputShadowdata[i].size();
     }
-    assert(targetPassList->drawCount >= shadowDrawCt); //TODO JS-frustum-binding
+    // assert(targetPassList->drawCount >= shadowDrawCt); //TODO JS-frustum-binding
 
     
     if ( debug_cull_override && GetFlattenedShadowDataForIndex(debug_cull_override_index,inputShadowdata, data))
@@ -1287,7 +1288,7 @@ RenderBatchCreationConfig  CreateOpaquePassesConfig(RenderBatchQueue* targetPass
         .StepContext = opaqueRenderStepContext,
         .pushConstant = {.ptr = nullptr, .size = 0},
         .cameraViewProjForCulling = viewProjMatricesForCulling,
-        .drawOffset = (uint32_t)targetPassList->batchConfigs.size(),
+        .drawOffset = nextFirstObject,
         .objectCount = objectsPerDraw,
         .depthBiasConfig = {false, 0, 0}
     };
@@ -1297,7 +1298,7 @@ RenderBatchCreationConfig  CreateOpaquePassesConfig(RenderBatchQueue* targetPass
 
 }
 
-std::span<RenderBatchCreationConfig> CreateShadowPassConfigs(RenderBatchQueue* targetPassList, CommonRenderPassData config,
+std::span<RenderBatchCreationConfig> CreateShadowPassConfigs(uint32_t firstObject, CommonRenderPassData config,
                                      cameraData* camera, 
                                      std::span<std::span<PerShadowData>> inputShadowdata,
                                      PipelineLayoutHandle layoutHandle,
@@ -1306,6 +1307,7 @@ std::span<RenderBatchCreationConfig> CreateShadowPassConfigs(RenderBatchQueue* t
                                      std::span<VkImageView> shadowMapRenderingViews)
 {
     uint32_t objectsPerDraw = (uint32_t)config.scenePtr->objectsCount();
+    uint32_t nextFirstObject =firstObject;
 
     auto shadowCasterCt =  glm::min(config.scenePtr->lightCount, MAX_SHADOWCASTERS); 
     Array resultConfigs = MemoryArena::AllocSpan<RenderBatchCreationConfig>(config.tempAllocator, shadowCasterCt * 6);
@@ -1333,10 +1335,12 @@ std::span<RenderBatchCreationConfig> CreateShadowPassConfigs(RenderBatchQueue* t
                 .StepContext = shadowRenderStepContext,
                 .pushConstant = {.ptr = shadowPC, .size =256},
                 .cameraViewProjForCulling = {.view = view, .proj =proj },
-                .drawOffset = (uint32_t)resultConfigs.size(),
+                .frustumIndex = (uint32_t)resultConfigs.size(),
+                .drawOffset = nextFirstObject,
                 .objectCount = objectsPerDraw,
                 .depthBiasConfig = {.use = true, .depthBias = 6.0, .slopeBias = 3.0}
             };
+            nextFirstObject += objectsPerDraw;
             resultConfigs.push_back(c);
         }
     }
@@ -1405,6 +1409,16 @@ VkDescriptorSet UpdateAndGetBindlessDescriptorSetForFrame(RendererContext contex
     return descriptorSet;
 }
 uint32_t internal_debug_cull_override_index = 0;
+
+uint32_t GetNextFirstIndex(RenderBatchQueue* q)
+{
+    if (q->batchConfigs.size() == 0 || q->batchConfigs.back().meshPasses.size() == 0)
+    {
+        return 0;
+    }
+    auto& pass =  q->batchConfigs.back().meshPasses.back();
+    return pass.firstIndex + pass.ct;
+}
 void VulkanRenderer::RenderFrame(Scene* scene)
 {
     if (debug_cull_override_index != internal_debug_cull_override_index)
@@ -1614,8 +1628,9 @@ void VulkanRenderer::RenderFrame(Scene* scene)
         .computeRenderStepContext =computeRenderStepContext,
         .indexBuffer = thisFrameData->deviceIndices.data
         };
-    
-     auto shadowPassConfigs = CreateShadowPassConfigs(&renderBatches, renderPassContext, &scene->sceneCamera,
+
+
+     auto shadowPassConfigs = CreateShadowPassConfigs(GetNextFirstIndex(&renderBatches), renderPassContext, &scene->sceneCamera,
                      perLightShadowData, shadowLayoutIDX,  opaqueObjectShaderSets.shadowShaders.getSpan(),
                      shadowRenderStepContext, shadowResources.shadowMapRenderingImageViews[currentFrame]);
 
@@ -1628,7 +1643,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     VkRenderingAttachmentInfoKHR* depthDrawAttatchment = MemoryArena::Alloc<VkRenderingAttachmentInfoKHR>(&perFrameArenas[currentFrame]);
     *depthDrawAttatchment = CreateRenderingAttatchmentStruct( globalResources.depthBufferInfo.view, 1.0, true);
     
-    auto conf = CreateOpaquePassesConfig(&renderBatches,opaqueObjectShaderSets.opaqueShaders.getSpan(), renderPassContext, 
+    auto conf = CreateOpaquePassesConfig(GetNextFirstIndex(&renderBatches),opaqueObjectShaderSets.opaqueShaders.getSpan(), renderPassContext, 
                     perLightShadowData, opaqueLayoutIDX, 
                     opaqueRenderStepContext,mainRenderTargetAttatchment,depthDrawAttatchment, rendererVulkanObjects.swapchain.extent);
 

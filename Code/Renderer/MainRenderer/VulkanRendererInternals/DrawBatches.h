@@ -36,6 +36,7 @@ struct RenderBatchCreationConfig
     ActiveRenderStepData* StepContext;
     pointerSize pushConstant;
     viewProj cameraViewProjForCulling;
+    uint32_t frustumIndex;
     uint32_t drawOffset;
     uint32_t objectCount;
     depthBiasSettng depthBiasConfig;

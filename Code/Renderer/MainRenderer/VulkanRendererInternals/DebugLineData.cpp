@@ -15,10 +15,10 @@ std::vector<linePair> debugLines;
 void DebugLineData::AddDebugFrustum(std::span<glm::vec4> frustum)
 {
     //Back plane
-    debugLines.push_back({{frustum[0]}, {frustum[1]}, {1, 0, 0}});
-    debugLines.push_back({{frustum[1]}, {frustum[2]}, {1, 0, 0}});
-    debugLines.push_back({{frustum[2]}, {frustum[3]}, {1, 0, 0}});
-    debugLines.push_back({{frustum[3]}, {frustum[0]}, {1, 0, 0}});
+    debugLines.push_back({{frustum[0]}, {frustum[1]}, {0, 0.5, 0}});
+    debugLines.push_back({{frustum[1]}, {frustum[2]}, {0, 0.5, 0}});
+    debugLines.push_back({{frustum[2]}, {frustum[3]}, {0, 0.5, 0}});
+    debugLines.push_back({{frustum[3]}, {frustum[0]}, {0, 0.5, 0}});
 
     //front plane 
     debugLines.push_back({{frustum[4 + 0]}, {frustum[4 + 1]}, {0.5, 0, 0}});
