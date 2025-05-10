@@ -38,10 +38,17 @@ struct RequestsData
     Array<requestStatus> requestStatuses;
     
 };
-
-bool CheckRequestDataReadable(RequestsData& d, size_t thisThreadIdx, size_t tgtIndex)
+struct ImportThreadsInternals
 {
-    auto lockedIndices = d.perThreadLockedIndices.data();
+    std::span<std::atomic<uint32_t>> CancellationRequest; //Length of THREAD_CT //todo js: order of this matters -- exception if its first
+    std::span<std::atomic<bool>> debug_isCancelled; //Length of THREAD_CT
+    //Result data:
+    RequestsData requestsData;
+    std::span<std::thread> threadMemory;
+};
+bool CheckRequestDataReadable(ImportThreadsInternals& d, size_t thisThreadIdx, size_t tgtIndex)
+{
+    auto lockedIndices = d.requestsData.perThreadLockedIndices.data();
     for (size_t i = 0; i < THREAD_CT; i++)
     {
         if (i == thisThreadIdx) continue;
@@ -54,12 +61,12 @@ bool CheckRequestDataReadable(RequestsData& d, size_t thisThreadIdx, size_t tgtI
     return true;
 }
 
-bool TryReserveRequestData(RequestsData& d, size_t thisThreadIdx, size_t tgtIndex)
+bool TryReserveRequestData(ImportThreadsInternals* d, size_t thisThreadIdx, size_t tgtIndex)
 {
 
     //Check if any thread already has this reserved
-    auto& lockedIndices = d.perThreadLockedIndices;
-    if (!CheckRequestDataReadable(d,thisThreadIdx, tgtIndex))
+    auto& lockedIndices = d->requestsData.perThreadLockedIndices;
+    if (!CheckRequestDataReadable(*d,thisThreadIdx, tgtIndex))
     {
         return false;
     }
@@ -69,93 +76,67 @@ bool TryReserveRequestData(RequestsData& d, size_t thisThreadIdx, size_t tgtInde
     return true;
 }
 
-void ReleaseRequestData(RequestsData& d, size_t thisThreadIdx, size_t tgtIndex)
+void ReleaseRequestData(ImportThreadsInternals* d, size_t thisThreadIdx, size_t tgtIndex)
 {
     //Reserve 
-    d.perThreadLockedIndices[thisThreadIdx].store(SIZE_MAX);
+    d->requestsData.perThreadLockedIndices[thisThreadIdx].store(SIZE_MAX);
 }
-struct ImportThreadsInternals
-{
-    std::span<std::atomic<uint32_t>> CancellationRequest; //Length of THREAD_CT //todo js: order of this matters -- exception if its first
-    std::span<std::atomic<bool>> debug_isCancelled; //Length of THREAD_CT
-    //Result data:
-    RequestsData requestsData;
-    std::span<std::thread> threadMemory;
-};
 
-enum class state {
-    POLL,
-    WORK,
-};
 
-void ThreadQueueFn(ImportThreadsInternals* ThreadJobData, workerContext workerContext, uint8_t thread_idx)
+
+state ThreadQueueFnInnerPoll(ImportThreadsInternals* ThreadJobData, size_t currentRequestIndex, uint8_t thread_idx)
 {
-    state poll = state::POLL;
-    size_t currentRequestindex = thread_idx;
-    bool cancelled = false;
     auto& requestsData = ThreadJobData->requestsData;
+    size_t requestCt = requestsData.requestCt; //Read this atomically before each loop
 
-        size_t requestCt = requestsData.requestCt; //Read this atomically before each loop
-      
+    if (ThreadJobData->CancellationRequest[thread_idx]== (uint32_t)TerminationRequest::CANCEL) // Accept Cancellation
+    {
+        // cancelled = true; 
+        ThreadJobData->debug_isCancelled[thread_idx].store(true);
+        return state::CANCELLED;  //Current step is done and has a cancellation request, cancel.
+    }
 
-        while(true)
-        {
-            if (ThreadJobData->CancellationRequest[thread_idx]== (uint32_t)TerminationRequest::CANCEL) // Accept Cancellation
-            {
-                cancelled = true; 
-                ThreadJobData->debug_isCancelled[thread_idx].store(true);
-                return;  //Current step is done and has a cancellation request, cancel.
-            }
-            if (currentRequestindex < requestCt)
-            {
-                switch (poll)
-                {
-                case state::POLL:
-                    {
-                        currentRequestindex = requestsData.requestsIndex++; //Get the next request to try to read
-                        if(currentRequestindex >= requestCt) break;
-                        if (!TryReserveRequestData(requestsData, thread_idx, currentRequestindex))
-                        {
-                            assert(!"Unexpected reserved request data");
-                        }
-                        assert(requestsData.requestStatuses[currentRequestindex] == requestStatus::WAITING);
-                    
-                        requestsData.requestStatuses[currentRequestindex] = requestStatus::STARTED;
-                        ReleaseRequestData(requestsData, thread_idx, currentRequestindex);
-                        poll = state::WORK;
-                        break;
-                    }
-    
-                case state::WORK:
-                    {
-                        if (!TryReserveRequestData(requestsData, thread_idx, currentRequestindex))
-                        {
-                            assert(!"Unexpected reserved request data");
-                        }
-
-                        requestsData.requestStatuses[currentRequestindex] = requestStatus::COMPLETED;
-                        //do actual work
-                        void* dataPtr = (char*)requestsData.requestDataPayload + (requestsData.requestDataTypeSize * currentRequestindex);
-                        workerContext.threadWorkerFunction(&workerContext, dataPtr,  thread_idx);
-                       
-                        ReleaseRequestData(requestsData, thread_idx, currentRequestindex);
-                        //Finished with work
-                        poll = state::POLL;
-                        break;
-                    }
-                }
-            }
-            else
-            {
-                if (ThreadJobData->CancellationRequest[thread_idx].load() == (uint32_t)TerminationRequest::COMPLETE)
-                {
-                    return; //Work is done and has a completion request, exit;
-                }
-                std::this_thread::sleep_for(std::chrono::nanoseconds(100));
-            }
-        }
-    printf("%d: Exited while! \n", thread_idx);
+    if (!TryReserveRequestData(ThreadJobData, thread_idx, currentRequestIndex))
+    {
+        assert(!"Unexpected reserved request data");
+    }
+    assert(requestsData.requestStatuses[currentRequestIndex] == requestStatus::WAITING);
+                
+    requestsData.requestStatuses[currentRequestIndex] = requestStatus::STARTED;
+    ReleaseRequestData(ThreadJobData, thread_idx, currentRequestIndex);
+    return state::WORK;
+       
 }
+
+size_t GetRequestCt(ImportThreadsInternals* ThreadJobData)
+{
+    return ThreadJobData->requestsData.requestCt;
+}
+
+void* UnwrapWorkerData(ImportThreadsInternals* ThreadJobData, size_t requestIndex)
+{
+    return (char*)ThreadJobData->requestsData.requestDataPayload + (ThreadJobData->requestsData.requestDataTypeSize * requestIndex);
+}
+
+bool ShouldComplete(ImportThreadsInternals* ThreadJobData, uint8_t thread_idx)
+{
+    return ThreadJobData->CancellationRequest[thread_idx].load() == (uint32_t)TerminationRequest::COMPLETE;
+}
+
+size_t Get_IncrementRequestCt(ImportThreadsInternals* ThreadJobData)
+{
+    return ThreadJobData->requestsData.requestsIndex++; //Get the next request to try to read
+}
+
+void ThreadQueueFnInnerWork(ImportThreadsInternals* ThreadJobData, size_t currentRequestIndex, int8_t thread_idx)
+{
+ 
+    ThreadJobData->requestsData.requestStatuses[currentRequestIndex] = requestStatus::COMPLETED;
+    //do actual work
+    
+}
+
+
 
 void testThreadFn()
 {

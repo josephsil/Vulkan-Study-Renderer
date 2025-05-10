@@ -47,18 +47,4 @@ struct workerContext3
     }
 };
 
-template<class C> 
-class workerContextTemplateExec
-{
-    C c;
-    static void workerFn( void* b, uint8_t c)
-    {
-        workerContext* ctx;
-        c.threadWorkerFunction(ctx, b, c);
-    }
-    static void completeJobFN(void* b)
-    {
-        c.completeJobFN(c.contextdata, b, c);
-    }
-};
 
