@@ -2,7 +2,6 @@
 #include <span>
 #include <thread>
 
-const size_t THREAD_CT = 4;
 #include "MemoryArena.h"
 #include "Mock_prototype_threads_impl.h"
 
@@ -20,6 +19,7 @@ struct ImportThreadsInternals;
 
 struct ImportThreads
 {
+    size_t THREAD_CT;
     ImportThreadsInternals* _Internal;
 };
 
@@ -29,6 +29,34 @@ enum class state {
     POLL,
     WORK,
     CANCELLED
+};
+
+template<class C>
+//Not strictly sure the wrapper is necessary, I might be able to pass references to objects of type C directly to the thread functions
+//However, didn't work on first pass. Not sure I understand template intiialization.
+class ThreadRunnerWrapper //todo js: need a better name for this. basically just screwing around with templates and decltype and stuff at this point
+{
+public:
+    C* input;
+    //Wanted to do stuffl ike this, but oculdnt get it to work
+    // template <typename ClassType, typename MethodType>
+    // using FunctionSignature = std::remove_pointer_t<std::remove_cv_t<MethodType>>;
+        
+    // static_assert( std::is_same< FunctionSignature<C, decltype(&C::WORKER_FN)>,FunctionSignature<workerContextInterface,decltype(&workerContextInterface::WORKER_FN)>>::value,
+    //   "has threadWorkerFunction");
+
+    ThreadRunnerWrapper(C* c)
+    {
+        input = c;
+    }
+    void workerFn( void* b, uint8_t _c)
+    {
+        input->WORKER_FN(b, _c);
+    }
+    void completeJobFN(void* b)
+    {
+        input->ON_COMPLETE_FN(b);
+    }
 };
 
 state ThreadQueueFnInnerPoll(ImportThreadsInternals* ThreadJobData, size_t currentRequestIndex, uint8_t thread_idx);
@@ -50,7 +78,7 @@ size_t Get_IncrementRequestCt(ImportThreadsInternals* ThreadJobData);
 
 
 template<class T>
-inline void ThreadQueueFn(ImportThreadsInternals* ThreadJobData, workerContextTemplateExec<T> context, uint8_t thread_idx)
+inline void ThreadQueueFn(ImportThreadsInternals* ThreadJobData, ThreadRunnerWrapper<T> context, uint8_t thread_idx)
 {
     state poll = state::POLL;
     size_t currentRequestindex = thread_idx;
@@ -117,9 +145,9 @@ inline void ThreadQueueFn(ImportThreadsInternals* ThreadJobData, workerContextTe
 std::thread* GetThreadAllocation(ImportThreads* threadPool, size_t idx);
 
 template<class T>
-void CreateThreads(ImportThreads* threadPool, workerContextTemplateExec<T> context)
+void CreateThreads(ImportThreads* threadPool, ThreadRunnerWrapper<T> context)
 {
-    for(uint8_t thread_id =0; thread_id< THREAD_CT; thread_id++)
+    for(uint8_t thread_id =0; thread_id< threadPool->THREAD_CT; thread_id++)
     {
         printf("%d thead id \n", thread_id);
      
@@ -129,7 +157,7 @@ void CreateThreads(ImportThreads* threadPool, workerContextTemplateExec<T> conte
 bool WaitForCompletionInternal(ImportThreads* ThreadPool);
 
 template<class T>
-bool WaitForCompletion(ImportThreads* ThreadPool, workerContextTemplateExec<T> context, int timeout  = 12400)
+bool WaitForCompletion(ImportThreads* ThreadPool, ThreadRunnerWrapper<T> context, int timeout  = 12400)
 {
 
     auto res = WaitForCompletionInternal(ThreadPool);
@@ -141,9 +169,9 @@ bool WaitForCompletion(ImportThreads* ThreadPool, workerContextTemplateExec<T> c
     
 }
 
-    void InitializeThreadPool(MemoryArena::memoryArena* arena, ImportThreads* _init, void* workData, ptrdiff_t requestSize, size_t maxRequests);
+    void InitializeThreadPool(MemoryArena::memoryArena* arena, ImportThreads* _init, void* workData, ptrdiff_t requestSize, size_t maxRequests, size_t THREAD_CT);
     void SubmitRequests(ImportThreads* threadPool, size_t data);
 
 
-    void CreateThreads(ImportThreads* threadPool, workerContext t);
+    void CreateThreads(ImportThreads* threadPool, workerContextInterface t);
 

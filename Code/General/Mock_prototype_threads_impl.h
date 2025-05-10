@@ -7,25 +7,24 @@ struct testThreadWorkData
     int requestdata;
 };
 
-struct workerContext
-{
-    static void* contextdata;
-    static void (*threadWorkerFunction)(void* _thisData, void*,  uint8_t);
-    static void (*completeJobFN)(void* _thisData, void*);
-};
 
-struct workerContext3
+
+
+
+
+
+struct PrototypeThreadWorker
 {
-    void* contextdata;
-    static void threadWorkerFunction(void* _thisData, void* data, uint8_t thread_idx)
+    std::span<uint64_t> contextdata;
+    void WORKER_FN(void* data, uint8_t thread_idx)
     {
         testThreadWorkData* d = (testThreadWorkData*)data; 
         *d = {thread_idx};
     }
-    static void completeJobFN (void* _thisData, void* data)
+    void ON_COMPLETE_FN (void* data)
     {
         auto reqspan = std::span((testThreadWorkData*)data, 1200);
-        auto dstSpan =  std::span((int*)_thisData, 10); //TODO JS: correct count
+        auto dstSpan =  contextdata; //TODO JS: correct count
         for (auto& result :reqspan)
         {
             printf("%d == \n", result.requestdata);
@@ -35,7 +34,7 @@ struct workerContext3
         size_t ct = 0;
         for (auto result : dstSpan)
         {
-            printf("%d: %d  ", j, result);
+            printf("%d: %llu  ", j, result);
             j++;
             ct += result;
         }
@@ -43,18 +42,12 @@ struct workerContext3
     }
 };
 
-
-template<class C> 
-class workerContextTemplateExec
+struct workerContextInterface
 {
-public:
-    void* data;
-    void workerFn( void* b, uint8_t _c)
-    {
-        C::threadWorkerFunction(data, b, _c);
-    }
-    void completeJobFN(void* b)
-    {
-        C::completeJobFN(data, b);
-    }
+    static void* contextdata;
+    // static void INITIALIZE_FN(MemoryArena::memoryArena* arena);
+    void WORKER_FN(void* data, uint8_t thread_idx);
+    void ON_COMPLETE_FN (void* data);
 };
+
+

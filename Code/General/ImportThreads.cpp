@@ -48,7 +48,7 @@ struct ImportThreadsInternals
 bool CheckRequestDataReadable(ImportThreadsInternals& d, size_t thisThreadIdx, size_t tgtIndex)
 {
     auto lockedIndices = d.requestsData.perThreadLockedIndices.data();
-    for (size_t i = 0; i < THREAD_CT; i++)
+    for (size_t i = 0; i < d.threadMemory.size(); i++)
     {
         if (i == thisThreadIdx) continue;
         size_t comp = lockedIndices[i].load();
@@ -149,7 +149,7 @@ void joinThreads(ImportThreads* ThreadPool)
 
 bool WaitForCompletionInternal(ImportThreads* ThreadPool)
 {
-    for(size_t i = 0; i < THREAD_CT; i++)
+    for(size_t i = 0; i < ThreadPool->THREAD_CT; i++)
     {
         printf("sending completion request \n");
         ThreadPool->_Internal->CancellationRequest[i].store(((uint32_t)TerminationRequest::COMPLETE));
@@ -175,9 +175,10 @@ void testThreadFn()
     printf("%d from thread \n", 1);
 }
 
-void InitializeThreadPool(MemoryArena::memoryArena* arena, ImportThreads* _init, void* workData, ptrdiff_t requestSize, size_t maxRequests)
+void InitializeThreadPool(MemoryArena::memoryArena* arena, ImportThreads* _init, void* workData, ptrdiff_t requestSize, size_t maxRequests, size_t THREAD_CT)
 {
     _init->_Internal = MemoryArena::AllocDefaultInitialize<ImportThreadsInternals>(arena);
+    _init->THREAD_CT = THREAD_CT;
     auto& threadPool = *_init->_Internal;
     threadPool.debug_isCancelled = MemoryArena::AllocSpan<std::atomic<bool>>(arena, THREAD_CT);
     threadPool.CancellationRequest = MemoryArena::AllocSpan<std::atomic<uint32_t>>(arena, THREAD_CT);

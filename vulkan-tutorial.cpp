@@ -49,41 +49,20 @@ int main()
     {
         work_data.requestdata = i++;
     }
-    InitializeThreadPool(&threadArena, &t, workData.data(), sizeof(testThreadWorkData), workData.size());
-    workerContext testThreadWorkerContext =
-        {
-            .contextdata = MemoryArena::AllocSpan<int>(&differentArena, 10).data(), // 
-            .threadWorkerFunction = [](workerContext* _this, void* data, uint8_t thread_idx)
-            {
-                testThreadWorkData* d = (testThreadWorkData*)data; 
-                *d = {thread_idx};
-            },
-        .completeJobFN = [] (workerContext* _this, void* data)
-        {
-            auto reqspan = std::span((testThreadWorkData*)data, 1200);
-            auto dstSpan =  std::span((int*)_this->contextdata, 10);
-            for (auto& result :reqspan)
-            {
-                printf("%d == \n", result.requestdata);
-                dstSpan[result.requestdata] += 1;
-            }
-            int j = 0;
-            size_t ct = 0;
-            for (auto result : dstSpan)
-            {
-                printf("%d: %d  ", j, result);
-                j++;
-                ct += result;
-            }
-            printf("\n %llu \n", ct);
-        }
-        };
+    int threadCt =  4;
+    InitializeThreadPool(&threadArena, &t, workData.data(), sizeof(testThreadWorkData), workData.size(), threadCt);
+  
 
-    auto wct = workerContext3();
-    CreateThreads(&t,testThreadWorkerContext );
+    auto worker = PrototypeThreadWorker
+    {
+        .contextdata = MemoryArena::AllocSpan<uint64_t>(&differentArena, 4)
+    };
+    auto wrapper = ThreadRunnerWrapper(&worker);
+ 
+    CreateThreads(&t,wrapper );
 
     SubmitRequests(&t, workData.size());
-    auto r = WaitForCompletion(&t, testThreadWorkerContext);
+    auto r = WaitForCompletion(&t, wrapper);
     auto code = r ? 0 : -100;
 
     printf("NEW ENTRY \n");
