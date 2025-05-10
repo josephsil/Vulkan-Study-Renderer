@@ -7,7 +7,6 @@
 #include "Mock_prototype_threads_impl.h"
 using namespace std;
 
-const size_t THREAD_CT = 4;
 struct available //cpp thread?
 {
     bool completed;
@@ -113,9 +112,16 @@ size_t GetRequestCt(ImportThreadsInternals* ThreadJobData)
     return ThreadJobData->requestsData.requestCt;
 }
 
-void* UnwrapWorkerData(ImportThreadsInternals* ThreadJobData, size_t requestIndex)
+void* UnwrapWorkerDataForIdx(ImportThreadsInternals* ThreadJobData, size_t requestIndex)
 {
     return (char*)ThreadJobData->requestsData.requestDataPayload + (ThreadJobData->requestsData.requestDataTypeSize * requestIndex);
+}
+
+
+
+void* GetWorkerDataPtr(ImportThreadsInternals* ThreadJobData)
+{
+    return ThreadJobData->requestsData.requestDataPayload;
 }
 
 bool ShouldComplete(ImportThreadsInternals* ThreadJobData, uint8_t thread_idx)
@@ -126,6 +132,32 @@ bool ShouldComplete(ImportThreadsInternals* ThreadJobData, uint8_t thread_idx)
 size_t Get_IncrementRequestCt(ImportThreadsInternals* ThreadJobData)
 {
     return ThreadJobData->requestsData.requestsIndex++; //Get the next request to try to read
+}
+
+std::thread* GetThreadAllocation(ImportThreads* threadPool, size_t idx)
+{
+    return &threadPool->_Internal->threadMemory[idx];
+}
+
+void joinThreads(ImportThreads* ThreadPool)
+{
+    for (auto& t : ThreadPool->_Internal->threadMemory)
+    {
+        t.join();
+    }
+}
+
+bool WaitForCompletionInternal(ImportThreads* ThreadPool)
+{
+    for(size_t i = 0; i < THREAD_CT; i++)
+    {
+        printf("sending completion request \n");
+        ThreadPool->_Internal->CancellationRequest[i].store(((uint32_t)TerminationRequest::COMPLETE));
+    }
+    //Done, join threads
+    joinThreads(ThreadPool);
+    printf("joined threads \n");
+    return true;
 }
 
 void ThreadQueueFnInnerWork(ImportThreadsInternals* ThreadJobData, size_t currentRequestIndex, int8_t thread_idx)
@@ -164,15 +196,7 @@ void InitializeThreadPool(MemoryArena::memoryArena* arena, ImportThreads* _init,
 
 }
 
-void CreateThreads(ImportThreads* threadPool, workerContext functions)
-{
-    for(uint8_t thread_id =0; thread_id< THREAD_CT; thread_id++)
-    {
-        printf("%d thead id \n", thread_id);
-     
-        new (&threadPool->_Internal->threadMemory[thread_id]) std::thread(ThreadQueueFn, threadPool->_Internal, functions, thread_id);
-    }
-}
+
 
 
 void SubmitRequests(ImportThreads* threadPool, size_t ct)
@@ -185,13 +209,6 @@ void SubmitRequests(ImportThreads* threadPool, size_t ct)
         threadPool->_Internal->requestsData.requestCt += ct;
 }
 
-void joinThreads(ImportThreads* ThreadPool)
-{
-    for (auto& t : ThreadPool->_Internal->threadMemory)
-    {
-        t.join();
-    }
-}
 
 
 void CancelThreadPool(ImportThreads* ThreadPool)
@@ -207,23 +224,3 @@ void CancelThreadPool(ImportThreads* ThreadPool)
     printf("Cancelled\n");
 }
 
-bool WaitForCompletion(ImportThreads* ThreadPool, workerContext workerContext, int timeout)
-{
-    auto startTime = clock();
-    auto remainingWork = std::vector<size_t>();
-    auto indicesToKeep = std::vector<size_t>();
-    for(size_t i = 0; i < THREAD_CT; i++)
-    {
-        printf("sending completion request \n");
-        ThreadPool->_Internal->CancellationRequest[i].store(((uint32_t)TerminationRequest::COMPLETE));
-    }
-    //Done, join threads
-    joinThreads(ThreadPool);
-    printf("joined threads \n");
- 
-
-    workerContext.completeJobFN(&workerContext, ThreadPool->_Internal->requestsData.requestDataPayload);
-
-    return true;
-    
-}

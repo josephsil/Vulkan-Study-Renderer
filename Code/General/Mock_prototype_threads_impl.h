@@ -2,34 +2,30 @@
 #include <span>
 
 #include "MemoryArena.h"
-
-
 struct testThreadWorkData
 {
     int requestdata;
 };
 
-struct workerContext2
+struct workerContext
 {
-    void* contextdata;
-     void threadWorkerFunction(workerContext* _this, void*,  uint8_t);
-     void completeJobFN(workerContext* _this, void*);
+    static void* contextdata;
+    static void (*threadWorkerFunction)(void* _thisData, void*,  uint8_t);
+    static void (*completeJobFN)(void* _thisData, void*);
 };
-
 
 struct workerContext3
 {
     void* contextdata;
-    //contextdata = MemoryArena::AllocSpan<int>(&differentArena, 10).data(), // 
-    void threadWorkerFunction(workerContext* _this, void* data, uint8_t thread_idx)
+    static void threadWorkerFunction(void* _thisData, void* data, uint8_t thread_idx)
     {
         testThreadWorkData* d = (testThreadWorkData*)data; 
         *d = {thread_idx};
-    };
-    void completeJobFN (workerContext* _this, void* data)
+    }
+    static void completeJobFN (void* _thisData, void* data)
     {
         auto reqspan = std::span((testThreadWorkData*)data, 1200);
-        auto dstSpan =  std::span((int*)_this->contextdata, 10);
+        auto dstSpan =  std::span((int*)_thisData, 10); //TODO JS: correct count
         for (auto& result :reqspan)
         {
             printf("%d == \n", result.requestdata);
@@ -48,3 +44,17 @@ struct workerContext3
 };
 
 
+template<class C> 
+class workerContextTemplateExec
+{
+public:
+    void* data;
+    void workerFn( void* b, uint8_t _c)
+    {
+        C::threadWorkerFunction(data, b, _c);
+    }
+    void completeJobFN(void* b)
+    {
+        C::completeJobFN(data, b);
+    }
+};

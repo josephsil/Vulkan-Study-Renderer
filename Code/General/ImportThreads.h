@@ -1,7 +1,12 @@
 #pragma once
 #include <span>
+#include <thread>
 
+const size_t THREAD_CT = 4;
 #include "MemoryArena.h"
+#include "Mock_prototype_threads_impl.h"
+
+struct ImportThreads;
 
 enum class requestStatus {
     UINITIALIZED,
@@ -12,28 +17,13 @@ enum class requestStatus {
 
 struct ImportThreadsInternals;
 
-struct workerContext
+
+struct ImportThreads
 {
-    void* contextdata;
-     void (*threadWorkerFunction)(workerContext* _this, void*,  uint8_t);
-     void (*completeJobFN)(workerContext* _this, void*);
+    ImportThreadsInternals* _Internal;
 };
 
 
-template<class C> 
-class workerContextTemplateExec
-{
-    C c;
-    static void workerFn( void* b, uint8_t c)
-    {
-        workerContext* ctx;
-        c.threadWorkerFunction(ctx, b, c);
-    }
-    static void completeJobFN(void* b)
-    {
-        c.completeJobFN(c.contextdata, b, c);
-    }
-};
 
 enum class state {
     POLL,
@@ -48,7 +38,8 @@ void ThreadQueueFnInnerWork(ImportThreadsInternals* ThreadJobData, size_t curren
 bool TryReserveRequestData(ImportThreadsInternals* d, size_t thisThreadIdx, size_t tgtIndex);
 void ReleaseRequestData(ImportThreadsInternals* d, size_t thisThreadIdx, size_t tgtIndex);
 size_t GetRequestCt(ImportThreadsInternals* ThreadJobData);
-void* UnwrapWorkerData(ImportThreadsInternals* ThreadJobData, size_t requestIndex);
+void* UnwrapWorkerDataForIdx(ImportThreadsInternals* ThreadJobData, size_t requestIndex);
+void* GetWorkerDataPtr(ImportThreadsInternals* ThreadJobData);
 bool ShouldComplete(ImportThreadsInternals* ThreadJobData, uint8_t thread_idx);
 
 //get rid of this
@@ -56,7 +47,10 @@ size_t Get_IncrementRequestCt(ImportThreadsInternals* ThreadJobData);
 //TODO JS: in the process of splitting this up, so I can pull this functio out to the header and make templte rather than void pointers
 //TODO JS: Need to hide all of the importthreadinternals details
 //TODO JS currently workercontext is all pointers so I can pass by value, but this might need attention with templaet path
-inline void ThreadQueueFn(ImportThreadsInternals* ThreadJobData, workerContext workerContext, uint8_t thread_idx)
+
+
+template<class T>
+inline void ThreadQueueFn(ImportThreadsInternals* ThreadJobData, workerContextTemplateExec<T> context, uint8_t thread_idx)
 {
     state poll = state::POLL;
     size_t currentRequestindex = thread_idx;
@@ -91,8 +85,8 @@ inline void ThreadQueueFn(ImportThreadsInternals* ThreadJobData, workerContext w
                      }
 
                      ThreadQueueFnInnerWork(ThreadJobData, currentRequestindex, thread_idx);
-                     void* dataPtr = (UnwrapWorkerData(ThreadJobData, currentRequestindex));
-                     workerContext.threadWorkerFunction(&workerContext, dataPtr,  thread_idx);
+                     void* dataPtr = (UnwrapWorkerDataForIdx(ThreadJobData, currentRequestindex));
+                     context.workerFn(dataPtr,  thread_idx);
                        
                      ReleaseRequestData(ThreadJobData, thread_idx, currentRequestindex);
                      //Finished with work
@@ -120,13 +114,36 @@ inline void ThreadQueueFn(ImportThreadsInternals* ThreadJobData, workerContext w
     printf("%d: Exited while! \n", thread_idx);
 }
 
-struct ImportThreads
+std::thread* GetThreadAllocation(ImportThreads* threadPool, size_t idx);
+
+template<class T>
+void CreateThreads(ImportThreads* threadPool, workerContextTemplateExec<T> context)
 {
-    ImportThreadsInternals* _Internal;
-};
+    for(uint8_t thread_id =0; thread_id< THREAD_CT; thread_id++)
+    {
+        printf("%d thead id \n", thread_id);
+     
+        new (GetThreadAllocation(threadPool, thread_id)) std::thread(ThreadQueueFn<T>, threadPool->_Internal, context, thread_id);
+    }
+}
+bool WaitForCompletionInternal(ImportThreads* ThreadPool);
+
+template<class T>
+bool WaitForCompletion(ImportThreads* ThreadPool, workerContextTemplateExec<T> context, int timeout  = 12400)
+{
+
+    auto res = WaitForCompletionInternal(ThreadPool);
+    assert(res);
+    
+    context.completeJobFN(GetWorkerDataPtr(ThreadPool->_Internal));
+
+    return true;
+    
+}
+
     void InitializeThreadPool(MemoryArena::memoryArena* arena, ImportThreads* _init, void* workData, ptrdiff_t requestSize, size_t maxRequests);
     void SubmitRequests(ImportThreads* threadPool, size_t data);
-    bool WaitForCompletion(ImportThreads* ThreadPool, workerContext workerContext, int timeout  = 12400);
+
 
     void CreateThreads(ImportThreads* threadPool, workerContext t);
 
