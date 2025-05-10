@@ -26,6 +26,7 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include=".gitmodules" />
+    <Content Include="Code\General\Mock_prototype_threads_impl.h" />
     <Content Include="Textures\**">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>

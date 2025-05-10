@@ -13,6 +13,7 @@
 #include "Scene/Scene.h"
 #include "Code/Renderer/MainRenderer/VulkanRenderer.h"
 #include "General/ImportThreads.h"
+#include "General/Mock_prototype_threads_impl.h"
 //RENDERER TODOS:
 /*
  * -Submeshes
@@ -39,12 +40,50 @@ int main()
     printf("THREADS \n");
     MemoryArena::memoryArena threadArena  {};
     initialize(&threadArena, 3 * 1000000);
-    InitializeImportThreads(&threadArena, &t);
-    for(int i =0; i < 600; i++)
+
+    MemoryArena::memoryArena differentArena  {};
+    initialize(&differentArena, 3 * 1000000);
+    std::span<testThreadWorkData> workData = MemoryArena::AllocSpan<testThreadWorkData>(&differentArena, 1200);
+    int i = 0;
+    for (auto& work_data : workData)
     {
-        SubmitRequest(&t, i * i);
+        work_data.requestdata = i++;
     }
-    auto r = WaitForAllRequests(&t, 1);
+    InitializeThreadPool(&threadArena, &t, workData.data(), sizeof(testThreadWorkData), workData.size());
+    workerContext testThreadWorkerContext =
+        {
+            .contextdata = MemoryArena::AllocSpan<int>(&differentArena, 10).data(), // 
+            .threadWorkerFunction = [](workerContext* _this, void* data, uint8_t thread_idx)
+            {
+                testThreadWorkData* d = (testThreadWorkData*)data; 
+                *d = {thread_idx};
+            },
+        .completeJobFN = [] (workerContext* _this, void* data)
+        {
+            auto reqspan = std::span((testThreadWorkData*)data, 1200);
+            auto dstSpan =  std::span((int*)_this->contextdata, 10);
+            for (auto& result :reqspan)
+            {
+                printf("%d == \n", result.requestdata);
+                dstSpan[result.requestdata] += 1;
+            }
+            int j = 0;
+            size_t ct = 0;
+            for (auto result : dstSpan)
+            {
+                printf("%d: %d  ", j, result);
+                j++;
+                ct += result;
+            }
+            printf("\n %llu \n", ct);
+        }
+        };
+
+    auto wct = workerContext3();
+    CreateThreads(&t,testThreadWorkerContext );
+
+    SubmitRequests(&t, workData.size());
+    auto r = WaitForCompletion(&t, testThreadWorkerContext);
     auto code = r ? 0 : -100;
 
     printf("NEW ENTRY \n");

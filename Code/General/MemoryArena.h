@@ -38,10 +38,25 @@ namespace MemoryArena
     template <typename T>
     T* Alloc(memoryArena* a, size_t ct = 1)
     {
+        if (!(std::is_trivial<T>::value && std::is_standard_layout<T>::value))
+        {
+            assert(!"Use ALlocDefaultInitialize for non-pod objects");
+        }
         assert(!std::is_void< T >());
         T* ret = static_cast<T*>(alloc(a, ct * sizeof(T)));
         return ret;
     }
+
+    template <typename T>
+    T* AllocDefaultInitialize(memoryArena* a, size_t ct = 1)
+    {
+      
+        assert(!std::is_void< T >());
+        auto ret = static_cast<T*>(alloc(a, ct * sizeof(T)));
+        new (ret) T(); //Placement new 
+        return ret;
+    }
+
 
     template <typename T>
     T* AllocCopy(memoryArena* a, T source)
@@ -59,10 +74,60 @@ namespace MemoryArena
     std::span<T> AllocSpan(memoryArena* a, size_t length = 1)
     {
         assert(!std::is_void< T >());
+        auto size = length * sizeof(T);
+        auto* start = static_cast<T*>(alloc(a, size, 16));
+        std::span<T> ret{start, length};
+        return ret;
+    }
+
+    template <typename T>
+    std::span<T> AllocSpanDefaultInitialize(memoryArena* a, size_t length = 1)
+    {
+        assert(!std::is_void< T >());
 
         auto size = length * sizeof(T);
         auto* start = static_cast<T*>(alloc(a, size, 16));
         std::span<T> ret{start, length};
+
+        for(int i =0; i < ret.size(); i++)
+        {
+            new (&ret[i]) T();
+        }
+        
+        return ret;
+    }
+
+    template <typename  T, typename... Args>
+    std::span<T> AllocSpanEmplaceInitialize(memoryArena* a, size_t length, Args&&... args)
+    {
+        assert(!std::is_void< T >());
+
+        auto size = length * sizeof(T);
+        auto* start = static_cast<T*>(alloc(a, size, 16));
+        std::span<T> ret{start, length};
+
+        for(int i =0; i < ret.size(); i++)
+        {
+            new (&ret[i]) T(std::forward<Args>(args)...);
+        }
+        
+        return ret;
+    }
+
+    template <typename  T, typename... Args>
+std::span<T> AllocSpanEmplaceInitialize(memoryArena* a, uint32_t length, Args&&... args)
+    {
+        assert(!std::is_void< T >());
+
+        auto size = length * sizeof(T);
+        auto* start = static_cast<T*>(alloc(a, size, 16));
+        std::span<T> ret{start, length};
+
+        for(int i =0; i < ret.size(); i++)
+        {
+            new (&ret[i]) T(std::forward<Args>(args)...);
+        }
+        
         return ret;
     }
 
