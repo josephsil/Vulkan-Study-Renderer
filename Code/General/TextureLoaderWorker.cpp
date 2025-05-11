@@ -1,3 +1,4 @@
+#ifdef THREADED_IMPORT
 #include "TextureLoaderWorker.h"
 
 #include "Renderer/TextureCreation/TextureData.h"
@@ -5,17 +6,16 @@
 
 void TextureLoaderThreadWorker::WORKER_FN(size_t work_item_idx, uint8_t thread_idx)
 {
-    CommandBufferPoolQueue* poolPtr = &(PerThreadCommandBuffer[thread_idx]);
     switch (ThreadsInput[work_item_idx].mode)
     {
     case TextureCreation::TextureCreationMode::FILE:
         assert(!"Error");
         break;
     case TextureCreation::TextureCreationMode::GLTFCREATE:
-        ThreadsInput[work_item_idx].args.gltfCreateArgs.commandbuffer = poolPtr; //todo js hacky
+        ThreadsInput[work_item_idx].ctx = PerThreadContext[thread_idx]; //Any kind of working solution will need per-thread commandbuffers and pools and etc
         break;
     case TextureCreation::TextureCreationMode::GLTFCACHED:
-        ThreadsInput[work_item_idx].args.gltfCacheArgs.commandbuffer = poolPtr; //todo js hacky
+        ThreadsInput[work_item_idx].ctx = PerThreadContext[thread_idx]; //Any kind of working solution will need per-thread commandbuffers and pools and etc
         break;
     }
     ThreadsOutput[work_item_idx] = TextureCreation::CreateTextureFromArgs_Start( ThreadsInput[work_item_idx]);
@@ -41,3 +41,5 @@ unsigned long long TextureLoaderThreadWorker::READ_RESULTS_FN()
 
     return dequeueCt;
 }
+
+#endif 

@@ -107,6 +107,11 @@ size_t ThreadPool::Get_IncrementRequestCt(ThreadPool_INTERNAL::ThreadPoolInterna
     return ThreadJobData->workItemsData.requestsIndex++; //Get the next request to try to read
 }
 
+size_t ThreadPool::Get_RequestCt(ThreadPool_INTERNAL::ThreadPoolInternals* ThreadJobData)
+{
+    return ThreadJobData->workItemsData.requestsIndex; //Get the next request to try to read
+}
+
 std::thread* ThreadPool::GetThreadAllocation(ThreadPool::Pool* threadPool, size_t idx)
 {
     return &threadPool->_Internal->threadMemory[idx];

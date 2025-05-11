@@ -1,4 +1,5 @@
 #pragma once
+#include <concurrentqueue.h>
 #include <vector>
 #include "VulkanIncludes/forward-declarations-renderer.h"
 
@@ -33,7 +34,7 @@ public:
     void FreeQueue();
 
 private:
-    std::vector<deleteableResource> deletionList;
+    moodycamel::ConcurrentQueue<deleteableResource> deletionList;
     VkDevice device;
     VmaAllocator allocator;
     int initialized = 0;

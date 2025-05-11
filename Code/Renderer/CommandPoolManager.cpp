@@ -4,6 +4,7 @@
 #include "rendererGlobals.h"
 #include "./VulkanIncludes/Vulkan_Includes.h"
 #include "VkBootstrap.h" //TODO JS: dont love vkb being in multiple places
+#include "MainRenderer/VulkanRendererInternals/RendererHelpers.h"
 
 QueueData GET_QUEUES(vkb::Device device);
 void createCommandPool(VkDevice device, uint32_t index, VkCommandPool* pool);
@@ -51,7 +52,7 @@ CommandBufferPoolQueue CommandPoolManager::beginSingleTimeCommands(
     return result;
 }
 
-void CommandPoolManager::endSingleTimeCommands(VkCommandBuffer buffer)
+void CommandPoolManager::endSingleTimeCommands(VkCommandBuffer buffer, VkFence fence)
 {
     vkEndCommandBuffer(buffer);
 
@@ -60,13 +61,13 @@ void CommandPoolManager::endSingleTimeCommands(VkCommandBuffer buffer)
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &buffer;
 
-    vkQueueSubmit(Queues.transferQueue, 1, &submitInfo, VK_NULL_HANDLE);
+    vkQueueSubmit(Queues.transferQueue, 1, &submitInfo, fence);
     vkQueueWaitIdle(Queues.transferQueue);
 
     vkFreeCommandBuffers(device, transferCommandPool, 1, &buffer);
 }
 
-void CommandPoolManager::endSingleTimeCommands(CommandBufferPoolQueue bufferAndPool)
+void CommandPoolManager::endSingleTimeCommands(CommandBufferPoolQueue bufferAndPool, VkFence fence)
 {
     vkEndCommandBuffer(bufferAndPool.buffer);
 
@@ -75,7 +76,7 @@ void CommandPoolManager::endSingleTimeCommands(CommandBufferPoolQueue bufferAndP
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &bufferAndPool.buffer;
 
-    vkQueueSubmit(bufferAndPool.queue, 1, &submitInfo, VK_NULL_HANDLE);
+    vkQueueSubmit(bufferAndPool.queue, 1, &submitInfo, fence);
     vkQueueWaitIdle(bufferAndPool.queue);
 
     vkFreeCommandBuffers(device, bufferAndPool.pool, 1, &bufferAndPool.buffer);

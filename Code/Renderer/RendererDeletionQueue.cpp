@@ -16,7 +16,7 @@ void RendererDeletionQueue::push_backVk(deletionType t, uint64_t vulkanObject)
 {
     assert(initialized != 0);
     assert(t != deletionType::vmaBuffer && t != deletionType::VmaImage);
-    deletionList.push_back({t, vulkanObject});
+    deletionList.enqueue({t, vulkanObject});
 }
 
 
@@ -24,16 +24,17 @@ void RendererDeletionQueue::push_backVMA(deletionType t, uint64_t vulkanObject, 
 {
     assert(initialized != 0);
     assert(t == deletionType::vmaBuffer || t == deletionType::VmaImage);
-    deletionList.push_back({t, vulkanObject, allocation});
+    deletionList.enqueue({t, vulkanObject, allocation});
 }
 
 void RendererDeletionQueue::FreeQueue()
 {
 
-    for (auto it = deletionList.rbegin(); it != deletionList.rend(); ++it)
+    deleteableResource r;
+    while (deletionList.try_dequeue(r))
     {
     
-        deleteableResource resource = *it;
+        deleteableResource resource = r;
         // printf("deleting %d %p\n", i,resource.handle);
         switch (resource.type)
         {
@@ -89,5 +90,5 @@ void RendererDeletionQueue::FreeQueue()
             }
         }
     }
-    deletionList.clear();
+    // deletionList.clear();
 }

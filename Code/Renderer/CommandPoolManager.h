@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <vulkan/vulkan_core.h>
 
 #include "RendererDeletionQueue.h"
 #include "VulkanIncludes/forward-declarations-renderer.h"
@@ -42,8 +43,8 @@ public:
     VkCommandBuffer beginSingleTimeCommands_transfer();
     CommandBufferPoolQueue beginSingleTimeCommands(bool useTransferPoolInsteadOfGraphicsPool); //TODO JS: can i move to cpp?
 
-    void endSingleTimeCommands(VkCommandBuffer buffer);
-    void endSingleTimeCommands(CommandBufferPoolQueue commandBuffer);
+    void endSingleTimeCommands(VkCommandBuffer buffer, VkFence fence = VK_NULL_HANDLE);
+    void endSingleTimeCommands(CommandBufferPoolQueue bufferAndPool, VkFence fence = VK_NULL_HANDLE);
 
 private:
     VkDevice device;

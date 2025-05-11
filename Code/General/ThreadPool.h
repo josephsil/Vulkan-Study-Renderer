@@ -124,6 +124,7 @@ namespace ThreadPool {
     bool ShouldComplete(ThreadPool_INTERNAL::ThreadPoolInternals* ThreadJobData, uint8_t thread_idx);
 
     //get rid of this
+    size_t Get_RequestCt(ThreadPool_INTERNAL::ThreadPoolInternals* ThreadJobData);
     size_t Get_IncrementRequestCt(ThreadPool_INTERNAL::ThreadPoolInternals* ThreadJobData);
 
     template <class T>
@@ -178,6 +179,8 @@ namespace ThreadPool {
 
             else
             {
+                std::this_thread::sleep_for(std::chrono::nanoseconds(10));
+                requestCt = GetRequestCt(ThreadJobData);
                 if (ShouldComplete(ThreadJobData, thread_idx))
                 {
                     return; //Work is done and has a completion request, exit;

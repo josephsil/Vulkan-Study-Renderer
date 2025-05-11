@@ -50,7 +50,7 @@ struct TextureData
 namespace TextureCreation
 {
     static TextureMetaData createImageKTX(RendererContext rendererContext, const char* path, TextureType type, bool mips,
-                                          VkSamplerAddressMode mode, bool useExistingBuffer = false, CommandBufferPoolQueue* buffer = nullptr);
+                                          VkSamplerAddressMode mode);
     static VkImageView createTextureImageView(RendererContext rendererContext, TextureMetaData data, VkImageViewType type);
     void createTextureSampler(VkSampler* textureSampler, RendererContext rendererContext, VkSamplerAddressMode mode,
                               float bias, uint32_t maxMip, bool shadow = false);
@@ -77,14 +77,12 @@ namespace TextureCreation
         uint64_t width;
         uint64_t height;
         int mipCt;
-        CommandBufferPoolQueue* commandbuffer;
         bool compress;
     };
     struct GLTFCACHE_addtlargs
     {
         char* OUTPUT_PATH;
         VkSamplerAddressMode samplerMode;
-        CommandBufferPoolQueue* commandbuffer;
     };
   
     struct TextureCreationInfoArgs
@@ -119,5 +117,5 @@ namespace TextureCreation
 
     TextureCreationStep1Result CreateTextureFromArgs_Start(TextureCreationInfoArgs a);
     TextureData CreateTextureFromArgsFinalize(TextureCreationStep1Result startResult);
-    // TextureData CreateTextureFromArgs( TextureCreationInfoArgs a);
+    TextureData CreateTextureFromArgs(TextureCreationInfoArgs a);
 }

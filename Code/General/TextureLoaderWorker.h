@@ -1,9 +1,11 @@
 #pragma once
+#ifdef THREADED_IMPORT
 #include <concurrentqueue.h>
 #include <span>
 
 #include "Renderer/VulkanIncludes/forward-declarations-renderer.h"
 
+struct RendererContext;
 struct CommandBufferPoolQueue;
 struct TextureData;
 
@@ -17,9 +19,7 @@ struct TextureLoaderThreadWorker
 {
     std::span<TextureCreation::TextureCreationStep1Result> ThreadsOutput;
     std::span<TextureCreation::TextureCreationInfoArgs> ThreadsInput;
-
-    std::span<CommandBufferPoolQueue> PerThreadCommandBuffer;
-
+    std::span<RendererContext> PerThreadContext;
     std::span<TextureData> FinalOutput;
     std::span<size_t>  readbackBufferForQueue;
     moodycamel::ConcurrentQueue<size_t> ResultsReadyAtIndex;
@@ -29,3 +29,5 @@ struct TextureLoaderThreadWorker
 
     unsigned long long READ_RESULTS_FN();
 };
+
+#endif

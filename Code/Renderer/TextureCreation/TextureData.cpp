@@ -148,7 +148,6 @@ TextureCreation::TextureCreationInfoArgs TextureCreation::MakeTextureCreationArg
             .width = width,
             .height = height,
             .mipCt = mipCt,
-            .commandbuffer = commandbuffer,
             .compress =  compress
         };
     return args;
@@ -166,12 +165,15 @@ TextureCreation::TextureCreationInfoArgs TextureCreation::MakeTextureCreationArg
         GLTFCACHE_addtlargs{
             .OUTPUT_PATH = const_cast<char*>(OUTPUT_PATH),
             .samplerMode = samplerMode,
-            .commandbuffer =  commandbuffer
         };
     return args;     
 }
 
-
+TextureData TextureCreation::CreateTextureFromArgs(TextureCreationInfoArgs a)
+{
+    return CreateTextureFromArgsFinalize(CreateTextureFromArgs_Start(a));
+    
+}
 
 TextureMetaData CreateTextureNewGltfTexture_Start(RendererContext rendererContext,  TextureCreation::GLTFCREATE_addtlargs args)
 {
@@ -179,7 +181,7 @@ TextureMetaData CreateTextureNewGltfTexture_Start(RendererContext rendererContex
     
     //TODO JS: no gaurantee taking output path data works -- not null terminated rght?
     cacheKTXFromTempTexture(rendererContext, staging, args.OUTPUT_PATH, args.format, DIFFUSE, args.mipCt != 0, args.compress);
-    auto ktxResult = TextureCreation::createImageKTX(rendererContext, args.OUTPUT_PATH, DIFFUSE, true, args.samplerMode, true, args.commandbuffer);
+    auto ktxResult = TextureCreation::createImageKTX(rendererContext, args.OUTPUT_PATH, DIFFUSE, true, args.samplerMode);
     return ktxResult;
 }
 
@@ -208,7 +210,7 @@ TextureData CreateTextureNewGltfTexture_Finalize(RendererContext rendererContext
 //FROM CACHED GLTF
 TextureMetaData GetCachedTexture_Start(RendererContext rendererContext, TextureCreation::GLTFCACHE_addtlargs args)
 {
-    return  TextureCreation::createImageKTX(rendererContext, args.OUTPUT_PATH, DIFFUSE, true, args.samplerMode, true, args.commandbuffer);
+    return  TextureCreation::createImageKTX(rendererContext, args.OUTPUT_PATH, DIFFUSE, true, args.samplerMode);
 }
 TextureData GetCachedTexture_Finalize(RendererContext rendererContext, TextureMetaData tData)
 {
@@ -498,7 +500,7 @@ TextureMetaData GetOrLoadTextureFromPath(RendererContext rendererContext, const 
         FileCaching::saveAssetChangedTime(path);
     }
 
-    return TextureCreation::createImageKTX(rendererContext, ktxPath.data(), textureType, use_mipmaps, mode, false);
+    return TextureCreation::createImageKTX(rendererContext, ktxPath.data(), textureType, use_mipmaps, mode);
 }
 
 
@@ -631,7 +633,7 @@ void cacheKTXFromTempTexture(RendererContext rendererContext, nonKTXTextureInfo 
     if (compress)
     {
         printf("Compressing texture....\n");
-        ktxTexture2_CompressBasis(texture, 100);
+        ktxTexture2_CompressBasis(texture, 1);
     }
 
     ktxTexture_WriteToNamedFile(ktxTexture(texture), outpath);
@@ -730,6 +732,7 @@ static nonKTXTextureInfo createTextureImage(RendererContext rendererContext, con
                        (uint64_t)stagingBuffer);
     setDebugObjectName(rendererContext.device, VK_OBJECT_TYPE_BUFFER, "temporary texture info buffer",
                        (uint64_t)stagingBuffer);
+
     VulkanMemory::DestroyBuffer(rendererContext.allocator, stagingBuffer, bufferAlloc); // destroy temp buffer
 
     // exit(1);
@@ -749,29 +752,19 @@ static nonKTXTextureInfo createtempTextureFromPath(RendererContext rendererConte
 }
 
 ktxVulkanDeviceInfo vdi = {};
-TextureMetaData TextureCreation::createImageKTX(RendererContext rendererContext, const char* path, TextureType type, bool mips, VkSamplerAddressMode mode,
-                               bool useExistingBuffer, CommandBufferPoolQueue* buffer)
+TextureMetaData TextureCreation::createImageKTX(RendererContext rendererContext, const char* path, TextureType type, bool mips, VkSamplerAddressMode mode)
 {
    
     ktxVulkanTexture texture;
 
     ktxTexture2* kTexture;
     KTX_error_code ktxresult;
-
-    CommandBufferPoolQueue workingTextureBuffer;
-    if (!useExistingBuffer)
-    {
-        workingTextureBuffer = rendererContext.textureCreationcommandPoolmanager->beginSingleTimeCommands(false);
-        setDebugObjectName(rendererContext.device, VK_OBJECT_TYPE_COMMAND_BUFFER, "temp ktx buffer texture", (uint64_t)workingTextureBuffer.buffer);
-        //TODO JS: Transfer pool doesnt work since ktx saving wor-- why?
-    }
-    else
-    {
-        workingTextureBuffer = *buffer;
-    }
     ktxVulkanDeviceInfo_Construct(&vdi, rendererContext.physicalDevice, rendererContext.device,
-                                  workingTextureBuffer.queue, workingTextureBuffer.pool, nullptr);
+                                  rendererContext.textureCreationcommandPoolmanager->Queues.graphicsQueue,  rendererContext.textureCreationcommandPoolmanager->commandPool, nullptr);
 
+    // Note: If I want to pass in an existing command buffer, I need to set it directly on vdi
+    //This may be anti pattern, vdi may expect ownership of cbuffer(s)
+    // vdi.cmdBuffer = workingTextureBuffer.buffer;
     ktxresult = ktxTexture2_CreateFromNamedFile(path, KTX_TEXTURE_CREATE_NO_STORAGE, &kTexture);
 
     if (KTX_SUCCESS != ktxresult)
@@ -786,13 +779,8 @@ TextureMetaData TextureCreation::createImageKTX(RendererContext rendererContext,
     if (ktxTexture2_NeedsTranscoding(kTexture))
     {
         ktx_transcode_fmt_e transcodeFormat;
-        //	switch (type)
-        //{
-        //default:
-        //			{
+
         transcodeFormat = KTX_TTF_BC1_OR_3;
-        //		}
-        //}
 
 
         ktxTexture2_TranscodeBasis(kTexture, transcodeFormat, KTX_TF_HIGH_QUALITY);
@@ -815,14 +803,8 @@ TextureMetaData TextureCreation::createImageKTX(RendererContext rendererContext,
 
     rendererContext.rendererdeletionqueue->push_backVk(deletionType::Image, uint64_t(texture.image));
     rendererContext.rendererdeletionqueue->push_backVk(deletionType::VkMemory, uint64_t(texture.deviceMemory));
-
     ktxTexture_Destroy((ktxTexture*)kTexture);
 
-
-    if (!useExistingBuffer)
-    {
-        rendererContext.textureCreationcommandPoolmanager->endSingleTimeCommands(workingTextureBuffer);
-    }
 
 #ifdef DEBUG
     if (KTX_SUCCESS != ktxresult)
