@@ -1,6 +1,7 @@
 #include "CommandPoolManager.h"
 
 #include "RendererDeletionQueue.h"
+#include "rendererGlobals.h"
 #include "./VulkanIncludes/Vulkan_Includes.h"
 #include "VkBootstrap.h" //TODO JS: dont love vkb being in multiple places
 
@@ -42,6 +43,7 @@ CommandBufferPoolQueue CommandPoolManager::beginSingleTimeCommands(
 
     vkBeginCommandBuffer(commandBuffer, &beginInfo);
 
+    setDebugObjectName(device, VK_OBJECT_TYPE_COMMAND_BUFFER, "Unnamed command buffer from beginsingl;etime", (uint64_t)commandBuffer);
     CommandBufferPoolQueue result = {
         commandBuffer, useTransferPoolInsteadOfGraphicsPool ? transferCommandPool : commandPool,
         useTransferPoolInsteadOfGraphicsPool ? Queues.transferQueue : Queues.graphicsQueue

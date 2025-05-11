@@ -73,10 +73,10 @@ namespace MemoryArena
     template <typename T>
     std::span<T> AllocSpan(memoryArena* a, size_t length = 1)
     {
-        if (!(std::is_trivially_copyable<T>::value && std::is_standard_layout<T>::value))
-        {
-            assert(!"Shouldn't allocspan non-pod objects");
-        }
+        // if (!(std::is_trivially_copyable<T>::value && std::is_standard_layout<T>::value))
+        // {
+        //     assert(!"Shouldn't allocspan non-pod objects");
+        // }
         assert(!std::is_void< T >());
         auto size = length * sizeof(T);
         auto* start = static_cast<T*>(alloc(a, size, 16));

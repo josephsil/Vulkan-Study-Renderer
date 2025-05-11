@@ -43,34 +43,12 @@ struct PrototypeThreadWorkerReadAtEnd
     std::span<uint64_t> contextdata;
     std::span<testThreadWorkData> JobData;
     
-    void WORKER_FN( size_t work_item_idx, uint8_t thread_idx)
-    {
+    void WORKER_FN( size_t work_item_idx, uint8_t thread_idx);
 
-        JobData[work_item_idx] = {thread_idx};
-    }
-    size_t READ_IN_PROGRESS_FN()
-    {
-        assert("!Unimplemented");
-        return 0;
-    }
-    void ON_COMPLETE_FN ()
-    {
-        auto reqspan = JobData;
-        auto dstSpan =  contextdata; //TODO JS: correct count
-        for (auto& result :reqspan)
-        {
-            printf("%d == \n", result.requestdata);
-            dstSpan[result.requestdata] += 1;
-        }
-        int j = 0;
-        size_t ct = 0;
-        for (auto result : dstSpan)
-        {
-            printf("%d: %llu  ", j, result);
-            j++;
-            ct += result;
-        }
-        printf("\n %llu \n", ct);
-    }
+    size_t READ_IN_PROGRESS_FN();
+
+    void ON_COMPLETE_FN ();
 };
+
+
 

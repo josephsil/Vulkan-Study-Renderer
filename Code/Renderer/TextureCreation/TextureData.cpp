@@ -748,11 +748,11 @@ static nonKTXTextureInfo createtempTextureFromPath(RendererContext rendererConte
     return tex;
 }
 
-
+ktxVulkanDeviceInfo vdi = {};
 TextureMetaData TextureCreation::createImageKTX(RendererContext rendererContext, const char* path, TextureType type, bool mips, VkSamplerAddressMode mode,
                                bool useExistingBuffer, CommandBufferPoolQueue* buffer)
 {
-    ktxVulkanDeviceInfo vdi;
+   
     ktxVulkanTexture texture;
 
     ktxTexture2* kTexture;
@@ -762,10 +762,13 @@ TextureMetaData TextureCreation::createImageKTX(RendererContext rendererContext,
     if (!useExistingBuffer)
     {
         workingTextureBuffer = rendererContext.textureCreationcommandPoolmanager->beginSingleTimeCommands(false);
+        setDebugObjectName(rendererContext.device, VK_OBJECT_TYPE_COMMAND_BUFFER, "temp ktx buffer texture", (uint64_t)workingTextureBuffer.buffer);
         //TODO JS: Transfer pool doesnt work since ktx saving wor-- why?
     }
     else
+    {
         workingTextureBuffer = *buffer;
+    }
     ktxVulkanDeviceInfo_Construct(&vdi, rendererContext.physicalDevice, rendererContext.device,
                                   workingTextureBuffer.queue, workingTextureBuffer.pool, nullptr);
 
