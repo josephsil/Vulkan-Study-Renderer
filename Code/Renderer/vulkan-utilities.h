@@ -16,7 +16,6 @@ struct Vertex;
 class AssetManager;
 //Forward declaration
 struct RendererContext;
-class CommandPoolManager;
 
 
 namespace DescriptorSets

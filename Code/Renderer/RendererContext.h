@@ -2,8 +2,15 @@
 
 #include "RendererDeletionQueue.h"
 #include "VulkanIncludes/forward-declarations-renderer.h"
+#include <mutex>
 
-class CommandPoolManager;
+#include "CommandPoolManager.h"
+
+namespace vkb
+{
+    struct Device;
+}
+
 struct deleteableResource;
 
 namespace MemoryArena
@@ -22,7 +29,9 @@ struct RendererContext
     VmaAllocator allocator;
     MemoryArena::memoryArena* arena;
     MemoryArena::memoryArena* tempArena;
-    RendererDeletionQueue* rendererdeletionqueue;
+    RendererDeletionQueue* threadDeletionQueue;
+    VkFence ImportFence;
+    vkb::Device* vkbd;
 };
 
 //Like renderercontext, but doesn't need cpu memory arenas or the physical device
@@ -32,12 +41,13 @@ struct BufferCreationContext
     VmaAllocator allocator;
     RendererDeletionQueue* rendererdeletionqueue;
     CommandPoolManager* commandPoolmanager;
+    VkFence ImportFence;
 };
 
 inline BufferCreationContext objectCreationContextFromRendererContext(RendererContext r)
 {
     return {
-        .device = r.device, .allocator = r.allocator, .rendererdeletionqueue = r.rendererdeletionqueue,
-        .commandPoolmanager = r.textureCreationcommandPoolmanager
+        .device = r.device, .allocator = r.allocator, .rendererdeletionqueue = r.threadDeletionQueue,
+        .commandPoolmanager = r.textureCreationcommandPoolmanager, .ImportFence =  r.ImportFence
     };
 }

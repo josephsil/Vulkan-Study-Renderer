@@ -29,11 +29,11 @@ void createBuffer(VmaAllocator allocator, VkDeviceSize size, VkBufferUsageFlags 
 void BufferUtilities::copyBuffer(CommandPoolManager* commandPoolManager, VkBuffer srcBuffer, VkBuffer dstBuffer,
                                  VkDeviceSize size)
 {
-    VkCommandBuffer commandBuffer = commandPoolManager->beginSingleTimeCommands_transfer();
+    auto commandBuffer = commandPoolManager->beginSingleTimeCommands_transfer();
 
     VkBufferCopy copyRegion{};
     copyRegion.size = size;
-    vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+    vkCmdCopyBuffer(commandBuffer->buffer, srcBuffer, dstBuffer, 1, &copyRegion);
 
     commandPoolManager->endSingleTimeCommands(commandBuffer);
 }

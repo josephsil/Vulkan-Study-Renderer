@@ -104,7 +104,7 @@ DepthPyramidInfo static_createDepthPyramidResources(rendererObjects initializedr
                                                    VK_IMAGE_ASPECT_COLOR_BIT,
                                                    0,
                                                    HIZDEPTH);
-    pipelineBarrier(tempBufferAndPool.buffer, 0, 0, nullptr, 1, &barrier11);
+    pipelineBarrier(tempBufferAndPool->buffer, 0, 0, nullptr, 1, &barrier11);
     commandPoolmanager->endSingleTimeCommands(tempBufferAndPool);
 
     return bufferInfo;

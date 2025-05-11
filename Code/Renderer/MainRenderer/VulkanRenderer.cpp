@@ -76,6 +76,7 @@ VulkanRenderer::VulkanRenderer()
     rendererVulkanObjects = initializeVulkanObjects(_window, WIDTH, HEIGHT);
 
     //Initialize the main datastructures the renderer uses
+    INIT_QUEUES(rendererVulkanObjects.vkbdevice);
     commandPoolmanager = std::make_unique<CommandPoolManager>(rendererVulkanObjects.vkbdevice, deletionQueue.get());
     globalResources = static_initializeResources(rendererVulkanObjects, &rendererArena, deletionQueue.get(),commandPoolmanager.get());
     shadowResources = init_allocate_shadow_memory(rendererVulkanObjects, &rendererArena);
@@ -109,7 +110,10 @@ RendererContext VulkanRenderer::getFullRendererContext()
         .allocator =  rendererVulkanObjects.vmaAllocator,
         .arena = &rendererArena,
         .tempArena = &perFrameArenas[currentFrame],
-        .rendererdeletionqueue = deletionQueue.get()};
+        .threadDeletionQueue = deletionQueue.get(),
+        .ImportFence = VK_NULL_HANDLE, //todo js
+        .vkbd = &rendererVulkanObjects.vkbdevice,
+        };
 }
 
 BufferCreationContext VulkanRenderer::getPartialRendererContext()
@@ -333,20 +337,20 @@ void VulkanRenderer::InitializeRendererForScene(sceneCountData sceneCountData) /
     auto requestStart = TextureCreation::CreateTextureFromArgs_Start(
         TextureCreation::MakeCreationArgsFromFilepathArgs(getFullRendererContext(), "textures/outputLUT.png",
                                                           TextureType::DATA_DONT_COMPRESS));
-    auto requestFinish = TextureCreation::CreateTextureFromArgsFinalize(requestStart);
+    auto requestFinish = TextureCreation::CreateTextureFromArgsFinalize(getFullRendererContext(), requestStart);
 
     cubemaplut_utilitytexture_index = AssetDataAndMemory->AddTexture(requestFinish);
     
     auto requestStart2 = TextureCreation::CreateTextureFromArgs_Start(
         TextureCreation::MakeCreationArgsFromFilepathArgs(getFullRendererContext(),
                                                           "textures/output_cubemap2_diff8.ktx2", TextureType::CUBE));
-    auto requestFinish2 = TextureCreation::CreateTextureFromArgsFinalize(requestStart2);
+    auto requestFinish2 = TextureCreation::CreateTextureFromArgsFinalize(getFullRendererContext(), requestStart2);
     cube_irradiance = requestFinish2;
     auto requestStart3 = TextureCreation::CreateTextureFromArgs_Start(
         TextureCreation::MakeCreationArgsFromFilepathArgs(getFullRendererContext(),
                                                           "textures/output_cubemap2_spec8.ktx2", TextureType::CUBE));
 
-    auto requestFinish3 = TextureCreation::CreateTextureFromArgsFinalize(requestStart3);
+    auto requestFinish3 = TextureCreation::CreateTextureFromArgsFinalize(getFullRendererContext(), requestStart3);
     cube_specular = requestFinish3;
     CreateUniformBuffers(sceneCountData.objectCount,sceneCountData.lightCount);
 
@@ -490,7 +494,7 @@ void VulkanRenderer::createDescriptorSetPool(RendererContext context, VkDescript
     
     pool_info.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * 20 * 20;
     VK_CHECK( vkCreateDescriptorPool(context.device, &pool_info, nullptr, pool));
-    context.rendererdeletionqueue->push_backVk(deletionType::descriptorPool,uint64_t(*pool));
+    context.threadDeletionQueue->push_backVk(deletionType::descriptorPool,uint64_t(*pool));
     
 }
 
@@ -1529,7 +1533,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
                 boundDescriptorSets[i] = VK_NULL_HANDLE;
             }
             renderstepDatas.push_back({.active = true, .indexBuffer = VK_NULL_HANDLE, .boundPipeline = VK_NULL_HANDLE,
-                .commandBuffer = commandBuffer, .Queue = poolManager->Queues.graphicsQueue, .waitSemaphores = waitSemaphores, .signalSempahores = signalSemaphores, .boundDescriptorSets = boundDescriptorSets });
+                .commandBuffer = commandBuffer, .Queue =GET_QUEUES()->graphicsQueue, .waitSemaphores = waitSemaphores, .signalSempahores = signalSemaphores, .boundDescriptorSets = boundDescriptorSets });
 
             return &renderstepDatas.back();
         }
@@ -1750,7 +1754,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     presentInfo.pResults = nullptr; // Optional
 
     //Present e
-    vkQueuePresentKHR(commandPoolmanager->Queues.presentQueue, &presentInfo);
+    vkQueuePresentKHR(GET_QUEUES()->presentQueue, &presentInfo);
     
 
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
@@ -1847,8 +1851,8 @@ void VulkanRenderer::initializeDearIMGUI()
     init_info.Instance = rendererVulkanObjects.vkbInstance.instance;
     init_info.PhysicalDevice = rendererVulkanObjects.vkbPhysicalDevice.physical_device;
     init_info.Device = rendererVulkanObjects.vkbdevice.device;
-    init_info.QueueFamily = commandPoolmanager->Queues.graphicsQueueFamily;
-    init_info.Queue = commandPoolmanager->Queues.graphicsQueue;
+    init_info.QueueFamily =GET_QUEUES()->graphicsQueueFamily;
+    init_info.Queue =GET_QUEUES()->graphicsQueue;
     // init_info.PipelineCache = HOPEFULLY OPTIONAL??;
     init_info.DescriptorPool = imgui_descriptorPool;
     init_info.Subpass = 0;

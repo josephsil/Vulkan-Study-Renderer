@@ -196,7 +196,6 @@ namespace ThreadPool {
     {
         for (uint8_t thread_id = 0; thread_id < threadPool->THREAD_CT; thread_id++)
         {
-            printf("%d thead id \n", thread_id);
 
             new(GetThreadAllocation(threadPool, thread_id)) std::thread(ThreadQueueFn<T>, threadPool->_Internal, context, thread_id);
         }

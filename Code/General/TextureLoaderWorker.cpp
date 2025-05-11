@@ -1,4 +1,3 @@
-#ifdef THREADED_IMPORT
 #include "TextureLoaderWorker.h"
 
 #include "Renderer/TextureCreation/TextureData.h"
@@ -24,6 +23,10 @@ void TextureLoaderThreadWorker::WORKER_FN(size_t work_item_idx, uint8_t thread_i
 
 void TextureLoaderThreadWorker::ON_COMPLETE_FN()
 {
+    for (auto ctx : PerThreadContext)
+    {
+        ctx.threadDeletionQueue->FreeQueue();
+    }
     printf("Completed\n");
 }
 
@@ -35,11 +38,8 @@ unsigned long long TextureLoaderThreadWorker::READ_RESULTS_FN()
     {
         size_t indexReadyToRead = readbackBufferForQueue[i];
         auto& readData = ThreadsOutput[indexReadyToRead];
-        FinalOutput[indexReadyToRead] =  TextureCreation::CreateTextureFromArgsFinalize(ThreadsOutput[indexReadyToRead]);
-        printf("Reading at...Index: %llu \n", indexReadyToRead);
+        FinalOutput[indexReadyToRead] =  TextureCreation::CreateTextureFromArgsFinalize(MainThreadContext, ThreadsOutput[indexReadyToRead]);
     }
 
     return dequeueCt;
 }
-
-#endif 

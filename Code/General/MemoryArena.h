@@ -38,10 +38,10 @@ namespace MemoryArena
     template <typename T>
     T* Alloc(memoryArena* a, size_t ct = 1)
     {
-        if (!(std::is_trivially_copyable<T>::value && std::is_standard_layout<T>::value))
-        {
-            assert(!"Use ALlocDefaultInitialize for non-pod objects");
-        }
+        // if (!(std::is_trivially_copyable<T>::value && std::is_standard_layout<T>::value))
+        // {
+        //     assert(!"Use ALlocDefaultInitialize for non-pod objects");
+        // }
         assert(!std::is_void< T >());
         T* ret = static_cast<T*>(alloc(a, ct * sizeof(T)));
         return ret;

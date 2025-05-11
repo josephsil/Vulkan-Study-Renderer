@@ -104,7 +104,7 @@ void TextureUtilities::transitionImageLayout(BufferCreationContext rendererConte
     {
         //Optional buffer for if the caller wants to submit the command to an existing buffer and manually end it later
         tempBufferAndPool = rendererContext.commandPoolmanager->beginSingleTimeCommands(useTransferPool);
-        workingBuffer = tempBufferAndPool.buffer;
+        workingBuffer = tempBufferAndPool->buffer;
     }
 
     VkImageMemoryBarrier barrier{};
@@ -191,9 +191,9 @@ void TextureUtilities::generateMipmaps(BufferCreationContext rendererContext, Vk
     CommandBufferPoolQueue bandp = rendererContext.commandPoolmanager->beginSingleTimeCommands(false);
 
 
-    auto commandBuffer = bandp.buffer;
+    auto commandBuffer = bandp->buffer;
     setDebugObjectName(rendererContext.device, VK_OBJECT_TYPE_COMMAND_BUFFER, "mipmap commandbuffer",
-                       uint64_t(bandp.buffer));
+                       uint64_t(bandp->buffer));
     VkImageMemoryBarrier barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
     barrier.image = image;
@@ -279,7 +279,7 @@ void TextureUtilities::copyBufferToImage(CommandPoolManager* commandPoolManager,
     if (workingBuffer == nullptr)
     {
         //Optional buffer for if the caller wants to submit the command to an existing buffer and manually end it later
-        workingBuffer = commandPoolManager->beginSingleTimeCommands_transfer();
+        workingBuffer = commandPoolManager->beginSingleTimeCommands_transfer()->buffer;
         endNow = true;
     }
 
@@ -310,5 +310,5 @@ void TextureUtilities::copyBufferToImage(CommandPoolManager* commandPoolManager,
     );
 
     if (endNow)
-        commandPoolManager->endSingleTimeCommands(workingBuffer);
+        commandPoolManager->endSingleTimeCommands(workingBuffer, VK_NULL_HANDLE);
 }

@@ -1,8 +1,9 @@
 #pragma once
 #include <Renderer/VulkanIncludes/forward-declarations-renderer.h>
 
+#include "Renderer/CommandPoolManager.h"
+
 //Forward declaration
-class CommandPoolManager;
 struct Vertex;
 
 namespace BufferUtilities

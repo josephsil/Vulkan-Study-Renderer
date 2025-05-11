@@ -171,7 +171,7 @@ TextureCreation::TextureCreationInfoArgs TextureCreation::MakeTextureCreationArg
 
 TextureData TextureCreation::CreateTextureFromArgs(TextureCreationInfoArgs a)
 {
-    return CreateTextureFromArgsFinalize(CreateTextureFromArgs_Start(a));
+    return CreateTextureFromArgsFinalize(a.ctx, CreateTextureFromArgs_Start(a));
     
 }
 
@@ -537,7 +537,7 @@ void TextureCreation::createDepthPyramidSampler(VkSampler* textureSampler, Rende
     createInfoReduction.reductionMode = VK_SAMPLER_REDUCTION_MODE_MIN;
     samplerInfo.pNext = &createInfoReduction;
     VK_CHECK(vkCreateSampler(rendererContext.device, &samplerInfo, nullptr, textureSampler));
-    rendererContext.rendererdeletionqueue->push_backVk(deletionType::Sampler, uint64_t(*textureSampler));
+    rendererContext.threadDeletionQueue->push_backVk(deletionType::Sampler, uint64_t(*textureSampler));
 }
 
 void TextureCreation::createTextureSampler(VkSampler* textureSampler, RendererContext rendererContext, VkSamplerAddressMode mode,
@@ -566,7 +566,7 @@ void TextureCreation::createTextureSampler(VkSampler* textureSampler, RendererCo
 
 
     VK_CHECK(vkCreateSampler(rendererContext.device, &samplerInfo, nullptr, textureSampler));
-    rendererContext.rendererdeletionqueue->push_backVk(deletionType::Sampler, uint64_t(*textureSampler));
+    rendererContext.threadDeletionQueue->push_backVk(deletionType::Sampler, uint64_t(*textureSampler));
 }
 
 //
@@ -640,16 +640,16 @@ void cacheKTXFromTempTexture(RendererContext rendererContext, nonKTXTextureInfo 
     ktxTexture_Destroy(ktxTexture(texture));
 
     //Destroy temporary texture
-    VulkanMemory::DestroyImage(rendererContext.allocator, tempTexture.textureImage, tempTexture.alloc);
+    //dupe
+    // rendererContext.threadDeletionQueue->push_backVMA(deletionType::VmaImage, (uint64_t)tempTexture.textureImage, tempTexture.alloc);
 }
 
 VkImageView TextureCreation::createTextureImageView(RendererContext rendererContext, TextureMetaData data, VkImageViewType type)
 {
     VkImageView view = TextureUtilities::createImageView(objectCreationContextFromRendererContext(rendererContext),
-                                                         data.textureImage, data.dimensionsInfo.format,
+                                                         data.textureImage.image, data.dimensionsInfo.format,
                                                          VK_IMAGE_ASPECT_COLOR_BIT, type, data.dimensionsInfo.layerCt,
                                                          0);
-    // rendererContext.rendererdeletionqueue->push_back(deleteableResource{deletionType::ImageView, view});
 
 
     return view;
@@ -679,6 +679,7 @@ static nonKTXTextureInfo createTextureImage(RendererContext rendererContext, con
                                          &bufferAlloc,
                                          stagingBuffer, rendererContext.device, rendererContext.allocator,
                                          "nonKTX texture");
+    
 
     void* data;
     VulkanMemory::MapMemory(rendererContext.allocator, bufferAlloc, &data);
@@ -696,14 +697,18 @@ static nonKTXTextureInfo createTextureImage(RendererContext rendererContext, con
                                   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, _textureImage, _textureImageAlloc,
                                   fullMipPyramid);
 
+    rendererContext.threadDeletionQueue->push_backVMA(deletionType::vmaBuffer, (uint64_t)stagingBuffer, bufferAlloc);
+
+    //duplicate rendererContext.threadDeletionQueue->push_backVMA(deletionType::VmaImage, (uint64_t)_textureImage, _textureImageAlloc);
+
     TextureUtilities::transitionImageLayout(objectCreationContextFromRendererContext(rendererContext), _textureImage,
                                             format, VK_IMAGE_LAYOUT_UNDEFINED,
-                                            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, workingTextureBuffer.buffer,
+                                            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, workingTextureBuffer->buffer,
                                             fullMipPyramid);
 
     TextureUtilities::copyBufferToImage(rendererContext.textureCreationcommandPoolmanager, stagingBuffer, _textureImage,
                                         static_cast<uint32_t>(texWidth),
-                                        static_cast<uint32_t>(texHeight), workingTextureBuffer.buffer);
+                                        static_cast<uint32_t>(texHeight), workingTextureBuffer->buffer);
 
     //JS: Prepare image to read in shaders
     rendererContext.textureCreationcommandPoolmanager->endSingleTimeCommands(workingTextureBuffer);
@@ -733,7 +738,7 @@ static nonKTXTextureInfo createTextureImage(RendererContext rendererContext, con
     setDebugObjectName(rendererContext.device, VK_OBJECT_TYPE_BUFFER, "temporary texture info buffer",
                        (uint64_t)stagingBuffer);
 
-    VulkanMemory::DestroyBuffer(rendererContext.allocator, stagingBuffer, bufferAlloc); // destroy temp buffer
+   
 
     // exit(1);
 
@@ -759,8 +764,10 @@ TextureMetaData TextureCreation::createImageKTX(RendererContext rendererContext,
 
     ktxTexture2* kTexture;
     KTX_error_code ktxresult;
+    GET_QUEUES()->graphicsQueueMutex.lock(); //todo js
+    GET_QUEUES()->transferQueueMutex.lock(); //todo js
     ktxVulkanDeviceInfo_Construct(&vdi, rendererContext.physicalDevice, rendererContext.device,
-                                  rendererContext.textureCreationcommandPoolmanager->Queues.graphicsQueue,  rendererContext.textureCreationcommandPoolmanager->commandPool, nullptr);
+                                 GET_QUEUES()->graphicsQueue,  rendererContext.textureCreationcommandPoolmanager->commandPool, nullptr);
 
     // Note: If I want to pass in an existing command buffer, I need to set it directly on vdi
     //This may be anti pattern, vdi may expect ownership of cbuffer(s)
@@ -801,9 +808,10 @@ TextureMetaData TextureCreation::createImageKTX(RendererContext rendererContext,
 
     setDebugObjectName(rendererContext.device, VK_OBJECT_TYPE_IMAGE, "KTX texture", (uint64_t)texture.image);
 
-    rendererContext.rendererdeletionqueue->push_backVk(deletionType::Image, uint64_t(texture.image));
-    rendererContext.rendererdeletionqueue->push_backVk(deletionType::VkMemory, uint64_t(texture.deviceMemory));
+
     ktxTexture_Destroy((ktxTexture*)kTexture);
+    GET_QUEUES()->graphicsQueueMutex.unlock(); //todo js
+    GET_QUEUES()->transferQueueMutex.unlock(); //todo js
 
 
 #ifdef DEBUG
@@ -814,7 +822,7 @@ TextureMetaData TextureCreation::createImageKTX(RendererContext rendererContext,
 
 #endif
     return {
-        .textureImage = texture.image,
+        .textureImage = {texture.image, texture.deviceMemory},
         .dimensionsInfo = {
             .format = texture.imageFormat,
             .width = texture.width,
@@ -832,7 +840,6 @@ TextureCreation::TextureCreationStep1Result TextureCreation::CreateTextureFromAr
 {
     TextureCreation::TextureCreationStep1Result r = {};
     r.mode = a.mode;
-    r.ctx = a.ctx;
  
     switch (a.mode)
     {
@@ -854,16 +861,21 @@ break;
     }
     return r;
 }
-TextureData TextureCreation::CreateTextureFromArgsFinalize(TextureCreationStep1Result startResult)
+TextureData TextureCreation::CreateTextureFromArgsFinalize(RendererContext outputTextureOwnerContext, TextureCreationStep1Result startResult)
 {
+
+    //These probably came from another thread, with its own deletion queue.
+    //We can delete this when our rendercontext winds down;
+    outputTextureOwnerContext.threadDeletionQueue->push_backVk(deletionType::Image, uint64_t(startResult.metaData.textureImage.image));
+    outputTextureOwnerContext.threadDeletionQueue->push_backVk(deletionType::VkMemory, uint64_t(startResult.metaData.textureImage.memory));
     switch (startResult.mode)
     {
     case TextureCreationMode::FILE:
-        return CreateTextureFromPath_Finalize(startResult.ctx, startResult.metaData, startResult.type, startResult.viewType);
+        return CreateTextureFromPath_Finalize(outputTextureOwnerContext, startResult.metaData, startResult.type, startResult.viewType);
     case TextureCreationMode::GLTFCREATE:
-        return CreateTextureNewGltfTexture_Finalize(startResult.ctx, startResult.metaData);
+        return CreateTextureNewGltfTexture_Finalize(outputTextureOwnerContext, startResult.metaData);
     case TextureCreationMode::GLTFCACHED:
-        return GetCachedTexture_Finalize(startResult.ctx, startResult.metaData);
+        return GetCachedTexture_Finalize(outputTextureOwnerContext, startResult.metaData);
     }
     assert("!Error");
     return {};

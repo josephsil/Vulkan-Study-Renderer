@@ -129,7 +129,6 @@ bool ThreadPool::WaitForCompletionInternal(ThreadPool::Pool* ThreadPool)
 {
     for (size_t i = 0; i < ThreadPool->THREAD_CT; i++)
     {
-        printf("sending completion request \n");
         ThreadPool->_Internal->CancellationRequest[i].store(static_cast<uint32_t>(ThreadTerminationRequest::COMPLETE));
     }
     //Done, join threads

@@ -9,7 +9,6 @@
 struct Vertex;
 //Forward declaration
 struct RendererContext;
-class CommandPoolManager;
 struct descriptorUpdateData;
 
 

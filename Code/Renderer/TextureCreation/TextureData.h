@@ -6,7 +6,6 @@
 
 #include "../RendererContext.h"
 #include  "../VulkanIncludes/Vulkan_Includes.h"
-struct CommandBufferPoolQueue;
 using ktxTexture2 = struct ktxTexture2;
 using ktxVulkanTexture = struct ktxVulkanTexture;
 
@@ -31,10 +30,15 @@ struct textureFormatInfo
     uint32_t layerCt;
 };
 
+struct VkImageAndMemory
+{
+    VkImage image;
+    VkDeviceMemory memory;
+};
 
 struct TextureMetaData
 {
-    VkImage textureImage;
+    VkImageAndMemory textureImage;
     textureFormatInfo dimensionsInfo;
     VkDeviceMemory ktxMemory;
     VkSamplerAddressMode mode;
@@ -98,7 +102,6 @@ namespace TextureCreation
 
     struct TextureCreationStep1Result
     {
-        RendererContext ctx;
         TextureCreationMode mode;
         TextureMetaData metaData;
         TextureType type;
@@ -116,6 +119,6 @@ namespace TextureCreation
                                  CommandBufferPoolQueue* commandbuffer);
 
     TextureCreationStep1Result CreateTextureFromArgs_Start(TextureCreationInfoArgs a);
-    TextureData CreateTextureFromArgsFinalize(TextureCreationStep1Result startResult);
+    TextureData CreateTextureFromArgsFinalize(RendererContext outputTextureOwnerContext, TextureCreationStep1Result startResult);
     TextureData CreateTextureFromArgs(TextureCreationInfoArgs a);
 }

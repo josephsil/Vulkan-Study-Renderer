@@ -8,6 +8,12 @@
 #include "Renderer/VulkanIncludes/VulkanMemory.h"
 #include "VulkanRendererInternals/RendererHelpers.h"
 
+
+
+
+
+
+
 void VulkanRenderer::initializeWindow()
 {
     // We initialize SDL and create a window with it. 

@@ -61,7 +61,7 @@ HostDataBufferObject<T> createDataBuffer(RendererContext* h, size_t size, VkBuff
         &hostDataBuffer.allocation,
         hostDataBuffer.buffer.data);
 
-    h->rendererdeletionqueue->push_backVMA(deletionType::vmaBuffer, (uint64_t)(hostDataBuffer.buffer.data),
+    h->threadDeletionQueue->push_backVMA(deletionType::vmaBuffer, (uint64_t)(hostDataBuffer.buffer.data),
                                            *&hostDataBuffer.allocation);
     //add to deletion queue
 

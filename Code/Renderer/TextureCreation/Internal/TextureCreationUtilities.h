@@ -3,9 +3,10 @@
 
 #include <Renderer/VulkanIncludes/forward-declarations-renderer.h>
 
+#include "Renderer/CommandPoolManager.h"
+
 struct BufferCreationContext;
 class RendererDeletionQueue;
-class CommandPoolManager;
 
 namespace TextureUtilities
 {

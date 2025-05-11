@@ -14,6 +14,8 @@ using VkInstance = struct VkInstance_T*;
 
 using VkSemaphore = struct VkSemaphore_T*;
 
+using VkFence = struct VkFence_T*;
+
 using VmaAllocator = struct VmaAllocator_T*;
 using VmaAllocation = struct VmaAllocation_T*;
 struct VmaAllocationInfo;

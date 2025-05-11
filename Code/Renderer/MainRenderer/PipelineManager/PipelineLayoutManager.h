@@ -15,7 +15,6 @@ class PipelineLayoutGroup;
 struct Vertex;
 //Forward declaration
 struct RendererContext;
-class CommandPoolManager;
 struct descriptorUpdateData;
 
 typedef size_t PipelineLayoutHandle;
