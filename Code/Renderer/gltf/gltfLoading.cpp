@@ -506,14 +506,14 @@ gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
             assert(image.pixel_type == TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE);
             assert(image.bits == 8);
 
-            textures[i] = TextureCreation::CreateTexture(handles, cachedImagePath.data(), name.data(), VK_FORMAT_R8G8B8A8_SRGB,
-                                        VK_SAMPLER_ADDRESS_MODE_REPEAT, image.image.data(), image.width, image.height,
-                                        6, &textureImportCommandBuffer, true);
+            textures[i] = TextureCreation::CreateTextureFromArgs(TextureCreation::MakeTextureCreationArgsFromGLTFArgs(handles, cachedImagePath.data(), VK_FORMAT_R8G8B8A8_SRGB, VK_SAMPLER_ADDRESS_MODE_REPEAT,
+                                                                 image.image.data(), image.width, image.height, 6,
+                                                                 &textureImportCommandBuffer, true));
         }
         else
-            textures[i] = TextureCreation::CreateTexture(handles, cachedImagePath.data(), name.data(), VK_FORMAT_R8G8B8A8_SRGB,
-                                        VK_SAMPLER_ADDRESS_MODE_REPEAT, image.width, image.height, 6,
-                                        &textureImportCommandBuffer);
+        {
+            textures[i] = TextureCreation::CreateTextureFromArgs(TextureCreation::MakeTextureCreationArgsFromCachedGLTFArgs(handles, cachedImagePath.data(), VK_SAMPLER_ADDRESS_MODE_REPEAT, &textureImportCommandBuffer));
+        }
     }
 
     handles.textureCreationcommandPoolmanager->endSingleTimeCommands(textureImportCommandBuffer);

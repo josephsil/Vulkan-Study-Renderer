@@ -36,6 +36,7 @@ struct TextureMetaData
     VkImage textureImage;
     textureFormatInfo dimensionsInfo;
     VkDeviceMemory ktxMemory;
+    VkSamplerAddressMode mode;
 };
 
 
@@ -48,19 +49,64 @@ struct TextureData
 namespace TextureCreation
 {
     static TextureMetaData createImageKTX(RendererContext rendererContext, const char* path, TextureType type, bool mips,
-                                          bool useExistingBuffer = false, CommandBufferPoolQueue* buffer = nullptr);
+                                          VkSamplerAddressMode mode, bool useExistingBuffer = false, CommandBufferPoolQueue* buffer = nullptr);
     static VkImageView createTextureImageView(RendererContext rendererContext, TextureMetaData data, VkImageViewType type);
     void createTextureSampler(VkSampler* textureSampler, RendererContext rendererContext, VkSamplerAddressMode mode,
                               float bias, uint32_t maxMip, bool shadow = false);
     void createDepthPyramidSampler(VkSampler* textureSampler, RendererContext rendererContext, uint32_t maxMip);
-    //FILEPATH PATH 
-    TextureData CreateTexture(RendererContext rendererContext, const char* path, TextureType type,
+
+    enum class TextureCreationMode
+    {
+        FILE,
+        GLTFCREATE,
+        GLTFCACHED
+    };
+    struct FILE_addtlargs
+    {
+        char* path;
+        TextureType type;
+        VkImageViewType viewType;
+    };
+    struct GLTFCREATE_addtlargs
+    {
+        char* OUTPUT_PATH;
+        VkFormat format;
+        VkSamplerAddressMode samplerMode;
+        unsigned char* pixels;
+        uint64_t width;
+        uint64_t height;
+        int mipCt;
+        CommandBufferPoolQueue* commandbuffer;
+        bool compress;
+    };
+    struct GLTFCACHE_addtlargs
+    {
+        char* OUTPUT_PATH;
+        VkSamplerAddressMode samplerMode;
+        CommandBufferPoolQueue* commandbuffer;
+    };
+  
+    struct TextureCreationInfoArgs
+    {
+        RendererContext ctx;
+        TextureCreationMode mode;
+        union TextureCreationModeArgs {
+            FILE_addtlargs fileArgs;
+            GLTFCREATE_addtlargs gltfCreateArgs;
+            GLTFCACHE_addtlargs gltfCacheArgs;
+        }args;
+    };
+    TextureCreationInfoArgs MakeCreationArgsFromFilepathArgs(RendererContext rendererContext , const char* path, TextureType type,
                               VkImageViewType viewType = static_cast<VkImageViewType>(-1));
-    //GLTF PATH 
-    TextureData CreateTexture(RendererContext rendererContext, const char* OUTPUT_PATH, const char* textureName,
-                              VkFormat format, VkSamplerAddressMode samplerMode, unsigned char* pixels, uint64_t width,
-                              uint64_t height, int mipCt, CommandBufferPoolQueue* commandbuffer, bool compress);
-    TextureData CreateTexture(RendererContext rendererContext, const char* OUTPUT_PATH, const char* textureName,
-                              VkFormat format, VkSamplerAddressMode samplerMode,
-                              uint64_t width, uint64_t height, int mipCt, CommandBufferPoolQueue* commandbuffer);
+
+    TextureCreationInfoArgs MakeTextureCreationArgsFromGLTFArgs(RendererContext rendererContext ,  const char* OUTPUT_PATH,
+                                      VkFormat format, VkSamplerAddressMode samplerMode, unsigned char* pixels, uint64_t width,
+                                      uint64_t height, int mipCt, CommandBufferPoolQueue* commandbuffer, bool compress);
+
+    TextureCreationInfoArgs MakeTextureCreationArgsFromCachedGLTFArgs(RendererContext rendererContext ,  const char* OUTPUT_PATH,
+                                 VkSamplerAddressMode samplerMode,
+                                 CommandBufferPoolQueue* commandbuffer);
+
+
+    TextureData CreateTextureFromArgs( TextureCreationInfoArgs a);
 }

@@ -138,11 +138,12 @@ private:
 #pragma endregion
 
 
+    std::span<std::unique_ptr<RendererDeletionQueue>> perFrameDeletionQueuse;
     struct per_frame_data
     {
         std::span<uint32_t> boundCommandBuffers;
         acquireImageSemaphore semaphores;
-        std::unique_ptr<RendererDeletionQueue> deletionQueue;
+       
         VkFence inFlightFence{};
         HostDataBufferObject<ShaderGlobals> opaqueShaderGlobalsBuffer;
         HostDataBufferObject<glm::vec4> hostVerts;

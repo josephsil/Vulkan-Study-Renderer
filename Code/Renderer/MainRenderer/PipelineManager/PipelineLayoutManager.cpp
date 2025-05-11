@@ -20,7 +20,9 @@ PreAllocatedDescriptorSetPool::PreAllocatedDescriptorSetPool(MemoryArena::memory
 PipelineLayoutManager::PipelineLayoutManager()
 {
     MemoryArena::initialize(&arena, 4000);
-    pipelineLayoutGroups = MemoryArena::AllocSpan<PipelineLayoutGroup>(&arena, 10);
+    //TODO: I need to restructure this, this is a hack to get around my own static_assert about allocspan for non pod types
+    //TODO JS: Shouldnt use an Array, should grow a span manually with various emplace back calls
+    pipelineLayoutGroups = std::span<PipelineLayoutGroup>(static_cast<PipelineLayoutGroup*>(MemoryArena::alloc(&arena, sizeof(PipelineLayoutGroup) * 10)), 10);
 }
 
 PipelineLayoutHandle PipelineLayoutManager::CreateNewGroup(RendererContext handles, VkDescriptorPool pool,

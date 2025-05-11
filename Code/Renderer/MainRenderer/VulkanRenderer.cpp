@@ -82,13 +82,14 @@ VulkanRenderer::VulkanRenderer()
 
 
     FramesInFlightData = MemoryArena::AllocSpan<per_frame_data>(&rendererArena, MAX_FRAMES_IN_FLIGHT);
+    perFrameDeletionQueuse = MemoryArena::AllocSpanDefaultInitialize<std::unique_ptr<RendererDeletionQueue>>(&rendererArena, MAX_FRAMES_IN_FLIGHT); //todo js double create, oops
     //Command buffer stuff
     //semaphores
     for (int i = 0; i < FramesInFlightData.size(); i++)
     {
         createSemaphore(rendererVulkanObjects.vkbdevice.device, &(FramesInFlightData[i].semaphores.semaphore), "Per Frame semaphpre", deletionQueue.get());
         static_createFence(rendererVulkanObjects.vkbdevice.device,  &FramesInFlightData[i].inFlightFence, "Per Frame fence", deletionQueue.get());
-        FramesInFlightData[i].deletionQueue = std::make_unique<RendererDeletionQueue>(rendererVulkanObjects.vkbdevice, rendererVulkanObjects.vmaAllocator);
+       perFrameDeletionQueuse[i] = std::make_unique<RendererDeletionQueue>(rendererVulkanObjects.vkbdevice, rendererVulkanObjects.vmaAllocator); //todo js double create, oops
     }
     //Initialize sceneData
     AssetDataAndMemory = MemoryArena::Alloc<AssetManager>(&rendererArena);
@@ -330,9 +331,9 @@ void VulkanRenderer::InitializeRendererForScene(sceneCountData sceneCountData) /
 
     //Initialize scene-ish objects we don't have a place for yet 
     cubemaplut_utilitytexture_index = AssetDataAndMemory->AddTexture(
-        TextureCreation::CreateTexture(getFullRendererContext(), "textures/outputLUT.png", TextureType::DATA_DONT_COMPRESS));
-    cube_irradiance = TextureCreation::CreateTexture(getFullRendererContext(), "textures/output_cubemap2_diff8.ktx2", TextureType::CUBE);
-    cube_specular = TextureCreation::CreateTexture(getFullRendererContext(), "textures/output_cubemap2_spec8.ktx2", TextureType::CUBE);
+        TextureCreation::CreateTextureFromArgs(TextureCreation::MakeCreationArgsFromFilepathArgs(getFullRendererContext(), "textures/outputLUT.png", TextureType::DATA_DONT_COMPRESS)));
+    cube_irradiance = TextureCreation::CreateTextureFromArgs(TextureCreation::MakeCreationArgsFromFilepathArgs(getFullRendererContext(), "textures/output_cubemap2_diff8.ktx2", TextureType::CUBE));
+    cube_specular = TextureCreation::CreateTextureFromArgs(TextureCreation::MakeCreationArgsFromFilepathArgs(getFullRendererContext(), "textures/output_cubemap2_spec8.ktx2", TextureType::CUBE));
 
     CreateUniformBuffers(sceneCountData.objectCount,sceneCountData.lightCount);
 
@@ -1201,7 +1202,7 @@ void VulkanRenderer::Update(Scene* scene)
     {
         vkWaitForFences(rendererVulkanObjects.vkbdevice.device, 1, &FramesInFlightData[currentFrame].inFlightFence, VK_TRUE, UINT64_MAX);
  
-        FramesInFlightData[currentFrame].deletionQueue->FreeQueue();
+        perFrameDeletionQueuse[currentFrame]->FreeQueue();
         MemoryArena::free(&perFrameArenas[currentFrame]);
    
         vkResetFences(rendererVulkanObjects.vkbdevice.device, 1, &FramesInFlightData[currentFrame].inFlightFence);
@@ -1527,7 +1528,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     ComandBufferSubmissionPipeline renderCommandBufferObjects =
         {
         .device =   rendererVulkanObjects.vkbdevice.device,
-        .deletionQueue = thisFrameData->deletionQueue.get(),
+        .deletionQueue = perFrameDeletionQueuse[currentFrame].get(),
         .renderstepDatas =  MemoryArena::AllocSpan<ActiveRenderStepData>(&perFrameArenas[currentFrame], 20),
         .semaphorePool = MemoryArena::AllocSpan<VkSemaphore>(&perFrameArenas[currentFrame], 100)
         };

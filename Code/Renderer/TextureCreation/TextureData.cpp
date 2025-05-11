@@ -33,10 +33,13 @@ static nonKTXTextureInfo createTextureImage(RendererContext rendererContext, con
                                             uint64_t texWidth, uint64_t texHeight, VkFormat format, bool mips);
 static void cacheKTXFromTempTexture(RendererContext rendererContext, nonKTXTextureInfo tempTexture, const char* outpath,
                                     VkFormat format, TextureType textureType, bool use_mipmaps, bool compress);
-TextureMetaData GetOrLoadTexture(RendererContext rendererContext, const char* path, VkFormat format,
+TextureMetaData GetOrLoadTexture(RendererContext rendererContext, const char* path, VkFormat format, VkSamplerAddressMode mode,
                                  TextureType textureType, bool use_mipmaps, bool compress);
 
-TextureData TextureCreation::CreateTexture(RendererContext rendererContext, const char* path, TextureType type, VkImageViewType viewType)
+// TextureData TextureCreation::CreateTexture_part1(RendererContext rendererContext, const char* path, TextureType type, VkImageViewType viewType)
+// {
+// }
+TextureMetaData CreateTextureFromPath_Start(RendererContext rendererContext, const char* path, TextureType type)
 {
     VkFormat inputFormat;
     VkSamplerAddressMode mode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
@@ -82,105 +85,146 @@ TextureData TextureCreation::CreateTexture(RendererContext rendererContext, cons
         }
     }
 
-    //TODO JS
-    auto ktxResult = GetOrLoadTexture(rendererContext, path, inputFormat, type, use_mipmaps, !uncompressed);
-    VkFormat loadedFormat = ktxResult.dimensionsInfo.format;
-    auto layerct = ktxResult.dimensionsInfo.layerCt;
-    auto textureImage = ktxResult.textureImage;
+    return GetOrLoadTexture(rendererContext, path, inputFormat, mode, type, use_mipmaps, !uncompressed);
+}
 
+TextureData CreateTextureFromPath_Finalize(RendererContext rendererContext, TextureMetaData tData, TextureType type, VkImageViewType viewType)
+{
     if (viewType == -1)
     {
         viewType = type == CUBE ? VK_IMAGE_VIEW_TYPE_CUBE : VK_IMAGE_VIEW_TYPE_2D;
     }
-    auto textureImageView = createTextureImageView(rendererContext, ktxResult, viewType);
+    auto textureImageView = TextureCreation::createTextureImageView(rendererContext, tData, viewType);
     VkSampler textureSampler = {};
-    createTextureSampler(&textureSampler, rendererContext, mode, 0, ktxResult.dimensionsInfo.mipCt);
-
-    TextureData texture =
-    {
+    TextureCreation::createTextureSampler(&textureSampler, rendererContext, tData.mode, 0, tData.dimensionsInfo.mipCt);
+    return TextureData 
+      {
         .vkImageInfo = {
             .sampler = textureSampler,
             .imageView = textureImageView,
             .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
         },
         .metaData = {
-            .textureImage = ktxResult.textureImage,
-            .dimensionsInfo = ktxResult.dimensionsInfo,
-            .ktxMemory = ktxResult.ktxMemory
+            .textureImage = tData.textureImage,
+            .dimensionsInfo = tData.dimensionsInfo,
+            .ktxMemory = tData.ktxMemory
         }
 
-    };
-    return texture;
+      };
 }
 
-//TODO JS: these constructors suck and are error prone, was just easier refactor
-//FROM LOADED GLTF 
-TextureData TextureCreation::CreateTexture(RendererContext rendererContext, const char* OUTPUT_PATH, const char* textureName,
-                          VkFormat format, VkSamplerAddressMode samplerMode, unsigned char* pixels, uint64_t width,
-                          uint64_t height, int mipCt, CommandBufferPoolQueue* commandbuffer, bool compress)
+TextureCreation::TextureCreationInfoArgs TextureCreation::MakeCreationArgsFromFilepathArgs(RendererContext rendererContext,
+    const char* path, TextureType type, VkImageViewType viewType)
 {
-    nonKTXTextureInfo staging = createTextureImage(rendererContext, pixels, width, height, format, true);
+    auto args = TextureCreationInfoArgs {
+        rendererContext,
+        TextureCreationMode::FILE
+    };
+    args.args.fileArgs =
+        FILE_addtlargs{
+            .path = const_cast<char*>(path),
+            .type = type,
+            .viewType = viewType
+        };
+return args;
+}
+
+TextureCreation::TextureCreationInfoArgs TextureCreation::MakeTextureCreationArgsFromGLTFArgs(RendererContext rendererContext,
+    const char* OUTPUT_PATH, VkFormat format, VkSamplerAddressMode samplerMode, unsigned char* pixels, uint64_t width,
+    uint64_t height, int mipCt, CommandBufferPoolQueue* commandbuffer, bool compress)
+{
+    auto args = TextureCreationInfoArgs {
+        rendererContext,
+        TextureCreationMode::GLTFCREATE
+    };
+    args.args.gltfCreateArgs =
+        GLTFCREATE_addtlargs{
+            .OUTPUT_PATH = const_cast<char*>(OUTPUT_PATH),
+            .format = format,
+            .samplerMode = samplerMode,
+            .pixels = pixels,
+            .width = width,
+            .height = height,
+            .mipCt = mipCt,
+            .commandbuffer = commandbuffer,
+            .compress =  compress
+        };
+    return args;
+}
+
+TextureCreation::TextureCreationInfoArgs TextureCreation::MakeTextureCreationArgsFromCachedGLTFArgs(
+    RendererContext rendererContext, const char* OUTPUT_PATH, VkSamplerAddressMode samplerMode,
+    CommandBufferPoolQueue* commandbuffer)
+{
+    auto args = TextureCreationInfoArgs {
+        rendererContext,
+        TextureCreationMode::GLTFCACHED
+    };
+    args.args.gltfCacheArgs =
+        GLTFCACHE_addtlargs{
+            .OUTPUT_PATH = const_cast<char*>(OUTPUT_PATH),
+            .samplerMode = samplerMode,
+            .commandbuffer =  commandbuffer
+        };
+    return args;     
+}
+
+
+
+TextureMetaData CreateTextureNewGltfTexture_Start(RendererContext rendererContext,  TextureCreation::GLTFCREATE_addtlargs args)
+{
+    nonKTXTextureInfo staging = createTextureImage(rendererContext, args.pixels, args.width, args.height, args.format, true);
+    
     //TODO JS: no gaurantee taking output path data works -- not null terminated rght?
-    cacheKTXFromTempTexture(rendererContext, staging, OUTPUT_PATH, format, DIFFUSE, mipCt != 0, compress);
-
-
-    auto ktxResult = createImageKTX(rendererContext, OUTPUT_PATH, DIFFUSE, true, true, commandbuffer);
-    VkFormat loadedFormat = ktxResult.dimensionsInfo.format;
-    auto layerct = ktxResult.dimensionsInfo.layerCt;
-    auto textureImage = ktxResult.textureImage;
-    // textureImageMemory = ktxResult.ktxMemory;
-
-    VkImageView textureImageView = createTextureImageView(rendererContext, ktxResult, VK_IMAGE_VIEW_TYPE_2D);
-    assert(textureImageView != VK_NULL_HANDLE);
-    VkSampler textureSampler = {};
-    createTextureSampler(&textureSampler, rendererContext, samplerMode, 0, ktxResult.dimensionsInfo.mipCt);
-
-    TextureData texture =
-    {
-        .vkImageInfo = {
-            .sampler = textureSampler,
-            .imageView = textureImageView,
-            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-        },
-        .metaData = {
-            .textureImage = ktxResult.textureImage,
-            .dimensionsInfo = ktxResult.dimensionsInfo,
-            .ktxMemory = ktxResult.ktxMemory
-        }
-
-    };
-    return texture;
+    cacheKTXFromTempTexture(rendererContext, staging, args.OUTPUT_PATH, args.format, DIFFUSE, args.mipCt != 0, args.compress);
+    auto ktxResult = TextureCreation::createImageKTX(rendererContext, args.OUTPUT_PATH, DIFFUSE, true, args.samplerMode, true, args.commandbuffer);
+    return ktxResult;
 }
 
-//FROM CACHED GLTF 
-TextureData TextureCreation::CreateTexture(RendererContext rendererContext, const char* OUTPUT_PATH, const char* textureName,
-                          VkFormat format, VkSamplerAddressMode samplerMode,
-                          uint64_t width, uint64_t height, int mipCt, CommandBufferPoolQueue* commandbuffer)
+TextureData CreateTextureNewGltfTexture_Finalize(RendererContext rendererContext, TextureMetaData tData)
 {
-    auto ktxResult = createImageKTX(rendererContext, OUTPUT_PATH, DIFFUSE, true, true, commandbuffer);
-    VkFormat loadedFormat = ktxResult.dimensionsInfo.format;
-
-    auto textureImageView = createTextureImageView(rendererContext, ktxResult, VK_IMAGE_VIEW_TYPE_2D);
+    VkImageView textureImageView = TextureCreation::createTextureImageView(rendererContext, tData, VK_IMAGE_VIEW_TYPE_2D);
     assert(textureImageView != VK_NULL_HANDLE);
-
     VkSampler textureSampler = {};
-    createTextureSampler(&textureSampler, rendererContext, samplerMode, 0, ktxResult.dimensionsInfo.mipCt);
+    TextureCreation::createTextureSampler(&textureSampler, rendererContext, tData.mode, 0, tData.dimensionsInfo.mipCt);
 
-    TextureData texture =
+    return TextureData 
     {
         .vkImageInfo = {
             .sampler = textureSampler,
             .imageView = textureImageView,
             .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
         },
-        .metaData = {
-            .textureImage = ktxResult.textureImage,
-            .dimensionsInfo = ktxResult.dimensionsInfo,
-            .ktxMemory = ktxResult.ktxMemory
-        }
-
+        .metaData = tData //TODO1 check
     };
-    return texture;
+}
+
+
+
+
+
+//FROM CACHED GLTF
+TextureMetaData GetCachedTexture_Start(RendererContext rendererContext, TextureCreation::GLTFCACHE_addtlargs args)
+{
+    return  TextureCreation::createImageKTX(rendererContext, args.OUTPUT_PATH, DIFFUSE, true, args.samplerMode, true, args.commandbuffer);
+}
+TextureData GetCachedTexture_Finalize(RendererContext rendererContext, TextureMetaData tData)
+{
+    auto textureImageView = TextureCreation::createTextureImageView(rendererContext, tData, VK_IMAGE_VIEW_TYPE_2D);
+    assert(textureImageView != VK_NULL_HANDLE);
+
+    VkSampler textureSampler = {};
+    TextureCreation::createTextureSampler(&textureSampler, rendererContext, tData.mode, 0, tData.dimensionsInfo.mipCt);
+
+    return TextureData 
+    {
+        .vkImageInfo = {
+            .sampler = textureSampler,
+            .imageView = textureImageView,
+            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+        },
+        .metaData = tData //TODO1
+    };
 }
 
 //TODO JS: Lifted from gltfiblsampler -- replace
@@ -412,8 +456,13 @@ std::basic_string<char> replaceExt(const char* target, const char* extension)
 
 constexpr uint32_t cubeMips = 6;
 
+struct TextureLoadResultsQueue
+{
+    std::span<TextureMetaData> LoadResults;
+    size_t processed;
+};
 
-TextureMetaData GetOrLoadTexture(RendererContext rendererContext, const char* path, VkFormat format,
+TextureMetaData GetOrLoadTexture(RendererContext rendererContext, const char* path, VkFormat format, VkSamplerAddressMode mode,
                                  TextureType textureType, bool use_mipmaps, bool compress)
 {
     //TODO JS: Figure out cubes later -- when we add compression we should cache cubes too
@@ -422,7 +471,7 @@ TextureMetaData GetOrLoadTexture(RendererContext rendererContext, const char* pa
     {
         maxmip = cubeMips;
 
-        auto ktxResult = TextureCreation::createImageKTX(rendererContext, path, textureType, true);
+        auto ktxResult = TextureCreation::createImageKTX(rendererContext, path, textureType, true, mode);
         VkFormat loadedFormat = ktxResult.dimensionsInfo.format;
 
 
@@ -447,7 +496,7 @@ TextureMetaData GetOrLoadTexture(RendererContext rendererContext, const char* pa
         FileCaching::saveAssetChangedTime(path);
     }
 
-    return TextureCreation::createImageKTX(rendererContext, ktxPath.data(), textureType, use_mipmaps, false);
+    return TextureCreation::createImageKTX(rendererContext, ktxPath.data(), textureType, use_mipmaps, mode, false);
 }
 
 
@@ -698,7 +747,7 @@ static nonKTXTextureInfo createtempTextureFromPath(RendererContext rendererConte
 }
 
 
-TextureMetaData TextureCreation::createImageKTX(RendererContext rendererContext, const char* path, TextureType type, bool mips,
+TextureMetaData TextureCreation::createImageKTX(RendererContext rendererContext, const char* path, TextureType type, bool mips, VkSamplerAddressMode mode,
                                bool useExistingBuffer, CommandBufferPoolQueue* buffer)
 {
     ktxVulkanDeviceInfo vdi;
@@ -784,9 +833,48 @@ TextureMetaData TextureCreation::createImageKTX(RendererContext rendererContext,
             .width = texture.width,
             .height = texture.height,
             .mipCt = type == CUBE ? cubeMips : texture.levelCount,
-            .layerCt = texture.layerCount
+            .layerCt = texture.layerCount,
         },
 
-        .ktxMemory = texture.deviceMemory
+        .ktxMemory = texture.deviceMemory,
+        .mode = mode
     };
+}
+
+TextureData CreateTextureFromPath(RendererContext rendererContext, TextureCreation::FILE_addtlargs args)
+{
+    auto ktxResult = CreateTextureFromPath_Start(rendererContext, args.path,args.type);
+    return CreateTextureFromPath_Finalize(rendererContext, ktxResult, args.type, args.viewType);
+}
+
+TextureData CreateTextureFromGLTFCreate(RendererContext rendererContext, TextureCreation::GLTFCREATE_addtlargs args)
+{
+    auto ktxResult = CreateTextureNewGltfTexture_Start(rendererContext, args); 
+
+    return CreateTextureNewGltfTexture_Finalize(rendererContext, ktxResult);
+
+}
+TextureData CreateTextureFromGLTFCached(RendererContext rendererContext, TextureCreation::GLTFCACHE_addtlargs args)
+{
+    auto ktxResult = GetCachedTexture_Start(rendererContext, args);
+    return GetCachedTexture_Finalize(rendererContext, ktxResult);
+}
+TextureData TextureCreation::CreateTextureFromArgs(TextureCreationInfoArgs a)
+{
+    switch (a.mode)
+    {
+    case TextureCreationMode::FILE:
+        {
+            return CreateTextureFromPath(a.ctx, a.args.fileArgs);
+            break;
+        }
+    case TextureCreationMode::GLTFCREATE:
+        return CreateTextureFromGLTFCreate(a.ctx, a.args.gltfCreateArgs);
+        break;
+    case TextureCreationMode::GLTFCACHED:
+        return CreateTextureFromGLTFCached(a.ctx, a.args.gltfCacheArgs);
+        break;
+    }
+    assert("!Error");
+    return {};
 }
