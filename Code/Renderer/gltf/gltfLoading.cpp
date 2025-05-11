@@ -506,13 +506,18 @@ gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
             assert(image.pixel_type == TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE);
             assert(image.bits == 8);
 
-            textures[i] = TextureCreation::CreateTextureFromArgs(TextureCreation::MakeTextureCreationArgsFromGLTFArgs(handles, cachedImagePath.data(), VK_FORMAT_R8G8B8A8_SRGB, VK_SAMPLER_ADDRESS_MODE_REPEAT,
+            auto requestStart = TextureCreation::CreateTextureFromArgs_Start(TextureCreation::MakeTextureCreationArgsFromGLTFArgs(handles, cachedImagePath.data(), VK_FORMAT_R8G8B8A8_SRGB, VK_SAMPLER_ADDRESS_MODE_REPEAT,
                                                                  image.image.data(), image.width, image.height, 6,
                                                                  &textureImportCommandBuffer, true));
+            auto requestFinish = TextureCreation::CreateTextureFromArgsFinalize(requestStart);
+
+            textures[i] = requestFinish;
         }
         else
         {
-            textures[i] = TextureCreation::CreateTextureFromArgs(TextureCreation::MakeTextureCreationArgsFromCachedGLTFArgs(handles, cachedImagePath.data(), VK_SAMPLER_ADDRESS_MODE_REPEAT, &textureImportCommandBuffer));
+            auto requestStart = TextureCreation::CreateTextureFromArgs_Start(TextureCreation::MakeTextureCreationArgsFromCachedGLTFArgs(handles, cachedImagePath.data(), VK_SAMPLER_ADDRESS_MODE_REPEAT, &textureImportCommandBuffer));
+            auto requestFinish = TextureCreation::CreateTextureFromArgsFinalize(requestStart);
+            textures[i] = requestFinish;
         }
     }
 

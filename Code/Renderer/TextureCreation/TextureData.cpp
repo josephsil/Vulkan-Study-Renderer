@@ -33,20 +33,20 @@ static nonKTXTextureInfo createTextureImage(RendererContext rendererContext, con
                                             uint64_t texWidth, uint64_t texHeight, VkFormat format, bool mips);
 static void cacheKTXFromTempTexture(RendererContext rendererContext, nonKTXTextureInfo tempTexture, const char* outpath,
                                     VkFormat format, TextureType textureType, bool use_mipmaps, bool compress);
-TextureMetaData GetOrLoadTexture(RendererContext rendererContext, const char* path, VkFormat format, VkSamplerAddressMode mode,
+TextureMetaData GetOrLoadTextureFromPath(RendererContext rendererContext, const char* path, VkFormat format, VkSamplerAddressMode mode,
                                  TextureType textureType, bool use_mipmaps, bool compress);
 
 // TextureData TextureCreation::CreateTexture_part1(RendererContext rendererContext, const char* path, TextureType type, VkImageViewType viewType)
 // {
 // }
-TextureMetaData CreateTextureFromPath_Start(RendererContext rendererContext, const char* path, TextureType type)
+TextureMetaData CreateTextureFromPath_Start(RendererContext rendererContext, TextureCreation::FILE_addtlargs args)
 {
     VkFormat inputFormat;
     VkSamplerAddressMode mode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
     bool uncompressed = false;
 
     bool use_mipmaps = true;
-    switch (type)
+    switch (args.type)
     {
     case DIFFUSE:
         {
@@ -85,11 +85,13 @@ TextureMetaData CreateTextureFromPath_Start(RendererContext rendererContext, con
         }
     }
 
-    return GetOrLoadTexture(rendererContext, path, inputFormat, mode, type, use_mipmaps, !uncompressed);
+    return GetOrLoadTextureFromPath(rendererContext, args.path, inputFormat, mode, args.type, use_mipmaps, !uncompressed);
 }
 
-TextureData CreateTextureFromPath_Finalize(RendererContext rendererContext, TextureMetaData tData, TextureType type, VkImageViewType viewType)
+TextureData CreateTextureFromPath_Finalize(RendererContext rendererContext, TextureMetaData tData, TextureType type,
+        VkImageViewType _viewType)
 {
+    auto viewType = _viewType;
     if (viewType == -1)
     {
         viewType = type == CUBE ? VK_IMAGE_VIEW_TYPE_CUBE : VK_IMAGE_VIEW_TYPE_2D;
@@ -462,7 +464,7 @@ struct TextureLoadResultsQueue
     size_t processed;
 };
 
-TextureMetaData GetOrLoadTexture(RendererContext rendererContext, const char* path, VkFormat format, VkSamplerAddressMode mode,
+TextureMetaData GetOrLoadTextureFromPath(RendererContext rendererContext, const char* path, VkFormat format, VkSamplerAddressMode mode,
                                  TextureType textureType, bool use_mipmaps, bool compress)
 {
     //TODO JS: Figure out cubes later -- when we add compression we should cache cubes too
@@ -841,40 +843,44 @@ TextureMetaData TextureCreation::createImageKTX(RendererContext rendererContext,
     };
 }
 
-TextureData CreateTextureFromPath(RendererContext rendererContext, TextureCreation::FILE_addtlargs args)
+TextureCreation::TextureCreationStep1Result TextureCreation::CreateTextureFromArgs_Start(TextureCreation::TextureCreationInfoArgs a)
 {
-    auto ktxResult = CreateTextureFromPath_Start(rendererContext, args.path,args.type);
-    return CreateTextureFromPath_Finalize(rendererContext, ktxResult, args.type, args.viewType);
-}
-
-TextureData CreateTextureFromGLTFCreate(RendererContext rendererContext, TextureCreation::GLTFCREATE_addtlargs args)
-{
-    auto ktxResult = CreateTextureNewGltfTexture_Start(rendererContext, args); 
-
-    return CreateTextureNewGltfTexture_Finalize(rendererContext, ktxResult);
-
-}
-TextureData CreateTextureFromGLTFCached(RendererContext rendererContext, TextureCreation::GLTFCACHE_addtlargs args)
-{
-    auto ktxResult = GetCachedTexture_Start(rendererContext, args);
-    return GetCachedTexture_Finalize(rendererContext, ktxResult);
-}
-TextureData TextureCreation::CreateTextureFromArgs(TextureCreationInfoArgs a)
-{
+    TextureCreation::TextureCreationStep1Result r = {};
+    r.mode = a.mode;
+    r.ctx = a.ctx;
+ 
     switch (a.mode)
     {
-    case TextureCreationMode::FILE:
+    case TextureCreation::TextureCreationMode::FILE:
         {
-            return CreateTextureFromPath(a.ctx, a.args.fileArgs);
+            r.metaData = CreateTextureFromPath_Start(a.ctx, a.args.fileArgs);
+            r.viewType = a.args.fileArgs.viewType;
+            r.type = a.args.fileArgs.type;
             break;
         }
+    case TextureCreation::TextureCreationMode::GLTFCREATE:
+        r.metaData = CreateTextureNewGltfTexture_Start(a.ctx, a.args.gltfCreateArgs);
+        break;
+    case TextureCreation::TextureCreationMode::GLTFCACHED:
+        r.metaData  = GetCachedTexture_Start(a.ctx, a.args.gltfCacheArgs);
+        break;
+assert("!error!");
+break;
+    }
+    return r;
+}
+TextureData TextureCreation::CreateTextureFromArgsFinalize(TextureCreationStep1Result startResult)
+{
+    switch (startResult.mode)
+    {
+    case TextureCreationMode::FILE:
+        return CreateTextureFromPath_Finalize(startResult.ctx, startResult.metaData, startResult.type, startResult.viewType);
     case TextureCreationMode::GLTFCREATE:
-        return CreateTextureFromGLTFCreate(a.ctx, a.args.gltfCreateArgs);
-        break;
+        return CreateTextureNewGltfTexture_Finalize(startResult.ctx, startResult.metaData);
     case TextureCreationMode::GLTFCACHED:
-        return CreateTextureFromGLTFCached(a.ctx, a.args.gltfCacheArgs);
-        break;
+        return GetCachedTexture_Finalize(startResult.ctx, startResult.metaData);
     }
     assert("!Error");
     return {};
 }
+

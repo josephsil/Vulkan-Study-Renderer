@@ -31,6 +31,7 @@ struct textureFormatInfo
     uint32_t layerCt;
 };
 
+
 struct TextureMetaData
 {
     VkImage textureImage;
@@ -96,6 +97,15 @@ namespace TextureCreation
             GLTFCACHE_addtlargs gltfCacheArgs;
         }args;
     };
+
+    struct TextureCreationStep1Result
+    {
+        RendererContext ctx;
+        TextureCreationMode mode;
+        TextureMetaData metaData;
+        TextureType type;
+        VkImageViewType viewType;
+    };
     TextureCreationInfoArgs MakeCreationArgsFromFilepathArgs(RendererContext rendererContext , const char* path, TextureType type,
                               VkImageViewType viewType = static_cast<VkImageViewType>(-1));
 
@@ -107,6 +117,7 @@ namespace TextureCreation
                                  VkSamplerAddressMode samplerMode,
                                  CommandBufferPoolQueue* commandbuffer);
 
-
-    TextureData CreateTextureFromArgs( TextureCreationInfoArgs a);
+    TextureCreationStep1Result CreateTextureFromArgs_Start(TextureCreationInfoArgs a);
+    TextureData CreateTextureFromArgsFinalize(TextureCreationStep1Result startResult);
+    // TextureData CreateTextureFromArgs( TextureCreationInfoArgs a);
 }

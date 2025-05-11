@@ -327,14 +327,27 @@ void VulkanRenderer::InitializeRendererForScene(sceneCountData sceneCountData) /
         UpdateShadowImageViews(i, sceneCountData);
     }
 
-    TextureCreation::createDepthPyramidSampler(&globalResources.depthMipSampler, getFullRendererContext(),HIZDEPTH);  
+    TextureCreation::createDepthPyramidSampler(&globalResources.depthMipSampler, getFullRendererContext(), HIZDEPTH);
 
     //Initialize scene-ish objects we don't have a place for yet 
-    cubemaplut_utilitytexture_index = AssetDataAndMemory->AddTexture(
-        TextureCreation::CreateTextureFromArgs(TextureCreation::MakeCreationArgsFromFilepathArgs(getFullRendererContext(), "textures/outputLUT.png", TextureType::DATA_DONT_COMPRESS)));
-    cube_irradiance = TextureCreation::CreateTextureFromArgs(TextureCreation::MakeCreationArgsFromFilepathArgs(getFullRendererContext(), "textures/output_cubemap2_diff8.ktx2", TextureType::CUBE));
-    cube_specular = TextureCreation::CreateTextureFromArgs(TextureCreation::MakeCreationArgsFromFilepathArgs(getFullRendererContext(), "textures/output_cubemap2_spec8.ktx2", TextureType::CUBE));
+    auto requestStart = TextureCreation::CreateTextureFromArgs_Start(
+        TextureCreation::MakeCreationArgsFromFilepathArgs(getFullRendererContext(), "textures/outputLUT.png",
+                                                          TextureType::DATA_DONT_COMPRESS));
+    auto requestFinish = TextureCreation::CreateTextureFromArgsFinalize(requestStart);
 
+    cubemaplut_utilitytexture_index = AssetDataAndMemory->AddTexture(requestFinish);
+    
+    auto requestStart2 = TextureCreation::CreateTextureFromArgs_Start(
+        TextureCreation::MakeCreationArgsFromFilepathArgs(getFullRendererContext(),
+                                                          "textures/output_cubemap2_diff8.ktx2", TextureType::CUBE));
+    auto requestFinish2 = TextureCreation::CreateTextureFromArgsFinalize(requestStart2);
+    cube_irradiance = requestFinish2;
+    auto requestStart3 = TextureCreation::CreateTextureFromArgs_Start(
+        TextureCreation::MakeCreationArgsFromFilepathArgs(getFullRendererContext(),
+                                                          "textures/output_cubemap2_spec8.ktx2", TextureType::CUBE));
+
+    auto requestFinish3 = TextureCreation::CreateTextureFromArgsFinalize(requestStart3);
+    cube_specular = requestFinish3;
     CreateUniformBuffers(sceneCountData.objectCount,sceneCountData.lightCount);
 
 
