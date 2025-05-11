@@ -45,7 +45,7 @@ CommandPoolManager::CommandPoolManager(vkb::Device vkbdevice, RendererDeletionQu
     // Queues = GET_QUEUES(vkbdevice);
     device = vkbdevice.device;
     this->deletionQueue = deletionQueue;
-    MemoryArena::initialize(&this->arena, 6000); // tood js
+    MemoryArena::initialize(&this->arena, 6000 * 10); // tood js
     createCommandPool(device, QUEUES.graphicsQueueFamily, &commandPool);
     createCommandPool(device, QUEUES.transferQueueFamily, &transferCommandPool);
 

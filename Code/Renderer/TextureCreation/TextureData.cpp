@@ -218,7 +218,7 @@ TextureData GetCachedTexture_Finalize(RendererContext rendererContext, TextureMe
     assert(textureImageView != VK_NULL_HANDLE);
 
     VkSampler textureSampler = {};
-    TextureCreation::createTextureSampler(&textureSampler, rendererContext, tData.mode, 0, tData.dimensionsInfo.mipCt);
+    TextureCreation::createTextureSampler(&textureSampler, rendererContext, tData.mode, 0, 1);
 
     return TextureData 
     {

@@ -10,6 +10,7 @@
 #include <Renderer/rendererGlobals.h>
 #include <Renderer/VulkanIncludes/Vulkan_Includes.h>
 #include "Renderer/RendererContext.h"
+#include "Renderer/MainRenderer/VulkanRendererInternals/RendererHelpers.h"
 
 
 //todo js
@@ -184,6 +185,20 @@ void TextureUtilities::transitionImageLayout(BufferCreationContext rendererConte
         rendererContext.commandPoolmanager->endSingleTimeCommands(tempBufferAndPool);
 }
 
+void oneMipBarrier(CommandBufferPoolQueue bandp, VkImage image, VkAccessFlags2 srcAccess, VkAccessFlags2 dstAccess, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevel)
+{
+    VkImageMemoryBarrier2 barrier11 = imageBarrier(image,
+                                                0,
+                                                srcAccess,
+                                                oldLayout,
+                                                0,
+                                                dstAccess,
+                                                newLayout,
+                                                VK_IMAGE_ASPECT_COLOR_BIT,
+                                                mipLevel,
+                                                1);
+    pipelineBarrier(bandp->buffer, 0, 0, nullptr, 1, &barrier11);
+}
 void TextureUtilities::generateMipmaps(BufferCreationContext rendererContext, VkImage image, VkFormat imageFormat,
                                        int32_t texWidth,
                                        int32_t texHeight, uint32_t mipLevels)
@@ -195,43 +210,29 @@ void TextureUtilities::generateMipmaps(BufferCreationContext rendererContext, Vk
     setDebugObjectName(rendererContext.device, VK_OBJECT_TYPE_COMMAND_BUFFER, "mipmap commandbuffer",
                        uint64_t(bandp->buffer));
     VkImageMemoryBarrier barrier{};
-    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    barrier.image = image;
-    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    barrier.subresourceRange.baseArrayLayer = 0;
-    barrier.subresourceRange.layerCount = 1;
-    barrier.subresourceRange.levelCount = 1;
 
+    uint32_t currentMipLevel = 0;
     int32_t mipWidth = texWidth;
     int32_t mipHeight = texHeight;
+    setDebugObjectName(rendererContext.device, VK_OBJECT_TYPE_IMAGE, "mipmap transition image", (uint64_t)image);
+    //Transfer the first mip level into transfer src
 
-    for (uint32_t i = 1; i < mipLevels; i++)
+    //Set up the first miplevel;
+    oneMipBarrier(bandp, image,VK_ACCESS_NONE, VK_ACCESS_TRANSFER_READ_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 0);
+    for (uint32_t nextMipLevel = 1; nextMipLevel < mipLevels; nextMipLevel++)
     {
-        barrier.subresourceRange.baseMipLevel = i - 1;
-        barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-
-        vkCmdPipelineBarrier(commandBuffer,
-                             VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
-                             0, nullptr,
-                             0, nullptr,
-                             1, &barrier);
-
+        CommandBufferPoolQueue _bandp = rendererContext.commandPoolmanager->beginSingleTimeCommands(false);
         VkImageBlit blit{};
         blit.srcOffsets[0] = {0, 0, 0};
         blit.srcOffsets[1] = {mipWidth, mipHeight, 1};
         blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        blit.srcSubresource.mipLevel = i - 1;
+        blit.srcSubresource.mipLevel = nextMipLevel - 1;
         blit.srcSubresource.baseArrayLayer = 0;
         blit.srcSubresource.layerCount = 1;
         blit.dstOffsets[0] = {0, 0, 0};
         blit.dstOffsets[1] = {mipWidth > 1 ? mipWidth / 2 : 1, mipHeight > 1 ? mipHeight / 2 : 1, 1};
         blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        blit.dstSubresource.mipLevel = i;
+        blit.dstSubresource.mipLevel = nextMipLevel;
         blit.dstSubresource.baseArrayLayer = 0;
         blit.dstSubresource.layerCount = 1;
 
@@ -240,35 +241,38 @@ void TextureUtilities::generateMipmaps(BufferCreationContext rendererContext, Vk
                        image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                        1, &blit,
                        VK_FILTER_LINEAR);
+        //
+        // barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        // barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        // barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        // barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
-        barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-        barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        //Transfer the src mip level to read only
+        oneMipBarrier(bandp, image, VK_ACCESS_TRANSFER_READ_BIT,
+            VK_ACCESS_SHADER_READ_BIT,
+            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, nextMipLevel-1);
 
-        vkCmdPipelineBarrier(commandBuffer,
-                             VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0,
-                             0, nullptr,
-                             0, nullptr,
-                             1, &barrier);
+        // -- transfer the dst to src 
+        oneMipBarrier(bandp, image, VK_ACCESS_TRANSFER_READ_BIT,
+            VK_ACCESS_TRANSFER_WRITE_BIT,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, nextMipLevel);
 
         if (mipWidth > 1) mipWidth /= 2;
         if (mipHeight > 1) mipHeight /= 2;
+        rendererContext.commandPoolmanager->endSingleTimeCommands(_bandp);
     }
+    //Finally, transfer the last mip level into shader read only
+    oneMipBarrier(bandp, image, VK_ACCESS_TRANSFER_WRITE_BIT,
+        VK_ACCESS_SHADER_READ_BIT,
+        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, mipLevels -1);
 
-    barrier.subresourceRange.baseMipLevel = mipLevels - 1;
-    barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-    vkCmdPipelineBarrier(commandBuffer,
-                         VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0,
-                         0, nullptr,
-                         0, nullptr,
-                         1, &barrier);
+   
 
     rendererContext.commandPoolmanager->endSingleTimeCommands(bandp);
+    setDebugObjectName(rendererContext.device, VK_OBJECT_TYPE_IMAGE, "FINISHED mipmap transition image", (uint64_t)image);
 }
 
 void TextureUtilities::copyBufferToImage(CommandPoolManager* commandPoolManager, VkBuffer buffer, VkImage image,
