@@ -12,8 +12,8 @@
 #include "Renderer/gltf/gltfLoading.h"
 #include "Scene/Scene.h"
 #include "Code/Renderer/MainRenderer/VulkanRenderer.h"
-#include "General/ImportThreads.h"
-#include "General/Mock_prototype_threads_impl.h"
+#include "General/ThreadPool.h"
+#include "General/PrototypeThreadWorker.h"
 //RENDERER TODOS:
 /*
  * -Submeshes
@@ -35,39 +35,6 @@ std::vector<VkDescriptorSet> ImGuiExposedTextures;
 
 int main()
 {
-
-    ImportThreads t;
-    printf("THREADS \n");
-    MemoryArena::memoryArena threadArena  {};
-    initialize(&threadArena, 3 * 1000000);
-
-    MemoryArena::memoryArena differentArena  {};
-    initialize(&differentArena, 3 * 1000000);
-    std::span<testThreadWorkData> workData = MemoryArena::AllocSpan<testThreadWorkData>(&differentArena, 1200);
-    int i = 0;
-    for (auto& work_data : workData)
-    {
-        work_data.requestdata = i++;
-    }
-    int threadCt =  4;
-    InitializeThreadPool(&threadArena, &t, workData.data(), sizeof(testThreadWorkData), workData.size(), threadCt);
-  
-
-    auto worker = PrototypeThreadWorker
-    {
-        .contextdata = MemoryArena::AllocSpan<uint64_t>(&differentArena, 4)
-    };
-    auto wrapper = ThreadRunnerWrapper(&worker);
- 
-    CreateThreads(&t,wrapper );
-
-    SubmitRequests(&t, workData.size());
-    auto r = WaitForCompletion(&t, wrapper);
-    auto code = r ? 0 : -100;
-
-    printf("NEW ENTRY \n");
-    exit(code);
-
     // Setup Dear ImGui context
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();

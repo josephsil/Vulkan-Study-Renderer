@@ -26,7 +26,7 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include=".gitmodules" />
-    <Content Include="Code\General\Mock_prototype_threads_impl.h" />
+    <Content Include="Code\General\PrototypeThreadWorker.h" />
     <Content Include="Textures\**">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
@@ -168,10 +168,11 @@
     <ClCompile Include="Code\game.cpp" />
     <ClCompile Include="Code\General\FileCaching.cpp">
     </ClCompile>
-    <ClCompile Include="Code\General\ImportThreads.cpp" />
+    <ClCompile Include="Code\General\ThreadPool.cpp" />
     <ClCompile Include="Code\General\InputHandling.cpp" />
     <ClCompile Include="Code\General\MemoryArena.cpp">
     </ClCompile>
+    <ClCompile Include="Code\General\PrototypeThreadWorker.cpp" />
     <ClCompile Include="Code\glm_misc.cpp" />
     <ClCompile Include="Code\Renderer\CommandPoolManager.cpp">
     </ClCompile>
@@ -237,7 +238,7 @@
     <ClInclude Include="Code\General\Array.h" />
     <ClInclude Include="Code\General\FileCaching.h" />
     <ClInclude Include="Code\General\GLM_impl.h" />
-    <ClInclude Include="Code\General\ImportThreads.h" />
+    <ClInclude Include="Code\General\ThreadPool.h" />
     <ClInclude Include="Code\General\InputHandling.h" />
     <ClInclude Include="Code\General\MemoryArena.h" />
     <ClInclude Include="Code\glm_misc.h" />
