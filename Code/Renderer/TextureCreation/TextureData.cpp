@@ -712,7 +712,9 @@ static nonKTXTextureInfo createTextureImage(RendererContext rendererContext, con
 
     //JS: Prepare image to read in shaders
     rendererContext.textureCreationcommandPoolmanager->endSingleTimeCommands(workingTextureBuffer);
-
+    vkWaitForFences(rendererContext.device, 1, &workingTextureBuffer->fence, VK_TRUE, UINT32_MAX);
+    //TODO JS: Have to wait on fences for each texture end single time comands, because they aren't correctly synchronized.
+    //TODO JS: Think I could use semaphores instead. 
     //Texture is done, generate mipmaps
     TextureUtilities::generateMipmaps(objectCreationContextFromRendererContext(rendererContext), _textureImage, format,
                                       static_cast<uint32_t>(texWidth),

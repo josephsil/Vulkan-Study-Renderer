@@ -309,6 +309,10 @@ void TextureUtilities::generateMipmaps(BufferCreationContext rendererContext, Vk
    
 
     rendererContext.commandPoolmanager->endSingleTimeCommands(bandp);
+    vkWaitForFences(rendererContext.device, 1, &bandp->fence, VK_TRUE, UINT32_MAX);
+    //TODO JS: Have to wait on fences for each texture end single time comands, because they aren't correctly synchronized.
+    //TODO JS: Think I could use semaphores instead.
+    
     setDebugObjectName(rendererContext.device, VK_OBJECT_TYPE_IMAGE, "FINISHED mipmap transition image", (uint64_t)image);
 }
 

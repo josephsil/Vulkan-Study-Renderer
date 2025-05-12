@@ -387,7 +387,7 @@ temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygl
     return {_vertices.getSpan(), _indices.getSpan(), tangentsLoaded};
 }
 
-#undef THREADED_IMPORT
+// #undef THREADED_IMPORT
 #ifdef THREADED_IMPORT
 //Aborted attempt at getting multithreaded texture import working. Leaving it here because the hacks are instructive for future rewrite;
 //The existing texture import pipeline is fatally broken. It has synchronization issues, and the "end single time commands" pattern is a landmine
