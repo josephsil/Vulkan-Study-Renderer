@@ -5,9 +5,13 @@
 
 void TextureLoaderThreadWorker::WORKER_FN(size_t work_item_idx, uint8_t thread_idx)
 {
+
+    //TODO JS: Need per-thread context. Should pull the context ouside of TextureCreationInfoArgs to make this less grody
+    ThreadsInput[work_item_idx].ctx = PerThreadContext[thread_idx]; //Any kind of working solution will need per-thread commandbuffers and pools and etc
     switch (ThreadsInput[work_item_idx].mode)
     {
     case TextureCreation::TextureCreationMode::FILE:
+        
         assert(!"Error");
         break;
     case TextureCreation::TextureCreationMode::GLTFCREATE:

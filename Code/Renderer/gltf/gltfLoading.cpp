@@ -389,18 +389,13 @@ temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygl
 
 // #undef THREADED_IMPORT
 #ifdef THREADED_IMPORT
-//Aborted attempt at getting multithreaded texture import working. Leaving it here because the hacks are instructive for future rewrite;
-//The existing texture import pipeline is fatally broken. It has synchronization issues, and the "end single time commands" pattern is a landmine
-//To be able to be run multithreaded (and consistently in general, at high speeds) synchronization needs to be re-done.
+//Prototype/mostly complete parallel texture import. Need to move the system outside to somewhere external that can drive all imports from one pool
+//Would like to build a list of what imports are needed and then just chug thru it.
 //Pain points:
-// 1- Mipmap generation is totally broken, if the subission thread(s) runs too fast there will be tons of transition errors. lacking semaphore?
-// 2-Single time commands pattern is also broken. Needs to use fences 
-// 3- One submission per command is too slow. Need to pipeline the work and build big command buffers -- One to do all the ktx import, one to do all the mip transitions, and so on.
+// 1-Single time commands pattern is fairly busted, synchronization isn't good -- need to improve texture import to natively work with long persistent comandbuffers and semaphore correctly
+// 2- One submission per command is too slow. Need to pipeline the work and build big command buffers -- One to do all the ktx import, one to do all the mip transitions, and so on.
 //          - More like a real renderer
-// 4- Also runs into a mystery device disconnected issue -- out of vma memory?
-// 5- Generally freeing and deleting temporary textures, the ktx texture, etc, are all broken. When running fast we free things in use by cbuffers. Need to add those to queues to get freed when the fences are signalled. 
-// 6- Maybe obvious, but RenderContext needs to be thread specific
-// 7- The "use existing/don't use existing" commandbuffer thing is a horrible pattern. Should just always use an existing one and wrap in helpers if I want a one off.
+// 3- The pattern to stamp over the contents of handles in the worker fn (see to do comment in TextureLoaderWorker::WORKER_FN) is bad
 void GltfLoadTextureThreaded(RendererContext handles,  std::span<TextureData> dstTextures,std::span<tinygltf::Image> gltfImages, std::span<std::string_view> cachedImagePaths, bool gltfOutOfDate)
 {
     
@@ -412,7 +407,7 @@ void GltfLoadTextureThreaded(RendererContext handles,  std::span<TextureData> ds
     //Initialize a pool
     ThreadPool::Pool threadPool;
     size_t workItemCt = cachedImagePaths.size();
-    size_t threadCt =16;
+    size_t threadCt =32;
     // assert(threadCt == 1); //Currently ktx loading doesn't work on multiple threads, something in the ktx(?) logic is stomping a command buffer
     InitializeThreadPool(&threadPoolAllocator, &threadPool, workItemCt, threadCt);
 
