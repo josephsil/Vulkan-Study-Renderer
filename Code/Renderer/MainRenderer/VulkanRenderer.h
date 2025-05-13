@@ -5,7 +5,7 @@
 #include <functional>
 
 #include <General/MemoryArena.h>
-#include <Renderer/RendererContext.h>
+#include <Renderer/PerThreadRenderContext.h>
 #include <Renderer/RendererDeletionQueue.h>
 #include <Renderer/VulkanBuffers/HostDataBuffer.h>
 #include <Renderer/MainRenderer/rendererStructs.h>
@@ -64,7 +64,7 @@ public:
     AssetManager* AssetDataAndMemory;
 
     VulkanRenderer();
-    RendererContext getFullRendererContext();
+    PerThreadRenderContext getMainRendererContext();
     BufferCreationContext getPartialRendererContext();
     void initializePipelines(size_t shadowCasterCount);
     void InitializeRendererForScene(sceneCountData sceneCountData);
@@ -119,7 +119,7 @@ private:
 
     void UpdateShadowImageViews(int frame, sceneCountData lightData);
     
-    void createDescriptorSetPool(RendererContext handles, VkDescriptorPool* pool);
+    void createDescriptorSetPool(PerThreadRenderContext handles, VkDescriptorPool* pool);
     std::span<descriptorUpdateData> CreatePerSceneDescriptorUpdates(uint32_t frame,
                                                                     MemoryArena::memoryArena* arena,
                                                                     std::span<VkDescriptorSetLayoutBinding>

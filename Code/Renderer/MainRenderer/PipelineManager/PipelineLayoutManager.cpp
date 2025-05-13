@@ -10,7 +10,7 @@
 #include <span>
 #include "Internal/PipelineLayoutGroup.h"
 #include <General/MemoryArena.h>
-#include <Renderer/RendererContext.h>
+#include <Renderer/PerThreadRenderContext.h>
 
 PreAllocatedDescriptorSetPool::PreAllocatedDescriptorSetPool(MemoryArena::memoryArena* arena, size_t poolSize)
 {
@@ -25,7 +25,7 @@ PipelineLayoutManager::PipelineLayoutManager()
     pipelineLayoutGroups = std::span<PipelineLayoutGroup>(static_cast<PipelineLayoutGroup*>(MemoryArena::alloc(&arena, sizeof(PipelineLayoutGroup) * 10)), 10);
 }
 
-PipelineLayoutHandle PipelineLayoutManager::CreateNewGroup(RendererContext handles, VkDescriptorPool pool,
+PipelineLayoutHandle PipelineLayoutManager::CreateNewGroup(PerThreadRenderContext handles, VkDescriptorPool pool,
                                                            std::span<DescriptorDataForPipeline> descriptorInfo, std::span<VkDescriptorSetLayout> layouts,
                                                            uint32_t pconstantsize, bool compute, const char* debugName)
 {

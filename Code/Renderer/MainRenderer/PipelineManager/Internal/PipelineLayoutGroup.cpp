@@ -11,7 +11,7 @@
 
 #include "../../../gpu-data-structs.h"
 #include <General/MemoryArena.h>
-#include <Renderer/RendererContext.h>
+#include <Renderer/PerThreadRenderContext.h>
 
 
 //Descriptor set pool stuff: 
@@ -53,7 +53,7 @@ DescriptorDataForPipeline constructDescriptorDataObject(MemoryArena::memoryArena
 
 
 
-PipelineLayoutGroup::PipelineLayoutGroup(RendererContext handles, VkDescriptorPool pool,
+PipelineLayoutGroup::PipelineLayoutGroup(PerThreadRenderContext handles, VkDescriptorPool pool,
                                          std::span<DescriptorDataForPipeline> descriptorInfo,
                                          std::span<VkDescriptorSetLayout> layouts, uint32_t pconstantsize, bool compute,
                                          const char* debugName)

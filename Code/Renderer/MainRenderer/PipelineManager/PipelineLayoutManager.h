@@ -14,7 +14,7 @@
 class PipelineLayoutGroup;
 struct Vertex;
 //Forward declaration
-struct RendererContext;
+struct PerThreadRenderContext;
 struct descriptorUpdateData;
 
 typedef size_t PipelineLayoutHandle;
@@ -71,7 +71,7 @@ struct  PipelineLayoutManager
     Array<PipelineLayoutGroup> pipelineLayoutGroups;
     PipelineLayoutManager();
 
-    PipelineLayoutHandle CreateNewGroup(RendererContext handles, VkDescriptorPool pool,
+    PipelineLayoutHandle CreateNewGroup(PerThreadRenderContext handles, VkDescriptorPool pool,
                                         std::span<DescriptorDataForPipeline> descriptorInfo,
                                         std::span<VkDescriptorSetLayout> layouts, uint32_t pconstantsize, bool compute,
                                         const char* debugName);

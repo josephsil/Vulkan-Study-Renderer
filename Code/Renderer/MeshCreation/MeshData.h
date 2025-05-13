@@ -18,7 +18,7 @@ namespace MemoryArena
     struct memoryArena;
 }
 
-struct RendererContext;
+struct PerThreadRenderContext;
 
 //TODO JS, use this temporarily when building the mesh.... not sure what to do with it
 struct temporaryloadingMesh
@@ -41,7 +41,7 @@ namespace MeshDataCreation
     positionRadius boundingSphereFromMeshBounds(std::span<glm::vec3> boundsCorners);
     MeshData MeshDataFromSpans(std::span<Vertex> vertices,
                                std::span<uint32_t> indices);
-    MeshData MeshDataFromObjFile(RendererContext rendererHandles, const char* path);
+    MeshData MeshDataFromObjFile(PerThreadRenderContext rendererHandles, const char* path);
     MeshData FinalizeMeshDataFromTempMesh(MemoryArena::memoryArena* outputArena, MemoryArena::memoryArena* tempArena,
                                           temporaryloadingMesh tempMesh);
 }

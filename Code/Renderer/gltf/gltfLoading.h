@@ -5,7 +5,7 @@
 #include "Renderer/TextureCreation/TextureData.h"
 
 
-struct RendererContext;
+struct PerThreadRenderContext;
 struct MeshData;
 struct TextureMetaData;
 
@@ -52,4 +52,4 @@ struct gltfdata
     //std::span<tinygltf::Light> lights;
 };
 
-gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath);
+gltfdata GltfLoadMeshes(PerThreadRenderContext handles, const char* gltfpath);

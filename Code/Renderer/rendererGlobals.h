@@ -4,7 +4,7 @@
 #include <VkBootstrap.h>
 #include <General/MemoryArena.h>
 
-struct RendererContext;
+struct PerThreadRenderContext;
 static constexpr size_t MAX_SHADOWCASTERS = 8;
 static constexpr int CASCADE_CT = 6;
 #define MAX_SHADOWMAPS (MAX_SHADOWCASTERS * 8)

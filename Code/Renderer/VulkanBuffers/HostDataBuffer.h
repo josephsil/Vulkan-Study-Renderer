@@ -52,7 +52,7 @@ uint32_t HostDataBufferObject<T>::count()
 }
 
 template <typename T>
-HostDataBufferObject<T> createDataBuffer(RendererContext* h, size_t size, VkBufferUsageFlags usage)
+HostDataBufferObject<T> createDataBuffer(PerThreadRenderContext* h, size_t size, VkBufferUsageFlags usage)
 {
     HostDataBufferObject<T> hostDataBuffer{};
     hostDataBuffer.buffer.size = (uint32_t)(sizeof(T) * size);

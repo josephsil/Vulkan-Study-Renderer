@@ -3,5 +3,5 @@
 
 struct Scene;
 class AssetManager;
-struct RendererContext;
-void Add_Scene_Content(RendererContext rendererContext, AssetManager* rendererData, Scene* scene);
+struct PerThreadRenderContext;
+void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* rendererData, Scene* scene);

@@ -1,6 +1,6 @@
 #include "game.h"
 
-//TODO JS: I'd love to include less
+//rendererContext JS: I'd love to include less
 #include "Renderer/MeshCreation/meshData.h"
 #include "Renderer/TextureCreation/TextureData.h"
 #include "Renderer/gltf/gltfLoading.h"
@@ -8,7 +8,7 @@
 #include "Scene/AssetManager.h"
 #include "Scene/Scene.h"
 
-void Add_Scene_Content(RendererContext rendererContext, AssetManager* rendererData, Scene* scene)
+void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* rendererData, Scene* scene)
 {
     scene->sceneCamera.extent = {16, 10}; // ????
     std::vector<size_t> randomMeshes;
@@ -16,33 +16,33 @@ void Add_Scene_Content(RendererContext rendererContext, AssetManager* rendererDa
     std::vector<TextureCreation::TextureCreationStep1Result> enqueuedTextures;
     std::vector<TextureData> comletedTextures;
 
-    enqueuedTextures.push_back(CreateTextureFromArgs_Start( TextureCreation::MakeCreationArgsFromFilepathArgs(rendererContext, "textures/blank.png", DIFFUSE)));
+    enqueuedTextures.push_back(CreateTextureFromArgs_Start( rendererContext, TextureCreation::MakeCreationArgsFromFilepathArgs("textures/blank.png", DIFFUSE)));
     comletedTextures.push_back (CreateTextureFromArgsFinalize(rendererContext, enqueuedTextures.back()));
 
     size_t defaultTexture = rendererData->AddTexture(comletedTextures.back());
 
-    enqueuedTextures.push_back (CreateTextureFromArgs_Start(    TextureCreation::MakeCreationArgsFromFilepathArgs(rendererContext,  "textures/default_roug.tga", SPECULAR)));
+    enqueuedTextures.push_back (CreateTextureFromArgs_Start(    rendererContext, TextureCreation::MakeCreationArgsFromFilepathArgs("textures/default_roug.tga",  SPECULAR)));
     comletedTextures.push_back(CreateTextureFromArgsFinalize(rendererContext, enqueuedTextures.back()));
     size_t defaultSPec = rendererData->AddTexture(comletedTextures.back());
     
-    enqueuedTextures.push_back (CreateTextureFromArgs_Start(TextureCreation::MakeCreationArgsFromFilepathArgs(rendererContext,"textures/blank.png", SPECULAR)));
+    enqueuedTextures.push_back (CreateTextureFromArgs_Start(rendererContext, TextureCreation::MakeCreationArgsFromFilepathArgs("textures/blank.png",SPECULAR)));
     comletedTextures.push_back(CreateTextureFromArgsFinalize(rendererContext, enqueuedTextures.back()));
     size_t defaultNormal = rendererData->AddTexture(comletedTextures.back());
 
 
     //Set
-    enqueuedTextures.push_back (CreateTextureFromArgs_Start(TextureCreation::MakeCreationArgsFromFilepathArgs(rendererContext, "textures/pbr_cruiser-panels/space-cruiser-panels2_albedo.png",
-                      DIFFUSE, VK_IMAGE_VIEW_TYPE_2D)));
+    enqueuedTextures.push_back (CreateTextureFromArgs_Start(rendererContext, TextureCreation::MakeCreationArgsFromFilepathArgs("textures/pbr_cruiser-panels/space-cruiser-panels2_albedo.png", DIFFUSE,
+                                                                VK_IMAGE_VIEW_TYPE_2D)));
     comletedTextures.push_back(CreateTextureFromArgsFinalize(rendererContext, enqueuedTextures.back()));
     auto setdiff1 = (comletedTextures.back());
     
-    enqueuedTextures.push_back (CreateTextureFromArgs_Start(TextureCreation::MakeCreationArgsFromFilepathArgs(rendererContext, "textures/pbr_cruiser-panels/space-cruiser-panels2_roughness_metallic.tga",
-                      SPECULAR, VK_IMAGE_VIEW_TYPE_2D)));
+    enqueuedTextures.push_back (CreateTextureFromArgs_Start(rendererContext, TextureCreation::MakeCreationArgsFromFilepathArgs("textures/pbr_cruiser-panels/space-cruiser-panels2_roughness_metallic.tga", SPECULAR,
+                                                                VK_IMAGE_VIEW_TYPE_2D)));
     comletedTextures.push_back(CreateTextureFromArgsFinalize(rendererContext, enqueuedTextures.back()));
     auto setSpec1 = (comletedTextures.back());
 
-    enqueuedTextures.push_back (CreateTextureFromArgs_Start(TextureCreation::MakeCreationArgsFromFilepathArgs(rendererContext, "textures/pbr_cruiser-panels/space-cruiser-panels2_normal-dx.png",
-                      NORMAL, VK_IMAGE_VIEW_TYPE_2D)));
+    enqueuedTextures.push_back (CreateTextureFromArgs_Start(rendererContext, TextureCreation::MakeCreationArgsFromFilepathArgs("textures/pbr_cruiser-panels/space-cruiser-panels2_normal-dx.png", NORMAL,
+                                                                VK_IMAGE_VIEW_TYPE_2D)));
     comletedTextures.push_back(CreateTextureFromArgsFinalize(rendererContext, enqueuedTextures.back()));
     auto setNorm1 = (comletedTextures.back());
     size_t placeholderMatidx;
@@ -53,18 +53,18 @@ void Add_Scene_Content(RendererContext rendererContext, AssetManager* rendererDa
     placeholderMatidx = rendererData->AddMaterial(0.2f, 0, glm::vec3(1.0f), placeholderTextureidx, 1);
     randomMaterials.push_back(placeholderMatidx);
 
-    enqueuedTextures.push_back (CreateTextureFromArgs_Start(TextureCreation::MakeCreationArgsFromFilepathArgs(rendererContext, "textures/pbr_cruiser-panels/space-cruiser-panels2_albedo.png",
-                         DIFFUSE, VK_IMAGE_VIEW_TYPE_2D)));
+    enqueuedTextures.push_back (CreateTextureFromArgs_Start(rendererContext, TextureCreation::MakeCreationArgsFromFilepathArgs("textures/pbr_cruiser-panels/space-cruiser-panels2_albedo.png", DIFFUSE,
+                                                                VK_IMAGE_VIEW_TYPE_2D)));
     comletedTextures.push_back(CreateTextureFromArgsFinalize(rendererContext, enqueuedTextures.back()));
     auto setdiff2 = (comletedTextures.back());
     
-    enqueuedTextures.push_back (CreateTextureFromArgs_Start(TextureCreation::MakeCreationArgsFromFilepathArgs(rendererContext, "textures/pbr_cruiser-panels/space-cruiser-panels2_roughness_metallic.tga",
-                      SPECULAR, VK_IMAGE_VIEW_TYPE_2D)));
+    enqueuedTextures.push_back (CreateTextureFromArgs_Start(rendererContext, TextureCreation::MakeCreationArgsFromFilepathArgs("textures/pbr_cruiser-panels/space-cruiser-panels2_roughness_metallic.tga", SPECULAR,
+                                                                VK_IMAGE_VIEW_TYPE_2D)));
     comletedTextures.push_back(CreateTextureFromArgsFinalize(rendererContext, enqueuedTextures.back()));
     auto setSpec2 = (comletedTextures.back());
 
-    enqueuedTextures.push_back (CreateTextureFromArgs_Start(TextureCreation::MakeCreationArgsFromFilepathArgs(rendererContext, "textures/pbr_cruiser-panels/space-cruiser-panels2_normal-dx.png",
-                      NORMAL, VK_IMAGE_VIEW_TYPE_2D)));
+    enqueuedTextures.push_back (CreateTextureFromArgs_Start(rendererContext, TextureCreation::MakeCreationArgsFromFilepathArgs("textures/pbr_cruiser-panels/space-cruiser-panels2_normal-dx.png", NORMAL,
+                                                                VK_IMAGE_VIEW_TYPE_2D)));
     comletedTextures.push_back(CreateTextureFromArgsFinalize(rendererContext, enqueuedTextures.back()));
     auto setNorm2 = (comletedTextures.back());
      placeholderTextureidx = rendererData->AddTextureSet(
@@ -76,7 +76,7 @@ void Add_Scene_Content(RendererContext rendererContext, AssetManager* rendererDa
 
 
     //spot light
-    //TODO JS: paramaterize better -- hard to set power and radius currently
+    //rendererContext JS: paramaterize better -- hard to set power and radius currently
     scene->AddSpotLight(glm::vec3(2.5, 3, 3.3), glm::vec3(0, 0, -1), glm::vec3(0.5, 0.5, 1), 45, 14000);
 
 
@@ -90,9 +90,9 @@ void Add_Scene_Content(RendererContext rendererContext, AssetManager* rendererDa
     gltfdata gltf;
 #define SPONZA
 #ifdef SPONZA
-    //TODO: gltf load fn that gets back struct, then append its contents to scene 
+    //rendererContext: gltf load fn that gets back struct, then append its contents to scene 
     gltf = GltfLoadMeshes(rendererContext, "Meshes/sponza.glb");
-    //TODO JS: to span of spans for submeshes
+    //rendererContext JS: to span of spans for submeshes
 
 #pragma region gltf adding stuff --- todo move to fn
     std::span<std::span<size_t>> meshLUT = MemoryArena::AllocSpan<std::span<size_t>>(
@@ -161,7 +161,7 @@ void Add_Scene_Content(RendererContext rendererContext, AssetManager* rendererDa
                     size_t sceneMatIDX = materialLUT[mesh.materialIndices[j]];
                     size_t objectID = 0;
                     localTransform* parentTransform = (parent[i] != -1) ? tforms[parent[i]] : nullptr;
-                    //TODO JS: add objcet that takes matrix
+                    //rendererContext JS: add objcet that takes matrix
                     objectID = scene->AddObject(
                         meshLUT[object.meshidx][j],
                         sceneMatIDX,
@@ -190,13 +190,13 @@ void Add_Scene_Content(RendererContext rendererContext, AssetManager* rendererDa
     // #else
     gltf = GltfLoadMeshes(rendererContext, "Meshes/pig.glb");
 
-    enqueuedTextures.push_back (CreateTextureFromArgs_Start(TextureCreation::MakeCreationArgsFromFilepathArgs(rendererContext, "textures/pbr_cruiser-panels/space-cruiser-panels2_roughness_metallic.tga",
-                      SPECULAR, VK_IMAGE_VIEW_TYPE_2D)));
+    enqueuedTextures.push_back (CreateTextureFromArgs_Start(rendererContext, TextureCreation::MakeCreationArgsFromFilepathArgs("textures/pbr_cruiser-panels/space-cruiser-panels2_roughness_metallic.tga", SPECULAR,
+                                                                VK_IMAGE_VIEW_TYPE_2D)));
     comletedTextures.push_back(CreateTextureFromArgsFinalize(rendererContext, enqueuedTextures.back()));
     auto setSpec3 = (comletedTextures.back());
 
-    enqueuedTextures.push_back (CreateTextureFromArgs_Start(TextureCreation::MakeCreationArgsFromFilepathArgs(rendererContext, "textures/pbr_cruiser-panels/space-cruiser-panels2_normal-dx.png",
-                      NORMAL, VK_IMAGE_VIEW_TYPE_2D)));
+    enqueuedTextures.push_back (CreateTextureFromArgs_Start(rendererContext, TextureCreation::MakeCreationArgsFromFilepathArgs("textures/pbr_cruiser-panels/space-cruiser-panels2_normal-dx.png", NORMAL,
+                                                                VK_IMAGE_VIEW_TYPE_2D)));
     comletedTextures.push_back(CreateTextureFromArgsFinalize(rendererContext, enqueuedTextures.back()));
     auto setNorm3 = (comletedTextures.back());
 

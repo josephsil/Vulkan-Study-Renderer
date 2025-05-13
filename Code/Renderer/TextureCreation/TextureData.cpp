@@ -27,19 +27,19 @@ struct nonKTXTextureInfo
     uint64_t mipCt;
 };
 
-static nonKTXTextureInfo createtempTextureFromPath(RendererContext rendererContext, const char* path, VkFormat format,
+static nonKTXTextureInfo createtempTextureFromPath(PerThreadRenderContext rendererContext, const char* path, VkFormat format,
                                                    bool mips);
-static nonKTXTextureInfo createTextureImage(RendererContext rendererContext, const unsigned char* pixels,
+static nonKTXTextureInfo createTextureImage(PerThreadRenderContext rendererContext, const unsigned char* pixels,
                                             uint64_t texWidth, uint64_t texHeight, VkFormat format, bool mips);
-static void cacheKTXFromTempTexture(RendererContext rendererContext, nonKTXTextureInfo tempTexture, const char* outpath,
+static void cacheKTXFromTempTexture(PerThreadRenderContext rendererContext, nonKTXTextureInfo tempTexture, const char* outpath,
                                     VkFormat format, TextureType textureType, bool use_mipmaps, bool compress);
-TextureMetaData GetOrLoadTextureFromPath(RendererContext rendererContext, const char* path, VkFormat format, VkSamplerAddressMode mode,
+TextureMetaData GetOrLoadTextureFromPath(PerThreadRenderContext rendererContext, const char* path, VkFormat format, VkSamplerAddressMode mode,
                                  TextureType textureType, bool use_mipmaps, bool compress);
 
 // TextureData TextureCreation::CreateTexture_part1(RendererContext rendererContext, const char* path, TextureType type, VkImageViewType viewType)
 // {
 // }
-TextureMetaData CreateTextureFromPath_Start(RendererContext rendererContext, TextureCreation::FILE_addtlargs args)
+TextureMetaData CreateTextureFromPath_Start(PerThreadRenderContext rendererContext, TextureCreation::FILE_addtlargs args)
 {
     VkFormat inputFormat;
     VkSamplerAddressMode mode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
@@ -88,7 +88,7 @@ TextureMetaData CreateTextureFromPath_Start(RendererContext rendererContext, Tex
     return GetOrLoadTextureFromPath(rendererContext, args.path, inputFormat, mode, args.type, use_mipmaps, !uncompressed);
 }
 
-TextureData CreateTextureFromPath_Finalize(RendererContext rendererContext, TextureMetaData tData, TextureType type,
+TextureData CreateTextureFromPath_Finalize(PerThreadRenderContext rendererContext, TextureMetaData tData, TextureType type,
         VkImageViewType _viewType)
 {
     auto viewType = _viewType;
@@ -115,11 +115,11 @@ TextureData CreateTextureFromPath_Finalize(RendererContext rendererContext, Text
       };
 }
 
-TextureCreation::TextureCreationInfoArgs TextureCreation::MakeCreationArgsFromFilepathArgs(RendererContext rendererContext,
+TextureCreation::TextureCreationInfoArgs TextureCreation::MakeCreationArgsFromFilepathArgs(
     const char* path, TextureType type, VkImageViewType viewType)
 {
-    auto args = TextureCreationInfoArgs {
-        rendererContext,
+    TextureCreationInfoArgs args;
+    args = TextureCreationInfoArgs{
         TextureCreationMode::FILE
     };
     args.args.fileArgs =
@@ -131,12 +131,12 @@ TextureCreation::TextureCreationInfoArgs TextureCreation::MakeCreationArgsFromFi
 return args;
 }
 
-TextureCreation::TextureCreationInfoArgs TextureCreation::MakeTextureCreationArgsFromGLTFArgs(RendererContext rendererContext,
+TextureCreation::TextureCreationInfoArgs TextureCreation::MakeTextureCreationArgsFromGLTFArgs(
     const char* OUTPUT_PATH, VkFormat format, VkSamplerAddressMode samplerMode, unsigned char* pixels, uint64_t width,
     uint64_t height, int mipCt, CommandBufferPoolQueue* commandbuffer, bool compress)
 {
-    auto args = TextureCreationInfoArgs {
-        rendererContext,
+    TextureCreationInfoArgs args;
+    args = TextureCreationInfoArgs{
         TextureCreationMode::GLTFCREATE
     };
     args.args.gltfCreateArgs =
@@ -154,11 +154,11 @@ TextureCreation::TextureCreationInfoArgs TextureCreation::MakeTextureCreationArg
 }
 
 TextureCreation::TextureCreationInfoArgs TextureCreation::MakeTextureCreationArgsFromCachedGLTFArgs(
-    RendererContext rendererContext, const char* OUTPUT_PATH, VkSamplerAddressMode samplerMode,
+     const char* OUTPUT_PATH, VkSamplerAddressMode samplerMode,
     CommandBufferPoolQueue* commandbuffer)
 {
-    auto args = TextureCreationInfoArgs {
-        rendererContext,
+    TextureCreationInfoArgs args;
+    args = TextureCreationInfoArgs{
         TextureCreationMode::GLTFCACHED
     };
     args.args.gltfCacheArgs =
@@ -169,13 +169,8 @@ TextureCreation::TextureCreationInfoArgs TextureCreation::MakeTextureCreationArg
     return args;     
 }
 
-TextureData TextureCreation::CreateTextureFromArgs(TextureCreationInfoArgs a)
-{
-    return CreateTextureFromArgsFinalize(a.ctx, CreateTextureFromArgs_Start(a));
-    
-}
 
-TextureMetaData CreateTextureNewGltfTexture_Start(RendererContext rendererContext,  TextureCreation::GLTFCREATE_addtlargs args)
+TextureMetaData CreateTextureNewGltfTexture_Start(PerThreadRenderContext rendererContext,  TextureCreation::GLTFCREATE_addtlargs args)
 {
     nonKTXTextureInfo staging = createTextureImage(rendererContext, args.pixels, args.width, args.height, args.format, true);
     
@@ -185,7 +180,7 @@ TextureMetaData CreateTextureNewGltfTexture_Start(RendererContext rendererContex
     return ktxResult;
 }
 
-TextureData CreateTextureNewGltfTexture_Finalize(RendererContext rendererContext, TextureMetaData tData)
+TextureData CreateTextureNewGltfTexture_Finalize(PerThreadRenderContext rendererContext, TextureMetaData tData)
 {
     VkImageView textureImageView = TextureCreation::createTextureImageView(rendererContext, tData, VK_IMAGE_VIEW_TYPE_2D);
     assert(textureImageView != VK_NULL_HANDLE);
@@ -208,11 +203,11 @@ TextureData CreateTextureNewGltfTexture_Finalize(RendererContext rendererContext
 
 
 //FROM CACHED GLTF
-TextureMetaData GetCachedTexture_Start(RendererContext rendererContext, TextureCreation::GLTFCACHE_addtlargs args)
+TextureMetaData GetCachedTexture_Start(PerThreadRenderContext rendererContext, TextureCreation::GLTFCACHE_addtlargs args)
 {
     return  TextureCreation::createImageKTX(rendererContext, args.OUTPUT_PATH, DIFFUSE, true, args.samplerMode);
 }
-TextureData GetCachedTexture_Finalize(RendererContext rendererContext, TextureMetaData tData)
+TextureData GetCachedTexture_Finalize(PerThreadRenderContext rendererContext, TextureMetaData tData)
 {
     auto textureImageView = TextureCreation::createTextureImageView(rendererContext, tData, VK_IMAGE_VIEW_TYPE_2D);
     assert(textureImageView != VK_NULL_HANDLE);
@@ -422,7 +417,7 @@ uint32_t getFormatSize(VkFormat f)
 }
 
 
-void readImageData(RendererContext rendererInfo, VmaAllocation alloc, VkImage image, void* data, VkExtent3D extent,
+void readImageData(PerThreadRenderContext rendererInfo, VmaAllocation alloc, VkImage image, void* data, VkExtent3D extent,
                    size_t level)
 {
     auto vkCopyImageToMemoryEXT = (PFN_vkCopyImageToMemoryEXT)vkGetDeviceProcAddr(
@@ -466,7 +461,7 @@ struct TextureLoadResultsQueue
     size_t processed;
 };
 
-TextureMetaData GetOrLoadTextureFromPath(RendererContext rendererContext, const char* path, VkFormat format, VkSamplerAddressMode mode,
+TextureMetaData GetOrLoadTextureFromPath(PerThreadRenderContext rendererContext, const char* path, VkFormat format, VkSamplerAddressMode mode,
                                  TextureType textureType, bool use_mipmaps, bool compress)
 {
     //TODO JS: Figure out cubes later -- when we add compression we should cache cubes too
@@ -511,7 +506,7 @@ TextureMetaData GetOrLoadTextureFromPath(RendererContext rendererContext, const 
 //     vkDestroyImageView(rendererContext.device, textureImageView, nullptr);
 // 	   VulkanMemory::DestroyImage(rendererContext.allocator, textureImage, textureImageMemory);
 // }
-void TextureCreation::createDepthPyramidSampler(VkSampler* textureSampler, RendererContext rendererContext, uint32_t maxMip)
+void TextureCreation::createDepthPyramidSampler(VkSampler* textureSampler, PerThreadRenderContext rendererContext, uint32_t maxMip)
 {
     VkPhysicalDeviceProperties properties{};
     vkGetPhysicalDeviceProperties(rendererContext.physicalDevice, &properties);
@@ -540,7 +535,7 @@ void TextureCreation::createDepthPyramidSampler(VkSampler* textureSampler, Rende
     rendererContext.threadDeletionQueue->push_backVk(deletionType::Sampler, uint64_t(*textureSampler));
 }
 
-void TextureCreation::createTextureSampler(VkSampler* textureSampler, RendererContext rendererContext, VkSamplerAddressMode mode,
+void TextureCreation::createTextureSampler(VkSampler* textureSampler, PerThreadRenderContext rendererContext, VkSamplerAddressMode mode,
                           float bias, uint32_t maxMip, bool shadow)
 {
     VkPhysicalDeviceProperties properties{};
@@ -571,7 +566,7 @@ void TextureCreation::createTextureSampler(VkSampler* textureSampler, RendererCo
 
 //
 
-void cacheKTXFromTempTexture(RendererContext rendererContext, nonKTXTextureInfo tempTexture, const char* outpath,
+void cacheKTXFromTempTexture(PerThreadRenderContext rendererContext, nonKTXTextureInfo tempTexture, const char* outpath,
                              VkFormat format, TextureType textureType, bool use_mipmaps, bool compress)
 {
     // assert(rendererContext.canWriteKTX);
@@ -644,7 +639,7 @@ void cacheKTXFromTempTexture(RendererContext rendererContext, nonKTXTextureInfo 
     // rendererContext.threadDeletionQueue->push_backVMA(deletionType::VmaImage, (uint64_t)tempTexture.textureImage, tempTexture.alloc);
 }
 
-VkImageView TextureCreation::createTextureImageView(RendererContext rendererContext, TextureMetaData data, VkImageViewType type)
+VkImageView TextureCreation::createTextureImageView(PerThreadRenderContext rendererContext, TextureMetaData data, VkImageViewType type)
 {
     VkImageView view = TextureUtilities::createImageView(objectCreationContextFromRendererContext(rendererContext),
                                                          data.textureImage.image, data.dimensionsInfo.format,
@@ -656,7 +651,7 @@ VkImageView TextureCreation::createTextureImageView(RendererContext rendererCont
 }
 
 
-static nonKTXTextureInfo createTextureImage(RendererContext rendererContext, const unsigned char* pixels,
+static nonKTXTextureInfo createTextureImage(PerThreadRenderContext rendererContext, const unsigned char* pixels,
                                             uint64_t texWidth, uint64_t texHeight, VkFormat format, bool mips)
 {
     VkDeviceSize imageSize = texWidth * texHeight * 4;
@@ -747,7 +742,7 @@ static nonKTXTextureInfo createTextureImage(RendererContext rendererContext, con
     return nonKTXTextureInfo(_textureImage, _textureImageAlloc, texWidth, texHeight, fullMipPyramid);
 }
 
-static nonKTXTextureInfo createtempTextureFromPath(RendererContext rendererContext, const char* path, VkFormat format,
+static nonKTXTextureInfo createtempTextureFromPath(PerThreadRenderContext rendererContext, const char* path, VkFormat format,
                                                    bool mips)
 {
     int texWidth, texHeight, texChannels;
@@ -759,7 +754,7 @@ static nonKTXTextureInfo createtempTextureFromPath(RendererContext rendererConte
 }
 
 ktxVulkanDeviceInfo vdi = {};
-TextureMetaData TextureCreation::createImageKTX(RendererContext rendererContext, const char* path, TextureType type, bool mips, VkSamplerAddressMode mode)
+TextureMetaData TextureCreation::createImageKTX(PerThreadRenderContext rendererContext, const char* path, TextureType type, bool mips, VkSamplerAddressMode mode)
 {
    
     ktxVulkanTexture texture;
@@ -838,7 +833,7 @@ TextureMetaData TextureCreation::createImageKTX(RendererContext rendererContext,
     };
 }
 
-TextureCreation::TextureCreationStep1Result TextureCreation::CreateTextureFromArgs_Start(TextureCreation::TextureCreationInfoArgs a)
+TextureCreation::TextureCreationStep1Result TextureCreation::CreateTextureFromArgs_Start(PerThreadRenderContext context, TextureCreation::TextureCreationInfoArgs a)
 {
     TextureCreation::TextureCreationStep1Result r = {};
     r.mode = a.mode;
@@ -847,23 +842,23 @@ TextureCreation::TextureCreationStep1Result TextureCreation::CreateTextureFromAr
     {
     case TextureCreation::TextureCreationMode::FILE:
         {
-            r.metaData = CreateTextureFromPath_Start(a.ctx, a.args.fileArgs);
+            r.metaData = CreateTextureFromPath_Start(context, a.args.fileArgs);
             r.viewType = a.args.fileArgs.viewType;
             r.type = a.args.fileArgs.type;
             break;
         }
     case TextureCreation::TextureCreationMode::GLTFCREATE:
-        r.metaData = CreateTextureNewGltfTexture_Start(a.ctx, a.args.gltfCreateArgs);
+        r.metaData = CreateTextureNewGltfTexture_Start(context, a.args.gltfCreateArgs);
         break;
     case TextureCreation::TextureCreationMode::GLTFCACHED:
-        r.metaData  = GetCachedTexture_Start(a.ctx, a.args.gltfCacheArgs);
+        r.metaData  = GetCachedTexture_Start(context, a.args.gltfCacheArgs);
         break;
 assert("!error!");
 break;
     }
     return r;
 }
-TextureData TextureCreation::CreateTextureFromArgsFinalize(RendererContext outputTextureOwnerContext, TextureCreationStep1Result startResult)
+TextureData TextureCreation::CreateTextureFromArgsFinalize(PerThreadRenderContext outputTextureOwnerContext, TextureCreationStep1Result startResult)
 {
 
     //These probably came from another thread, with its own deletion queue.

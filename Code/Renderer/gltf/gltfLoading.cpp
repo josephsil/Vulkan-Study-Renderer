@@ -12,7 +12,7 @@
 #define TINYGLTF_NO_STB_IMAGE
 #include "gltf_impl.h"
 #include <Renderer/CommandPoolManager.h>
-#include <Renderer/RendererContext.h>
+#include <Renderer/PerThreadRenderContext.h>
 #include <Renderer/TextureCreation/TextureData.h>
 
 #include "General/TextureLoaderWorker.h"
@@ -396,7 +396,7 @@ temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygl
 // 2- One submission per command is too slow. Need to pipeline the work and build big command buffers -- One to do all the ktx import, one to do all the mip transitions, and so on.
 //          - More like a real renderer
 // 3- The pattern to stamp over the contents of handles in the worker fn (see to do comment in TextureLoaderWorker::WORKER_FN) is bad
-void GltfLoadTextureThreaded(RendererContext handles,  std::span<TextureData> dstTextures,std::span<tinygltf::Image> gltfImages, std::span<std::string_view> cachedImagePaths, bool gltfOutOfDate)
+void GltfLoadTextureThreaded(PerThreadRenderContext handles,  std::span<TextureData> dstTextures,std::span<tinygltf::Image> gltfImages, std::span<std::string_view> cachedImagePaths, bool gltfOutOfDate)
 {
     
     auto textureImportCommandBuffer = handles.textureCreationcommandPoolmanager->beginSingleTimeCommands(true);
@@ -408,7 +408,6 @@ void GltfLoadTextureThreaded(RendererContext handles,  std::span<TextureData> ds
     ThreadPool::Pool threadPool;
     size_t workItemCt = cachedImagePaths.size();
     size_t threadCt =32;
-    // assert(threadCt == 1); //Currently ktx loading doesn't work on multiple threads, something in the ktx(?) logic is stomping a command buffer
     InitializeThreadPool(&threadPoolAllocator, &threadPool, workItemCt, threadCt);
 
     std::span<VkFence> fences = MemoryArena::AllocSpan<VkFence>(&threadPoolAllocator, threadCt);
@@ -419,7 +418,7 @@ void GltfLoadTextureThreaded(RendererContext handles,  std::span<TextureData> ds
         .ThreadsOutput = MemoryArena::AllocSpan<TextureCreation::TextureCreationStep1Result>(
             &threadPoolAllocator, textureCt),
         .ThreadsInput = MemoryArena::AllocSpan<TextureCreation::TextureCreationInfoArgs>(&threadPoolAllocator, textureCt),
-        .PerThreadContext = MemoryArena::AllocSpan<RendererContext>(
+        .PerThreadContext = MemoryArena::AllocSpan<PerThreadRenderContext>(
             &threadPoolAllocator, threadCt),
         .MainThreadContext =  handles,
         .FinalOutput = dstTextures,
@@ -451,17 +450,16 @@ void GltfLoadTextureThreaded(RendererContext handles,  std::span<TextureData> ds
         {
             // auto requestStart = TextureCreation::CreateTextureFromArgs_Start(
             jobArg = TextureCreation::MakeTextureCreationArgsFromGLTFArgs(
-                handles, path.data(), VK_FORMAT_R8G8B8A8_SRGB, VK_SAMPLER_ADDRESS_MODE_REPEAT,
-                image.image.data(), image.width, image.height, 6,
-                &textureImportCommandBuffer, true);
+                path.data(), VK_FORMAT_R8G8B8A8_SRGB, VK_SAMPLER_ADDRESS_MODE_REPEAT, image.image.data(),
+                image.width, image.height, 6, &textureImportCommandBuffer,
+                true);
             //);
         }
         else 
         {
             // auto requestStart = TextureCreation::CreateTextureFromArgs_Start(
             jobArg = TextureCreation::MakeTextureCreationArgsFromCachedGLTFArgs(
-                handles, path.data(), VK_SAMPLER_ADDRESS_MODE_REPEAT,
-                &textureImportCommandBuffer);
+                path.data(), VK_SAMPLER_ADDRESS_MODE_REPEAT, &textureImportCommandBuffer);
             //);
 
         }
@@ -484,7 +482,7 @@ void GltfLoadTextureThreaded(RendererContext handles,  std::span<TextureData> ds
     WaitForCompletion(&threadPool, JobDataWrapper);
 }
 #endif 
-void GltfLoadTextures(size_t imageCt, std::span<TextureData> textures,  std::span<tinygltf::Image> gltfImages, RendererContext handles, char* gltfpath, bool gltfOutOfDate)
+void GltfLoadTextures(size_t imageCt, std::span<TextureData> textures,  std::span<tinygltf::Image> gltfImages, PerThreadRenderContext handles, char* gltfpath, bool gltfOutOfDate)
 {
       auto textureImportCommandBuffer = handles.textureCreationcommandPoolmanager->beginSingleTimeCommands(true);
     auto imagePaths = std::vector<std::string_view>();
@@ -547,7 +545,7 @@ void GltfLoadTextures(size_t imageCt, std::span<TextureData> textures,  std::spa
 
 //TODO: Cameras? Probably not
 //TODO: More speed improvements: don't re-calculate tangents every load
-gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath)
+gltfdata GltfLoadMeshes(PerThreadRenderContext handles, const char* gltfpath)
 {
     bool gltfOutOfdate = FileCaching::assetOutOfDate(gltfpath);
     // gltfOutOfdate = true;

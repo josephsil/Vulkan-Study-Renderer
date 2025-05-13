@@ -21,7 +21,7 @@ namespace MemoryArena
 //TODO JS: pass an arena in
 
 //Renderer stuff various subsystems will need to access
-struct RendererContext
+struct PerThreadRenderContext
 {
     VkPhysicalDevice physicalDevice;
     VkDevice device;
@@ -44,7 +44,7 @@ struct BufferCreationContext
     VkFence ImportFence;
 };
 
-inline BufferCreationContext objectCreationContextFromRendererContext(RendererContext r)
+inline BufferCreationContext objectCreationContextFromRendererContext(PerThreadRenderContext r)
 {
     return {
         .device = r.device, .allocator = r.allocator, .rendererdeletionqueue = r.threadDeletionQueue,

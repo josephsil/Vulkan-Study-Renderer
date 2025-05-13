@@ -1,7 +1,7 @@
 #include "MeshData.h"
 #include <Renderer/MikkTImpl.h>
 #include <unordered_map>
-#include <Renderer/RendererContext.h>
+#include <Renderer/PerThreadRenderContext.h>
 #include <General/Array.h>
 #include <Renderer/VulkanBuffers/bufferCreation.h>
 #include <Renderer/gpu-data-structs.h>
@@ -184,7 +184,7 @@ temporaryloadingMesh geoFromObjPath(MemoryArena::memoryArena* tempArena, const c
     return {_vertices.getSpan(), _indices.getSpan(), false};
 }
 
-MeshData MeshDataCreation::MeshDataFromObjFile(RendererContext rendererHandles, const char* path)
+MeshData MeshDataCreation::MeshDataFromObjFile(PerThreadRenderContext rendererHandles, const char* path)
 {
     setCursor(rendererHandles.tempArena);
     const char* ext = strrchr(path, '.');

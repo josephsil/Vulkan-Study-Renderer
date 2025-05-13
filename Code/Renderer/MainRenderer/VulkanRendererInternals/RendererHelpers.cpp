@@ -1,7 +1,7 @@
 #include "RendererHelpers.h"
 
 #include <Renderer/VulkanBuffers/bufferCreation.h>
-#include <Renderer/RendererContext.h>
+#include <Renderer/PerThreadRenderContext.h>
 #include <Renderer/TextureCreation/Internal/TextureCreationUtilities.h>
 #include <Renderer/vulkan-utilities.h>
 
@@ -223,7 +223,7 @@ void AddBufferTrasnfer(VkBuffer sourceBuffer, VkBuffer targetBuffer, size_t copy
                          0, 0, nullptr, 1, &bufMemBarrier2, 0, nullptr);
 }
 
-void TransitionImageForRendering(RendererContext context, ActiveRenderStepData* RenderStepContext, VkImage image,
+void TransitionImageForRendering(PerThreadRenderContext context, ActiveRenderStepData* RenderStepContext, VkImage image,
                                  VkImageLayout layoutIn, VkImageLayout layoutOut, VkPipelineStageFlags* waitStages,
                                  int mipCount, bool depth)
 {

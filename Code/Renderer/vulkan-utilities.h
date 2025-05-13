@@ -15,26 +15,26 @@ namespace MemoryArena
 struct Vertex;
 class AssetManager;
 //Forward declaration
-struct RendererContext;
+struct PerThreadRenderContext;
 
 
 namespace DescriptorSets
 {
     //Passing around a vector of these to enforce binding for a pipeline
     VkDescriptorSetLayoutCreateInfo createInfoFromSpan(std::span<VkDescriptorSetLayoutBinding> bindings);
-    VkDescriptorSetLayout createVkDescriptorSetLayout(RendererContext handles,
+    VkDescriptorSetLayout createVkDescriptorSetLayout(PerThreadRenderContext handles,
                                                       std::span<VkDescriptorSetLayoutBinding> layoutBindings,
                                                       const char* debugName);
     void AllocateDescriptorSet(VkDevice device, VkDescriptorPool pool, VkDescriptorSetLayout* pdescriptorsetLayout,
                                VkDescriptorSet* pset, size_t ct);
-    void CreateDescriptorSetsForLayout(RendererContext handles, VkDescriptorPool pool, std::span<VkDescriptorSet> sets,
+    void CreateDescriptorSetsForLayout(PerThreadRenderContext handles, VkDescriptorPool pool, std::span<VkDescriptorSet> sets,
                                        VkDescriptorSetLayout layout, size_t descriptorCt, const char* debugName);
-    void _updateDescriptorSet_NEW(RendererContext rendererHandles, VkDescriptorSet set,
+    void _updateDescriptorSet_NEW(PerThreadRenderContext rendererHandles, VkDescriptorSet set,
                                   std::span<VkDescriptorSetLayoutBinding> setBindingInfo, std::span
                                   <descriptorUpdateData> descriptorUpdates);
 
     
-    DescriptorDataForPipeline CreateDescriptorDataForPipeline(RendererContext ctx, VkDescriptorSetLayout layout,
+    DescriptorDataForPipeline CreateDescriptorDataForPipeline(PerThreadRenderContext ctx, VkDescriptorSetLayout layout,
                                                               bool isPerFrame,
                                                               std::span<VkDescriptorSetLayoutBinding> bindingLayout,
                                                               const char* setname, VkDescriptorPool pool,
@@ -48,5 +48,5 @@ namespace Capabilities
     VkFormat findSupportedFormat(VkPhysicalDevice physicalDevice,
                                  const std::vector<VkFormat>& candidates,
                                  VkImageTiling tiling, VkFormatFeatureFlags features);
-    uint32_t findMemoryType(RendererContext rendererHandles, uint32_t typeFilter, VkMemoryPropertyFlags properties);
+    uint32_t findMemoryType(PerThreadRenderContext rendererHandles, uint32_t typeFilter, VkMemoryPropertyFlags properties);
 }

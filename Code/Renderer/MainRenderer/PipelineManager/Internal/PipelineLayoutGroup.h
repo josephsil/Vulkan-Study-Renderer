@@ -8,7 +8,7 @@
 #include "Renderer/MainRenderer/PipelineManager/PipelineLayoutManager.h"
 struct Vertex;
 //Forward declaration
-struct RendererContext;
+struct PerThreadRenderContext;
 struct descriptorUpdateData;
 
 
@@ -20,7 +20,7 @@ DescriptorDataForPipeline constructDescriptorDataObject(MemoryArena::memoryArena
                                                         std::span<VkDescriptorSetLayoutBinding> layoutBindings,
                                                         uint32_t descriptorSetPoolSize = 1, bool isPerFrame = true);
 
-DescriptorDataForPipeline CreateDescriptorDataForPipeline(RendererContext ctx, VkDescriptorSetLayout layout,
+DescriptorDataForPipeline CreateDescriptorDataForPipeline(PerThreadRenderContext ctx, VkDescriptorSetLayout layout,
                                                           bool isPerFrame,
                                                           std::span<VkDescriptorSetLayoutBinding> bindingLayout,
                                                           const char* setname, VkDescriptorPool pool,
@@ -32,7 +32,7 @@ class PipelineLayoutGroup
 public:
 
 
-    PipelineLayoutGroup(RendererContext handles, VkDescriptorPool pool,
+    PipelineLayoutGroup(PerThreadRenderContext handles, VkDescriptorPool pool,
                         std::span<DescriptorDataForPipeline> descriptorInfo, std::span<VkDescriptorSetLayout> layouts,
                         uint32_t pconstantsize, bool compute,
                         const char* debugName);

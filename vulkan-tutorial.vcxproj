@@ -260,7 +260,7 @@
     <ClInclude Include="Code\Renderer\MikkTImpl.h" />
     <ClInclude Include="Code\Renderer\RendererDeletionQueue.h" />
     <ClInclude Include="Code\Renderer\rendererGlobals.h" />
-    <ClInclude Include="Code\Renderer\RendererContext.h" />
+    <ClInclude Include="Code\Renderer\PerThreadRenderContext.h" />
     <ClInclude Include="Code\Renderer\RendererInterface.h" />
     <ClInclude Include="Code\Renderer\RendererSharedTypes.h" />
     <ClInclude Include="Code\Renderer\Shaders\ShaderLoading.h" />

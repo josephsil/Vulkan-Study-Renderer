@@ -1,7 +1,7 @@
 #include <Renderer/vulkan-utilities.h>
 #include <cassert>
 #include <General/Array.h>
-#include <Renderer/RendererContext.h>
+#include <Renderer/PerThreadRenderContext.h>
 #include <General/MemoryArena.h>
 
 
@@ -38,7 +38,7 @@ VkFormat Capabilities::findSupportedFormat(VkPhysicalDevice physicalDevice, cons
     exit(1);
 }
 
-uint32_t Capabilities::findMemoryType(RendererContext rendererHandles, uint32_t typeFilter,
+uint32_t Capabilities::findMemoryType(PerThreadRenderContext rendererHandles, uint32_t typeFilter,
                                       VkMemoryPropertyFlags properties)
 {
     VkPhysicalDeviceMemoryProperties memProperties;
@@ -68,7 +68,7 @@ VkDescriptorSetLayoutCreateInfo DescriptorSets::createInfoFromSpan(std::span<VkD
     return _createInfo;
 }
 
-VkDescriptorSetLayout DescriptorSets::createVkDescriptorSetLayout(RendererContext handles,
+VkDescriptorSetLayout DescriptorSets::createVkDescriptorSetLayout(PerThreadRenderContext handles,
                                                                   std::span<VkDescriptorSetLayoutBinding>
                                                                   layoutBindings, const char* debugName)
 {
@@ -114,7 +114,7 @@ void DescriptorSets::AllocateDescriptorSet(VkDevice device, VkDescriptorPool poo
     VK_CHECK(result);
 }
 
-void DescriptorSets::CreateDescriptorSetsForLayout(RendererContext handles, VkDescriptorPool pool,
+void DescriptorSets::CreateDescriptorSetsForLayout(PerThreadRenderContext handles, VkDescriptorPool pool,
                                                    std::span<VkDescriptorSet> sets, VkDescriptorSetLayout layout,
                                                    size_t descriptorCt, const char* debugName)
 {
@@ -133,7 +133,7 @@ void DescriptorSets::CreateDescriptorSetsForLayout(RendererContext handles, VkDe
     }
 }
 
-void DescriptorSets::_updateDescriptorSet_NEW(RendererContext rendererHandles, VkDescriptorSet set,
+void DescriptorSets::_updateDescriptorSet_NEW(PerThreadRenderContext rendererHandles, VkDescriptorSet set,
                                               std::span<VkDescriptorSetLayoutBinding> setBindingInfo,
                                               std::span<descriptorUpdateData> descriptorUpdates)
 {
@@ -173,7 +173,7 @@ void DescriptorSets::_updateDescriptorSet_NEW(RendererContext rendererHandles, V
                            writeDescriptorSets.getSpan().data(), 0, nullptr);
 }
 
-DescriptorDataForPipeline DescriptorSets::CreateDescriptorDataForPipeline(RendererContext ctx,
+DescriptorDataForPipeline DescriptorSets::CreateDescriptorDataForPipeline(PerThreadRenderContext ctx,
     VkDescriptorSetLayout layout, bool isPerFrame, std::span<VkDescriptorSetLayoutBinding> bindingLayout,
     const char* setname, VkDescriptorPool pool, int descriptorSetPoolSize)
 {

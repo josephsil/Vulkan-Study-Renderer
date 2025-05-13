@@ -4,7 +4,7 @@
 #include <cstdint>
 
 
-#include "../RendererContext.h"
+#include "../PerThreadRenderContext.h"
 #include  "../VulkanIncludes/Vulkan_Includes.h"
 using ktxTexture2 = struct ktxTexture2;
 using ktxVulkanTexture = struct ktxVulkanTexture;
@@ -53,12 +53,12 @@ struct TextureData
 
 namespace TextureCreation
 {
-    static TextureMetaData createImageKTX(RendererContext rendererContext, const char* path, TextureType type, bool mips,
+    static TextureMetaData createImageKTX(PerThreadRenderContext rendererContext, const char* path, TextureType type, bool mips,
                                           VkSamplerAddressMode mode);
-    static VkImageView createTextureImageView(RendererContext rendererContext, TextureMetaData data, VkImageViewType type);
-    void createTextureSampler(VkSampler* textureSampler, RendererContext rendererContext, VkSamplerAddressMode mode,
+    static VkImageView createTextureImageView(PerThreadRenderContext rendererContext, TextureMetaData data, VkImageViewType type);
+    void createTextureSampler(VkSampler* textureSampler, PerThreadRenderContext rendererContext, VkSamplerAddressMode mode,
                               float bias, uint32_t maxMip, bool shadow = false);
-    void createDepthPyramidSampler(VkSampler* textureSampler, RendererContext rendererContext, uint32_t maxMip);
+    void createDepthPyramidSampler(VkSampler* textureSampler, PerThreadRenderContext rendererContext, uint32_t maxMip);
 
     enum class TextureCreationMode
     {
@@ -91,7 +91,6 @@ namespace TextureCreation
   
     struct TextureCreationInfoArgs
     {
-        RendererContext ctx;
         TextureCreationMode mode;
         union TextureCreationModeArgs {
             FILE_addtlargs fileArgs;
@@ -107,18 +106,17 @@ namespace TextureCreation
         TextureType type;
         VkImageViewType viewType;
     };
-    TextureCreationInfoArgs MakeCreationArgsFromFilepathArgs(RendererContext rendererContext , const char* path, TextureType type,
-                              VkImageViewType viewType = static_cast<VkImageViewType>(-1));
+    TextureCreationInfoArgs MakeCreationArgsFromFilepathArgs(const char* path, TextureType type,
+                                                             VkImageViewType viewType = static_cast<VkImageViewType>(-1));
 
-    TextureCreationInfoArgs MakeTextureCreationArgsFromGLTFArgs(RendererContext rendererContext ,  const char* OUTPUT_PATH,
-                                      VkFormat format, VkSamplerAddressMode samplerMode, unsigned char* pixels, uint64_t width,
-                                      uint64_t height, int mipCt, CommandBufferPoolQueue* commandbuffer, bool compress);
+    TextureCreationInfoArgs MakeTextureCreationArgsFromGLTFArgs(const char* OUTPUT_PATH,
+                                                                VkFormat format, VkSamplerAddressMode samplerMode, unsigned char* pixels, uint64_t width,
+                                                                uint64_t height, int mipCt, CommandBufferPoolQueue* commandbuffer, bool compress);
 
-    TextureCreationInfoArgs MakeTextureCreationArgsFromCachedGLTFArgs(RendererContext rendererContext ,  const char* OUTPUT_PATH,
-                                 VkSamplerAddressMode samplerMode,
-                                 CommandBufferPoolQueue* commandbuffer);
+    TextureCreationInfoArgs MakeTextureCreationArgsFromCachedGLTFArgs(const char* OUTPUT_PATH,
+                                                                      VkSamplerAddressMode samplerMode,
+                                                                      CommandBufferPoolQueue* commandbuffer);
 
-    TextureCreationStep1Result CreateTextureFromArgs_Start(TextureCreationInfoArgs a);
-    TextureData CreateTextureFromArgsFinalize(RendererContext outputTextureOwnerContext, TextureCreationStep1Result startResult);
-    TextureData CreateTextureFromArgs(TextureCreationInfoArgs a);
+    TextureCreationStep1Result CreateTextureFromArgs_Start(PerThreadRenderContext context, TextureCreationInfoArgs a);
+    TextureData CreateTextureFromArgsFinalize(PerThreadRenderContext outputTextureOwnerContext, TextureCreationStep1Result startResult);
 }

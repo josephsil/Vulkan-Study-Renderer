@@ -9,7 +9,7 @@
 #include <Renderer/CommandPoolManager.h>
 #include <Renderer/rendererGlobals.h>
 #include <Renderer/VulkanIncludes/Vulkan_Includes.h>
-#include "Renderer/RendererContext.h"
+#include "Renderer/PerThreadRenderContext.h"
 #include "Renderer/MainRenderer/VulkanRendererInternals/RendererHelpers.h"
 
 
