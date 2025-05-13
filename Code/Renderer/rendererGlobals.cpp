@@ -19,3 +19,20 @@ void setDebugObjectName(VkDevice device, VkObjectType type, std::string name, ui
 
     FP_vkSetDebugUtilsObjectNameEXT(device, &DebugUtilsObjectNameInfo);
 }
+
+
+
+PFN_vkTransitionImageLayoutEXT FP_vkTransitionImageLayoutEXT;
+
+void registerTransitionImagefn(PFN_vkTransitionImageLayoutEXT ptr)
+{
+    FP_vkTransitionImageLayoutEXT = ptr;
+}
+
+
+void vkTransitionImageLayout(VkDevice device, uint32_t transitionCount,
+    const VkHostImageLayoutTransitionInfoEXT* pTransitions)
+{
+    assert(FP_vkTransitionImageLayoutEXT != VK_NULL_HANDLE);
+    VK_CHECK(FP_vkTransitionImageLayoutEXT(device, transitionCount, pTransitions));
+}

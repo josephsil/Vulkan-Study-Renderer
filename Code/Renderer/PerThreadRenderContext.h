@@ -18,8 +18,6 @@ namespace MemoryArena
     struct memoryArena;
 }
 
-//TODO JS: pass an arena in
-
 //Renderer stuff various subsystems will need to access
 struct PerThreadRenderContext
 {
@@ -41,13 +39,12 @@ struct BufferCreationContext
     VmaAllocator allocator;
     RendererDeletionQueue* rendererdeletionqueue;
     CommandPoolManager* commandPoolmanager;
-    VkFence ImportFence;
 };
 
 inline BufferCreationContext objectCreationContextFromRendererContext(PerThreadRenderContext r)
 {
     return {
         .device = r.device, .allocator = r.allocator, .rendererdeletionqueue = r.threadDeletionQueue,
-        .commandPoolmanager = r.textureCreationcommandPoolmanager, .ImportFence =  r.ImportFence
+        .commandPoolmanager = r.textureCreationcommandPoolmanager
     };
 }

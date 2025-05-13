@@ -16,6 +16,8 @@
 #include <Renderer/TextureCreation/internal/TextureCreationUtilities.h>
 #include <General/FileCaching.h>
 
+#include "Renderer/MainRenderer/VulkanRendererInternals/RendererHelpers.h"
+
 //Everywhere in the actual renderer we use ktx textures, but sometimes we load other textures from disk before caching them to ktx
 //These structs are used for those temporary import textures. Need a better name / home
 struct nonKTXTextureInfo
@@ -27,10 +29,10 @@ struct nonKTXTextureInfo
     uint64_t mipCt;
 };
 
-static nonKTXTextureInfo createtempTextureFromPath(PerThreadRenderContext rendererContext, const char* path, VkFormat format,
+static nonKTXTextureInfo createtempTextureFromPath(PerThreadRenderContext rendererContext,CommandBufferPoolQueue buffer, const char* path, VkFormat format,
                                                    bool mips);
 static nonKTXTextureInfo createTextureImage(PerThreadRenderContext rendererContext, const unsigned char* pixels,
-                                            uint64_t texWidth, uint64_t texHeight, VkFormat format, bool mips);
+                                            uint64_t texWidth, uint64_t texHeight, VkFormat format, bool mips, CommandBufferPoolQueue workingTextureBuffer);
 static void cacheKTXFromTempTexture(PerThreadRenderContext rendererContext, nonKTXTextureInfo tempTexture, const char* outpath,
                                     VkFormat format, TextureType textureType, bool use_mipmaps, bool compress);
 TextureMetaData GetOrLoadTextureFromPath(PerThreadRenderContext rendererContext, const char* path, VkFormat format, VkSamplerAddressMode mode,
@@ -39,7 +41,7 @@ TextureMetaData GetOrLoadTextureFromPath(PerThreadRenderContext rendererContext,
 // TextureData TextureCreation::CreateTexture_part1(RendererContext rendererContext, const char* path, TextureType type, VkImageViewType viewType)
 // {
 // }
-TextureMetaData CreateTextureFromPath_Start(PerThreadRenderContext rendererContext, TextureCreation::FILE_addtlargs args)
+TextureMetaData CreateTextureFromPath_Synchronously_Start(PerThreadRenderContext rendererContext, TextureCreation::FILE_addtlargs args)
 {
     VkFormat inputFormat;
     VkSamplerAddressMode mode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
@@ -133,7 +135,7 @@ return args;
 
 TextureCreation::TextureCreationInfoArgs TextureCreation::MakeTextureCreationArgsFromGLTFArgs(
     const char* OUTPUT_PATH, VkFormat format, VkSamplerAddressMode samplerMode, unsigned char* pixels, uint64_t width,
-    uint64_t height, int mipCt, CommandBufferPoolQueue* commandbuffer, bool compress)
+    uint64_t height, int mipCt, bool compress)
 {
     TextureCreationInfoArgs args;
     args = TextureCreationInfoArgs{
@@ -154,8 +156,7 @@ TextureCreation::TextureCreationInfoArgs TextureCreation::MakeTextureCreationArg
 }
 
 TextureCreation::TextureCreationInfoArgs TextureCreation::MakeTextureCreationArgsFromCachedGLTFArgs(
-     const char* OUTPUT_PATH, VkSamplerAddressMode samplerMode,
-    CommandBufferPoolQueue* commandbuffer)
+     const char* OUTPUT_PATH, VkSamplerAddressMode samplerMode)
 {
     TextureCreationInfoArgs args;
     args = TextureCreationInfoArgs{
@@ -172,9 +173,14 @@ TextureCreation::TextureCreationInfoArgs TextureCreation::MakeTextureCreationArg
 
 TextureMetaData CreateTextureNewGltfTexture_Start(PerThreadRenderContext rendererContext,  TextureCreation::GLTFCREATE_addtlargs args)
 {
-    nonKTXTextureInfo staging = createTextureImage(rendererContext, args.pixels, args.width, args.height, args.format, true);
-    
-    //TODO JS: no gaurantee taking output path data works -- not null terminated rght?
+    auto bandp = rendererContext.textureCreationcommandPoolmanager->beginSingleTimeCommands(false);
+    nonKTXTextureInfo staging = createTextureImage(rendererContext, args.pixels, args.width, args.height, args.format, true, bandp);
+
+    //We need a fence between creating the texture and caching the ktx, because the ktx requires a read to host memory
+    //I'd really rather go wide paralellizing the cache ktx, but I forgot how it worked when i started writing this. Someday I should break this up
+    //I could also do the ktx thing on a background pool, and just return the texture I got from staging?
+    rendererContext.textureCreationcommandPoolmanager->endSingleTimeCommands(bandp, true);
+
     cacheKTXFromTempTexture(rendererContext, staging, args.OUTPUT_PATH, args.format, DIFFUSE, args.mipCt != 0, args.compress);
     auto ktxResult = TextureCreation::createImageKTX(rendererContext, args.OUTPUT_PATH, DIFFUSE, true, args.samplerMode);
     return ktxResult;
@@ -429,7 +435,7 @@ void readImageData(PerThreadRenderContext rendererInfo, VmaAllocation alloc, VkI
         VK_STRUCTURE_TYPE_IMAGE_TO_MEMORY_COPY_EXT, VK_NULL_HANDLE, data, 0, 0, subresource, {0, 0}, extent
     };
     VkCopyImageToMemoryInfoEXT info = {
-        VK_STRUCTURE_TYPE_COPY_IMAGE_TO_MEMORY_INFO_EXT, VK_NULL_HANDLE, 0, image, VK_IMAGE_LAYOUT_GENERAL, 1, &region
+        VK_STRUCTURE_TYPE_COPY_IMAGE_TO_MEMORY_INFO_EXT, VK_NULL_HANDLE, 0, image, VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL, 1, &region
     };
     vkCopyImageToMemoryEXT(rendererInfo.device, &info);
 }
@@ -490,7 +496,9 @@ TextureMetaData GetOrLoadTextureFromPath(PerThreadRenderContext rendererContext,
     // generateKTX = true;
     if (generateKTX)
     {
-        nonKTXTextureInfo staging = createtempTextureFromPath(rendererContext, path, format, use_mipmaps);
+        auto bandp = rendererContext.textureCreationcommandPoolmanager->beginSingleTimeCommands(false);
+        nonKTXTextureInfo staging = createtempTextureFromPath(rendererContext, bandp, path, format, use_mipmaps);
+        rendererContext.textureCreationcommandPoolmanager->endSingleTimeCommands(bandp, true);
         cacheKTXFromTempTexture(rendererContext, staging, ktxPath.data(), format, textureType, use_mipmaps, compress);
         FileCaching::saveAssetChangedTime(path);
     }
@@ -569,11 +577,7 @@ void TextureCreation::createTextureSampler(VkSampler* textureSampler, PerThreadR
 void cacheKTXFromTempTexture(PerThreadRenderContext rendererContext, nonKTXTextureInfo tempTexture, const char* outpath,
                              VkFormat format, TextureType textureType, bool use_mipmaps, bool compress)
 {
-    // assert(rendererContext.canWriteKTX);
-    // if (!rendererContext.canWriteKTX)
-    // {
-    // 	exit (-1);
-    // }
+
     ktx_size_t srcSize = 0;
     VkImage image = tempTexture.textureImage;
     ktxTexture2* texture; // For KTX2
@@ -614,9 +618,9 @@ void cacheKTXFromTempTexture(PerThreadRenderContext rendererContext, nonKTXTextu
             getFormatSize(format));
         _imageData.resize(imageByteSize);
 
-        //the readimagedata call is extremely glacially slow -- need to take another approach
         readImageData(rendererContext, tempTexture.alloc, tempTexture.textureImage, _imageData.data(),
                       {currentLevelWidth, currentLevelheight, 1}, mipLevel);
+
 
 
         KTX_error_code r = ktxTexture_SetImageFromMemory(ktxTexture(texture), mipLevel, layer, faceSlice,
@@ -631,6 +635,7 @@ void cacheKTXFromTempTexture(PerThreadRenderContext rendererContext, nonKTXTextu
         ktxTexture2_CompressBasis(texture, 1);
     }
 
+    printf("Writing texture to file...\n");
     ktxTexture_WriteToNamedFile(ktxTexture(texture), outpath);
     ktxTexture_Destroy(ktxTexture(texture));
 
@@ -652,15 +657,10 @@ VkImageView TextureCreation::createTextureImageView(PerThreadRenderContext rende
 
 
 static nonKTXTextureInfo createTextureImage(PerThreadRenderContext rendererContext, const unsigned char* pixels,
-                                            uint64_t texWidth, uint64_t texHeight, VkFormat format, bool mips)
+                                            uint64_t texWidth, uint64_t texHeight, VkFormat format, bool mips, CommandBufferPoolQueue workingTextureBuffer)
 {
     VkDeviceSize imageSize = texWidth * texHeight * 4;
-    auto workingTextureBuffer = rendererContext.textureCreationcommandPoolmanager->beginSingleTimeCommands(true);
-    if (!pixels)
-    {
-        std::cerr << "failed to load texture image!";
-        exit(-1);
-    }
+    assert(pixels);
 
 
     VkBuffer stagingBuffer;
@@ -706,26 +706,13 @@ static nonKTXTextureInfo createTextureImage(PerThreadRenderContext rendererConte
                                         static_cast<uint32_t>(texHeight), workingTextureBuffer->buffer);
 
     //JS: Prepare image to read in shaders
-    rendererContext.textureCreationcommandPoolmanager->endSingleTimeCommands(workingTextureBuffer);
-    vkWaitForFences(rendererContext.device, 1, &workingTextureBuffer->fence, VK_TRUE, UINT32_MAX);
-    //TODO JS: Have to wait on fences for each texture end single time comands, because they aren't correctly synchronized.
-    //TODO JS: Think I could use semaphores instead. 
+    AllTextureAccessBarrier(workingTextureBuffer, _textureImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 0, VK_REMAINING_MIP_LEVELS);
+    
     //Texture is done, generate mipmaps
     TextureUtilities::generateMipmaps(objectCreationContextFromRendererContext(rendererContext), _textureImage, format,
                                       static_cast<uint32_t>(texWidth),
                                       static_cast<uint32_t>(texHeight),
-                                      fullMipPyramid); //TODO JS: centralize mip levels
-
-    //Done building temporary texture and generating mipmaps -- transition back to host to return
-    auto vkTransitionImageLayoutEXT = (PFN_vkTransitionImageLayoutEXT)vkGetDeviceProcAddr(
-        rendererContext.device, "vkTransitionImageLayoutEXT");
-    assert(vkTransitionImageLayoutEXT != VK_NULL_HANDLE);
-    VkImageSubresourceRange range = {VK_IMAGE_ASPECT_COLOR_BIT, 0, fullMipPyramid, 0, 1};
-    VkHostImageLayoutTransitionInfoEXT transtionInfo = {
-        VK_STRUCTURE_TYPE_HOST_IMAGE_LAYOUT_TRANSITION_INFO_EXT, VK_NULL_HANDLE, _textureImage,
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, range
-    };
-    vkTransitionImageLayoutEXT(rendererContext.device, 1, {&transtionInfo});
+                                      fullMipPyramid, workingTextureBuffer); //TODO JS: centralize mip levels
 
 
     setDebugObjectName(rendererContext.device, VK_OBJECT_TYPE_IMAGE, "temporary texture info image",
@@ -742,13 +729,13 @@ static nonKTXTextureInfo createTextureImage(PerThreadRenderContext rendererConte
     return nonKTXTextureInfo(_textureImage, _textureImageAlloc, texWidth, texHeight, fullMipPyramid);
 }
 
-static nonKTXTextureInfo createtempTextureFromPath(PerThreadRenderContext rendererContext, const char* path, VkFormat format,
+static nonKTXTextureInfo createtempTextureFromPath(PerThreadRenderContext rendererContext,CommandBufferPoolQueue buffer, const char* path, VkFormat format,
                                                    bool mips)
 {
     int texWidth, texHeight, texChannels;
     stbi_uc* pixels = stbi_load(path, &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 
-    nonKTXTextureInfo tex = createTextureImage(rendererContext, pixels, texWidth, texHeight, format, mips);
+    nonKTXTextureInfo tex = createTextureImage(rendererContext, pixels, texWidth, texHeight, format, mips,  buffer);
     stbi_image_free(pixels);
     return tex;
 }
@@ -842,7 +829,7 @@ TextureCreation::TextureCreationStep1Result TextureCreation::CreateTextureFromAr
     {
     case TextureCreation::TextureCreationMode::FILE:
         {
-            r.metaData = CreateTextureFromPath_Start(context, a.args.fileArgs);
+            r.metaData = CreateTextureFromPath_Synchronously_Start(context, a.args.fileArgs);
             r.viewType = a.args.fileArgs.viewType;
             r.type = a.args.fileArgs.type;
             break;
@@ -857,6 +844,14 @@ assert("!error!");
 break;
     }
     return r;
+}
+TextureData TextureCreation::CreateTextureSynchronously(PerThreadRenderContext context, TextureCreation::TextureCreationInfoArgs a)
+{
+    auto cbap = context.textureCreationcommandPoolmanager->beginSingleTimeCommands(false);
+    auto s = CreateTextureFromArgs_Start( context, a);
+    context.textureCreationcommandPoolmanager->endSingleTimeCommands(cbap, true);
+    return CreateTextureFromArgsFinalize(context, s);
+    
 }
 TextureData TextureCreation::CreateTextureFromArgsFinalize(PerThreadRenderContext outputTextureOwnerContext, TextureCreationStep1Result startResult)
 {

@@ -79,7 +79,7 @@ CommandBufferPoolQueue CommandPoolManager::beginSingleTimeCommands(
     VkFence outputFence;
     VkFenceCreateInfo fenceInfo{};
     fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+    // fenceInfo.flags = V_FENCE_CREATE;
 
     VK_CHECK(vkCreateFence(device, &fenceInfo, nullptr, &outputFence));
     setDebugObjectName(device, VK_OBJECT_TYPE_FENCE, "begin single time commands fence", uint64_t(outputFence));
@@ -114,7 +114,7 @@ void CommandPoolManager::endSingleTimeCommands(VkCommandBuffer buffer, VkFence f
     vkFreeCommandBuffers(device, transferCommandPool, 1, &buffer);
 }
 
-void CommandPoolManager::endSingleTimeCommands(CommandBufferPoolQueue bufferAndPool)
+void CommandPoolManager::endSingleTimeCommands(CommandBufferPoolQueue bufferAndPool, bool waitForFence)
 {
     vkEndCommandBuffer(bufferAndPool->buffer);
 
@@ -125,19 +125,22 @@ void CommandPoolManager::endSingleTimeCommands(CommandBufferPoolQueue bufferAndP
 
     QUEUES.graphicsQueueMutex.lock(); //todo js
     QUEUES.transferQueueMutex.lock(); //todo js
-    
-    vkWaitForFences(device, 1, &bufferAndPool->fence,VK_TRUE, SIZE_MAX);
-    vkResetFences(device, 1, &bufferAndPool->fence);
+
+
     vkQueueSubmit(bufferAndPool->queue, 1, &submitInfo, bufferAndPool->fence);
 
-    
+    if (waitForFence)
+    {
+        vkWaitForFences(device, 1, &bufferAndPool->fence,VK_TRUE, SIZE_MAX);
+        vkResetFences(device, 1, &bufferAndPool->fence);
+    }
     // vkQueueWaitIdle(bufferAndPool->queue);
     
     QUEUES.graphicsQueueMutex.unlock(); //todo js
     QUEUES.transferQueueMutex.unlock(); //todo js
 
     deletionQueue->push_backVk(deletionType::CommandBuffer, (uint64_t)bufferAndPool); //todo js sketchy
-    deletionQueue->push_backVk(deletionType::WAITFORANDDELETEFENCE, (uint64_t)bufferAndPool->fence); //Wait for fence before freeing anything we allocated beforehand
+    deletionQueue->push_backVk(deletionType::Fence, (uint64_t)bufferAndPool->fence); //Wait for fence before freeing anything we allocated beforehand
     // vkFreeCommandBuffers(device, bufferAndPool->pool, 1, &bufferAndPool->buffer);
 }
 

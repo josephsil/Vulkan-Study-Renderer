@@ -182,7 +182,7 @@ void TextureUtilities::transitionImageLayout(BufferCreationContext rendererConte
 
 
     if (usingTempBuffer)
-        rendererContext.commandPoolmanager->endSingleTimeCommands(tempBufferAndPool);
+        rendererContext.commandPoolmanager->endSingleTimeCommands(tempBufferAndPool, true);
 }
 VkPipelineStageFlags2 deduceStage(VkAccessFlags2 access)
 {
@@ -202,7 +202,7 @@ VkPipelineStageFlags2 deduceStage(VkAccessFlags2 access)
     return 0;
 }
 
-VkImageMemoryBarrier2 oneMipBarrier(CommandBufferPoolQueue bandp, VkImage image,
+VkImageMemoryBarrier2 AllTextureAccessBarrier(CommandBufferPoolQueue bandp, VkImage image,
     VkPipelineStageFlags2 srcStage,
     VkPipelineStageFlags2 dstStage,
     VkImageLayout oldLayout,
@@ -238,9 +238,8 @@ VkImageMemoryBarrier2 blitBarrier(CommandBufferPoolQueue bandp, VkImage image, V
 }
 void TextureUtilities::generateMipmaps(BufferCreationContext rendererContext, VkImage image, VkFormat imageFormat,
                                        int32_t texWidth,
-                                       int32_t texHeight, uint32_t mipLevels)
+                                       int32_t texHeight, uint32_t mipLevels, CommandBufferPoolQueue bandp)
 {
-    CommandBufferPoolQueue bandp = rendererContext.commandPoolmanager->beginSingleTimeCommands(false);
     std::vector<VkImageMemoryBarrier2> barrierMemory= {};
 
     auto commandBuffer = bandp->buffer;
@@ -255,7 +254,7 @@ void TextureUtilities::generateMipmaps(BufferCreationContext rendererContext, Vk
     //Transfer the first mip level into transfer src
 
     //Set up the first miplevels;
-        barrierMemory.push_back( oneMipBarrier(bandp, image,  VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+        barrierMemory.push_back( AllTextureAccessBarrier(bandp, image,  VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
            VK_IMAGE_LAYOUT_UNDEFINED,
            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, (uint32_t)0));
 
@@ -294,25 +293,17 @@ void TextureUtilities::generateMipmaps(BufferCreationContext rendererContext, Vk
     setDebugObjectName(rendererContext.device, VK_OBJECT_TYPE_IMAGE, "FINISHED mipmap blit image", (uint64_t)image);
     //Transfer the src mip levels to read only
 
-    barrierMemory.push_back( oneMipBarrier(bandp, image,  VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
+    barrierMemory.push_back( AllTextureAccessBarrier(bandp, image,  VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
          VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
          VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, (uint32_t)0));
     for(size_t i =1; i < mipLevels; i++)
     {
-        barrierMemory.push_back( oneMipBarrier(bandp, image,  VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
+        barrierMemory.push_back( AllTextureAccessBarrier(bandp, image,  VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, (uint32_t)i));
 
     }
 
-
-   
-
-    rendererContext.commandPoolmanager->endSingleTimeCommands(bandp);
-    vkWaitForFences(rendererContext.device, 1, &bandp->fence, VK_TRUE, UINT32_MAX);
-    //TODO JS: Have to wait on fences for each texture end single time comands, because they aren't correctly synchronized.
-    //TODO JS: Think I could use semaphores instead.
-    
     setDebugObjectName(rendererContext.device, VK_OBJECT_TYPE_IMAGE, "FINISHED mipmap transition image", (uint64_t)image);
 }
 

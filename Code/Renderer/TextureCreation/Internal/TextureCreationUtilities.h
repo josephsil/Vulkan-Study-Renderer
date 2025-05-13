@@ -32,8 +32,8 @@ namespace TextureUtilities
                                VkImageLayout newLayout, VkCommandBuffer workingBuffer,
                                uint32_t miplevels = 1, bool useTransferPool = true, bool depth = false);
 
-    void generateMipmaps(BufferCreationContext rendererHandles, VkImage image, VkFormat imageFormat, int32_t texWidth,
-                         int32_t texHeight, uint32_t mipLevels);
+    void generateMipmaps(BufferCreationContext rendererContext, VkImage image, VkFormat imageFormat, int32_t texWidth,
+                         int32_t texHeight, uint32_t mipLevels, CommandBufferPoolQueue bandp);
     void copyBufferToImage(CommandPoolManager* commandPoolManager, VkBuffer buffer, VkImage image, uint32_t width,
                            uint32_t height,
                            VkCommandBuffer workingBuffer = nullptr);

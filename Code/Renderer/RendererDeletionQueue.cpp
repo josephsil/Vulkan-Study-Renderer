@@ -84,12 +84,6 @@ void RendererDeletionQueue::FreeResource(VkDevice device, VmaAllocator allocator
             vkDestroySemaphore(device, (VkSemaphore)resource.handle, nullptr);
             break;
         }
-    case deletionType::WAITFORANDDELETEFENCE:
-        {
-            vkWaitForFences(device, 1, (VkFence*)(&resource.handle), VK_TRUE, SIZE_MAX);
-            vkDestroyFence(device, (VkFence)(resource.handle), nullptr);
-            break;
-        }
     case deletionType::Fence:
         {
             vkDestroyFence(device, (VkFence)(resource.handle), nullptr);

@@ -62,7 +62,7 @@ public:
     CommandBufferPoolQueue beginSingleTimeCommands(bool useTransferPoolInsteadOfGraphicsPool); //TODO JS: can i move to cpp?
     void endSingleTimeCommands(VkCommandBuffer buffer, VkFence fence);
 
-    void endSingleTimeCommands(CommandBufferPoolQueue bufferAndPool);
+    void endSingleTimeCommands(CommandBufferPoolQueue bufferAndPool, bool waitForFence = false);
 
 private:
     VkDevice device;

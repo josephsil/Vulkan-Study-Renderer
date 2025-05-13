@@ -13,38 +13,32 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
     scene->sceneCamera.extent = {16, 10}; // ????
     std::vector<size_t> randomMeshes;
     std::vector<size_t> randomMaterials;
-    std::vector<TextureCreation::TextureCreationStep1Result> enqueuedTextures;
-    std::vector<TextureData> comletedTextures;
+    std::vector<TextureData> completedTextures;
 
-    enqueuedTextures.push_back(CreateTextureFromArgs_Start( rendererContext, TextureCreation::MakeCreationArgsFromFilepathArgs("textures/blank.png", DIFFUSE)));
-    comletedTextures.push_back (CreateTextureFromArgsFinalize(rendererContext, enqueuedTextures.back()));
-
-    size_t defaultTexture = rendererData->AddTexture(comletedTextures.back());
-
-    enqueuedTextures.push_back (CreateTextureFromArgs_Start(    rendererContext, TextureCreation::MakeCreationArgsFromFilepathArgs("textures/default_roug.tga",  SPECULAR)));
-    comletedTextures.push_back(CreateTextureFromArgsFinalize(rendererContext, enqueuedTextures.back()));
-    size_t defaultSPec = rendererData->AddTexture(comletedTextures.back());
     
-    enqueuedTextures.push_back (CreateTextureFromArgs_Start(rendererContext, TextureCreation::MakeCreationArgsFromFilepathArgs("textures/blank.png",SPECULAR)));
-    comletedTextures.push_back(CreateTextureFromArgsFinalize(rendererContext, enqueuedTextures.back()));
-    size_t defaultNormal = rendererData->AddTexture(comletedTextures.back());
+    completedTextures.push_back(CreateTextureSynchronously( rendererContext, TextureCreation::MakeCreationArgsFromFilepathArgs("textures/blank.png", DIFFUSE)));
+
+    size_t defaultTexture = rendererData->AddTexture(completedTextures.back());
+
+    completedTextures.push_back (CreateTextureSynchronously(    rendererContext, TextureCreation::MakeCreationArgsFromFilepathArgs("textures/default_roug.tga",  SPECULAR)));
+    size_t defaultSPec = rendererData->AddTexture(completedTextures.back());
+    
+    completedTextures.push_back (CreateTextureSynchronously(rendererContext, TextureCreation::MakeCreationArgsFromFilepathArgs("textures/blank.png",SPECULAR)));
+    size_t defaultNormal = rendererData->AddTexture(completedTextures.back());
 
 
     //Set
-    enqueuedTextures.push_back (CreateTextureFromArgs_Start(rendererContext, TextureCreation::MakeCreationArgsFromFilepathArgs("textures/pbr_cruiser-panels/space-cruiser-panels2_albedo.png", DIFFUSE,
+    completedTextures.push_back (CreateTextureSynchronously(rendererContext, TextureCreation::MakeCreationArgsFromFilepathArgs("textures/pbr_cruiser-panels/space-cruiser-panels2_albedo.png", DIFFUSE,
                                                                 VK_IMAGE_VIEW_TYPE_2D)));
-    comletedTextures.push_back(CreateTextureFromArgsFinalize(rendererContext, enqueuedTextures.back()));
-    auto setdiff1 = (comletedTextures.back());
+    auto setdiff1 = (completedTextures.back());
     
-    enqueuedTextures.push_back (CreateTextureFromArgs_Start(rendererContext, TextureCreation::MakeCreationArgsFromFilepathArgs("textures/pbr_cruiser-panels/space-cruiser-panels2_roughness_metallic.tga", SPECULAR,
+    completedTextures.push_back (CreateTextureSynchronously(rendererContext, TextureCreation::MakeCreationArgsFromFilepathArgs("textures/pbr_cruiser-panels/space-cruiser-panels2_roughness_metallic.tga", SPECULAR,
                                                                 VK_IMAGE_VIEW_TYPE_2D)));
-    comletedTextures.push_back(CreateTextureFromArgsFinalize(rendererContext, enqueuedTextures.back()));
-    auto setSpec1 = (comletedTextures.back());
+    auto setSpec1 = (completedTextures.back());
 
-    enqueuedTextures.push_back (CreateTextureFromArgs_Start(rendererContext, TextureCreation::MakeCreationArgsFromFilepathArgs("textures/pbr_cruiser-panels/space-cruiser-panels2_normal-dx.png", NORMAL,
+    completedTextures.push_back (CreateTextureSynchronously(rendererContext, TextureCreation::MakeCreationArgsFromFilepathArgs("textures/pbr_cruiser-panels/space-cruiser-panels2_normal-dx.png", NORMAL,
                                                                 VK_IMAGE_VIEW_TYPE_2D)));
-    comletedTextures.push_back(CreateTextureFromArgsFinalize(rendererContext, enqueuedTextures.back()));
-    auto setNorm1 = (comletedTextures.back());
+    auto setNorm1 = (completedTextures.back());
     size_t placeholderMatidx;
     auto placeholderTextureidx = rendererData->AddTextureSet(
         setdiff1,
@@ -53,20 +47,17 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
     placeholderMatidx = rendererData->AddMaterial(0.2f, 0, glm::vec3(1.0f), placeholderTextureidx, 1);
     randomMaterials.push_back(placeholderMatidx);
 
-    enqueuedTextures.push_back (CreateTextureFromArgs_Start(rendererContext, TextureCreation::MakeCreationArgsFromFilepathArgs("textures/pbr_cruiser-panels/space-cruiser-panels2_albedo.png", DIFFUSE,
+    completedTextures.push_back (CreateTextureSynchronously(rendererContext, TextureCreation::MakeCreationArgsFromFilepathArgs("textures/pbr_cruiser-panels/space-cruiser-panels2_albedo.png", DIFFUSE,
                                                                 VK_IMAGE_VIEW_TYPE_2D)));
-    comletedTextures.push_back(CreateTextureFromArgsFinalize(rendererContext, enqueuedTextures.back()));
-    auto setdiff2 = (comletedTextures.back());
+    auto setdiff2 = (completedTextures.back());
     
-    enqueuedTextures.push_back (CreateTextureFromArgs_Start(rendererContext, TextureCreation::MakeCreationArgsFromFilepathArgs("textures/pbr_cruiser-panels/space-cruiser-panels2_roughness_metallic.tga", SPECULAR,
+    completedTextures.push_back (CreateTextureSynchronously(rendererContext, TextureCreation::MakeCreationArgsFromFilepathArgs("textures/pbr_cruiser-panels/space-cruiser-panels2_roughness_metallic.tga", SPECULAR,
                                                                 VK_IMAGE_VIEW_TYPE_2D)));
-    comletedTextures.push_back(CreateTextureFromArgsFinalize(rendererContext, enqueuedTextures.back()));
-    auto setSpec2 = (comletedTextures.back());
+    auto setSpec2 = (completedTextures.back());
 
-    enqueuedTextures.push_back (CreateTextureFromArgs_Start(rendererContext, TextureCreation::MakeCreationArgsFromFilepathArgs("textures/pbr_cruiser-panels/space-cruiser-panels2_normal-dx.png", NORMAL,
+    completedTextures.push_back (CreateTextureSynchronously(rendererContext, TextureCreation::MakeCreationArgsFromFilepathArgs("textures/pbr_cruiser-panels/space-cruiser-panels2_normal-dx.png", NORMAL,
                                                                 VK_IMAGE_VIEW_TYPE_2D)));
-    comletedTextures.push_back(CreateTextureFromArgsFinalize(rendererContext, enqueuedTextures.back()));
-    auto setNorm2 = (comletedTextures.back());
+    auto setNorm2 = (completedTextures.back());
      placeholderTextureidx = rendererData->AddTextureSet(
        setdiff2,
        setSpec2,setNorm2);
@@ -190,15 +181,13 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
     // #else
     gltf = GltfLoadMeshes(rendererContext, "Meshes/pig.glb");
 
-    enqueuedTextures.push_back (CreateTextureFromArgs_Start(rendererContext, TextureCreation::MakeCreationArgsFromFilepathArgs("textures/pbr_cruiser-panels/space-cruiser-panels2_roughness_metallic.tga", SPECULAR,
+    completedTextures.push_back (CreateTextureSynchronously(rendererContext, TextureCreation::MakeCreationArgsFromFilepathArgs("textures/pbr_cruiser-panels/space-cruiser-panels2_roughness_metallic.tga", SPECULAR,
                                                                 VK_IMAGE_VIEW_TYPE_2D)));
-    comletedTextures.push_back(CreateTextureFromArgsFinalize(rendererContext, enqueuedTextures.back()));
-    auto setSpec3 = (comletedTextures.back());
+    auto setSpec3 = (completedTextures.back());
 
-    enqueuedTextures.push_back (CreateTextureFromArgs_Start(rendererContext, TextureCreation::MakeCreationArgsFromFilepathArgs("textures/pbr_cruiser-panels/space-cruiser-panels2_normal-dx.png", NORMAL,
+    completedTextures.push_back (CreateTextureSynchronously(rendererContext, TextureCreation::MakeCreationArgsFromFilepathArgs("textures/pbr_cruiser-panels/space-cruiser-panels2_normal-dx.png", NORMAL,
                                                                 VK_IMAGE_VIEW_TYPE_2D)));
-    comletedTextures.push_back(CreateTextureFromArgsFinalize(rendererContext, enqueuedTextures.back()));
-    auto setNorm3 = (comletedTextures.back());
+    auto setNorm3 = (completedTextures.back());
 
     
     placeholderTextureidx = rendererData->AddTextureSet(

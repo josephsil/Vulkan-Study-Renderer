@@ -15,7 +15,7 @@
 #include <Renderer/PerThreadRenderContext.h>
 #include <Renderer/TextureCreation/TextureData.h>
 
-#include "General/TextureLoaderWorker.h"
+#include "General/ThreadedTextureLoading.h"
 #include "General/ThreadPool.h"
 #include "Renderer/rendererGlobals.h"
 #include "Renderer/MainRenderer/VulkanRendererInternals/RendererHelpers.h"
@@ -387,104 +387,9 @@ temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygl
     return {_vertices.getSpan(), _indices.getSpan(), tangentsLoaded};
 }
 
-// #undef THREADED_IMPORT
-#ifdef THREADED_IMPORT
-//Prototype/mostly complete parallel texture import. Need to move the system outside to somewhere external that can drive all imports from one pool
-//Would like to build a list of what imports are needed and then just chug thru it.
-//Pain points:
-// 1-Single time commands pattern is fairly busted, synchronization isn't good -- need to improve texture import to natively work with long persistent comandbuffers and semaphore correctly
-// 2- One submission per command is too slow. Need to pipeline the work and build big command buffers -- One to do all the ktx import, one to do all the mip transitions, and so on.
-//          - More like a real renderer
-// 3- The pattern to stamp over the contents of handles in the worker fn (see to do comment in TextureLoaderWorker::WORKER_FN) is bad
-void GltfLoadTextureThreaded(PerThreadRenderContext handles,  std::span<TextureData> dstTextures,std::span<tinygltf::Image> gltfImages, std::span<std::string_view> cachedImagePaths, bool gltfOutOfDate)
-{
-    
-    auto textureImportCommandBuffer = handles.textureCreationcommandPoolmanager->beginSingleTimeCommands(true);
-    setDebugObjectName(handles.device, VK_OBJECT_TYPE_COMMAND_BUFFER, "SHOULD BE UNUSED COMMAND BUFFER", (uint64_t)textureImportCommandBuffer->buffer);
-    MemoryArena::memoryArena threadPoolAllocator{};
-    initialize(&threadPoolAllocator, 64 * 1000000);
-    size_t textureCt = cachedImagePaths.size();
-    //Initialize a pool
-    ThreadPool::Pool threadPool;
-    size_t workItemCt = cachedImagePaths.size();
-    size_t threadCt =32;
-    InitializeThreadPool(&threadPoolAllocator, &threadPool, workItemCt, threadCt);
 
-    std::span<VkFence> fences = MemoryArena::AllocSpan<VkFence>(&threadPoolAllocator, threadCt);
-
-    size_t ReadbackBufferSize = 50;
-    TextureLoaderThreadWorker ThreadWorker =
-    {
-        .ThreadsOutput = MemoryArena::AllocSpan<TextureCreation::TextureCreationStep1Result>(
-            &threadPoolAllocator, textureCt),
-        .ThreadsInput = MemoryArena::AllocSpan<TextureCreation::TextureCreationInfoArgs>(&threadPoolAllocator, textureCt),
-        .PerThreadContext = MemoryArena::AllocSpan<PerThreadRenderContext>(
-            &threadPoolAllocator, threadCt),
-        .MainThreadContext =  handles,
-        .FinalOutput = dstTextures,
-        .readbackBufferForQueue = MemoryArena::AllocSpan<size_t>(&threadPoolAllocator, ReadbackBufferSize),
-        .ResultsReadyAtIndex = moodycamel::ConcurrentQueue<size_t>()
-    };
-    for(int i =0; i < threadCt; i++)
-    {
-        ThreadWorker.PerThreadContext[i] =  {handles}; //initialize the per thread context by copying the render context
-        static_createFence(ThreadWorker.PerThreadContext[i].device, &ThreadWorker.PerThreadContext[i].ImportFence, "Fence for thread", ThreadWorker.PerThreadContext[i].threadDeletionQueue );
-         ThreadWorker.PerThreadContext[i].threadDeletionQueue = new RendererDeletionQueue(ThreadWorker.PerThreadContext[i].device, ThreadWorker.PerThreadContext[i].allocator);
-        
-        ThreadWorker.PerThreadContext[i].textureCreationcommandPoolmanager = MemoryArena::Alloc<CommandPoolManager>(&threadPoolAllocator);
-        new (ThreadWorker.PerThreadContext[i].textureCreationcommandPoolmanager) CommandPoolManager(*ThreadWorker.PerThreadContext[i].vkbd, ThreadWorker.PerThreadContext[i].threadDeletionQueue);
-        setDebugObjectName(ThreadWorker.PerThreadContext[i].device, VK_OBJECT_TYPE_COMMAND_POOL, "thread ktx pool", (uint64_t)ThreadWorker.PerThreadContext[i].textureCreationcommandPoolmanager->commandPool);
-    }
-
-    for (int i = 0; i < textureCt; i++)
-    {
-        auto path = cachedImagePaths[i];
-        auto cachetexture = true;
-        if (FileCaching::fileExists(path) && !gltfOutOfDate)
-        {
-            cachetexture = false;
-        }
-        auto& image = gltfImages[i];
-        TextureCreation::TextureCreationInfoArgs jobArg = {};
-        if (cachetexture)
-        {
-            // auto requestStart = TextureCreation::CreateTextureFromArgs_Start(
-            jobArg = TextureCreation::MakeTextureCreationArgsFromGLTFArgs(
-                path.data(), VK_FORMAT_R8G8B8A8_SRGB, VK_SAMPLER_ADDRESS_MODE_REPEAT, image.image.data(),
-                image.width, image.height, 6, &textureImportCommandBuffer,
-                true);
-            //);
-        }
-        else 
-        {
-            // auto requestStart = TextureCreation::CreateTextureFromArgs_Start(
-            jobArg = TextureCreation::MakeTextureCreationArgsFromCachedGLTFArgs(
-                path.data(), VK_SAMPLER_ADDRESS_MODE_REPEAT, &textureImportCommandBuffer);
-            //);
-
-        }
-            ThreadWorker.ThreadsInput[i] = jobArg;
-    }
-
-    //Create a jobwrapper to pass to the thread pool, create threads 
-    auto JobDataWrapper = ThreadPool::ThreadWorkWrapper(&ThreadWorker);
-    CreateThreads(&threadPool, JobDataWrapper);
-
-    //Tell the thread pool workdata.size() requests are ready for it
-    SubmitRequests(&threadPool, workItemCt);
-    //Optional -- readbackdata gets called in a loop until it returns 0 (to indicate an empty queue) on waitforcompletion
-    size_t resultsRead = 0;
-    while (resultsRead < workItemCt)
-    {
-        resultsRead += ReadBackData(&threadPool, JobDataWrapper);
-    }
-    //Join the threads, call readback data and read results
-    WaitForCompletion(&threadPool, JobDataWrapper);
-}
-#endif 
 void GltfLoadTextures(size_t imageCt, std::span<TextureData> textures,  std::span<tinygltf::Image> gltfImages, PerThreadRenderContext handles, char* gltfpath, bool gltfOutOfDate)
 {
-      auto textureImportCommandBuffer = handles.textureCreationcommandPoolmanager->beginSingleTimeCommands(true);
     auto imagePaths = std::vector<std::string_view>();
     for (int i = 0; i < imageCt; i++)
     {
@@ -504,42 +409,32 @@ void GltfLoadTextures(size_t imageCt, std::span<TextureData> textures,  std::spa
         auto cachedImagePath = std::string_view(newName.data(), newName.size());
         imagePaths.push_back(cachedImagePath);
     }
-#ifdef THREADED_IMPORT
-        GltfLoadTextureThreaded(handles, textures, gltfImages,imagePaths, gltfOutOfDate );
-#else
 
-    for (int i = 0; i < imageCt; i++)
+    auto memoryTempAllocator = MemoryArena::memoryArena {};
+    MemoryArena::initialize(&memoryTempAllocator, 6000);
+    auto textureCreationRequests = MemoryArena::AllocSpan<TextureCreation::TextureCreationInfoArgs>(&memoryTempAllocator, imagePaths.size());
+    for (size_t i = 0; i < imagePaths.size(); i++)
     {
-        auto& cachedImagePath = imagePaths[i];
+        auto path = imagePaths[i];
+        auto loadFromCache = (FileCaching::fileExists(path) && !gltfOutOfDate);
         auto& image = gltfImages[i];
-        bool cachetexture = true;
-        //Don't regenerate ktx if image modified time is older than last ktx 
-        if (FileCaching::fileExists(cachedImagePath) && !gltfOutOfDate)
+        TextureCreation::TextureCreationInfoArgs jobArg = {};
+        if (loadFromCache)
         {
-            cachetexture = false;
-        }
-    
-        if (cachetexture)
-        {
-            assert(image.component == 4);
-            assert(image.pixel_type == TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE);
-            assert(image.bits == 8);
-    
-            auto requestStart = TextureCreation::CreateTextureFromArgs_Start(TextureCreation::MakeTextureCreationArgsFromGLTFArgs(handles, cachedImagePath.data(), VK_FORMAT_R8G8B8A8_SRGB, VK_SAMPLER_ADDRESS_MODE_REPEAT,
-                                                                 image.image.data(), image.width, image.height, 6,
-                                                                 &textureImportCommandBuffer, true));
-            auto requestFinish = TextureCreation::CreateTextureFromArgsFinalize(handles, requestStart);
-    
-            textures[i] = requestFinish;
+            textureCreationRequests[i] = TextureCreation::MakeTextureCreationArgsFromCachedGLTFArgs(
+                path.data(), VK_SAMPLER_ADDRESS_MODE_REPEAT);
         }
         else
         {
-            auto requestStart = TextureCreation::CreateTextureFromArgs_Start(TextureCreation::MakeTextureCreationArgsFromCachedGLTFArgs(handles, cachedImagePath.data(), VK_SAMPLER_ADDRESS_MODE_REPEAT, &textureImportCommandBuffer));
-            auto requestFinish = TextureCreation::CreateTextureFromArgsFinalize(handles, requestStart);
-            textures[i] = requestFinish;
+            textureCreationRequests[i] = TextureCreation::MakeTextureCreationArgsFromGLTFArgs(
+                path.data(), VK_FORMAT_R8G8B8A8_SRGB, VK_SAMPLER_ADDRESS_MODE_REPEAT, image.image.data(),
+                image.width, image.height, 6, true);
         }
     }
-#endif 
+    LoadTexturesThreaded(handles, textures, textureCreationRequests);
+
+    MemoryArena::RELEASE(&memoryTempAllocator);
+
 
 }
 

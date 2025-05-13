@@ -32,6 +32,10 @@ void createSemaphore(VkDevice device, VkSemaphore* semaphorePtr, const char* deb
 void pipelineBarrier(VkCommandBuffer commandBuffer, VkDependencyFlags dependencyFlags, size_t bufferBarrierCount,
                      const VkBufferMemoryBarrier2* bufferBarriers, size_t imageBarrierCount,
                      const VkImageMemoryBarrier2* imageBarriers);
+
+VkImageMemoryBarrier2 AllTextureAccessBarrier(CommandBufferPoolQueue bandp, VkImage image,
+    VkImageLayout oldLayout,
+    VkImageLayout newLayout, uint32_t mipLevel, uint32_t levelCount = 1);
 VkBufferMemoryBarrier2 bufferBarrier(VkBuffer buffer, VkPipelineStageFlags2 srcStageMask, VkAccessFlags2 srcAccessMask,
                                      VkPipelineStageFlags2 dstStageMask, VkAccessFlags2 dstAccessMask);
 VkImageMemoryBarrier2 imageBarrier(VkImage image, VkPipelineStageFlags2 srcStageMask, VkAccessFlags2 srcAccessMask,

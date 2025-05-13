@@ -111,12 +111,12 @@ namespace TextureCreation
 
     TextureCreationInfoArgs MakeTextureCreationArgsFromGLTFArgs(const char* OUTPUT_PATH,
                                                                 VkFormat format, VkSamplerAddressMode samplerMode, unsigned char* pixels, uint64_t width,
-                                                                uint64_t height, int mipCt, CommandBufferPoolQueue* commandbuffer, bool compress);
+                                                                uint64_t height, int mipCt, bool compress);
 
     TextureCreationInfoArgs MakeTextureCreationArgsFromCachedGLTFArgs(const char* OUTPUT_PATH,
-                                                                      VkSamplerAddressMode samplerMode,
-                                                                      CommandBufferPoolQueue* commandbuffer);
+                                                                      VkSamplerAddressMode samplerMode);
 
     TextureCreationStep1Result CreateTextureFromArgs_Start(PerThreadRenderContext context, TextureCreationInfoArgs a);
     TextureData CreateTextureFromArgsFinalize(PerThreadRenderContext outputTextureOwnerContext, TextureCreationStep1Result startResult);
+    TextureData CreateTextureSynchronously(PerThreadRenderContext context, TextureCreation::TextureCreationInfoArgs a);
 }

@@ -105,7 +105,8 @@ DepthPyramidInfo static_createDepthPyramidResources(rendererObjects initializedr
                                                    0,
                                                    HIZDEPTH);
     pipelineBarrier(tempBufferAndPool->buffer, 0, 0, nullptr, 1, &barrier11);
-    commandPoolmanager->endSingleTimeCommands(tempBufferAndPool);
+
+    commandPoolmanager->endSingleTimeCommands(tempBufferAndPool, true); //todo js sync
 
     return bufferInfo;
 }
@@ -133,7 +134,23 @@ void static_createFence(VkDevice device, VkFence* fencePtr, const char* debugNam
     deletionQueue->push_backVk(deletionType::Fence, uint64_t(*fencePtr));
     setDebugObjectName(device, VK_OBJECT_TYPE_FENCE, debugName, uint64_t(*fencePtr));
 }
-
+VkImageMemoryBarrier2 AllTextureAccessBarrier(CommandBufferPoolQueue bandp, VkImage image,
+    VkImageLayout oldLayout,
+    VkImageLayout newLayout, uint32_t mipLevel, uint32_t levelCount)
+{
+    VkImageMemoryBarrier2 barrier11 = imageBarrier(image,
+                                                VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_MEMORY_READ_BIT,
+                                                VK_PIPELINE_STAGE_ALL_COMMANDS_BIT ,
+                                                oldLayout,
+                                                VK_PIPELINE_STAGE_ALL_COMMANDS_BIT ,
+                                                VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_MEMORY_READ_BIT,
+                                                newLayout,
+                                                VK_IMAGE_ASPECT_COLOR_BIT,
+                                                mipLevel,
+                                                levelCount);
+    pipelineBarrier(bandp->buffer, 0, 0, nullptr, 1, &barrier11);
+    return barrier11;
+}
 
 //zoux code
 VkBufferMemoryBarrier2 bufferBarrier(VkBuffer buffer, VkPipelineStageFlags2 srcStageMask, VkAccessFlags2 srcAccessMask,

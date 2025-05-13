@@ -334,23 +334,16 @@ void VulkanRenderer::InitializeRendererForScene(sceneCountData sceneCountData) /
     TextureCreation::createDepthPyramidSampler(&globalResources.depthMipSampler, getMainRendererContext(), HIZDEPTH);
 
     //Initialize scene-ish objects we don't have a place for yet 
-    auto requestStart = TextureCreation::CreateTextureFromArgs_Start(
+     auto cubemaplut_utilitytexture = TextureCreation::CreateTextureSynchronously(
         getMainRendererContext(), TextureCreation::MakeCreationArgsFromFilepathArgs("textures/outputLUT.png", TextureType::DATA_DONT_COMPRESS));
-    auto requestFinish = TextureCreation::CreateTextureFromArgsFinalize(getMainRendererContext(), requestStart);
-
-    cubemaplut_utilitytexture_index = AssetDataAndMemory->AddTexture(requestFinish);
-    
-    auto requestStart2 = TextureCreation::CreateTextureFromArgs_Start(
+    cubemaplut_utilitytexture_index = AssetDataAndMemory->AddTexture(cubemaplut_utilitytexture);
+     cube_irradiance = TextureCreation::CreateTextureSynchronously(
         getMainRendererContext(), TextureCreation::MakeCreationArgsFromFilepathArgs("textures/output_cubemap2_diff8.ktx2",
-                                                                TextureType::CUBE));
-    auto requestFinish2 = TextureCreation::CreateTextureFromArgsFinalize(getMainRendererContext(), requestStart2);
-    cube_irradiance = requestFinish2;
-    auto requestStart3 = TextureCreation::CreateTextureFromArgs_Start(
+            TextureType::CUBE));
+     cube_specular = TextureCreation::CreateTextureSynchronously(
         getMainRendererContext(), TextureCreation::MakeCreationArgsFromFilepathArgs("textures/output_cubemap2_spec8.ktx2",
-                                                                TextureType::CUBE));
+            TextureType::CUBE));
 
-    auto requestFinish3 = TextureCreation::CreateTextureFromArgsFinalize(getMainRendererContext(), requestStart3);
-    cube_specular = requestFinish3;
     CreateUniformBuffers(sceneCountData.objectCount,sceneCountData.lightCount);
 
 

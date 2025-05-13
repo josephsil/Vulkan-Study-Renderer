@@ -35,7 +35,8 @@ void BufferUtilities::copyBuffer(CommandPoolManager* commandPoolManager, VkBuffe
     copyRegion.size = size;
     vkCmdCopyBuffer(commandBuffer->buffer, srcBuffer, dstBuffer, 1, &copyRegion);
 
-    commandPoolManager->endSingleTimeCommands(commandBuffer);
+    //todo js sync
+    commandPoolManager->endSingleTimeCommands(commandBuffer, true);
 }
 
 void BufferUtilities::copyBufferWithCommandBuffer(VkCommandBuffer cb, VkBuffer srcBuffer, VkBuffer dstBuffer,

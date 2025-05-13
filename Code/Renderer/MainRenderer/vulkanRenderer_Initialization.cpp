@@ -205,6 +205,9 @@ rendererObjects initializeVulkanObjects(SDL_Window* _window, int WIDTH, int HEIG
     //TODO JS: organize FPs somewhere
     registerDebugUtilsFn(
         (PFN_vkSetDebugUtilsObjectNameEXT)vkGetDeviceProcAddr(vkb_device.device, "vkSetDebugUtilsObjectNameEXT"));
+    
+    registerTransitionImagefn(
+    (PFN_vkTransitionImageLayoutEXT)vkGetDeviceProcAddr(vkb_device.device, "vkTransitionImageLayoutEXT"));
 
     //Swapchain
     vkb::SwapchainBuilder swapchain_builder{vkb_device};

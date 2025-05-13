@@ -9,7 +9,6 @@ enum class deletionType
     descriptorPool,
     Semaphore,
     Fence,
-    WAITFORANDDELETEFENCE,
     CommandPool,
     ImageView,
     Image,
