@@ -34,7 +34,7 @@ void VulkanRenderer::initializeWindow()
 
 vkb::PhysicalDevice getPhysicalDevice(vkb::Instance instance, VkSurfaceKHR surface)
 {
-// #define RENDERDOC_COMPATIBILITY
+#define RENDERDOC_COMPATIBILITY
     const std::vector<const char*> deviceExtensions = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_MAINTENANCE_4_EXTENSION_NAME, VK_KHR_MAINTENANCE_3_EXTENSION_NAME,
         VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME, VK_EXT_MUTABLE_DESCRIPTOR_TYPE_EXTENSION_NAME
@@ -157,15 +157,21 @@ GlobalRendererResources static_initializeResources(rendererObjects initializedre
     shaderLoader->AddShader("mipChain", L"./Shaders/mipchain_compute.hlsl", true);
     shaderLoader->AddShader("debug", L"./Shaders/Shader_Debug_Raymarch.hlsl", false);
 
-
+    std::vector<DepthBufferInfo> depthBufferPerFrame;
+    std::vector<DepthPyramidInfo> depthPyramidPerFrame;
+    for(int i =0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    {
+        depthBufferPerFrame.push_back(static_createDepthResources(initializedrenderer, allocationArena, deletionQueue,
+                                                       commandPoolmanager));
+        depthPyramidPerFrame.push_back(static_createDepthPyramidResources(initializedrenderer, allocationArena, deletionQueue,
+                                                               commandPoolmanager));
+    }
     return {
         .shaderLoader = std::move(shaderLoader),
         .swapchainImages = swapchainImages,
         .swapchainImageViews = swapchainImageViews,
-        .depthBufferInfo = static_createDepthResources(initializedrenderer, allocationArena, deletionQueue,
-                                                       commandPoolmanager),
-        .depthPyramidInfo = static_createDepthPyramidResources(initializedrenderer, allocationArena, deletionQueue,
-                                                               commandPoolmanager),
+        .depthBufferInfoPerFrame = depthBufferPerFrame,
+        .depthPyramidInfoPerFrame = depthPyramidPerFrame,
     };
 }
 

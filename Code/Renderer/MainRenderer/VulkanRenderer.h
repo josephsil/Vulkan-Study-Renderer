@@ -45,8 +45,8 @@ struct GlobalRendererResources //Buffers, images, etc, used in core rendering --
     std::vector<VkImage> swapchainImages;
     std::vector<VkImageView> swapchainImageViews;
     VkSampler depthMipSampler;
-    DepthBufferInfo depthBufferInfo;
-    DepthPyramidInfo depthPyramidInfo;
+     std::vector<DepthBufferInfo> depthBufferInfoPerFrame;
+     std::vector<DepthPyramidInfo> depthPyramidInfoPerFrame;
 };
 
 
@@ -141,6 +141,7 @@ private:
     std::span<std::unique_ptr<RendererDeletionQueue>> perFrameDeletionQueuse;
     struct per_frame_data
     {
+        uint32_t swapChainIndex;
         std::span<uint32_t> boundCommandBuffers;
         acquireImageSemaphore semaphores;
        
