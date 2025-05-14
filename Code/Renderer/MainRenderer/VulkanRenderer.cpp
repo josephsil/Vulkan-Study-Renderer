@@ -918,11 +918,11 @@ void VulkanRenderer::RecordMipChainCompute(ActiveRenderStepData commandBufferCon
     //For each texture, for each mip level, we want to work on, dispatch X/Y texture resolution and set a barrier (for the next phase)
     //Compute shader will read in texture and write back out to it
     VkImageMemoryBarrier2 barrier12 = imageBarrier(dstImage,
-        0,
-        0,
+        VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+        VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        0,
-        0,
+        VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+        VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
         VK_IMAGE_LAYOUT_GENERAL,
         VK_IMAGE_ASPECT_COLOR_BIT,
         i,
@@ -958,8 +958,15 @@ void VulkanRenderer::RecordMipChainCompute(ActiveRenderStepData commandBufferCon
         descriptorUpdates[1] = {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, destinationInfo};  //dst view
         descriptorUpdates[2] = {VK_DESCRIPTOR_TYPE_SAMPLER, shadowSamplerInfo}; //draws 
 
-
-       
+        //Memory barrier for compute access
+        //Probably not ideal perf
+        PipelineMemoryBarrier(commandBufferContext.commandBuffer,
+            VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT_KHR,
+             VK_ACCESS_2_SHADER_WRITE_BIT_KHR,
+             VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT_KHR,
+             VK_ACCESS_2_SHADER_READ_BIT_KHR
+              );
+        
         DescriptorSets::_updateDescriptorSet_NEW(getMainRendererContext(),mipChainDescriptorCache->getNextDescriptorSet(), mipChainDescriptorConfig->layoutBindings,  descriptorUpdates); //Update desciptor sets for the compute bindings
         pipelineLayoutManager.BindRequiredSetsToCommandBuffer(mipChainLayoutIDX,commandBufferContext.commandBuffer, commandBufferContext.boundDescriptorSets, _currentFrame, VK_PIPELINE_BIND_POINT_COMPUTE);
         
@@ -978,11 +985,11 @@ void VulkanRenderer::RecordMipChainCompute(ActiveRenderStepData commandBufferCon
 
 //todo js
         VkImageMemoryBarrier2 barrier = imageBarrier(dstImage,
-            0,
-            0,
+            VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+            VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
             VK_IMAGE_LAYOUT_GENERAL,
-            0,
-            0,
+            VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             VK_IMAGE_ASPECT_COLOR_BIT,
             i,
@@ -1591,19 +1598,41 @@ void VulkanRenderer::RenderFrame(Scene* scene)
 
     //Pre-rendering setup
     //  // //
-    TransitionImageForRendering(
-    getMainRendererContext(),
-    preRenderTransitionsrenderStepContext,
-    globalResources.swapchainImages[swapChainImageIndex],
-    VK_IMAGE_LAYOUT_UNDEFINED,
-    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, swapchainWaitStages, 1, false);
+    // TransitionImageForRendering(
+    // getMainRendererContext(),
+    // preRenderTransitionsrenderStepContext,
+    // globalResources.swapchainImages[swapChainImageIndex],
+    // VK_IMAGE_LAYOUT_UNDEFINED,
+    // VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, swapchainWaitStages, 1, false);
+
+    VkImageMemoryBarrier2 barrier = imageBarrier(globalResources.swapchainImages[swapChainImageIndex],
+       VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, // todo, top of pipe?
+       VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+       VK_IMAGE_LAYOUT_UNDEFINED,
+       VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT ,
+       VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+       VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+       VK_IMAGE_ASPECT_COLOR_BIT,
+       0,
+       VK_REMAINING_ARRAY_LAYERS);
+
     
-    TransitionImageForRendering(
-    getMainRendererContext(),
-    preRenderTransitionsrenderStepContext,
-    shadowResources.shadowImages[currentFrame],
-    VK_IMAGE_LAYOUT_UNDEFINED,
-    VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, shadowWaitStages, 1, true);
+    pipelineBarrier(preRenderTransitionsrenderStepContext->commandBuffer,0, 0, 0, 1, &barrier);
+
+    
+    VkImageMemoryBarrier2 barrier2 = imageBarrier(shadowResources.shadowImages[swapChainImageIndex],
+       VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, // todo, top of pipe?
+       VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+       VK_IMAGE_LAYOUT_UNDEFINED,
+       VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT ,
+       VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+       VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+       VK_IMAGE_ASPECT_DEPTH_BIT,
+       0,
+       VK_REMAINING_ARRAY_LAYERS);
+
+    
+    pipelineBarrier(preRenderTransitionsrenderStepContext->commandBuffer,0, 0, 0, 1, &barrier2);
     
     
     //Transferring cpu -> gpu data -- should improve
@@ -1613,7 +1642,18 @@ void VulkanRenderer::RenderFrame(Scene* scene)
                       thisFrameData->deviceMesh.size, preRenderTransitionsrenderStepContext->commandBuffer);
     AddBufferTrasnfer(thisFrameData->hostIndices.buffer.data, thisFrameData->deviceIndices.data,
                       thisFrameData->deviceIndices.size, preRenderTransitionsrenderStepContext->commandBuffer);
-      
+
+
+    VkImageMemoryBarrier2 depthBufferInfoBarrier = imageBarrier(  globalResources.depthBufferInfo.image,
+     VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, // todo, top of pipe?
+     VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+     VK_IMAGE_LAYOUT_UNDEFINED,
+     VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT ,
+     VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+     VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+     VK_IMAGE_ASPECT_DEPTH_BIT,
+     0,
+     VK_REMAINING_ARRAY_LAYERS);
     //Set up draws
     //This is the bulk of the render, the main opaque pass which depends on compute, shadow, opaque, culling, etc
         //Need to make a new "aggregate step" concept to handle this so I can make it a lambda like the rest

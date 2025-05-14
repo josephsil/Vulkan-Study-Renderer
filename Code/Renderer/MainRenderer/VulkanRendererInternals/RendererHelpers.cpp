@@ -46,10 +46,12 @@ DepthBufferInfo static_createDepthResources(rendererObjects initializedrenderer,
                                   (bufferInfo.image),
                                   (bufferInfo.vmaAllocation), 1, 1, false, "DEPTH TEXTURE");
 
+
     bufferInfo.view = TextureUtilities::createImageViewCustomMip(context, (bufferInfo.image), bufferInfo.format,
                                                                  VK_IMAGE_ASPECT_DEPTH_BIT, VK_IMAGE_VIEW_TYPE_2D, 1, 0,
                                                                  1, 0);
-
+    setDebugObjectName(initializedrenderer.vkbdevice.device, VK_OBJECT_TYPE_IMAGE, "DepthBufferInfo image", (uint64_t)bufferInfo.image);
+    setDebugObjectName(initializedrenderer.vkbdevice.device, VK_OBJECT_TYPE_IMAGE_VIEW, "DepthBufferInfo imageview", (uint64_t)bufferInfo.view);
     return bufferInfo;
 }
 
@@ -91,6 +93,8 @@ DepthPyramidInfo static_createDepthPyramidResources(rendererObjects initializedr
         bufferInfo.viewsForMips[i] =
             TextureUtilities::createImageViewCustomMip(context, (bufferInfo.image), bufferInfo.format,
                                                        VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_VIEW_TYPE_2D, 1, 0, 1, i);
+        setDebugObjectName(initializedrenderer.vkbdevice.device, VK_OBJECT_TYPE_IMAGE, "depthPyramic image", (uint64_t)bufferInfo.image);
+        setDebugObjectName(initializedrenderer.vkbdevice.device, VK_OBJECT_TYPE_IMAGE_VIEW, "depthPyramid imageview", (uint64_t)bufferInfo.viewsForMips[i]);
     }
 
     auto tempBufferAndPool = commandPoolmanager->beginSingleTimeCommands(false);
@@ -186,6 +190,27 @@ void pipelineBarrier(VkCommandBuffer commandBuffer, VkDependencyFlags dependency
     vkCmdPipelineBarrier2(commandBuffer, &dependencyInfo);
 }
 
+
+void PipelineMemoryBarrier(VkCommandBuffer commandBuffer, VkPipelineStageFlags2 srcStageMask, VkAccessFlags2 srcAccessMask,
+                                     VkPipelineStageFlags2 dstStageMask, VkAccessFlags2 dstAccessMask)
+{
+    VkMemoryBarrier2 membar =
+        {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,
+        .pNext = {},
+        .srcStageMask = srcStageMask,
+          .srcAccessMask = srcAccessMask,
+          .dstStageMask = dstStageMask,
+          .dstAccessMask = dstAccessMask
+        };
+
+    VkDependencyInfo dependencyInfo = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
+    dependencyInfo.memoryBarrierCount = 1;
+    dependencyInfo.pMemoryBarriers = &membar;
+
+    vkCmdPipelineBarrier2(commandBuffer, &dependencyInfo);
+}
+
 //zoux code
 VkImageMemoryBarrier2 imageBarrier(VkImage image, VkPipelineStageFlags2 srcStageMask, VkAccessFlags2 srcAccessMask,
                                    VkImageLayout oldLayout, VkPipelineStageFlags2 dstStageMask,
@@ -221,7 +246,7 @@ void AddBufferTrasnfer(VkBuffer sourceBuffer, VkBuffer targetBuffer, size_t copy
     bufMemBarrier.buffer = sourceBuffer;
     bufMemBarrier.offset = 0;
     bufMemBarrier.size = VK_WHOLE_SIZE;
-    vkCmdPipelineBarrier(cmdBuffer, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+    vkCmdPipelineBarrier(cmdBuffer, VK_PIPELINE_STAGE_HOST_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
                          0, 0, nullptr, 1, &bufMemBarrier, 0, nullptr);
 
 
@@ -230,13 +255,13 @@ void AddBufferTrasnfer(VkBuffer sourceBuffer, VkBuffer targetBuffer, size_t copy
                                                  targetBuffer, copySize);
     VkBufferMemoryBarrier bufMemBarrier2 = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER};
     bufMemBarrier2.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    bufMemBarrier2.dstAccessMask = VK_ACCESS_UNIFORM_READ_BIT; // We created a uniform buffer
+    bufMemBarrier2.dstAccessMask =  VK_ACCESS_INDEX_READ_BIT | VK_ACCESS_2_TRANSFER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_UNIFORM_READ_BIT | VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT; // We created a uniform buffer
     bufMemBarrier2.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     bufMemBarrier2.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     bufMemBarrier2.buffer = targetBuffer;
     bufMemBarrier2.offset = 0;
     bufMemBarrier2.size = VK_WHOLE_SIZE;
-    vkCmdPipelineBarrier(cmdBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT,
+    vkCmdPipelineBarrier(cmdBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
                          0, 0, nullptr, 1, &bufMemBarrier2, 0, nullptr);
 }
 

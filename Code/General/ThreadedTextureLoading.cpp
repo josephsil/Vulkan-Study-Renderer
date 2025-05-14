@@ -8,14 +8,14 @@
 
 void TextureLoadingJobContext::WORKER_FN(size_t work_item_idx, uint8_t thread_idx)
 {
-    workItemInput[work_item_idx] = TextureCreation::CreateTextureFromArgs_Start( PerThreadContext[thread_idx], workItemOutput[work_item_idx]);
+    workItemOutput[work_item_idx] = TextureCreation::CreateTextureFromArgs_Start( PerThreadContext[thread_idx], workItemInput[work_item_idx]);
 }
 
 void TextureLoadingJobContext::ON_COMPLETE_FN()
 {
-    for (size_t i = 0; i < workItemInput.size(); i++)
+    for (size_t i = 0; i < workItemOutput.size(); i++)
     {
-        FinalOutput[i] =  TextureCreation::CreateTextureFromArgsFinalize(MainThreadContext, workItemInput[i]);
+        FinalOutput[i] =  TextureCreation::CreateTextureFromArgsFinalize(MainThreadContext, workItemOutput[i]);
     }
     for (auto ctx : PerThreadContext)
     {
@@ -38,9 +38,9 @@ void LoadTexturesThreaded(PerThreadRenderContext handles, std::span<TextureData>
     
     //Initialize a pool
     ThreadPool::Pool threadPool;
-    size_t threadCt =32;
-    size_t countPerSubmit = 8;
     size_t workItemCt = textureCreationWork.size();
+    size_t threadCt = std::min(workItemCt, (size_t)32);
+    size_t countPerSubmit = 8;
     InitializeThreadPool(&threadPoolAllocator, &threadPool, workItemCt, threadCt);
 
     std::span<VkFence> fences = MemoryArena::AllocSpan<VkFence>(&threadPoolAllocator, threadCt);
@@ -48,8 +48,8 @@ void LoadTexturesThreaded(PerThreadRenderContext handles, std::span<TextureData>
     TextureLoadingJobContext ThreadWorker =
     {
         .MainThreadContext =  handles,
-        .workItemInput = MemoryArena::AllocSpan<TextureCreation::TextureCreationStep1Result>(&threadPoolAllocator, workItemCt),
-        .workItemOutput = textureCreationWork,
+        .workItemOutput = MemoryArena::AllocSpan<TextureCreation::TextureCreationStep1Result>(&threadPoolAllocator, workItemCt),
+        .workItemInput = textureCreationWork,
         .PerThreadContext = MemoryArena::AllocSpan<PerThreadRenderContext>(&threadPoolAllocator, threadCt),
         .FinalOutput = dstTextures,
     };

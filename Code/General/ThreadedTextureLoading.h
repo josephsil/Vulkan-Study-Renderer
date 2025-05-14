@@ -14,8 +14,8 @@ namespace TextureCreation
 struct TextureLoadingJobContext
 {
     PerThreadRenderContext MainThreadContext;
-    std::span<TextureCreation::TextureCreationStep1Result> workItemInput;
-    std::span<TextureCreation::TextureCreationInfoArgs> workItemOutput;
+    std::span<TextureCreation::TextureCreationStep1Result> workItemOutput;
+    std::span<TextureCreation::TextureCreationInfoArgs> workItemInput;
     std::span<PerThreadRenderContext> PerThreadContext;
     std::span<TextureData> FinalOutput;
     

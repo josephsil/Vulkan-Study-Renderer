@@ -34,6 +34,7 @@ void RendererDeletionQueue::push_backVk(deletionType t, uint64_t vulkanObject)
             printf(">>> %llu \n", recent_resource.handle);
         }
         assert(!"duplicate deletionqueue push");
+        return;
         
     }
     ToDeleteStaging.push_back(deletionObj);
