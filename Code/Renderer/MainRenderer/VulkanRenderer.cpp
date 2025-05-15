@@ -729,7 +729,7 @@ void VulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<std::spa
     
 
     //Ubos
-    auto ubos = MemoryArena::AllocSpan<UniformBufferObject>(tempArena,scene->objectsCount());
+    auto ubos = MemoryArena::AllocSpan<UniformBufferObject>(tempArena,scene->ObjectsCount());
 
     for (size_t i = 0; i < ubos.size(); i++)
     {
@@ -745,7 +745,7 @@ void VulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<std::spa
         
         ubos[i].props.indexInfo = glm::vec4(
         (material.diffuseIndex),
-            AssetDataAndMemory->getOffsetFromMeshID(scene->objects.meshIndices[i]),
+            AssetDataAndMemory->getOffsetFromMeshID(scene->objects.firstMeshIndex[i]),
                                        
                                        (material.diffuseIndex),
                                        
@@ -770,7 +770,7 @@ void VulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<std::spa
         auto model2 = transpose(*model);
 
 
-        positionRadius meshSpacePositionAndRadius =  AssetDataAndMemory->meshBoundingSphereRad[scene->objects.meshIndices[i]];
+        positionRadius meshSpacePositionAndRadius =  AssetDataAndMemory->meshBoundingSphereRad[scene->objects.firstMeshIndex[i]];
         float meshRadius = meshSpacePositionAndRadius.radius;
         float objectScale = glm::max(glm::max( scale.x, scale.x), scale.x);
         ubos[i].cullingInfo.pos = meshSpacePositionAndRadius.pos;
@@ -778,7 +778,7 @@ void VulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<std::spa
         ubos[i].cullingInfo.radius = meshRadius;
     }
     
-    FramesInFlightData[currentFrame].uniformBuffers.updateMappedMemory({ubos.data(), (size_t)scene->objectsCount()});
+    FramesInFlightData[currentFrame].uniformBuffers.updateMappedMemory({ubos.data(), (size_t)scene->ObjectsCount()});
 
 
 
@@ -1050,16 +1050,17 @@ void RecordIndirectCommandBufferForPasses(Scene* scene, AssetManager* rendererDa
     //     drawCommands[i].objectIndex = -1;
     // }
    
-    size_t objectsPerDraw = scene->objectsCount();
+    size_t objectsPerDraw = scene->ObjectsCount();
+    size_t meshesPerDraw = scene->MeshesCount();
     
-    std::span<uint32_t> objectIDtoMeshID = MemoryArena::AllocSpan<uint32_t>(allocator, objectsPerDraw);
+    std::span<uint32_t> objectIDtoFirstMeshIndex = MemoryArena::AllocSpan<uint32_t>(allocator, objectsPerDraw);
     std::span<uint32_t> objectIDtoSortedObjectID = MemoryArena::AllocSpan<uint32_t>(allocator, objectsPerDraw);
     std::span<uint32_t> meshIDtoFirstIndex = MemoryArena::AllocSpan<uint32_t>(allocator, rendererData->backing_meshes.size());
     std::span<uint32_t> meshIDtoIndexCount = MemoryArena::AllocSpan<uint32_t>(allocator, rendererData->backing_meshes.size());
     uint32_t indexCtoffset = 0;
-    for(size_t i = 0; i < objectsPerDraw; i++)
+    for(size_t i = 0; i < scene->ObjectsCount(); i++)
     {
-        objectIDtoMeshID[i] = static_cast<uint32_t>(scene->objects.meshIndices[i]);
+        objectIDtoFirstMeshIndex[i] = static_cast<uint32_t>(scene->objects.firstMeshIndex[i]);
         objectIDtoSortedObjectID[i] =  static_cast<uint32_t>(i); //
     }
     for(size_t i = 0; i < rendererData->backing_meshes.size(); i++)
@@ -1077,7 +1078,7 @@ void RecordIndirectCommandBufferForPasses(Scene* scene, AssetManager* rendererDa
         for (int j = 0; j < _pass.meshPasses.size(); j++)
         {
             auto pass = _pass.meshPasses[j];
-            UpdateDrawCommanddataDrawIndirectCommands(drawCommands.subspan(pass.firstIndex, pass.ct), pass.sortedObjectIDs, objectIDtoMeshID,meshIDtoFirstIndex, meshIDtoIndexCount);
+            UpdateDrawCommanddataDrawIndirectCommands(drawCommands.subspan(pass.firstIndex, pass.ct), pass.sortedObjectIDs, objectIDtoFirstMeshIndex,meshIDtoFirstIndex, meshIDtoIndexCount);
         }
     }
 }
@@ -1220,7 +1221,8 @@ void VulkanRenderer::Update(Scene* scene)
         printf("begin wait for fence %d \n", currentFrame);
         clock_t before = clock();
         vkWaitForFences(rendererVulkanObjects.vkbdevice.device, 1, &FramesInFlightData[currentFrame].inFlightFence, VK_TRUE, UINT64_MAX);
-        clock_t difference = clock() - before;
+        clock_t afterFence = clock();
+        clock_t difference = clock() - afterFence;
         auto msec = difference * 1000 / CLOCKS_PER_SEC;
 
         //Render
@@ -1249,6 +1251,7 @@ void VulkanRenderer::Update(Scene* scene)
     {
         firstRunOfFrame[currentFrame] = false;
     }
+    uint64_t RenderLoop =SDL_GetPerformanceCounter();
     AssetDataAndMemory->Update();
 
     //This stuff belongs here
@@ -1256,7 +1259,10 @@ void VulkanRenderer::Update(Scene* scene)
     RenderFrame(scene);
     debugLinesManager.debugLines.clear();
 
-    auto t2 = SDL_GetTicks();
+    auto t2 = SDL_GetPerformanceCounter();
+    auto difference =SDL_GetPerformanceCounter() - RenderLoop;
+    float msec = ((1000.0f * difference) / SDL_GetPerformanceFrequency());
+    printf("end render loop %d, MS %ld \n", currentFrame, (long)msec);
     
     // vkDeviceWaitIdle(rendererVulkanObjects.vkbdevice.device);
 }
@@ -1296,7 +1302,7 @@ RenderBatchCreationConfig  CreateOpaquePassesConfig(uint32_t firstObject, std::s
                                      )
     
 {
-    uint32_t objectsPerDraw = (uint32_t)passData.scenePtr->objectsCount();
+    uint32_t objectsPerDraw = (uint32_t)passData.scenePtr->ObjectsCount();
     uint32_t nextFirstObject =firstObject;
     viewProj viewProjMatricesForCulling = LightAndCameraHelpers::CalcViewProjFromCamera(passData.scenePtr->sceneCamera);
     //Culling debug stuff
@@ -1344,7 +1350,7 @@ std::span<RenderBatchCreationConfig> CreateShadowPassConfigs(uint32_t firstObjec
                                      ActiveRenderStepData* shadowRenderStepContext,
                                      std::span<VkImageView> shadowMapRenderingViews)
 {
-    uint32_t objectsPerDraw = (uint32_t)config.scenePtr->objectsCount();
+    uint32_t objectsPerDraw = (uint32_t)config.scenePtr->ObjectsCount();
     uint32_t nextFirstObject =firstObject;
 
     auto shadowCasterCt =  glm::min(config.scenePtr->lightCount, MAX_SHADOWCASTERS); 
@@ -1472,7 +1478,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     
     acquireImageSemaphore acquireImageSemaphore = thisFrameData->semaphores;
     vkAcquireNextImageKHR(rendererVulkanObjects.vkbdevice.device, rendererVulkanObjects.swapchain,
-        UINT64_MAX,acquireImageSemaphore.semaphore, VK_NULL_HANDLE,&thisFrameData->swapChainIndex);
+        6000,acquireImageSemaphore.semaphore, VK_NULL_HANDLE,&thisFrameData->swapChainIndex);
     
     //Sync data updated from the engine
     updateShadowData(&perFrameArenas[currentFrame], perLightShadowData, scene, scene->sceneCamera);

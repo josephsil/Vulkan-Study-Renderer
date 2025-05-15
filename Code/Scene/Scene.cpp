@@ -22,7 +22,8 @@ void InitializeScene(MemoryArena::memoryArena* arena, Scene* scene)
     scene->objects.rotations = Array(MemoryArena::AllocSpan<glm::quat>(arena, OBJECT_MAX));
     scene->objects.scales = Array(MemoryArena::AllocSpan<glm::vec3>(arena, OBJECT_MAX));
     scene->objects.materials = Array(MemoryArena::AllocSpan<uint32_t>(arena, OBJECT_MAX));
-    scene->objects.meshIndices = Array(MemoryArena::AllocSpan<uint32_t>(arena, OBJECT_MAX));
+    scene->objects.firstMeshIndex = Array(MemoryArena::AllocSpan<uint32_t>(arena, OBJECT_MAX));
+    scene->objects.subMeshCtForObject = Array(MemoryArena::AllocSpan<uint32_t>(arena, OBJECT_MAX));
     scene->objects.transformIDs = Array(MemoryArena::AllocSpan<size_t>(arena, OBJECT_MAX));
 
     //Lights 
@@ -79,7 +80,7 @@ void Scene::UpdateRotations()
     // Conversion from axis-angle
     // In GLM the angle must be in degrees here, so convert it.
 
-    for (int i = 0; i < objectsCount(); i++)
+    for (int i = 0; i < ObjectsCount(); i++)
     {
         objects.rotations[i] *= MyQuaternion;
     }
@@ -114,6 +115,7 @@ void Scene::Update()
 size_t Scene::AddObject(size_t meshIndexTODO, size_t materialIndex,
                      glm::vec3 position, glm::quat rotation, glm::vec3 scale, localTransform* parent, std::string name)
 {
+    uint32_t submeshCt = 1;
     //TODD JS: version that can add
     // objects.meshes.push_back(mesh);
     objects.materials.push_back(static_cast<uint32_t>(materialIndex));
@@ -121,7 +123,8 @@ size_t Scene::AddObject(size_t meshIndexTODO, size_t materialIndex,
     objects.rotations.push_back(rotation);
     objects.scales.push_back(scale);
     // transforms.worldMatrices.push_back(glm::mat4(1.0));
-    objects.meshIndices.push_back(static_cast<uint32_t>(meshIndexTODO));
+    objects.firstMeshIndex.push_back(static_cast<uint32_t>(meshIndexTODO));
+    objects.subMeshCtForObject.push_back(static_cast<uint32_t>(submeshCt));
     objects.transformIDs.push_back(objects.transformIDs.size());
 
     //TODO JS: When we use real objects, we'll only create transforms with these ids
@@ -147,13 +150,29 @@ size_t Scene::AddObject(size_t meshIndexTODO, size_t materialIndex,
     }
 
 
+    objects.subMeshesCount += submeshCt;
     return objects.objectsCount++;
 }
 
 
-size_t Scene::objectsCount()
+size_t Scene::ObjectsCount()
 {
     return objects.objectsCount;
+}
+
+size_t Scene::MeshesCount()
+{
+    return objects.subMeshesCount;
+}
+
+size_t Scene::GetTotalSubmeshesForObjects(std::span<uint32_t> objectIndices)
+{
+    size_t result = 0;
+    for (auto element : objectIndices)
+    {
+        result += objects.subMeshCtForObject[element];
+    }
+    return result;
 }
 
 

@@ -42,6 +42,8 @@ public:
 #pragma region RendererData
 
 
+    using meshIndex = size_t;
+
     int meshCount = 0;
     Array<Material> materials;
     Array<VkDescriptorImageInfo> textures; //What we need to render the textures
@@ -59,7 +61,7 @@ public:
     //TODO JS: these are temporary
     size_t AddTexture(TextureData T);
     textureSetIDs AddTextureSet(TextureData D, TextureData S, TextureData N);
-    size_t AddBackingMesh(MeshData M);
+    meshIndex AddBackingMesh(MeshData M);
 
     void Update();
     void Cleanup();

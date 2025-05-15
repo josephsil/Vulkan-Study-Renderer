@@ -28,11 +28,13 @@ struct Scene
     struct Objects
     {
         size_t objectsCount = 0;
+        size_t subMeshesCount = 0;
         //Parallel arrays per-object
         Array<glm::vec3> translations;
         Array<glm::quat> rotations;
         Array<glm::vec3> scales;
-        Array<uint32_t> meshIndices; //for renderer 
+        Array<uint32_t> firstMeshIndex; //for renderer
+        Array<uint32_t> subMeshCtForObject; //for renderer 
         Array<uint32_t> materials; //for renderer 
         Array<size_t> transformIDs;
     };
@@ -62,7 +64,9 @@ struct Scene
     size_t AddObject(unsigned long long meshIndexTODO, unsigned long long materialIndex, glm::vec3 position,
                      glm::quat rotation, glm::vec3 scale = glm::vec3(1), localTransform* parent = nullptr,
                      std::string name = "");
-    size_t objectsCount();
+    size_t ObjectsCount();
+    size_t MeshesCount();
+    size_t GetTotalSubmeshesForObjects(std::span<uint32_t> objectIndices);
 
     //TODO JS: This probably belongs in the rendering side
     static size_t getShadowDataIndex(size_t idx, std::span<lightType> lightTypes);
@@ -74,6 +78,7 @@ private:
     void UpdateCamera(inputData input);
     void UpdateRotations();
 };
+
 
 //No scale for now
 void InitializeScene(MemoryArena::memoryArena* arena, Scene* scene);

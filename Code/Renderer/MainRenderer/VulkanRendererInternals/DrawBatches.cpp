@@ -68,15 +68,17 @@ RenderBatch::RenderBatch(const char* name, CommonRenderPassData* context, Render
         {
             continue;
         }
-        Array<uint32_t> indices = drawBatch.objectIndices;
+        std::span<unsigned int> objectIndices = drawBatch.objectIndices.getSpan();
         auto firstIndex = drawOffsetAtTheStartOfOpaque + subspanOffset;
 
         auto shaderID =passCreationConfig.shaderGroup[drawBatch.pipelineIDX];
+
+        uint32_t drawCount = (uint32_t)context->scenePtr->GetTotalSubmeshesForObjects(objectIndices); //One draw for each submesh in our object indices count
         
-        _meshPasses.push_back({.firstIndex = firstIndex, .ct = (uint32_t)indices.ct, .pipeline = context->pipelineManagerPtr->GetPipeline(shaderID.layout, shaderID.shader),
+        _meshPasses.push_back({.firstIndex = firstIndex, .ct = drawCount, .pipeline = context->pipelineManagerPtr->GetPipeline(shaderID.layout, shaderID.shader),
             .sortedObjectIDs =  drawBatch.objectIndices.getSpan()});
 
-        subspanOffset += (uint32_t)indices.ct;
+        subspanOffset += drawCount;
     }
     auto s = std::string(name);
     

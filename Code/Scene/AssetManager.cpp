@@ -95,7 +95,7 @@ textureSetIDs AssetManager::AddTextureSet(TextureData D, TextureData S, TextureD
     return {static_cast<uint32_t>(dI), static_cast<uint32_t>(sI), static_cast<uint32_t>(nI)};
 }
 
-size_t AssetManager::AddBackingMesh(MeshData M)
+AssetManager::meshIndex AssetManager::AddBackingMesh(MeshData M)
 {
     backing_meshes.push_back(M);
     meshBoundingSphereRad.push_back(MeshDataCreation::boundingSphereFromMeshBounds(M.boundsCorners));
