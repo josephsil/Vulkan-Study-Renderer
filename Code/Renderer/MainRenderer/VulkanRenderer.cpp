@@ -52,7 +52,7 @@ FullShaderHandle  DEBUG_RAYMARCH_SHADER_INDEX ={SIZE_MAX,SIZE_MAX};
 
 PerSceneShadowResources  init_allocate_shadow_memory(rendererObjects initializedrenderer,  MemoryArena::memoryArena* allocationArena);
 VkDescriptorSet UpdateAndGetBindlessDescriptorSetForFrame(PerThreadRenderContext context, DescriptorDataForPipeline descriptorData, int currentFrame,  std::span<descriptorUpdates> updates);
-size_t UpdateDrawCommanddataDrawIndirectCommands(std::span<drawCommandData> targetDrawCommandSpan, std::span<uint32_t> objectIDtoSortedObjectID, std::span<uint32_t> objectIDtoMeshID, std::span<uint32_t>meshIDtoFirstIndex, std::span<uint32_t> meshIDtoIndexCount);
+size_t UpdateDrawCommanddataDrawIndirectCommands(std::span<drawCommandData> targetDrawCommandSpan, std::span<uint32_t> submeshIDstoSortedSubmeshIDs, std::span<uint32_t> submeshIDtoMeshID, std::span<uint32_t>meshIDtoFirstIndex, std::span<uint32_t> meshIDtoIndexCount);
 
 VulkanRenderer::VulkanRenderer()
 {
@@ -344,7 +344,7 @@ void VulkanRenderer::InitializeRendererForScene(sceneCountData sceneCountData) /
         getMainRendererContext(), TextureCreation::MakeCreationArgsFromFilepathArgs("textures/output_cubemap2_spec8.ktx2",
             TextureType::CUBE));
 
-    CreateUniformBuffers(sceneCountData.objectCount,sceneCountData.lightCount);
+    CreateUniformBuffers(sceneCountData.subMeshCount,sceneCountData.lightCount);
 
 
     //TODO JS: Move... Run when meshes change?
@@ -729,56 +729,63 @@ void VulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<std::spa
     
 
     //Ubos
-    auto ubos = MemoryArena::AllocSpan<UniformBufferObject>(tempArena,scene->ObjectsCount());
+    auto ubos = MemoryArena::AllocSpan<UniformBufferObject>(tempArena,scene->objects.subMeshesCount);
 
-    for (size_t i = 0; i < ubos.size(); i++)
+    uint32_t uboIndex = 0;
+    for (uint32_t objectIndex = 0; objectIndex <scene->objects.objectsCount; objectIndex++)
     {
-        auto lookup = scene->transforms._transform_lookup[i];
+        auto lookup = scene->transforms._transform_lookup[objectIndex];
         glm::mat4* model = &models[lookup.depth][lookup.index];
-        ubos[i].model = *model;
-        ubos[i].Normal = transpose(inverse(glm::mat3(*model)));
+        auto subMeshCount = scene->objects.subMeshCtForObject[objectIndex];
+        
+        for(uint32_t subMeshIndex = 0; subMeshIndex < subMeshCount; subMeshIndex++)
+        {
+            uint32_t submeshIndex =scene->objects.firstMeshIndex[objectIndex] + subMeshIndex;
+            ubos[objectIndex].model = *model;
+            ubos[objectIndex].Normal = transpose(inverse(glm::mat3(*model)));
 
 
         
-        // int i = drawIndices[j];
-        Material material = AssetDataAndMemory->materials[scene->objects.materials[i]];
+            // int i = drawIndices[j];
+            Material material = AssetDataAndMemory->materials[scene->objects.materialsForSubmeshes[objectIndex][subMeshIndex]];
         
-        ubos[i].props.indexInfo = glm::vec4(
-        (material.diffuseIndex),
-            AssetDataAndMemory->getOffsetFromMeshID(scene->objects.firstMeshIndex[i]),
-                                       
-                                       (material.diffuseIndex),
-                                       
-                                       static_cast<uint32_t>(44));
+            ubos[uboIndex].props.indexInfo = glm::vec4(
+            (material.diffuseIndex),
+                AssetDataAndMemory->getOffsetFromMeshID(submeshIndex),
+                                           (999),
+                                          objectIndex);
 
-        ubos[i].props.textureInfo = glm::vec4(material.diffuseIndex, material.specIndex, material.normalIndex, -1.0);
+            ubos[uboIndex].props.textureInfo = glm::vec4(material.diffuseIndex, material.specIndex, material.normalIndex, -1.0);
 
-        ubos[i].props.materialprops = glm::vec4(material.roughness, material.roughness, 0, 0);
-        ubos[i].props.color = glm::vec4(material.color,1.0f);
+            ubos[uboIndex].props.materialprops = glm::vec4(material.roughness, material.roughness, 0, 0);
+            ubos[uboIndex].props.color = glm::vec4(material.color,1.0f);
 
 
         
-        //Set position and radius for culling
-        //Decompose out scale from the model matrix
+            //Set position and radius for culling
+            //Decompose out scale from the model matrix
             //todo: better to store radius separately and avoid this calculation?
-        glm::vec3 scale = glm::vec3(1.0);
-        glm::quat _1 = glm::quat();
-        glm::vec3 _2 = glm::vec3(0);
-        glm::vec3 _3;
-        glm::vec4 _4;
-        glm::decompose( (*model), scale, _1, _2, _3, _4);
-        auto model2 = transpose(*model);
+            glm::vec3 scale = glm::vec3(1.0);
+            glm::quat _1 = glm::quat();
+            glm::vec3 _2 = glm::vec3(0);
+            glm::vec3 _3;
+            glm::vec4 _4;
+            glm::decompose( (*model), scale, _1, _2, _3, _4);
+            auto model2 = transpose(*model);
 
 
-        positionRadius meshSpacePositionAndRadius =  AssetDataAndMemory->meshBoundingSphereRad[scene->objects.firstMeshIndex[i]];
-        float meshRadius = meshSpacePositionAndRadius.radius;
-        float objectScale = glm::max(glm::max( scale.x, scale.x), scale.x);
-        ubos[i].cullingInfo.pos = meshSpacePositionAndRadius.pos;
-        meshRadius *= objectScale;
-        ubos[i].cullingInfo.radius = meshRadius;
+            positionRadius meshSpacePositionAndRadius =  AssetDataAndMemory->meshBoundingSphereRad[submeshIndex];
+            float meshRadius = meshSpacePositionAndRadius.radius;
+            float objectScale = glm::max(glm::max( scale.x, scale.x), scale.x);
+            ubos[uboIndex].cullingInfo.pos = meshSpacePositionAndRadius.pos;
+            meshRadius *= objectScale;
+            ubos[uboIndex].cullingInfo.radius = meshRadius;
+            uboIndex++;
+        }
     }
-    
-    FramesInFlightData[currentFrame].uniformBuffers.updateMappedMemory({ubos.data(), (size_t)scene->ObjectsCount()});
+
+    assert(uboIndex == scene->objects.subMeshesCount);
+    FramesInFlightData[currentFrame].uniformBuffers.updateMappedMemory({ubos.data(), (size_t)scene->objects.subMeshesCount});
 
 
 
@@ -1049,19 +1056,23 @@ void RecordIndirectCommandBufferForPasses(Scene* scene, AssetManager* rendererDa
     // {
     //     drawCommands[i].objectIndex = -1;
     // }
-   
-    size_t objectsPerDraw = scene->ObjectsCount();
-    size_t meshesPerDraw = scene->MeshesCount();
     
-    std::span<uint32_t> objectIDtoFirstMeshIndex = MemoryArena::AllocSpan<uint32_t>(allocator, objectsPerDraw);
-    std::span<uint32_t> objectIDtoSortedObjectID = MemoryArena::AllocSpan<uint32_t>(allocator, objectsPerDraw);
+    std::span<uint32_t> subMeshIDtoMeshData = MemoryArena::AllocSpan<uint32_t>(allocator, scene->objects.subMeshesCount);
+    std::span<uint32_t> SubmeshIDtoSortedObjectID = MemoryArena::AllocSpan<uint32_t>(allocator, scene->objects.subMeshesCount);
     std::span<uint32_t> meshIDtoFirstIndex = MemoryArena::AllocSpan<uint32_t>(allocator, rendererData->backing_meshes.size());
     std::span<uint32_t> meshIDtoIndexCount = MemoryArena::AllocSpan<uint32_t>(allocator, rendererData->backing_meshes.size());
     uint32_t indexCtoffset = 0;
+    uint32_t submeshIdx = 0;
     for(size_t i = 0; i < scene->ObjectsCount(); i++)
     {
-        objectIDtoFirstMeshIndex[i] = static_cast<uint32_t>(scene->objects.firstMeshIndex[i]);
-        objectIDtoSortedObjectID[i] =  static_cast<uint32_t>(i); //
+        for (size_t j = 0; j < scene->objects.subMeshCtForObject[i]; j++)
+        {
+            subMeshIDtoMeshData[submeshIdx++] = static_cast<uint32_t>(scene->objects.firstMeshIndex[i] + j);
+        }
+    }
+    for(size_t i = 0; i < scene->objects.subMeshesCount; i++)
+    {
+        SubmeshIDtoSortedObjectID[i] =  static_cast<uint32_t>(i); //
     }
     for(size_t i = 0; i < rendererData->backing_meshes.size(); i++)
     {
@@ -1078,7 +1089,7 @@ void RecordIndirectCommandBufferForPasses(Scene* scene, AssetManager* rendererDa
         for (int j = 0; j < _pass.meshPasses.size(); j++)
         {
             auto pass = _pass.meshPasses[j];
-            UpdateDrawCommanddataDrawIndirectCommands(drawCommands.subspan(pass.firstIndex, pass.ct), pass.sortedObjectIDs, objectIDtoFirstMeshIndex,meshIDtoFirstIndex, meshIDtoIndexCount);
+            UpdateDrawCommanddataDrawIndirectCommands(drawCommands.subspan(pass.firstIndex, pass.ct), pass.sortedObjectIDs, subMeshIDtoMeshData,meshIDtoFirstIndex, meshIDtoIndexCount);
         }
     }
 }
@@ -1302,7 +1313,7 @@ RenderBatchCreationConfig  CreateOpaquePassesConfig(uint32_t firstObject, std::s
                                      )
     
 {
-    uint32_t objectsPerDraw = (uint32_t)passData.scenePtr->ObjectsCount();
+    uint32_t objectsPerDraw = (uint32_t)passData.scenePtr->objects.subMeshesCount;
     uint32_t nextFirstObject =firstObject;
     viewProj viewProjMatricesForCulling = LightAndCameraHelpers::CalcViewProjFromCamera(passData.scenePtr->sceneCamera);
     //Culling debug stuff
@@ -1350,7 +1361,7 @@ std::span<RenderBatchCreationConfig> CreateShadowPassConfigs(uint32_t firstObjec
                                      ActiveRenderStepData* shadowRenderStepContext,
                                      std::span<VkImageView> shadowMapRenderingViews)
 {
-    uint32_t objectsPerDraw = (uint32_t)config.scenePtr->ObjectsCount();
+    uint32_t objectsPerDraw = (uint32_t)config.scenePtr->objects.subMeshesCount;
     uint32_t nextFirstObject =firstObject;
 
     auto shadowCasterCt =  glm::min(config.scenePtr->lightCount, MAX_SHADOWCASTERS); 
@@ -1392,22 +1403,24 @@ std::span<RenderBatchCreationConfig> CreateShadowPassConfigs(uint32_t firstObjec
     return resultConfigs.getSpan();
 }
 
-size_t UpdateDrawCommanddataDrawIndirectCommands(std::span<drawCommandData> targetDrawCommandSpan, std::span<uint32_t> objectIDtoSortedObjectID, std::span<uint32_t> objectIDtoMeshID, std::span<uint32_t>meshIDtoFirstIndex, std::span<uint32_t> meshIDtoIndexCount)
+size_t UpdateDrawCommanddataDrawIndirectCommands(std::span<drawCommandData> targetDrawCommandSpan, std::span<uint32_t> submeshIDstoSortedSubmeshIDs, std::span<uint32_t> submeshIDtoMeshID, std::span<uint32_t>meshIDtoFirstIndex, std::span<uint32_t> meshIDtoIndexCount)
 {
-    for (size_t j = 0; j < targetDrawCommandSpan.size(); j++)
+    size_t drawIndex = 0;
+    for (size_t j = 0; j < submeshIDstoSortedSubmeshIDs.size(); j++)
     {
-        auto objectDrawIndex = objectIDtoSortedObjectID[j];
-        auto meshID = objectIDtoMeshID[objectDrawIndex];
-        targetDrawCommandSpan[j] = {
-            (uint32_t)objectDrawIndex,
-            {
-                .indexCount = meshIDtoIndexCount[meshID],
-                .instanceCount = 1,
-                .firstIndex = meshIDtoFirstIndex[meshID],
-                .vertexOffset = 0,
-                .firstInstance = (uint32_t)objectDrawIndex
-            }
-        };
+        
+            auto objectDrawIndex = submeshIDstoSortedSubmeshIDs[j];
+            auto meshID = submeshIDtoMeshID[objectDrawIndex];
+            targetDrawCommandSpan[drawIndex++] = {
+                (uint32_t)objectDrawIndex,
+                {
+                    .indexCount = meshIDtoIndexCount[meshID],
+                    .instanceCount = 1,
+                    .firstIndex = meshIDtoFirstIndex[meshID],
+                    .vertexOffset = 0,
+                    .firstInstance = (uint32_t)objectDrawIndex
+                }
+            };
     }
     return  targetDrawCommandSpan.size() ;
 }

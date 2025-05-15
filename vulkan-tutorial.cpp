@@ -53,7 +53,7 @@ int main()
     Scene scene = {};
     InitializeScene(&sceneArena, &scene);
     Add_Scene_Content(renderer.getMainRendererContext(), renderer.AssetDataAndMemory, &scene);
-    sceneCountData sceneData = {.objectCount = scene.objectsCount(), .lightCount = scene.lightCount, .lightTypes = scene.lightTypes.getSpan()};
+    sceneCountData sceneData = {.objectCount = scene.ObjectsCount(), .subMeshCount = scene.objects.subMeshesCount, .lightCount = scene.lightCount, .lightTypes = scene.lightTypes.getSpan()};
     renderer.InitializeRendererForScene(sceneData );
     renderer.initializePipelines( scene.lightCount);
     engineLoop(&renderer, &scene);

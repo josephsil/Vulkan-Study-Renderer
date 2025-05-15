@@ -123,8 +123,8 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
     auto MyQuaternion = glm::quat(EulerAngles);
 
     auto root = scene->AddObject(
-        randomMeshes[rand() % randomMeshes.size()],
-        randomMaterials[1], glm::vec4(0, 0, 0, 0) * 1.2f, MyQuaternion,
+        randomMeshes[rand() % randomMeshes.size()], 1,
+        (uint32_t)randomMaterials[1], glm::vec4(0, 0, 0, 0) * 1.2f, MyQuaternion,
         glm::vec3(0.5));
 
     localTransform* tform = &scene->transforms.transformNodes[root];
@@ -137,8 +137,8 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
             int matIDX = rand() % randomMaterials.size();
 
             scene->AddObject(
-                randomMeshes[rand() % randomMeshes.size()],
-                randomMaterials[matIDX], glm::vec4((j), (i / 10) * 1.0, -(i % 10), 1) * 1.2f, MyQuaternion,
+                randomMeshes[rand() % randomMeshes.size()], 1,
+               (uint32_t)randomMaterials[matIDX], glm::vec4((j), (i / 10) * 1.0, -(i % 10), 1) * 1.2f, MyQuaternion,
                 glm::vec3(0.5));
             matIDX = rand() % randomMaterials.size();
         }

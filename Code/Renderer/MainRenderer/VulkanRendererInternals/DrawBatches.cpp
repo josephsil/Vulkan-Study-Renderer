@@ -10,7 +10,8 @@
 struct pipelineBucket
 {
     uint32_t pipelineIDX;
-    Array<uint32_t> objectIndices; 
+    Array<uint32_t> objectIndices; //todo js
+    Array<uint32_t> subMeshIndices; //todo js 
 };
 
 
@@ -41,6 +42,7 @@ RenderBatch::RenderBatch(const char* name, CommonRenderPassData* context, Render
        .pushConstantInfo =  {.ptr = cullconstants, .size =  sizeof(cullPConstants) }};
 
     Array<pipelineBucket> batchedDrawBuckets = MemoryArena::AllocSpan<pipelineBucket>(context->tempAllocator, passCreationConfig.shaderGroup.size());
+
     ////Flatten buckets into simpleMeshPassInfos sorted by pipeline
     ///    //Opaque passes are bucketed by pipeline 
     //initialize and fill pipeline buckets
@@ -49,13 +51,22 @@ RenderBatch::RenderBatch(const char* name, CommonRenderPassData* context, Render
         if (passCreationConfig.shaderGroup[i].shader >= batchedDrawBuckets.size())
         {
             batchedDrawBuckets.push_back( {i, Array(MemoryArena::AllocSpan<uint32_t>(context->tempAllocator, MAX_DRAWS_PER_PIPELINE))});
+            batchedDrawBuckets.back().subMeshIndices = MemoryArena::AllocSpan<uint32_t>(context->tempAllocator,  passCreationConfig.objectCount);
+            batchedDrawBuckets.back().objectIndices = MemoryArena::AllocSpan<uint32_t>(context->tempAllocator,  passCreationConfig.objectCount);
         }
     }
-    for (uint32_t i = 0; i < passCreationConfig.objectCount; i++)
+    uint32_t submeshIndex = 0;
+    uint32_t objectIndex = 0;
+    for (uint32_t i = 0; i < context->scenePtr->ObjectsCount(); i++)
     {
-        uint32_t shaderGroupIndex = context->assetDataPtr->materials[context->scenePtr->objects.materials[i]].shaderGroupIndex;
-        uint32_t pipelineIndex = (uint32_t)passCreationConfig.shaderGroup[shaderGroupIndex].shader;
-        batchedDrawBuckets[pipelineIndex].objectIndices.push_back(i);
+        for (uint32_t j = 0; j <context->scenePtr->objects.materialsForSubmeshes[i].size(); j++)
+        {
+            uint32_t shaderGroupIndex = context->assetDataPtr->materials[context->scenePtr->objects.materialsForSubmeshes[i][j]].shaderGroupIndex; //TODO JS: takes the shader from the first submesh of the object! need to break transforms out and loop submesh ct here
+            uint32_t pipelineIndex = (uint32_t)passCreationConfig.shaderGroup[shaderGroupIndex].shader;
+            batchedDrawBuckets[pipelineIndex].subMeshIndices.push_back(submeshIndex++);
+            batchedDrawBuckets[pipelineIndex].objectIndices.push_back(objectIndex);
+        }
+        objectIndex++;
     }
     
     Array _meshPasses = MemoryArena::AllocSpan<simpleMeshPassInfo>(context->tempAllocator, MAX_PIPELINES);
@@ -73,12 +84,10 @@ RenderBatch::RenderBatch(const char* name, CommonRenderPassData* context, Render
 
         auto shaderID =passCreationConfig.shaderGroup[drawBatch.pipelineIDX];
 
-        uint32_t drawCount = (uint32_t)context->scenePtr->GetTotalSubmeshesForObjects(objectIndices); //One draw for each submesh in our object indices count
-        
-        _meshPasses.push_back({.firstIndex = firstIndex, .ct = drawCount, .pipeline = context->pipelineManagerPtr->GetPipeline(shaderID.layout, shaderID.shader),
-            .sortedObjectIDs =  drawBatch.objectIndices.getSpan()});
+        _meshPasses.push_back({.firstIndex = firstIndex, .ct = (uint32_t)drawBatch.subMeshIndices.size(), .pipeline = context->pipelineManagerPtr->GetPipeline(shaderID.layout, shaderID.shader),
+            .sortedObjectIDs =  drawBatch.subMeshIndices.getSpan()});
 
-        subspanOffset += drawCount;
+        subspanOffset += (uint32_t)drawBatch.subMeshIndices.size();
     }
     auto s = std::string(name);
     

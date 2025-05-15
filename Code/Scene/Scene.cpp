@@ -21,7 +21,8 @@ void InitializeScene(MemoryArena::memoryArena* arena, Scene* scene)
     scene->objects.translations = Array(MemoryArena::AllocSpan<glm::vec3>(arena, OBJECT_MAX));
     scene->objects.rotations = Array(MemoryArena::AllocSpan<glm::quat>(arena, OBJECT_MAX));
     scene->objects.scales = Array(MemoryArena::AllocSpan<glm::vec3>(arena, OBJECT_MAX));
-    scene->objects.materials = Array(MemoryArena::AllocSpan<uint32_t>(arena, OBJECT_MAX));
+    scene->objects.materialsForSubmeshes = Array(MemoryArena::AllocSpan<std::span<uint32_t>>(arena, OBJECT_MAX));
+    scene->_materials_memory = Array(MemoryArena::AllocSpanDefaultInitialize<uint32_t>(arena, OBJECT_MAX));
     scene->objects.firstMeshIndex = Array(MemoryArena::AllocSpan<uint32_t>(arena, OBJECT_MAX));
     scene->objects.subMeshCtForObject = Array(MemoryArena::AllocSpan<uint32_t>(arena, OBJECT_MAX));
     scene->objects.transformIDs = Array(MemoryArena::AllocSpan<size_t>(arena, OBJECT_MAX));
@@ -111,14 +112,24 @@ void Scene::Update()
     transforms.UpdateWorldTransforms();
 }
 
-
-size_t Scene::AddObject(size_t meshIndexTODO, size_t materialIndex,
+size_t Scene::AddObject(size_t meshIndexTODO, size_t meshct, uint32_t materialIndex,
                      glm::vec3 position, glm::quat rotation, glm::vec3 scale, localTransform* parent, std::string name)
 {
-    uint32_t submeshCt = 1;
+    assert(meshct == 1); //Can only use this override for single submesh cases. todo clean this up
+
+    auto span = std::span<uint32_t>(&materialIndex, 1);
+    return AddObject(meshIndexTODO, meshct, span,
+                     position,rotation, scale, parent,name);
+    
+}
+size_t Scene::AddObject(size_t meshIndexTODO, size_t meshct, std::span<uint32_t> materialIndices,
+                     glm::vec3 position, glm::quat rotation, glm::vec3 scale, localTransform* parent, std::string name)
+{
+    uint32_t submeshCt = static_cast<uint32_t>(meshct);
     //TODD JS: version that can add
     // objects.meshes.push_back(mesh);
-    objects.materials.push_back(static_cast<uint32_t>(materialIndex));
+
+    objects.materialsForSubmeshes.push_back(_materials_memory.push_back_span(materialIndices));
     objects.translations.push_back(position);
     objects.rotations.push_back(rotation);
     objects.scales.push_back(scale);
@@ -165,7 +176,7 @@ size_t Scene::MeshesCount()
     return objects.subMeshesCount;
 }
 
-size_t Scene::GetTotalSubmeshesForObjects(std::span<uint32_t> objectIndices)
+size_t Scene:: GetTotalSubmeshesForObjects(std::span<uint32_t> objectIndices)
 {
     size_t result = 0;
     for (auto element : objectIndices)

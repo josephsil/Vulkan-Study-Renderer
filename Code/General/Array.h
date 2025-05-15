@@ -76,6 +76,17 @@ struct Array
         new (&data[ct++]) T(std::forward<Args>(args)...);
     }
 
+    std::span<T> push_back_span(std::span<T> s)
+    {
+        assert(ct +  s.size() <capacity);
+        size_t start = ct;
+        for (auto entry :  s)
+        {
+            this->push_back(entry);
+        }
+        return std::span<T>((T*)(data+start),  s.size());
+    }
+
     std::span<T> push_back_span(std::initializer_list<T> il)
     {
         assert(ct + il.size() <capacity);

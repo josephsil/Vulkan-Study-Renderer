@@ -22,7 +22,7 @@ struct __VkDrawIndirectCommand
 
 struct objectProperties
 {
-    alignas(16) glm::vec4 indexInfo; //Light count, vertex offset, UNUSED, ubo index
+    alignas(16) glm::vec4 indexInfo; //Light count, vertex offset, UNUSED, transform index
     alignas(16) glm::vec4 textureInfo; //diffuse idnex, spec index, normal index, UNUSED
     alignas(16) glm::vec4 materialprops; //roughness, metalness, padding, padding
     alignas(16) glm::vec4 color; //rgba
@@ -44,6 +44,7 @@ struct UniformBufferObject
     //Culling info
     //This data is really per model, not per object, but I'm lazy
     positionRadius cullingInfo;
+   
 };
 
 

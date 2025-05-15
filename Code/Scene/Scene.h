@@ -18,6 +18,7 @@ namespace MemoryArena
 struct sceneCountData
 {
     size_t objectCount = 0;
+    size_t subMeshCount = 0;
     size_t lightCount = 0;
     std::span<lightType> lightTypes;
 };
@@ -35,10 +36,11 @@ struct Scene
         Array<glm::vec3> scales;
         Array<uint32_t> firstMeshIndex; //for renderer
         Array<uint32_t> subMeshCtForObject; //for renderer 
-        Array<uint32_t> materials; //for renderer 
+        Array<std::span<uint32_t>> materialsForSubmeshes;
         Array<size_t> transformIDs;
     };
 
+    Array<uint32_t> _materials_memory; //for renderer 
     // arallel arrays per Light
     size_t lightCount;
     Array<glm::vec4> lightposandradius;
@@ -60,10 +62,13 @@ struct Scene
 
 
 
-
-    size_t AddObject(unsigned long long meshIndexTODO, unsigned long long materialIndex, glm::vec3 position,
+    
+    size_t AddObject(size_t meshIndexTODO,  size_t meshct, std::span<uint32_t> materialindices, glm::vec3 position,
                      glm::quat rotation, glm::vec3 scale = glm::vec3(1), localTransform* parent = nullptr,
                      std::string name = "");
+    size_t AddObject(size_t meshIndexTODO, size_t meshct, uint32_t materialIndex,
+    glm::vec3 position, glm::quat rotation, glm::vec3 scale,localTransform* parent = nullptr,
+        std::string name = "");
     size_t ObjectsCount();
     size_t MeshesCount();
     size_t GetTotalSubmeshesForObjects(std::span<uint32_t> objectIndices);
