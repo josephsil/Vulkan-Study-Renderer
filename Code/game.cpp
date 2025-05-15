@@ -78,103 +78,14 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
     // scene->AddPointLight(glm::vec3(-2, 2, 0), glm::vec3(1, 0, 0), 4422 / 2);
     // scene->AddPointLight(glm::vec3(0, 0, 0), glm::vec3(1, 1, 0), 999 / 2);
 
-    gltfdata gltf;
+    GltfData gltf;
 #define SPONZA
 #ifdef SPONZA
     //rendererContext: gltf load fn that gets back struct, then append its contents to scene 
     gltf = GltfLoadMeshes(rendererContext, "Meshes/sponza.glb");
-    //rendererContext JS: to span of spans for submeshes
-
+    ObjectImport::CreateObjectAssets(rendererContext.tempArena, *scene, *rendererData, gltf, {defaultTexture, defaultSPec,defaultNormal});
 #pragma region gltf adding stuff --- todo move to fn
-    std::span<std::span<size_t>> meshLUT = MemoryArena::AllocSpan<std::span<size_t>>(
-        rendererContext.tempArena, gltf.meshes.size());
-    std::span<size_t> textureLUT = MemoryArena::AllocSpan<size_t>(rendererContext.tempArena, gltf.textures.size());
-    std::span<size_t> materialLUT = MemoryArena::AllocSpan<size_t>(rendererContext.tempArena, gltf.materials.size());
-    std::span<size_t> parent = MemoryArena::AllocSpan<size_t>(rendererContext.tempArena, gltf.objects.size());
-    std::span<bool> created = MemoryArena::AllocSpan<bool>(rendererContext.tempArena, gltf.objects.size());
-    std::span<localTransform*> tforms = MemoryArena::AllocSpan<localTransform*>(
-        rendererContext.tempArena, gltf.objects.size());
-    for (int i = 0; i < parent.size(); i++)
-    {
-        parent[i] = -1;
-    }
-
-
-    for (int i = 0; i < gltf.meshes.size(); i++)
-    {
-        meshLUT[i] = MemoryArena::AllocSpan<size_t>(rendererContext.tempArena, gltf.meshes[i].submeshes.size());
-        for (int j = 0; j < gltf.meshes[i].submeshes.size(); j++)
-        {
-            meshLUT[i][j] = rendererData->AddBackingMesh(gltf.meshes[i].submeshes[j]);
-        }
-    }
-    for (int i = 0; i < gltf.textures.size(); i++)
-    {
-        textureLUT[i] = rendererData->AddTexture(gltf.textures[i]);
-    }
-    for (int i = 0; i < gltf.materials.size(); i++)
-    {
-        auto mat = gltf.materials[i];
-        textureSetIDs textures = {
-            mat.diffIndex >= 0 ? textureLUT[mat.diffIndex] : defaultTexture,
-            mat.specIndex >= 0 ? textureLUT[mat.specIndex] : defaultSPec,
-            mat.normIndex >= 0 ? textureLUT[mat.normIndex] : defaultNormal
-        };
-
-        materialLUT[i] = rendererData->AddMaterial(mat.roughnessFactor, mat.metallicFactor, mat.baseColorFactor,
-                                                   textures, 1);
-    }
-
-    //prepass to set up parents
-    for (int i = 0; i < gltf.objects.size(); i++)
-    {
-        for (int j = 0; j < gltf.objects[i].children.size(); j++)
-        {
-            parent[gltf.objects[i].children[j]] = i;
-        }
-    }
-    int addedCt = 0;
-
-
-    //lol
-    while (addedCt < gltf.objects.size())
-    {
-        for (int i = 0; i < gltf.objects.size(); i++)
-        {
-            auto object = gltf.objects[i];
-            if (parent[i] == -1 || created[parent[i]])
-            {
-                if (created[i]) continue;
-                auto mesh = gltf.meshes[gltf.objects[i].meshidx];
-                for (int j = 0; j < mesh.submeshes.size(); j++)
-                {
-                    size_t gltfMatIDX = mesh.materialIndices[j];
-                    size_t sceneMatIDX = materialLUT[mesh.materialIndices[j]];
-                    size_t objectID = 0;
-                    localTransform* parentTransform = (parent[i] != -1) ? tforms[parent[i]] : nullptr;
-                    //rendererContext JS: add objcet that takes matrix
-                    objectID = scene->AddObject(
-                        meshLUT[object.meshidx][j],
-                        sceneMatIDX,
-                        object.translation,
-                        object.rotation,
-                        object.scale,
-                        parentTransform);
-
-                    if (j == 0)
-                    {
-                        tforms[i] = &scene->transforms.transformNodes[objectID];
-                        //Only the first one can have children because these are like "fake objects"}
-                        created[i] = true;
-                    }
-                }
-                addedCt++;
-            }
-            else
-            {
-            }
-        }
-    }
+   
 #endif
 #pragma endregion
     printf("objects count: %llu \n", scene->objects.objectsCount);

@@ -198,6 +198,7 @@
     <ClCompile Include="Code\Renderer\MeshCreation\MeshData.cpp">
     </ClCompile>
     <ClCompile Include="Code\Renderer\MikkTImpl.cpp" />
+    <ClCompile Include="Code\Renderer\ObjectImport.cpp" />
     <ClCompile Include="Code\Renderer\RendererDeletionQueue.cpp" />
     <ClCompile Include="Code\Renderer\rendererGlobals.cpp" />
     <ClCompile Include="Code\Renderer\Shaders\ShaderLoading.cpp">
@@ -258,6 +259,7 @@
     <ClInclude Include="Code\Renderer\MainRenderer\VulkanRendererInternals\RendererHelpers.h" />
     <ClInclude Include="Code\Renderer\MeshCreation\MeshData.h" />
     <ClInclude Include="Code\Renderer\MikkTImpl.h" />
+    <ClInclude Include="Code\Renderer\ObjectImport.h" />
     <ClInclude Include="Code\Renderer\RendererDeletionQueue.h" />
     <ClInclude Include="Code\Renderer\rendererGlobals.h" />
     <ClInclude Include="Code\Renderer\PerThreadRenderContext.h" />

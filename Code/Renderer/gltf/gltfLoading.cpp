@@ -440,7 +440,7 @@ void GltfLoadTextures(size_t imageCt, std::span<TextureData> textures,  std::spa
 
 //TODO: Cameras? Probably not
 //TODO: More speed improvements: don't re-calculate tangents every load
-gltfdata GltfLoadMeshes(PerThreadRenderContext handles, const char* gltfpath)
+GltfData GltfLoadMeshes(PerThreadRenderContext handles, const char* gltfpath)
 {
     bool gltfOutOfdate = FileCaching::assetOutOfDate(gltfpath);
     // gltfOutOfdate = true;
@@ -448,7 +448,7 @@ gltfdata GltfLoadMeshes(PerThreadRenderContext handles, const char* gltfpath)
     MemoryArena::memoryArena loadingArena = {};
     initialize(&loadingArena, 100000 * 500); //TODO JS: right size this to the gltf size;
 
-    gltfdata output = {};
+    GltfData output = {};
     const char* ext = strrchr(gltfpath, '.');
     assert(strcmp(ext, ".glb") == 0);
     tinygltf::Model model;
@@ -472,10 +472,10 @@ gltfdata GltfLoadMeshes(PerThreadRenderContext handles, const char* gltfpath)
     size_t nodeCt = model.nodes.size();
 
     //TODO JS: leaking some extra gltf loading data for now
-    std::span<gltfMesh> meshes = MemoryArena::AllocSpan<gltfMesh>(permanentArena, meshCt);
+    std::span<GltfMesh> meshes = MemoryArena::AllocSpan<GltfMesh>(permanentArena, meshCt);
     std::span<TextureData> textures = MemoryArena::AllocSpan<TextureData>(permanentArena, imageCt);
     //These are what I call textures, what vulkan calls images
-    std::span<material> materials = MemoryArena::AllocSpan<material>(permanentArena, matCt);
+    std::span<gltfMaterial> materials = MemoryArena::AllocSpan<gltfMaterial>(permanentArena, matCt);
     std::span<gltfNode> gltfNodes = MemoryArena::AllocSpan<gltfNode>(permanentArena, nodeCt);
     if (!warn.empty())
     {
