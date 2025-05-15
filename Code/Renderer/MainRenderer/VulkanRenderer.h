@@ -128,10 +128,6 @@ private:
                                                                     MemoryArena::memoryArena* arena,
                                                                     std::span<VkDescriptorSetLayoutBinding>
                                                                     layoutBindings);
-    std::span<descriptorUpdateData> CreateShadowDescriptorUpdates(MemoryArena::memoryArena* arena, uint32_t frame,
-                                                                  uint32_t shadowIndex,
-                                                                  std::span<VkDescriptorSetLayoutBinding>
-                                                                  layoutBindings);
 
 
 
@@ -151,7 +147,8 @@ private:
         dataBuffer deviceVerts;
         HostDataBufferObject<uint32_t> hostIndices;
         dataBuffer deviceIndices;
-        HostDataBufferObject<UniformBufferObject> uniformBuffers;
+        HostDataBufferObject<gpu_per_draw> perMeshbuffers;
+        HostDataBufferObject<gpu_transform> perObjectBuffers;
         HostDataBufferObject<gpuvertex> hostMesh;
         dataBuffer deviceMesh;
 
@@ -170,7 +167,7 @@ private:
     void initializeWindow();
 
     void PopulateMeshBuffers();
-    void CreateUniformBuffers(size_t objectsCount, size_t lightCount);
+    void CreateUniformBuffers(size_t subMeshCount, size_t objectsCount, size_t lightCount);
 
     //Globals per pass, ubos, and lights are updated every frame
     void updatePerFrameBuffers(unsigned currentFrame, Array<std::span<glm::mat4>> models, Scene* scene);

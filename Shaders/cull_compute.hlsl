@@ -43,6 +43,8 @@ RWStructuredBuffer<drawCommandData> drawData;
 // #ifdef SHADOWPASS
 [[vk::binding(14, 0)]]
 RWStructuredBuffer<objectData> _objectData;
+[[vk::binding(15, 0)]]
+RWStructuredBuffer<transformdata> _transformdata;
 // #endif
 
 
@@ -51,7 +53,7 @@ void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
 {
     if (GlobalInvocationID.x >= globals.objectCount) return;
     uint objIndex = drawData[globals.offset + GlobalInvocationID.x].objectIndex;
-    objectData transform = _objectData[_objectData[objIndex].indexInfo.a];
+    transformdata transform = _transformdata[_objectData[objIndex].indexInfo.a];
     objectData mesh = _objectData[objIndex];
     float4x4 modelView = mul(globals.view, transform.Model);
     // float4x4 mvp = mul(globals.proj, modelView);

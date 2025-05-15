@@ -1,9 +1,14 @@
-struct objectData
+struct transformdata
 {
     float4x4 Model;
     float4x4 NormalMat;
     //objectProperties
     //Formerly push constants
+};
+
+struct objectData
+{
+    //objectProperties
     float4 indexInfo;
     float4 textureIndexInfo;
     float roughness;

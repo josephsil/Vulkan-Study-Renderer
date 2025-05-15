@@ -53,23 +53,23 @@ VSOutput Vert(VSInput input, [[vk::builtin("BaseInstance")]] uint InstanceIndex 
 
 
     //
-    objectData ubo = uboarr[InstanceIndex];
+    transformdata transform = GetTransform();
     VSOutput output = (VSOutput)0;
     //
-    float4x4 modelView = mul(globals.view, uboarr[TRANSFORMINDEX].Model);
+    float4x4 modelView = mul(globals.view, transform.Model);
     float4x4 mvp = mul(globals.projection, modelView);
     output.Pos = mul(mvp, vertPos);
     output.Texture_ST = myVertex.uv0.xy;
     output.Color = myVertex.normal.xyz;
     output.Normal = myVertex.normal.xyz;
-    output.worldPos = mul(ubo.Model, vertPos);
+    output.worldPos = mul(transform.Model, vertPos);
 
-    float3x3 normalMatrix = ubo.NormalMat; // ?????
+    float3x3 normalMatrix = transform.NormalMat; // ?????
     //bitangent = fSign * cross(vN, tangent);
     //Not sure if the mul here is correct? would need something baked
     float3 worldNormal = normalize(mul(normalMatrix, float4(output.Normal.x, output.Normal.y, output.Normal.z, 0.0)));
     float3 worldTangent = normalize(
-        mul(ubo.Model, float4(myVertex.Tangent.x, myVertex.Tangent.y, myVertex.Tangent.z, 1.0)));
+        mul(transform.Model, float4(myVertex.Tangent.x, myVertex.Tangent.y, myVertex.Tangent.z, 1.0)));
     worldTangent = (worldTangent - dot(worldNormal, worldTangent) * worldNormal);
     float3 worldBinormal = (cross((worldNormal), (worldTangent))) * (myVertex.Tangent.w);
 
@@ -88,7 +88,7 @@ VSOutput Vert(VSInput input, [[vk::builtin("BaseInstance")]] uint InstanceIndex 
     output.InstanceID = InstanceIndex;
 
 
-    output.Color = ubo.color;
+    output.Color = GetModelInfo().color;
     return output;
 }
 

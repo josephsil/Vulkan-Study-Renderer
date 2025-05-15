@@ -43,7 +43,7 @@ struct VSOutput
 VSOutput Vert(VSInput input, [[vk::builtin("BaseInstance")]] uint InstanceIndex : BaseInstance,
               uint VertexIndex : SV_VertexID)
 {
-    objectData transformUBO =  uboarr[TRANSFORMINDEX];
+    transformdata transformUBO =  GetTransform();
     VSOutput output = (VSOutput)0;
     float4x4 viewProjection;
     ///

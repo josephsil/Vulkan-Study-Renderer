@@ -58,10 +58,10 @@ VSOutput Vert(VSInput input, [[vk::builtin("BaseInstance")]] uint InstanceIndex 
     float4 vertPos = float4(fullscreen_quad_positions[VertexIndex], 1, 1.0);
 
     //
-    objectData ubo = uboarr[InstanceIndex];
+    objectData ubo = perObjectData[InstanceIndex];
     VSOutput output = (VSOutput)0;
     //
-    float4x4 modelView = mul(globals.view, uboarr[InstanceIndex].Model);
+    float4x4 modelView = mul(globals.view, GetTransform().Model);
     float4x4 mvp = mul(globals.projection, modelView);
     output.Pos = vertPos;
     // output.Texture_ST = myVertex.uv0.xy;
@@ -226,17 +226,17 @@ FSOutput Frag(VSOutput input)
     for (int j = start; j < start + 10; j++)
     {
         uint InstanceIndex = j;
-        objectData ubo = uboarr[InstanceIndex];
-        float4x4 modelView = mul(globals.view, uboarr[InstanceIndex].Model);
+        objectData ubo = perObjectData[InstanceIndex];
+        float4x4 modelView = mul(globals.view, GetTransform().Model);
         float4x4 mvp = mul(globals.projection, modelView);
         float d = 0.;
         for (int i = 0; i < MAX_STEPS; i++)
         {
             float3 _point = ray_origin + ray_dir * d;
-            float4 sphere = float4(uboarr[InstanceIndex].objectSpaceboundsCenter.xyz, 1);
+            float4 sphere = float4(perObjectData[InstanceIndex].objectSpaceboundsCenter.xyz, 1);
             sphere = mul(modelView, sphere);
 
-            float radius = uboarr[InstanceIndex].objectSpaceboundsRadius;
+            float radius = perObjectData[InstanceIndex].objectSpaceboundsRadius;
             float ds = length(_point - sphere.xyz) - radius;
             d += ds;
             if (d > MAX_DIST || ds < EPS)

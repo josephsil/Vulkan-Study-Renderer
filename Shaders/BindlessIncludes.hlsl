@@ -4,10 +4,12 @@
 #define LIGHT_POINT 1
 #define LIGHT_SPOT 2
 #define LIGHTCOUNT   globals.lightcount_mode_shadowct_padding.r
-#define VERTEXOFFSET uboarr[InstanceIndex].indexInfo.g
-#define TEXTURESAMPLERINDEX  uboarr[InstanceIndex].textureIndexInfo.g
-#define NORMALSAMPLERINDEX  uboarr[InstanceIndex].textureIndexInfo.b //TODO JS: temporary!
-#define TRANSFORMINDEX  uboarr[InstanceIndex].indexInfo.a
+#define VERTEXOFFSET perObjectData[InstanceIndex].indexInfo.g
+#define TEXTURESAMPLERINDEX  perObjectData[InstanceIndex].textureIndexInfo.g
+#define NORMALSAMPLERINDEX  perObjectData[InstanceIndex].textureIndexInfo.b //TODO JS: temporary!
+#define TRANSFORMINDEX  perObjectData[InstanceIndex].indexInfo.a
+#define GetTransform()  transforms[perObjectData[InstanceIndex].indexInfo.a]
+#define GetModelInfo() perObjectData[InstanceIndex]
 #define SKYBOXLUTINDEX globals.lutIDX_lutSamplerIDX_padding_padding.x
 #define SKYBOXLUTSAMPLERINDEX globals.lutIDX_lutSamplerIDX_padding_padding.y
 #define SHADOWCOUNT globals.lightcount_mode_shadowct_padding.z
@@ -40,8 +42,7 @@ RWStructuredBuffer<MyVertexStructure> BufferTable;
 #else
 ByteAddressBuffer BufferTable;
 #endif
-[[vk::binding(5, 0)]]
-RWStructuredBuffer<float4> positions;
+
 
 //[[vk::binding(0, 1)]]
 cbuffer globals : register(b0, space1) { ShaderGlobals globals; }
@@ -54,14 +55,17 @@ SamplerState shadowmapSampler[];
 [[vk::binding(3,1)]]
 RWStructuredBuffer<MyLightStructure> lights;
 [[vk::binding(4, 1)]]
-RWStructuredBuffer<objectData> uboarr;
+RWStructuredBuffer<objectData> perObjectData;
 [[vk::binding(5, 1)]]
 RWStructuredBuffer<perShadowData> shadowMatrices;
+[[vk::binding(5, 0)]]
+RWStructuredBuffer<float4> positions;
+[[vk::binding(6, 1)]]
+RWStructuredBuffer<transformdata> transforms;
 
-
-#define  DIFFUSE_INDEX  uboarr[InstanceIndex].textureIndexInfo.r
-#define  SPECULAR_INDEX  uboarr[InstanceIndex].textureIndexInfo.g
-#define  NORMAL_INDEX uboarr[InstanceIndex].textureIndexInfo.b
+#define  DIFFUSE_INDEX  perObjectData[InstanceIndex].textureIndexInfo.r
+#define  SPECULAR_INDEX  perObjectData[InstanceIndex].textureIndexInfo.g
+#define  NORMAL_INDEX perObjectData[InstanceIndex].textureIndexInfo.b
 
 float3 GET_SPOT_LIGHT_DIR(MyLightStructure light)
 {

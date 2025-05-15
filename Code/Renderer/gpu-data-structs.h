@@ -34,10 +34,14 @@ struct positionRadius
     alignas(16) glm::float32_t radius;
 };
 
-struct UniformBufferObject
+struct gpu_transform
 {
     alignas(16) glm::mat4 model;
     alignas(16) glm::mat4 Normal;
+};
+
+struct gpu_per_draw //todo: in the process of making this per mesh data 
+{
     //Per object properties -- indices and material props
     objectProperties props;
 

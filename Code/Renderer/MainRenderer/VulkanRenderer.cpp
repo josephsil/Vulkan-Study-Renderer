@@ -215,14 +215,14 @@ void VulkanRenderer::initializePipelines(size_t shadowCasterCount)
     auto perSceneBindlessDescriptorData = DescriptorSets::CreateDescriptorDataForPipeline(getMainRendererContext(), perSceneBindlessDescriptorLayout, false, sceneLayoutBindings, "Per Scene Bindless Set", descriptorPool);
     perSceneDescriptorUpdates = CreatePerSceneDescriptorUpdates(0, &rendererArena, perSceneBindlessDescriptorData.layoutBindings);
 
-    VkDescriptorSetLayoutBinding frameLayoutBindings[6] = {};
+    VkDescriptorSetLayoutBinding frameLayoutBindings[7] = {};
     frameLayoutBindings[0] = VkDescriptorSetLayoutBinding{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL, VK_NULL_HANDLE}; //Globals  0 // per frame
     frameLayoutBindings[1] = VkDescriptorSetLayoutBinding{1, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, MAX_SHADOWMAPS, VK_SHADER_STAGE_FRAGMENT_BIT  }; //SHADOW//  //shadow images 3 //per scene
     frameLayoutBindings[2] = VkDescriptorSetLayoutBinding{2, VK_DESCRIPTOR_TYPE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE}  ; // shadow iamges  6  // perscene
     frameLayoutBindings[3] = VkDescriptorSetLayoutBinding{3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1,  VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE} ; //light//   //8 light info -- per frame
     frameLayoutBindings[4] = VkDescriptorSetLayoutBinding{4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1,  VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE} ;  //9 Object info -- per frame
     frameLayoutBindings[5] = VkDescriptorSetLayoutBinding{5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE} ; //10 shadow buffer info -- per frame
-
+    frameLayoutBindings[6] = VkDescriptorSetLayoutBinding{6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1,  VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE} ;  //transform info -- per frame
     perFrameBindlessLayout = DescriptorSets::createVkDescriptorSetLayout(getMainRendererContext(), frameLayoutBindings, "Per Frame Bindlses Layout");
     auto perFrameBindlessDescriptorData = DescriptorSets::CreateDescriptorDataForPipeline(getMainRendererContext(), perFrameBindlessLayout,  true, frameLayoutBindings, "Per Frame Bindless Set", descriptorPool);
 
@@ -234,10 +234,11 @@ void VulkanRenderer::initializePipelines(size_t shadowCasterCount)
     }
    
    
-   VkDescriptorSetLayoutBinding cullLayoutBindings[3] = {};
+   VkDescriptorSetLayoutBinding cullLayoutBindings[4] = {};
    cullLayoutBindings[0] = VkDescriptorSetLayoutBinding{12, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}; //frustum data
    cullLayoutBindings[1] = VkDescriptorSetLayoutBinding{13, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}; //draws 
    cullLayoutBindings[2] = VkDescriptorSetLayoutBinding{14, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}; //objectData
+    cullLayoutBindings[3] = VkDescriptorSetLayoutBinding{15, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}; //objectData
   
   
     VkDescriptorSetLayout _cullingLayout = DescriptorSets::createVkDescriptorSetLayout(getMainRendererContext(), cullLayoutBindings, "Culling Layout");
@@ -344,7 +345,7 @@ void VulkanRenderer::InitializeRendererForScene(sceneCountData sceneCountData) /
         getMainRendererContext(), TextureCreation::MakeCreationArgsFromFilepathArgs("textures/output_cubemap2_spec8.ktx2",
             TextureType::CUBE));
 
-    CreateUniformBuffers(sceneCountData.subMeshCount,sceneCountData.lightCount);
+    CreateUniformBuffers(sceneCountData.subMeshCount, sceneCountData.objectCount, sceneCountData.lightCount);
 
 
     //TODO JS: Move... Run when meshes change?
@@ -407,10 +408,10 @@ void VulkanRenderer::PopulateMeshBuffers()
 }
 
 //TODO JS: https://gpuopen-librariesandsdks.github.io/VulkanMemoryAllocator/html/usage_patterns.html advanced
-void VulkanRenderer::CreateUniformBuffers(size_t objectsCount, size_t lightCount)
+void VulkanRenderer::CreateUniformBuffers( size_t submeshCount, size_t objectsCount,size_t lightCount)
 {
     VkDeviceSize globalsSize = sizeof(ShaderGlobals);
-    VkDeviceSize ubosSize = sizeof(UniformBufferObject) * objectsCount;
+    VkDeviceSize ubosSize = sizeof(gpu_per_draw) * submeshCount;
     VkDeviceSize vertsSize = sizeof(gpuvertex) * AssetDataAndMemory->getIndexCount();
     VkDeviceSize lightdataSize = sizeof(gpulight) *lightCount;
     VkDeviceSize shadowDataSize = sizeof(PerShadowData) *lightCount * 10; //times six is plenty right?
@@ -424,7 +425,8 @@ void VulkanRenderer::CreateUniformBuffers(size_t objectsCount, size_t lightCount
 
         
         FramesInFlightData[i].opaqueShaderGlobalsBuffer = createDataBuffer<ShaderGlobals>(&context, 1, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
-        FramesInFlightData[i].uniformBuffers = createDataBuffer<UniformBufferObject>(&context, objectsCount, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT); //
+        FramesInFlightData[i].perMeshbuffers = createDataBuffer<gpu_per_draw>(&context, submeshCount, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT); //
+        FramesInFlightData[i].perObjectBuffers = createDataBuffer<gpu_transform>(&context, objectsCount, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT); //
         FramesInFlightData[i].hostMesh = createDataBuffer<gpuvertex>(&context,AssetDataAndMemory->getVertexCount(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
         FramesInFlightData[i].hostVerts = createDataBuffer<glm::vec4>(&context,AssetDataAndMemory->getVertexCount(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT); //TODO JS: use index buffer, get vertex count
 
@@ -557,8 +559,10 @@ std::span<descriptorUpdateData> VulkanRenderer::CreatePerFrameDescriptorUpdates(
     };
     
     //frame
-    VkDescriptorBufferInfo* uniformbufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
-    *uniformbufferinfo = FramesInFlightData[frame].uniformBuffers.buffer.getBufferInfo();
+    VkDescriptorBufferInfo* perMeshBufferInfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
+    *perMeshBufferInfo = FramesInFlightData[frame].perMeshbuffers.buffer.getBufferInfo();
+    VkDescriptorBufferInfo* transformBufferInfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
+    *transformBufferInfo = FramesInFlightData[frame].perObjectBuffers.buffer.getBufferInfo();
     VkDescriptorBufferInfo* shaderglobalsinfo =  MemoryArena::Alloc<VkDescriptorBufferInfo>(arena);
     *shaderglobalsinfo = FramesInFlightData[frame].opaqueShaderGlobalsBuffer.buffer.getBufferInfo();
     VkDescriptorBufferInfo* shadowBuffersInfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
@@ -579,8 +583,9 @@ std::span<descriptorUpdateData> VulkanRenderer::CreatePerFrameDescriptorUpdates(
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, shadowSamplerInfo, (uint32_t)1}); //shadows //scene
 
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, lightbufferinfo}); //frame 
-    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, uniformbufferinfo}); //frame
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, perMeshBufferInfo}); //frame
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, shadowBuffersInfo}); //frame 
+    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, transformBufferInfo}); //frame
 
 
     assert(descriptorUpdates.ct == layoutBindings.size());
@@ -593,37 +598,6 @@ std::span<descriptorUpdateData> VulkanRenderer::CreatePerFrameDescriptorUpdates(
     }
  
    return descriptorUpdates.getSpan();
-}
-
-std::span<descriptorUpdateData> VulkanRenderer::CreateShadowDescriptorUpdates(MemoryArena::memoryArena* arena, uint32_t frame, uint32_t shadowIndex,  std::span<VkDescriptorSetLayoutBinding> layoutBindings)
-{
-    //Get data
-    VkDescriptorBufferInfo* uniformbufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
-    *uniformbufferinfo = GetDescriptorBufferInfo(FramesInFlightData[frame].uniformBuffers);
-
-    VkDescriptorBufferInfo* lightbufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
-    *lightbufferinfo = GetDescriptorBufferInfo(FramesInFlightData[frame].lightBuffers);
-    
-    VkDescriptorBufferInfo* vertBufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
-    *vertBufferinfo = FramesInFlightData[frame].deviceVerts.getBufferInfo();
-
-    Array descriptorUpdates = MemoryArena::AllocSpan<descriptorUpdateData>(arena, 5);
-    //Update descriptor sets with data
-    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, lightbufferinfo});
-    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, uniformbufferinfo});
-    descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, vertBufferinfo});
-    
-    assert(descriptorUpdates.ct == layoutBindings.size());
-    for(int i = 0; i < descriptorUpdates.ct; i++)
-    {
-        auto update = descriptorUpdates[i];
-        auto layout = layoutBindings[i];
-        assert(update.type == layout.descriptorType);
-        assert(update.count <= layout.descriptorCount);
-    }
- 
-
-    return descriptorUpdates.getSpan();
 }
 
 //TODO JS: none of this belongs here except for actually submitting the updates
@@ -729,7 +703,8 @@ void VulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<std::spa
     
 
     //Ubos
-    auto ubos = MemoryArena::AllocSpan<UniformBufferObject>(tempArena,scene->objects.subMeshesCount);
+    auto perMesh = MemoryArena::AllocSpan<gpu_per_draw>(tempArena,scene->objects.subMeshesCount);
+    auto transforms = MemoryArena::AllocSpan<gpu_transform>(tempArena,scene->ObjectsCount());
 
     uint32_t uboIndex = 0;
     for (uint32_t objectIndex = 0; objectIndex <scene->objects.objectsCount; objectIndex++)
@@ -738,27 +713,25 @@ void VulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<std::spa
         glm::mat4* model = &models[lookup.depth][lookup.index];
         auto subMeshCount = scene->objects.subMeshCtForObject[objectIndex];
         
+        transforms[objectIndex].model = *model;
+        transforms[objectIndex].Normal = transpose(inverse(glm::mat3(*model)));
+        
         for(uint32_t subMeshIndex = 0; subMeshIndex < subMeshCount; subMeshIndex++)
         {
             uint32_t submeshIndex =scene->objects.firstMeshIndex[objectIndex] + subMeshIndex;
-            ubos[objectIndex].model = *model;
-            ubos[objectIndex].Normal = transpose(inverse(glm::mat3(*model)));
-
-
-        
             // int i = drawIndices[j];
             Material material = AssetDataAndMemory->materials[scene->objects.materialsForSubmeshes[objectIndex][subMeshIndex]];
         
-            ubos[uboIndex].props.indexInfo = glm::vec4(
+            perMesh[uboIndex].props.indexInfo = glm::vec4(
             (material.diffuseIndex),
                 AssetDataAndMemory->getOffsetFromMeshID(submeshIndex),
                                            (999),
                                           objectIndex);
 
-            ubos[uboIndex].props.textureInfo = glm::vec4(material.diffuseIndex, material.specIndex, material.normalIndex, -1.0);
+            perMesh[uboIndex].props.textureInfo = glm::vec4(material.diffuseIndex, material.specIndex, material.normalIndex, -1.0);
 
-            ubos[uboIndex].props.materialprops = glm::vec4(material.roughness, material.roughness, 0, 0);
-            ubos[uboIndex].props.color = glm::vec4(material.color,1.0f);
+            perMesh[uboIndex].props.materialprops = glm::vec4(material.roughness, material.roughness, 0, 0);
+            perMesh[uboIndex].props.color = glm::vec4(material.color,1.0f);
 
 
         
@@ -777,15 +750,16 @@ void VulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<std::spa
             positionRadius meshSpacePositionAndRadius =  AssetDataAndMemory->meshBoundingSphereRad[submeshIndex];
             float meshRadius = meshSpacePositionAndRadius.radius;
             float objectScale = glm::max(glm::max( scale.x, scale.x), scale.x);
-            ubos[uboIndex].cullingInfo.pos = meshSpacePositionAndRadius.pos;
+            perMesh[uboIndex].cullingInfo.pos = meshSpacePositionAndRadius.pos;
             meshRadius *= objectScale;
-            ubos[uboIndex].cullingInfo.radius = meshRadius;
+            perMesh[uboIndex].cullingInfo.radius = meshRadius;
             uboIndex++;
         }
     }
 
     assert(uboIndex == scene->objects.subMeshesCount);
-    FramesInFlightData[currentFrame].uniformBuffers.updateMappedMemory({ubos.data(), (size_t)scene->objects.subMeshesCount});
+    FramesInFlightData[currentFrame].perMeshbuffers.updateMappedMemory({perMesh.data(), (size_t)scene->objects.subMeshesCount});
+    FramesInFlightData[currentFrame].perObjectBuffers.updateMappedMemory({transforms.data(), transforms.size()});
 
 
 
@@ -864,13 +838,17 @@ void VulkanRenderer::updateBindingsComputeCulling(ActiveRenderStepData commandBu
     *computeDrawBuffer = GetDescriptorBufferInfo(FramesInFlightData[_currentFrame].drawBuffers);
 
     VkDescriptorBufferInfo* objectBufferInfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(&perFrameArenas[_currentFrame], 1); 
-    *objectBufferInfo = GetDescriptorBufferInfo(FramesInFlightData[_currentFrame].uniformBuffers);
+    *objectBufferInfo = GetDescriptorBufferInfo(FramesInFlightData[_currentFrame].perMeshbuffers);
+
+    VkDescriptorBufferInfo* transformBufferInfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(&perFrameArenas[_currentFrame], 1); 
+    *transformBufferInfo = GetDescriptorBufferInfo(FramesInFlightData[_currentFrame].perObjectBuffers);
     
-    std::span<descriptorUpdateData> descriptorUpdates = MemoryArena::AllocSpan<descriptorUpdateData>(arena, 3);
+    std::span<descriptorUpdateData> descriptorUpdates = MemoryArena::AllocSpan<descriptorUpdateData>(arena, 4);
 
     descriptorUpdates[0] = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, frustumData};  //frustum data
     descriptorUpdates[1] = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, computeDrawBuffer}; //draws 
     descriptorUpdates[2] = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, objectBufferInfo}; //objectData  //
+    descriptorUpdates[3] = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, transformBufferInfo}; //objectData  //
 
     DescriptorSets::_updateDescriptorSet_NEW(getMainRendererContext(),pipelineLayoutManager.GetDescriptordata(cullingLayoutIDX, 0)->descriptorSetsCaches[currentFrame].getNextDescriptorSet(),
        pipelineLayoutManager.GetDescriptordata(cullingLayoutIDX, 0)->layoutBindings,  descriptorUpdates); //Update desciptor sets for the compute bindings 
