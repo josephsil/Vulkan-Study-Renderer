@@ -43,13 +43,13 @@ struct VSOutput
 VSOutput Vert(VSInput input, [[vk::builtin("BaseInstance")]] uint InstanceIndex : BaseInstance,
               uint VertexIndex : SV_VertexID)
 {
-    objectData ubo = uboarr[InstanceIndex];
+    objectData transformUBO =  uboarr[TRANSFORMINDEX];
     VSOutput output = (VSOutput)0;
     float4x4 viewProjection;
     ///
     viewProjection = pc.mat;
 
-    float4x4 mvp2 = mul(viewProjection, ubo.Model);
+    float4x4 mvp2 = mul(viewProjection, transformUBO.Model);
 
     float4 vertPos = positions[VertexIndex];
     vertPos.a = 1.0;

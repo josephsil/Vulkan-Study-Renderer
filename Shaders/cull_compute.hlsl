@@ -51,12 +51,13 @@ void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
 {
     if (GlobalInvocationID.x >= globals.objectCount) return;
     uint objIndex = drawData[globals.offset + GlobalInvocationID.x].objectIndex;
-    objectData object = _objectData[objIndex];
-    float4x4 modelView = mul(globals.view, object.Model);
+    objectData transform = _objectData[_objectData[objIndex].indexInfo.a];
+    objectData mesh = _objectData[objIndex];
+    float4x4 modelView = mul(globals.view, transform.Model);
     // float4x4 mvp = mul(globals.proj, modelView);
-    float4 center = mul(modelView, float4(0, 0, 0, 1) + object.objectSpaceboundsCenter);
+    float4 center = mul(modelView, float4(0, 0, 0, 1) + mesh.objectSpaceboundsCenter);
     // center.z = center.z * -1;
-    float radius = object.objectSpaceboundsRadius * 1.5f;
+    float radius = mesh.objectSpaceboundsRadius * 1.5f;
     // TODO JS Culling doesn't work properly for low FOVs -- scale up to be conservative
 
     bool visible = true;

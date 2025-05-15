@@ -52,10 +52,10 @@ VSOutput Vert(VSInput input, [[vk::builtin("BaseInstance")]] uint InstanceIndex 
     vertPos.a = 1.0;
     // printf("My float is %d\n", InstanceIndex);
     //
-    objectData ubo = uboarr[InstanceIndex];
+    objectData ubo = uboarr[TRANSFORMINDEX];
     VSOutput output = (VSOutput)0;
     //
-    float4x4 modelView = mul(globals.view, uboarr[InstanceIndex].Model);
+    float4x4 modelView = mul(globals.view, uboarr[TRANSFORMINDEX].Model);
     float4x4 mvp = mul(globals.projection, modelView);
     output.Pos = mul(mvp, vertPos);
     output.Texture_ST = myVertex.uv0.xy;

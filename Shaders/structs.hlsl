@@ -2,7 +2,6 @@ struct objectData
 {
     float4x4 Model;
     float4x4 NormalMat;
-
     //objectProperties
     //Formerly push constants
     float4 indexInfo;

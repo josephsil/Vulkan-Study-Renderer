@@ -4,7 +4,7 @@
 #define VERTEXOFFSET pc.indexInfo.g
 #define TEXTURESAMPLERINDEX pc.indexInfo.b
 #define NORMALSAMPLERINDEX TEXTURESAMPLERINDEX +2 //TODO JS: temporary!
-#define OBJECTINDEX  pc.indexInfo.a
+#define TRANSFORMINDEX  pc.indexInfo.a
 
 struct VSInput
 {
@@ -116,7 +116,7 @@ static float2 positions[3] = {
 // -spirv -T vs_6_5 -E Vert .\Shader1.hlsl -Fo .\triangle.vert.spv
 VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
 {
-    objectData ubo = uboarr[OBJECTINDEX];
+    objectData ubo = uboarr[TRANSFORMINDEX];
     VSOutput output = (VSOutput)0;
     output.Texture_ST = Pos;
     // Convert cubemap coordinates into Vulkan coordinate space

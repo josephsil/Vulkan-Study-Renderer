@@ -7,7 +7,7 @@
 #define VERTEXOFFSET uboarr[InstanceIndex].indexInfo.g
 #define TEXTURESAMPLERINDEX  uboarr[InstanceIndex].textureIndexInfo.g
 #define NORMALSAMPLERINDEX  uboarr[InstanceIndex].textureIndexInfo.b //TODO JS: temporary!
-#define OBJECTINDEX  uboarr[InstanceIndex].indexInfo.a
+#define TRANSFORMINDEX  uboarr[InstanceIndex].indexInfo.a
 #define SKYBOXLUTINDEX globals.lutIDX_lutSamplerIDX_padding_padding.x
 #define SKYBOXLUTSAMPLERINDEX globals.lutIDX_lutSamplerIDX_padding_padding.y
 #define SHADOWCOUNT globals.lightcount_mode_shadowct_padding.z
