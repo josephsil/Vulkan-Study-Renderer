@@ -2,7 +2,7 @@
 #include <Renderer/rendererGlobals.h>
 #include <General/GLM_impl.h>
 #include <Renderer/VulkanIncludes/vmaImplementation.h>
-enum lightType
+enum LightType
 {
     LIGHT_DIR = 0,
     LIGHT_POINT = 1,

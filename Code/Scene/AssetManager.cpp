@@ -14,7 +14,6 @@ void static_AllocateAssetMemory(MemoryArena::memoryArena* arena, AssetManager* s
     scene->textures = Array(MemoryArena::AllocSpan<VkDescriptorImageInfo>(arena, ASSET_MAX));
     scene->backing_meshes = Array(MemoryArena::AllocSpan<MeshData>(arena, ASSET_MAX));
     scene->meshBoundingSphereRad = Array(MemoryArena::AllocSpan<positionRadius>(arena, ASSET_MAX));
-
     scene->materials = Array(MemoryArena::AllocSpan<Material>(arena, OBJECT_MAX));
 }
 
@@ -27,14 +26,14 @@ void static_AllocateAssetMemory(MemoryArena::memoryArena* arena, AssetManager* s
 //So things like, get the index back from this and then index in to these vecs to update them
 //At some point in the future I can replace this with a more sophisticated reference system if I need
 //Even just returning a pointer is probably plenty, then I can sort the lists, prune stuff, etc.
-size_t AssetManager::AddMaterial(float roughness, float metallic, glm::vec3 color, textureSetIDs textureindex,
+ID::MaterialID AssetManager::AddMaterial(float roughness, float metallic, glm::vec3 color, textureSetIDs textureindex,
                               uint32_t pipeline)
 {
     materials.push_back(Material{
         .shaderGroupIndex = pipeline, .diffuseIndex = static_cast<uint32_t>(textureindex.diffuseIndex), .specIndex =  static_cast<uint32_t>(textureindex.specIndex),
         .normalIndex =  static_cast<uint32_t>(textureindex.normIndex), .metallic = metallic, .roughness = roughness, .color = color
     });
-    return materials.size() - 1;
+    return (uint32_t)materials.size() - 1;
 }
 
 void AssetManager::Update()
@@ -79,12 +78,12 @@ size_t AssetManager::materialTextureCount()
 }
 
 
-size_t AssetManager::AddTexture(TextureData T)
+ID::TextureID AssetManager::AddTexture(TextureData T)
 {
     //What we need to render the texture. 
     textures.push_back(T.vkImageInfo);
     texturesMetaData.push_back(T.metaData);
-    return textures.size() - 1;
+    return static_cast<uint32_t>(textures.size()) - 1;
 }
 
 textureSetIDs AssetManager::AddTextureSet(TextureData D, TextureData S, TextureData N)
@@ -95,7 +94,7 @@ textureSetIDs AssetManager::AddTextureSet(TextureData D, TextureData S, TextureD
     return {static_cast<uint32_t>(dI), static_cast<uint32_t>(sI), static_cast<uint32_t>(nI)};
 }
 
-AssetManager::meshIndex AssetManager::AddBackingMesh(MeshData M)
+ID::MeshID AssetManager::AddBackingMesh(MeshData M)
 {
     backing_meshes.push_back(M);
     meshBoundingSphereRad.push_back(MeshDataCreation::boundingSphereFromMeshBounds(M.boundsCorners));

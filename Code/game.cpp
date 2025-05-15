@@ -7,24 +7,25 @@
 #include "Renderer/MeshCreation/MeshData.h"
 #include "Scene/AssetManager.h"
 #include "Scene/Scene.h"
+#include <glm/gtc/random.hpp>
 
 void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* rendererData, Scene* scene)
 {
     scene->sceneCamera.extent = {16, 10}; // ????
-    std::vector<size_t> randomMeshes;
-    std::vector<size_t> randomMaterials;
+    std::vector<ID::MeshID> randomMeshes;
+    std::vector<ID::MaterialID> randomMaterials;
     std::vector<TextureData> completedTextures;
 
     
     completedTextures.push_back(CreateTextureSynchronously( rendererContext, TextureCreation::MakeCreationArgsFromFilepathArgs("textures/blank.png", DIFFUSE)));
 
-    size_t defaultTexture = rendererData->AddTexture(completedTextures.back());
+    ID::TextureID defaultTexture = rendererData->AddTexture(completedTextures.back());
 
     completedTextures.push_back (CreateTextureSynchronously(    rendererContext, TextureCreation::MakeCreationArgsFromFilepathArgs("textures/default_roug.tga",  SPECULAR)));
-    size_t defaultSPec = rendererData->AddTexture(completedTextures.back());
+    ID::TextureID defaultSPec = rendererData->AddTexture(completedTextures.back());
     
     completedTextures.push_back (CreateTextureSynchronously(rendererContext, TextureCreation::MakeCreationArgsFromFilepathArgs("textures/blank.png",SPECULAR)));
-    size_t defaultNormal = rendererData->AddTexture(completedTextures.back());
+    ID::TextureID defaultNormal = rendererData->AddTexture(completedTextures.back());
 
 
     //Set
@@ -39,7 +40,7 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
     completedTextures.push_back (CreateTextureSynchronously(rendererContext, TextureCreation::MakeCreationArgsFromFilepathArgs("textures/pbr_cruiser-panels/space-cruiser-panels2_normal-dx.png", NORMAL,
                                                                 VK_IMAGE_VIEW_TYPE_2D)));
     auto setNorm1 = (completedTextures.back());
-    size_t placeholderMatidx;
+    ID::MaterialID placeholderMatidx;
     auto placeholderTextureidx = rendererData->AddTextureSet(
         setdiff1,
         setSpec1,setNorm1);
@@ -91,6 +92,7 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
     printf("objects count: %llu \n", scene->objects.objectsCount);
     // #else
     gltf = GltfLoadMeshes(rendererContext, "Meshes/pig.glb");
+    
 
     completedTextures.push_back (CreateTextureSynchronously(rendererContext, TextureCreation::MakeCreationArgsFromFilepathArgs("textures/pbr_cruiser-panels/space-cruiser-panels2_roughness_metallic.tga", SPECULAR,
                                                                 VK_IMAGE_VIEW_TYPE_2D)));
@@ -114,7 +116,7 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
         rendererData->AddBackingMesh(GltfLoadMeshes(rendererContext, "Meshes/cubesphere.glb").meshes[0].submeshes[0]));
     randomMeshes.push_back(rendererData->AddBackingMesh(MeshDataCreation::MeshDataFromObjFile(rendererContext, "Meshes/monkey.obj")));
 
-    size_t cube = rendererData->AddBackingMesh(GltfLoadMeshes(rendererContext, "Meshes/cube.glb").meshes[0].submeshes[0]);
+    ID::MeshID cube = rendererData->AddBackingMesh(GltfLoadMeshes(rendererContext, "Meshes/cube.glb").meshes[0].submeshes[0]);
 
     //direciton light
 
@@ -136,9 +138,13 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
             bool rowmetlalic = i % 3 == 0;
             int matIDX = rand() % randomMaterials.size();
 
+            auto sourceMaterial = rendererData->materials[matIDX];
+            auto newRandomColorMaterial = rendererData->AddMaterial(
+            sourceMaterial.roughness, sourceMaterial.metallic, glm::ballRand(1.0), {sourceMaterial.diffuseIndex, sourceMaterial.specIndex, sourceMaterial.normalIndex}, sourceMaterial.shaderGroupIndex);
+
             scene->AddObject(
                 randomMeshes[rand() % randomMeshes.size()], 1,
-               (uint32_t)randomMaterials[matIDX], glm::vec4((j), (i / 10) * 1.0, -(i % 10), 1) * 1.2f, MyQuaternion,
+               (uint32_t)newRandomColorMaterial, glm::vec4((j), (i / 10) * 1.0, -(i % 10), 1) * 1.2f, MyQuaternion,
                 glm::vec3(0.5));
             matIDX = rand() % randomMaterials.size();
         }

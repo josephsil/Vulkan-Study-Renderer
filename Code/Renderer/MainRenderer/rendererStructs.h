@@ -2,6 +2,8 @@
 #include <Renderer/VulkanIncludes/forward-declarations-renderer.h>
 #include <General/GLM_IMPL.h>
 
+#include "PipelineManager/PipelineLayoutManager.h"
+
 struct pointerSize
 {
     void* ptr;
@@ -14,7 +16,7 @@ struct simpleMeshPassInfo
 {
     uint32_t firstIndex;
     uint32_t ct;
-    VkPipeline pipeline;
+    FullShaderHandle shader;
     std::span<uint32_t> sortedObjectIDs;
 };
 

@@ -95,7 +95,7 @@ std::span<glm::vec4> LightAndCameraHelpers::FillFrustumCornersForSpace(std::span
 
 
 std::span<PerShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryArena::memoryArena* allocator,
-                                                                     cameraData cam, glm::vec3 lightPos, glm::vec3 spotDir, float spotRadius, lightType type,
+                                                                     cameraData cam, glm::vec3 lightPos, glm::vec3 spotDir, float spotRadius, LightType type,
                                                                      DebugLineData* debugLinesManager)
 {
     viewProj vp = CalcViewProjFromCamera(cam);

@@ -306,7 +306,7 @@ void ShaderLoader::AddShader(const char* name, std::wstring shaderPath, bool com
             VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
             if (vertShaderStageInfo.module != VK_NULL_HANDLE)
             {
-                setDebugObjectName(device_, VK_OBJECT_TYPE_SHADER_MODULE, name, (uint64_t)(vertShaderStageInfo.module));
+                SetDebugObjectName(device_, VK_OBJECT_TYPE_SHADER_MODULE, name, (uint64_t)(vertShaderStageInfo.module));
             }
             fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
             fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -316,7 +316,7 @@ void ShaderLoader::AddShader(const char* name, std::wstring shaderPath, bool com
             std::vector shaderStages = {vertShaderStageInfo, fragShaderStageInfo};
             if (fragShaderStageInfo.module != VK_NULL_HANDLE)
             {
-                setDebugObjectName(device_, VK_OBJECT_TYPE_SHADER_MODULE, name, (uint64_t)fragShaderStageInfo.module);
+                SetDebugObjectName(device_, VK_OBJECT_TYPE_SHADER_MODULE, name, (uint64_t)fragShaderStageInfo.module);
             }
             VkPipelineShaderStageCreateInfo test[] = {vertShaderStageInfo, fragShaderStageInfo};
             compiledShaders.insert({name, shaderStages});
@@ -334,7 +334,7 @@ void ShaderLoader::AddShader(const char* name, std::wstring shaderPath, bool com
             compiledShaders.insert({name, shaderStages});
             if (computeShaderStage.module != VK_NULL_HANDLE)
             {
-                setDebugObjectName(device_, VK_OBJECT_TYPE_SHADER_MODULE, name, (uint64_t)computeShaderStage.module);
+                SetDebugObjectName(device_, VK_OBJECT_TYPE_SHADER_MODULE, name, (uint64_t)computeShaderStage.module);
             }
             break;
         }

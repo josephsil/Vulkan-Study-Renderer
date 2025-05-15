@@ -136,9 +136,9 @@ GlobalRendererResources static_initializeResources(rendererObjects initializedre
     std::vector<VkImageView> swapchainImageViews = initializedrenderer.swapchain.get_image_views().value();
     for (int i = 0; i < swapchainImageViews.size(); i++)
     {
-        setDebugObjectName(initializedrenderer.vkbdevice.device, VK_OBJECT_TYPE_IMAGE, "Swapchain image",
+        SetDebugObjectName(initializedrenderer.vkbdevice.device, VK_OBJECT_TYPE_IMAGE, "Swapchain image",
                            uint64_t(swapchainImages[i]));
-        setDebugObjectName(initializedrenderer.vkbdevice.device, VK_OBJECT_TYPE_IMAGE_VIEW, "Swapchain image view",
+        SetDebugObjectName(initializedrenderer.vkbdevice.device, VK_OBJECT_TYPE_IMAGE_VIEW, "Swapchain image view",
                            uint64_t(swapchainImageViews[i]));
     }
 

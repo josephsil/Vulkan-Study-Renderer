@@ -52,7 +52,7 @@ int main()
     initialize(&sceneArena, 3 * 1000000);
     Scene scene = {};
     InitializeScene(&sceneArena, &scene);
-    Add_Scene_Content(renderer.getMainRendererContext(), renderer.AssetDataAndMemory, &scene);
+    Add_Scene_Content(renderer.GetMainRendererContext(), renderer.AssetDataAndMemory, &scene);
     sceneCountData sceneData = {.objectCount = scene.ObjectsCount(), .subMeshCount = scene.objects.subMeshesCount, .lightCount = scene.lightCount, .lightTypes = scene.lightTypes.getSpan()};
     renderer.InitializeRendererForScene(sceneData );
     renderer.initializePipelines( scene.lightCount);

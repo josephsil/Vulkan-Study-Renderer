@@ -8,7 +8,7 @@ void registerDebugUtilsFn(PFN_vkSetDebugUtilsObjectNameEXT ptr)
     FP_vkSetDebugUtilsObjectNameEXT = ptr;
 }
 
-void setDebugObjectName(VkDevice device, VkObjectType type, std::string name, uint64_t handle)
+void SetDebugObjectName(VkDevice device, VkObjectType type, std::string name, uint64_t handle)
 {
     VkDebugUtilsObjectNameInfoEXT DebugUtilsObjectNameInfo{};
     DebugUtilsObjectNameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;

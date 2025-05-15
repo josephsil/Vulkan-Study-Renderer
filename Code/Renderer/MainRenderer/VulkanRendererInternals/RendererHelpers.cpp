@@ -50,8 +50,8 @@ DepthBufferInfo static_createDepthResources(rendererObjects initializedrenderer,
     bufferInfo.view = TextureUtilities::createImageViewCustomMip(context, (bufferInfo.image), bufferInfo.format,
                                                                  VK_IMAGE_ASPECT_DEPTH_BIT, VK_IMAGE_VIEW_TYPE_2D, 1, 0,
                                                                  1, 0);
-    setDebugObjectName(initializedrenderer.vkbdevice.device, VK_OBJECT_TYPE_IMAGE, "DepthBufferInfo image", (uint64_t)bufferInfo.image);
-    setDebugObjectName(initializedrenderer.vkbdevice.device, VK_OBJECT_TYPE_IMAGE_VIEW, "DepthBufferInfo imageview", (uint64_t)bufferInfo.view);
+    SetDebugObjectName(initializedrenderer.vkbdevice.device, VK_OBJECT_TYPE_IMAGE, "DepthBufferInfo image", (uint64_t)bufferInfo.image);
+    SetDebugObjectName(initializedrenderer.vkbdevice.device, VK_OBJECT_TYPE_IMAGE_VIEW, "DepthBufferInfo imageview", (uint64_t)bufferInfo.view);
     return bufferInfo;
 }
 
@@ -93,12 +93,12 @@ DepthPyramidInfo static_createDepthPyramidResources(rendererObjects initializedr
         bufferInfo.viewsForMips[i] =
             TextureUtilities::createImageViewCustomMip(context, (bufferInfo.image), bufferInfo.format,
                                                        VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_VIEW_TYPE_2D, 1, 0, 1, i);
-        setDebugObjectName(initializedrenderer.vkbdevice.device, VK_OBJECT_TYPE_IMAGE, "depthPyramic image", (uint64_t)bufferInfo.image);
-        setDebugObjectName(initializedrenderer.vkbdevice.device, VK_OBJECT_TYPE_IMAGE_VIEW, "depthPyramid imageview", (uint64_t)bufferInfo.viewsForMips[i]);
+        SetDebugObjectName(initializedrenderer.vkbdevice.device, VK_OBJECT_TYPE_IMAGE, "depthPyramic image", (uint64_t)bufferInfo.image);
+        SetDebugObjectName(initializedrenderer.vkbdevice.device, VK_OBJECT_TYPE_IMAGE_VIEW, "depthPyramid imageview", (uint64_t)bufferInfo.viewsForMips[i]);
     }
 
     auto tempBufferAndPool = commandPoolmanager->beginSingleTimeCommands(false);
-    VkImageMemoryBarrier2 barrier11 = imageBarrier(bufferInfo.image,
+    VkImageMemoryBarrier2 barrier11 = GetImageBarrier(bufferInfo.image,
                                                    0,
                                                    0,
                                                    VK_IMAGE_LAYOUT_UNDEFINED,
@@ -108,7 +108,7 @@ DepthPyramidInfo static_createDepthPyramidResources(rendererObjects initializedr
                                                    VK_IMAGE_ASPECT_COLOR_BIT,
                                                    0,
                                                    HIZDEPTH);
-    pipelineBarrier(tempBufferAndPool->buffer, 0, 0, nullptr, 1, &barrier11);
+    SetPipelineBarrier(tempBufferAndPool->buffer, 0, 0, nullptr, 1, &barrier11);
 
     commandPoolmanager->endSingleTimeCommands(tempBufferAndPool, true); //todo js sync
 
@@ -125,7 +125,7 @@ void createSemaphore(VkDevice device, VkSemaphore* semaphorePtr, const char* deb
     semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
     VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, semaphorePtr));
     deletionQueue->push_backVk(deletionType::Semaphore, uint64_t(*semaphorePtr));
-    setDebugObjectName(device, VK_OBJECT_TYPE_SEMAPHORE, debugName, uint64_t(*semaphorePtr));
+    SetDebugObjectName(device, VK_OBJECT_TYPE_SEMAPHORE, debugName, uint64_t(*semaphorePtr));
 }
 
 void static_createFence(VkDevice device, VkFence* fencePtr, const char* debugName, RendererDeletionQueue* deletionQueue)
@@ -136,13 +136,13 @@ void static_createFence(VkDevice device, VkFence* fencePtr, const char* debugNam
 
     VK_CHECK(vkCreateFence(device, &fenceInfo, nullptr, fencePtr));
     deletionQueue->push_backVk(deletionType::Fence, uint64_t(*fencePtr));
-    setDebugObjectName(device, VK_OBJECT_TYPE_FENCE, debugName, uint64_t(*fencePtr));
+    SetDebugObjectName(device, VK_OBJECT_TYPE_FENCE, debugName, uint64_t(*fencePtr));
 }
 VkImageMemoryBarrier2 AllTextureAccessBarrier(CommandBufferPoolQueue bandp, VkImage image,
     VkImageLayout oldLayout,
     VkImageLayout newLayout, uint32_t mipLevel, uint32_t levelCount)
 {
-    VkImageMemoryBarrier2 barrier11 = imageBarrier(image,
+    VkImageMemoryBarrier2 barrier11 = GetImageBarrier(image,
                                                 VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_MEMORY_READ_BIT,
                                                 VK_PIPELINE_STAGE_ALL_COMMANDS_BIT ,
                                                 oldLayout,
@@ -152,7 +152,7 @@ VkImageMemoryBarrier2 AllTextureAccessBarrier(CommandBufferPoolQueue bandp, VkIm
                                                 VK_IMAGE_ASPECT_COLOR_BIT,
                                                 mipLevel,
                                                 levelCount);
-    pipelineBarrier(bandp->buffer, 0, 0, nullptr, 1, &barrier11);
+    SetPipelineBarrier(bandp->buffer, 0, 0, nullptr, 1, &barrier11);
     return barrier11;
 }
 
@@ -176,7 +176,7 @@ VkBufferMemoryBarrier2 bufferBarrier(VkBuffer buffer, VkPipelineStageFlags2 srcS
 }
 
 //zoux code
-void pipelineBarrier(VkCommandBuffer commandBuffer, VkDependencyFlags dependencyFlags, size_t bufferBarrierCount,
+void SetPipelineBarrier(VkCommandBuffer commandBuffer, VkDependencyFlags dependencyFlags, size_t bufferBarrierCount,
                      const VkBufferMemoryBarrier2* bufferBarriers, size_t imageBarrierCount,
                      const VkImageMemoryBarrier2* imageBarriers)
 {
@@ -212,7 +212,7 @@ void PipelineMemoryBarrier(VkCommandBuffer commandBuffer, VkPipelineStageFlags2 
 }
 
 //zoux code
-VkImageMemoryBarrier2 imageBarrier(VkImage image, VkPipelineStageFlags2 srcStageMask, VkAccessFlags2 srcAccessMask,
+VkImageMemoryBarrier2 GetImageBarrier(VkImage image, VkPipelineStageFlags2 srcStageMask, VkAccessFlags2 srcAccessMask,
                                    VkImageLayout oldLayout, VkPipelineStageFlags2 dstStageMask,
                                    VkAccessFlags2 dstAccessMask, VkImageLayout newLayout, VkImageAspectFlags aspectMask,
                                    uint32_t baseMipLevel, uint32_t levelCount)

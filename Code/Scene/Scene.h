@@ -5,6 +5,7 @@
 #include <string>
 
 #include "Transforms.h"
+#include "Renderer/AssetManagerTypes.h"
 #include "Renderer/rendererGlobals.h"
 #include "Renderer/RendererSharedTypes.h"
 
@@ -20,7 +21,7 @@ struct sceneCountData
     size_t objectCount = 0;
     size_t subMeshCount = 0;
     size_t lightCount = 0;
-    std::span<lightType> lightTypes;
+    std::span<LightType> lightTypes;
 };
 
 //"Gameplay"/engine scene -- extracted from the renderer scene, needs to get cleaner separation 
@@ -34,19 +35,19 @@ struct Scene
         Array<glm::vec3> translations;
         Array<glm::quat> rotations;
         Array<glm::vec3> scales;
-        Array<uint32_t> firstMeshIndex; //for renderer
-        Array<uint32_t> subMeshCtForObject; //for renderer 
-        Array<std::span<uint32_t>> materialsForSubmeshes;
+        Array<std::span<uint32_t>> subMeshes; //for renderer
+        Array<std::span<uint32_t>> subMeshMaterials;
         Array<size_t> transformIDs;
     };
 
-    Array<uint32_t> _materials_memory; //for renderer 
+    Array<uint32_t> allMaterials; //Backs the span of spans
+    Array<uint32_t> allSubmeshes; //Backs the span of spans
     // arallel arrays per Light
     size_t lightCount;
     Array<glm::vec4> lightposandradius;
     Array<glm::vec4> lightcolorAndIntensity;
     Array<glm::vec4> lightDir;
-    Array<lightType> lightTypes;
+    Array<LightType> lightTypes;
     
     Objects objects;
     cameraData sceneCamera;
@@ -63,22 +64,23 @@ struct Scene
 
 
     
-    size_t AddObject(size_t meshIndexTODO,  size_t meshct, std::span<uint32_t> materialindices, glm::vec3 position,
-                     glm::quat rotation, glm::vec3 scale = glm::vec3(1), localTransform* parent = nullptr,
+    size_t AddObject(std::span<ID::MeshID> submeshIndices, std::span<ID::MaterialID> materialIndices,
+                     glm::vec3 position, glm::quat rotation, glm::vec3 scale = glm::vec3(1), localTransform* parent = nullptr,
                      std::string name = "");
-    size_t AddObject(size_t meshIndexTODO, size_t meshct, uint32_t materialIndex,
+    size_t AddObject(ID::MeshID meshIndexTODO, size_t meshct, ID::MaterialID materialIndex,
     glm::vec3 position, glm::quat rotation, glm::vec3 scale,localTransform* parent = nullptr,
         std::string name = "");
     size_t ObjectsCount();
+    size_t DrawCount();
     size_t MeshesCount();
     size_t GetTotalSubmeshesForObjects(std::span<uint32_t> objectIndices);
 
     //TODO JS: This probably belongs in the rendering side
-    static size_t getShadowDataIndex(size_t idx, std::span<lightType> lightTypes);
+    static size_t getShadowDataIndex(size_t idx, std::span<LightType> lightTypes);
 
 private:
     int AddLight(glm::vec3 position, glm::vec3 dir = glm::vec3(-1), glm::vec3 color = glm::vec3(1), float radius = 1,
-                 float intensity = 1, lightType type = LIGHT_POINT);
+                 float intensity = 1, LightType type = LIGHT_POINT);
     void lightSort();
     void UpdateCamera(inputData input);
     void UpdateRotations();
@@ -88,4 +90,4 @@ private:
 //No scale for now
 void InitializeScene(MemoryArena::memoryArena* arena, Scene* scene);
 
-size_t shadowCountFromLightType(lightType t);
+size_t shadowCountFromLightType(LightType t);

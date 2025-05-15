@@ -147,12 +147,12 @@ void PipelineLayoutGroup::createPipelineLayoutForGroup(PerPipelineLayoutData* pe
         printf("failed to create pipeline layout!");
         exit(-1);
     }
-    setDebugObjectName(device, VK_OBJECT_TYPE_PIPELINE_LAYOUT, name, (uint64_t)(perPipelineData->layout));
+    SetDebugObjectName(device, VK_OBJECT_TYPE_PIPELINE_LAYOUT, name, (uint64_t)(perPipelineData->layout));
 }
 
 
 void PipelineLayoutGroup::createPipeline(std::span<VkPipelineShaderStageCreateInfo> shaders, const char* name,
-                                         graphicsPipelineSettings settings)
+                                         GraphicsPipelineSettings settings)
 {
     bool compute = layoutData.iscompute;
     if (compute)
@@ -167,7 +167,7 @@ void PipelineLayoutGroup::createPipeline(std::span<VkPipelineShaderStageCreateIn
 
 
 void PipelineLayoutGroup::createGraphicsPipeline(std::span<VkPipelineShaderStageCreateInfo> shaders, char* name,
-                                                 graphicsPipelineSettings settings)
+                                                 GraphicsPipelineSettings settings)
 {
     VkPipeline newGraphicsPipeline{};
 
@@ -275,7 +275,7 @@ void PipelineLayoutGroup::createGraphicsPipeline(std::span<VkPipelineShaderStage
         exit(-1);
     }
 
-    setDebugObjectName(device, VK_OBJECT_TYPE_PIPELINE, name, uint64_t(newGraphicsPipeline));
+    SetDebugObjectName(device, VK_OBJECT_TYPE_PIPELINE, name, uint64_t(newGraphicsPipeline));
 
     pipelines.push_back(newGraphicsPipeline);
 }
@@ -297,7 +297,7 @@ void PipelineLayoutGroup::createComputePipeline(VkPipelineShaderStageCreateInfo 
 
     VK_CHECK(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &newPipeline));
 
-    setDebugObjectName(device, VK_OBJECT_TYPE_PIPELINE, name, uint64_t(newPipeline));
+    SetDebugObjectName(device, VK_OBJECT_TYPE_PIPELINE, name, uint64_t(newPipeline));
     pipelines.push_back(newPipeline);
 }
 

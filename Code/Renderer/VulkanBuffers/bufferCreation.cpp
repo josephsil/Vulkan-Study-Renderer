@@ -119,7 +119,7 @@ void BufferUtilities::createDeviceBuffer(VmaAllocator allocator, VkDeviceSize si
     VmaAllocationInfo AllocationInfo = {};
     createBuffer(allocator, size, usage, VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                  allocation, buffer, &AllocationInfo);
-    setDebugObjectName(device, VK_OBJECT_TYPE_BUFFER, "Bufferutiltiies create device buffer buffer", (uint64_t)*buffer);
+    SetDebugObjectName(device, VK_OBJECT_TYPE_BUFFER, "Bufferutiltiies create device buffer buffer", (uint64_t)*buffer);
 }
 
 void BufferUtilities::createStagingBuffer(VkDeviceSize size,
@@ -129,7 +129,7 @@ void BufferUtilities::createStagingBuffer(VkDeviceSize size,
     createBuffer(allocator, size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                  VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, allocation,
                  &stagingBuffer, nullptr);
-    setDebugObjectName(device, VK_OBJECT_TYPE_BUFFER, "Bufferutiltiies create staging buffer buffer",
+    SetDebugObjectName(device, VK_OBJECT_TYPE_BUFFER, "Bufferutiltiies create staging buffer buffer",
                        (uint64_t)stagingBuffer);
 }
 
@@ -144,5 +144,5 @@ void BufferUtilities::CreateImage(
     VmaAllocationCreateInfo allocInfo = {};
     VmaAllocationInfo AllocationInfo = {};
     vmaCreateImage(allocator, pImageCreateInfo, &allocInfo, pImage, pAllocation, &AllocationInfo);
-    setDebugObjectName(device, VK_OBJECT_TYPE_IMAGE, debugName, (uint64_t)*pImage);
+    SetDebugObjectName(device, VK_OBJECT_TYPE_IMAGE, debugName, (uint64_t)*pImage);
 }

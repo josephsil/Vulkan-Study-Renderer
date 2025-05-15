@@ -64,7 +64,7 @@ public:
     AssetManager* AssetDataAndMemory;
 
     VulkanRenderer();
-    PerThreadRenderContext getMainRendererContext();
+    PerThreadRenderContext GetMainRendererContext();
     BufferCreationContext getPartialRendererContext();
     void initializePipelines(size_t shadowCasterCount);
     void InitializeRendererForScene(sceneCountData sceneCountData);

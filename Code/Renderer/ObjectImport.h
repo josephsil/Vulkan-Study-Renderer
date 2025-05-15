@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <General/GLM_impl.h>
 
+#include "AssetManagerTypes.h"
 #include "General/MemoryArena.h"
 
 
@@ -19,9 +20,9 @@ namespace ObjectImport
     //TODO JS: should have assetmanger return this
     struct DefaultTextures
     {
-        size_t defaultTexture;
-        size_t defaultSPec;
-        size_t defaultNormal;
+        ID::TextureID defaultTexture;
+        ID::TextureID defaultSPec;
+        ID::TextureID defaultNormal;
     };
 
     struct MeshObject

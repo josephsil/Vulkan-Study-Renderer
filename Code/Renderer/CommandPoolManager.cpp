@@ -82,10 +82,10 @@ CommandBufferPoolQueue CommandPoolManager::beginSingleTimeCommands(
     // fenceInfo.flags = V_FENCE_CREATE;
 
     VK_CHECK(vkCreateFence(device, &fenceInfo, nullptr, &outputFence));
-    setDebugObjectName(device, VK_OBJECT_TYPE_FENCE, "begin single time commands fence", uint64_t(outputFence));
+    SetDebugObjectName(device, VK_OBJECT_TYPE_FENCE, "begin single time commands fence", uint64_t(outputFence));
 
 
-    setDebugObjectName(device, VK_OBJECT_TYPE_COMMAND_BUFFER, "Unnamed command buffer from beginsingl;etime", (uint64_t)commandBuffer);
+    SetDebugObjectName(device, VK_OBJECT_TYPE_COMMAND_BUFFER, "Unnamed command buffer from beginsingl;etime", (uint64_t)commandBuffer);
     CommandBufferPoolQueue result = MemoryArena::Alloc<CommandBufferPoolQueue_T>(&arena);
     *result = {
         commandBuffer, useTransferPoolInsteadOfGraphicsPool ? transferCommandPool : commandPool,

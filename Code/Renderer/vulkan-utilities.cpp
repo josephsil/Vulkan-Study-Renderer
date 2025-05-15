@@ -96,7 +96,7 @@ VkDescriptorSetLayout DescriptorSets::createVkDescriptorSetLayout(PerThreadRende
 
     VkDescriptorSetLayout _layout = {};
     VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &layoutCreateInfo, nullptr, &_layout));
-    setDebugObjectName(handles.device, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, debugName, (uint64_t)_layout);
+    SetDebugObjectName(handles.device, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, debugName, (uint64_t)_layout);
     return _layout;
 }
 
@@ -129,7 +129,7 @@ void DescriptorSets::CreateDescriptorSetsForLayout(PerThreadRenderContext handle
         }
 
         AllocateDescriptorSet(handles.device, pool, descriptorSetLayoutCopiesForAlloc.data(), &sets[i], descriptorCt);
-        setDebugObjectName(handles.device, VK_OBJECT_TYPE_DESCRIPTOR_SET, debugName, uint64_t(sets[i]));
+        SetDebugObjectName(handles.device, VK_OBJECT_TYPE_DESCRIPTOR_SET, debugName, uint64_t(sets[i]));
     }
 }
 

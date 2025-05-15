@@ -4,6 +4,7 @@
 
 #include "Renderer/RendererSharedTypes.h"
 #include "Renderer/TextureCreation/TextureData.h"
+#include "Renderer/AssetManagerTypes.h"
 //
 struct positionRadius;
 
@@ -14,9 +15,9 @@ namespace MemoryArena
 
 struct textureSetIDs
 {
-    size_t diffuseIndex;
-    size_t specIndex;
-    size_t normIndex;
+    ID::TextureID diffuseIndex;
+    ID::TextureID specIndex;
+    ID::TextureID normIndex;
 };
 
 //Objects have like, transformation info, ref to their mesh, ref to their material
@@ -25,10 +26,7 @@ struct TextureMetaData;
 struct MeshData;
 struct VkDescriptorImageInfo;
 class AssetManager;
-
-
 void static_AllocateAssetMemory(MemoryArena::memoryArena* arena, AssetManager* scene);
-
 class AssetManager
 {
 public:
@@ -42,7 +40,7 @@ public:
 #pragma region RendererData
 
 
-    using meshIndex = size_t;
+
 
     int meshCount = 0;
     Array<Material> materials;
@@ -53,15 +51,15 @@ public:
 
 
     //Returns the index to the object in the vectors
-    size_t AddMaterial(float roughness, float metallic, glm::vec3 color, textureSetIDs textureindex, uint32_t pipeline);
+    ID::MaterialID AddMaterial(float roughness, float metallic, glm::vec3 color, textureSetIDs textureindex, uint32_t pipeline);
     uint32_t getIndexCount();
     uint32_t getVertexCount();
     uint32_t getOffsetFromMeshID(int id);
     positionRadius GetBoundingSphere(int idx); //TODO JS: Change to use mesh idx
     //TODO JS: these are temporary
-    size_t AddTexture(TextureData T);
+    ID::TextureID AddTexture(TextureData T);
     textureSetIDs AddTextureSet(TextureData D, TextureData S, TextureData N);
-    meshIndex AddBackingMesh(MeshData M);
+    ID::MeshID AddBackingMesh(MeshData M);
 
     void Update();
     void Cleanup();

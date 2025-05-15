@@ -51,7 +51,7 @@ struct DescriptorDataForPipeline
     std::span<VkDescriptorSetLayoutBinding> layoutBindings;
 };
 
-struct graphicsPipelineSettings
+struct GraphicsPipelineSettings
 {
     std::span<VkFormat> colorFormats;
     VkFormat depthFormat;
@@ -89,7 +89,7 @@ struct  PipelineLayoutManager
 
     FullShaderHandle createPipeline(PipelineLayoutHandle i, std::span<VkPipelineShaderStageCreateInfo> shaders,
                                     const char* name,
-                                    graphicsPipelineSettings settings);
+                                    GraphicsPipelineSettings settings);
 
     size_t TODO_REMOVEgetPipelineCt(PipelineLayoutHandle handle);
     void cleanup();
@@ -104,6 +104,6 @@ struct BindlessObjectShaderGroup
     Array<FullShaderHandle> depthOnlyShaders;
     BindlessObjectShaderGroup(MemoryArena::memoryArena*, size_t ct);
     BindlessObjectShaderGroup();
-    void push_back(FullShaderHandle o, FullShaderHandle s, FullShaderHandle d);
+    void push_back(FullShaderHandle o, FullShaderHandle s);
 };
 

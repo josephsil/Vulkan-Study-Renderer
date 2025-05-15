@@ -19,9 +19,8 @@ struct CommonRenderPassData
     Allocator tempAllocator;
     Scene* scenePtr;
     AssetManager* assetDataPtr;
-    VkPipelineLayout cullLayout; //todo
-    PipelineLayoutManager* pipelineManagerPtr;
-    ActiveRenderStepData* computeRenderStepContext; //todo
+    VkPipelineLayout cullLayout; //todo get from a lookup
+    ActiveRenderStepData* computeRenderStepContext; //todo reduce these step contexts and sycnrhonzie manually
 
     VkBuffer indexBuffer;
 
@@ -31,7 +30,7 @@ struct RenderBatchCreationConfig
 {
     char* name;
     renderPassAttatchmentInfo attatchmentInfo;
-    std::span<FullShaderHandle> shaderGroup;
+    std::span<FullShaderHandle> shadersSupportedByBatch;
     PipelineLayoutHandle layoutGroup;
     ActiveRenderStepData* StepContext;
     pointerSize pushConstant;
@@ -46,16 +45,17 @@ struct RenderBatchQueue
 {
     size_t drawCount;
     std::vector<RenderBatch> batchConfigs;
-    void EmplaceBatch(const char* name,
-                       CommonRenderPassData* context,
-                       RenderBatchCreationConfig passCreationConfig);
+    void AddBatch(
+        CommonRenderPassData* context,
+        RenderBatchCreationConfig passCreationConfig);
+    void AddBatches(CommonRenderPassData* context, std::span<RenderBatchCreationConfig> configs);
 };
 
 struct RenderBatch
 {
     std::string debugName;
     ActiveRenderStepData* drawRenderStepContext;
-    ActiveRenderStepData* computeRenderStepContext;
+    ActiveRenderStepData* computeRenderStepContext; 
     PipelineLayoutHandle pipelineLayoutGroup; 
     VkBuffer indexBuffer; 
     VkIndexType indexBufferType; // VK_INDEX_TYPE_UINT32
@@ -68,6 +68,7 @@ struct RenderBatch
     void* pushConstants; //shadowPushConstants constants;
     uint32_t pushConstantsSize;
     depthBiasSettng depthBiasSetting;
+    
     RenderBatch(const char* name,
     CommonRenderPassData* context,
     RenderBatchCreationConfig passCreationConfig);

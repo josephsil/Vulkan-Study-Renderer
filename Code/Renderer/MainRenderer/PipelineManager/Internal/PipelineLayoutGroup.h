@@ -40,9 +40,9 @@ public:
     //Initialization
 
     void createPipeline(std::span<VkPipelineShaderStageCreateInfo> shaders, const char* name,
-                        graphicsPipelineSettings settings);
+                        GraphicsPipelineSettings settings);
     void createGraphicsPipeline(std::span<VkPipelineShaderStageCreateInfo> shaders, char* name,
-                                graphicsPipelineSettings settings);
+                                GraphicsPipelineSettings settings);
     void createComputePipeline(VkPipelineShaderStageCreateInfo shader, char* name, size_t pconstantSize = 0);
     struct PerPipelineLayoutData;
 

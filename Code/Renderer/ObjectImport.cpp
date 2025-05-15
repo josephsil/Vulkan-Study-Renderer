@@ -14,50 +14,44 @@ struct AddObjectResult
 };
 void ObjectImport::CreateObjectAssets(Allocator &arena, Scene &scene, AssetManager &assetManager, ImportedObjectData &gltf, DefaultTextures defaults)
 {
-  std::span<std::span<size_t>> gltfSubmeshIndexToAssetManagerIndex = MemoryArena::AllocSpan<std::span<size_t>>(
-   arena, gltf.meshes.size());
-    std::span<std::span<uint32_t>> gltfSubmeshMaterialIndexToAssetManagerIndex = MemoryArena::AllocSpan<std::span<uint32_t>>(
-   arena, gltf.meshes.size());
-    std::span<size_t> gltfTextureToAssetManagerTextureIndex = MemoryArena::AllocSpan<size_t>(arena, gltf.textures.size());
-    std::span<size_t> gltfMaterialIndexToAssetManagerIndex = MemoryArena::AllocSpan<size_t>(arena, gltf.materials.size());
+  auto perSubmeshMeshHandles = MemoryArena::AllocSpan<std::span<ID::MeshID>>(arena, gltf.meshes.size());
+    auto perSubmeshMaterialHandles = MemoryArena::AllocSpan<std::span<ID::MaterialID>>(arena, gltf.meshes.size());
+    std::span<ID::TextureID> createdTextureIDs = MemoryArena::AllocSpan<ID::TextureID>(arena, gltf.textures.size());
+    std::span<ID::MaterialID> createdMaterialIDs = MemoryArena::AllocSpan<ID::MaterialID>(arena, gltf.materials.size());
 
     //< Tform
     int addedCt = 0;
-    std::span<bool> created = MemoryArena::AllocSpan<bool>(arena, gltf.objects.size());
-    std::span<localTransform*> tforms = MemoryArena::AllocSpan<localTransform*>(arena, gltf.objects.size());
-
-    std::span<size_t> parent = MemoryArena::AllocSpanEmplaceInitialize<size_t>(arena, gltf.objects.size(), SIZE_MAX);
-
+    std::span<localTransform*> transformPointers = MemoryArena::AllocSpan<localTransform*>(arena, gltf.objects.size());
+    std::span<size_t> parentsPerObjects = MemoryArena::AllocSpanEmplaceInitialize<size_t>(arena, gltf.objects.size(), SIZE_MAX);
     /// />
-
 
 
     for (int i = 0; i < gltf.textures.size(); i++)
     {
-        gltfTextureToAssetManagerTextureIndex[i] = assetManager.AddTexture(gltf.textures[i]);
+        createdTextureIDs[i] = assetManager.AddTexture(gltf.textures[i]);
     }
     for (int i = 0; i < gltf.materials.size(); i++)
     {
         auto mat = gltf.materials[i];
         textureSetIDs textures = {
-            mat.diffIndex >= 0 ? gltfTextureToAssetManagerTextureIndex[mat.diffIndex] : defaults.defaultTexture,
-            mat.specIndex >= 0 ? gltfTextureToAssetManagerTextureIndex[mat.specIndex] : defaults.defaultSPec,
-            mat.normIndex >= 0 ? gltfTextureToAssetManagerTextureIndex[mat.normIndex] : defaults.defaultNormal
+            mat.diffIndex >= 0 ? createdTextureIDs[mat.diffIndex] : defaults.defaultTexture,
+            mat.specIndex >= 0 ? createdTextureIDs[mat.specIndex] : defaults.defaultSPec,
+            mat.normIndex >= 0 ? createdTextureIDs[mat.normIndex] : defaults.defaultNormal
         };
-        gltfMaterialIndexToAssetManagerIndex[i] = assetManager.AddMaterial(mat.roughnessFactor, mat.metallicFactor, mat.baseColorFactor,
+        createdMaterialIDs[i] = assetManager.AddMaterial(mat.roughnessFactor, mat.metallicFactor, mat.baseColorFactor,
                                                    textures, 1);
     }
 
     for (int i = 0; i < gltf.meshes.size(); i++)
     {
-        gltfSubmeshIndexToAssetManagerIndex[i] = MemoryArena::AllocSpan<size_t>(arena, gltf.meshes[i].submeshes.size());
-        gltfSubmeshMaterialIndexToAssetManagerIndex[i] = MemoryArena::AllocSpan<uint32_t>(arena, gltf.meshes[i].submeshes.size());
+        perSubmeshMeshHandles[i] = MemoryArena::AllocSpan<ID::MeshID>(arena, gltf.meshes[i].submeshes.size());
+        perSubmeshMaterialHandles[i] = MemoryArena::AllocSpan<ID::MaterialID>(arena, gltf.meshes[i].submeshes.size());
         for (int j = 0; j < gltf.meshes[i].submeshes.size(); j++)
         {
-            gltfSubmeshIndexToAssetManagerIndex[i][j] = assetManager.AddBackingMesh(gltf.meshes[i].submeshes[j]);
+            perSubmeshMeshHandles[i][j] = assetManager.AddBackingMesh(gltf.meshes[i].submeshes[j]);
 
             //The resulting span is the renderer material index, suitable to get passed to create object
-            gltfSubmeshMaterialIndexToAssetManagerIndex[i][j] =   (uint32_t)gltfMaterialIndexToAssetManagerIndex[gltf.meshes[i].materialIndices[j]];
+            perSubmeshMaterialHandles[i][j] =   (uint32_t)createdMaterialIDs[gltf.meshes[i].materialIndices[j]];
         }
     }
 
@@ -67,56 +61,30 @@ void ObjectImport::CreateObjectAssets(Allocator &arena, Scene &scene, AssetManag
     {
         for (int j = 0; j < gltf.objects[i].children.size(); j++)
         {
-            parent[gltf.objects[i].children[j]] = i;
+            parentsPerObjects[gltf.objects[i].children[j]] = i;
         }
     }
 
+ 
     
     //lol
-    while (addedCt < gltf.objects.size())
-    {
+
         for (int i = 0; i < gltf.objects.size(); i++)
         {
-            auto object = gltf.objects[i];
-            if (parent[i] == -1 || created[parent[i]])
-            {
-                if (created[i]) continue;
-                auto mesh = gltf.meshes[gltf.objects[i].meshidx];
-                //Submeshes -- todo
+            auto object = gltf.objects[i]; //todo js: return list of created parent objects?
 
-                size_t TODO_J = 0;
-                size_t gltfMatIDX = mesh.materialIndices[TODO_J];
-                size_t sceneMatIDX = gltfMaterialIndexToAssetManagerIndex[mesh.materialIndices[TODO_J]];
-                size_t objectID = 0;
-                localTransform* parentTransform = (parent[i] != -1) ? tforms[parent[i]] : nullptr;
-                //rendererContext JS: add objcet that takes matrix
-                objectID = scene.AddObject(
-                    gltfSubmeshIndexToAssetManagerIndex[object.meshidx][0], mesh.submeshes.size(),
-                    gltfSubmeshMaterialIndexToAssetManagerIndex[i],
-                    object.translation,
-                    object.rotation,
-                    object.scale,
-                    parentTransform);
-                tforms[i] = &scene.transforms.transformNodes[objectID];
-                //Only the first one can have children because these are like "fake objects"}
-                created[i] = true;
-                
-                // for (int j = 0; j < mesh.submeshes.size(); j++)
-                // {
-                //
-                //     //Submeshes -- todo 
-                //     if (j == 0)
-                //     {
-                //     
-                //     }
-                // }
-                addedCt++;
-            }
-            else
-            {
-            }
+            auto mesh = gltf.meshes[gltf.objects[i].meshidx];
+            size_t TODO_J = 0;
+            localTransform* parentTransform = (parentsPerObjects[i] != -1) ? transformPointers[parentsPerObjects[i]] : nullptr;
+            size_t objectID = scene.AddObject(
+                perSubmeshMeshHandles[i],
+                perSubmeshMaterialHandles[i],
+                object.translation,
+                object.rotation,
+                object.scale,
+                parentTransform);
+            transformPointers[i] = &scene.transforms.transformNodes[objectID];
         }
-    }     
 
   
 

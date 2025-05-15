@@ -245,6 +245,7 @@
     <ClInclude Include="Code\General\InputHandling.h" />
     <ClInclude Include="Code\General\MemoryArena.h" />
     <ClInclude Include="Code\glm_misc.h" />
+    <ClInclude Include="Code\Renderer\AssetManagerTypes.h" />
     <ClInclude Include="Code\Renderer\CommandPoolManager.h" />
     <ClInclude Include="Code\Renderer\gltf\gltfLoading.h" />
     <ClInclude Include="Code\Renderer\gltf\gltf_impl.h" />

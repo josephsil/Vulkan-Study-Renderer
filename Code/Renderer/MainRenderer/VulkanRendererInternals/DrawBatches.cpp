@@ -15,79 +15,93 @@ struct pipelineBucket
 };
 
 
-void RenderBatchQueue::EmplaceBatch(const char* name,
+void RenderBatchQueue::AddBatch(
     CommonRenderPassData* context,
     RenderBatchCreationConfig passCreationConfig )
 {
-    batchConfigs.emplace_back(name, context, passCreationConfig);
+    batchConfigs.emplace_back(passCreationConfig.name, context, passCreationConfig);
     drawCount += passCreationConfig.objectCount;
+}
+
+void RenderBatchQueue::AddBatches(CommonRenderPassData* context, std::span<RenderBatchCreationConfig> configs)
+{
+    for (auto c :  configs)
+    {
+        batchConfigs.emplace_back(c.name, context, c);
+        drawCount += c.objectCount;
+    }
 }
 
 RenderBatch::RenderBatch(const char* name, CommonRenderPassData* context, RenderBatchCreationConfig passCreationConfig)
 {
-    
+
+    //Culling override code
     uint32_t cullFrustumIndex = (passCreationConfig.drawOffset) * 6;
     if (debug_cull_override)
     {
         cullFrustumIndex =  debug_cull_override_index * 6;
     }
-        
+
+    //Configure frustum culling compute shader for this batch
     cullPConstants* cullconstants = MemoryArena::Alloc<cullPConstants>(context->tempAllocator);
-
-
     *cullconstants = {.view = passCreationConfig.cameraViewProjForCulling.view, .firstDraw = passCreationConfig.drawOffset, .frustumIndex = cullFrustumIndex, .objectCount = passCreationConfig.objectCount};
     ComputeCullListInfo* cullingInfo = MemoryArena::Alloc<ComputeCullListInfo>(context->tempAllocator);
-    *cullingInfo =  {.firstDrawIndirectIndex = passCreationConfig.drawOffset, .drawCount = passCreationConfig.objectCount, .viewMatrix = passCreationConfig.cameraViewProjForCulling.view, .projMatrix = passCreationConfig.cameraViewProjForCulling.proj, 
-        .layout =context->cullLayout, // just get pipeline layout globally?
+    *cullingInfo =  {.firstDrawIndirectIndex = passCreationConfig.drawOffset, .drawCount = passCreationConfig.objectCount,
+        .viewMatrix = passCreationConfig.cameraViewProjForCulling.view,
+        .projMatrix = passCreationConfig.cameraViewProjForCulling.proj, 
+        .layout =context->cullLayout, 
        .pushConstantInfo =  {.ptr = cullconstants, .size =  sizeof(cullPConstants) }};
 
-    Array<pipelineBucket> batchedDrawBuckets = MemoryArena::AllocSpan<pipelineBucket>(context->tempAllocator, passCreationConfig.shaderGroup.size());
 
+    
     ////Flatten buckets into simpleMeshPassInfos sorted by pipeline
-    ///    //Opaque passes are bucketed by pipeline 
+    ///    //passes are bucketed by pipeline 
     //initialize and fill pipeline buckets
-    for (uint32_t i = 0; i <passCreationConfig.shaderGroup.size(); i++)
+    Array<pipelineBucket> batchedDrawBuckets = MemoryArena::AllocSpan<pipelineBucket>(context->tempAllocator, passCreationConfig.shadersSupportedByBatch.size());
+    for (uint32_t i = 0; i <passCreationConfig.shadersSupportedByBatch.size(); i++)
     {
-        if (passCreationConfig.shaderGroup[i].shader >= batchedDrawBuckets.size())
+        //Prepare a bucket for each shader
+        //Note: not obvious to me why I did this this way, with the >= size 
+        if (passCreationConfig.shadersSupportedByBatch[i].shader >= batchedDrawBuckets.size())
         {
             batchedDrawBuckets.push_back( {i, Array(MemoryArena::AllocSpan<uint32_t>(context->tempAllocator, MAX_DRAWS_PER_PIPELINE))});
             batchedDrawBuckets.back().subMeshIndices = MemoryArena::AllocSpan<uint32_t>(context->tempAllocator,  passCreationConfig.objectCount);
             batchedDrawBuckets.back().objectIndices = MemoryArena::AllocSpan<uint32_t>(context->tempAllocator,  passCreationConfig.objectCount);
         }
     }
+    
+    //Bucket submeshes by shader 
     uint32_t submeshIndex = 0;
-    uint32_t objectIndex = 0;
     for (uint32_t i = 0; i < context->scenePtr->ObjectsCount(); i++)
     {
-        for (uint32_t j = 0; j <context->scenePtr->objects.materialsForSubmeshes[i].size(); j++)
+        for (uint32_t j = 0; j <context->scenePtr->objects.subMeshMaterials[i].size(); j++)
         {
-            uint32_t shaderGroupIndex = context->assetDataPtr->materials[context->scenePtr->objects.materialsForSubmeshes[i][j]].shaderGroupIndex; //TODO JS: takes the shader from the first submesh of the object! need to break transforms out and loop submesh ct here
-            uint32_t pipelineIndex = (uint32_t)passCreationConfig.shaderGroup[shaderGroupIndex].shader;
+            uint32_t shaderGroupIndex = context->assetDataPtr->materials[context->scenePtr->objects.subMeshMaterials[i][j]].shaderGroupIndex; 
+            uint32_t pipelineIndex = (uint32_t)passCreationConfig.shadersSupportedByBatch[shaderGroupIndex].shader;
             batchedDrawBuckets[pipelineIndex].subMeshIndices.push_back(submeshIndex++);
-            batchedDrawBuckets[pipelineIndex].objectIndices.push_back(objectIndex);
+            batchedDrawBuckets[pipelineIndex].objectIndices.push_back(i);
         }
-        objectIndex++;
     }
     
-    Array _meshPasses = MemoryArena::AllocSpan<simpleMeshPassInfo>(context->tempAllocator, MAX_PIPELINES);
-    uint32_t drawOffsetAtTheStartOfOpaque = passCreationConfig.drawOffset;
-    uint32_t subspanOffset = 0;
+    Array outputMeshPasses = MemoryArena::AllocSpan<simpleMeshPassInfo>(context->tempAllocator, MAX_PIPELINES);
+    uint32_t drawOffset = passCreationConfig.drawOffset; //Where in the drawindirect buffer are we appending
+
+    //Convert our output buckets into simplemeshpassinfo structs that later stages of the render can read
     for (size_t i = 0; i < batchedDrawBuckets.size(); i++)
     {
-        auto drawBatch =  batchedDrawBuckets[i];
-        if (drawBatch.objectIndices.size() == 0)
+        auto bucketedBatch =  batchedDrawBuckets[i];
+        if (bucketedBatch.objectIndices.size() == 0)
         {
             continue;
         }
-        std::span<unsigned int> objectIndices = drawBatch.objectIndices.getSpan();
-        auto firstIndex = drawOffsetAtTheStartOfOpaque + subspanOffset;
+        std::span<unsigned int> objectIndices = bucketedBatch.objectIndices.getSpan();
+        auto shaderID =passCreationConfig.shadersSupportedByBatch[bucketedBatch.pipelineIDX];
+        auto firstIndex =drawOffset;
+        uint32_t drawsInBatch = (uint32_t)bucketedBatch.subMeshIndices.size();
+        outputMeshPasses.push_back({.firstIndex = firstIndex, .ct = drawsInBatch, .shader = shaderID,
+            .sortedObjectIDs =  bucketedBatch.subMeshIndices.getSpan()});
 
-        auto shaderID =passCreationConfig.shaderGroup[drawBatch.pipelineIDX];
-
-        _meshPasses.push_back({.firstIndex = firstIndex, .ct = (uint32_t)drawBatch.subMeshIndices.size(), .pipeline = context->pipelineManagerPtr->GetPipeline(shaderID.layout, shaderID.shader),
-            .sortedObjectIDs =  drawBatch.subMeshIndices.getSpan()});
-
-        subspanOffset += (uint32_t)drawBatch.subMeshIndices.size();
+        drawOffset += drawsInBatch;
     }
     auto s = std::string(name);
     
@@ -98,7 +112,7 @@ RenderBatch::RenderBatch(const char* name, CommonRenderPassData* context, Render
       pipelineLayoutGroup =   passCreationConfig.layoutGroup;
       indexBuffer = context->indexBuffer;
       indexBufferType =  VK_INDEX_TYPE_UINT32;
-      meshPasses = _meshPasses.getSpan();
+      meshPasses = outputMeshPasses.getSpan();
       computeCullingInfo = cullingInfo;
       depthAttatchment = passCreationConfig.attatchmentInfo.depthDraw;
       colorattatchment = passCreationConfig.attatchmentInfo.colorDraw;

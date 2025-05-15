@@ -70,7 +70,7 @@ void LoadTexturesThreaded(PerThreadRenderContext handles, std::span<TextureData>
         new(ThreadWorker.PerThreadContext[i].textureCreationcommandPoolmanager) CommandPoolManager(
             *ThreadWorker.PerThreadContext[i].vkbd, ThreadWorker.PerThreadContext[i].threadDeletionQueue);
         
-        setDebugObjectName(ThreadWorker.PerThreadContext[i].device, VK_OBJECT_TYPE_COMMAND_POOL, "thread ktx pool",
+        SetDebugObjectName(ThreadWorker.PerThreadContext[i].device, VK_OBJECT_TYPE_COMMAND_POOL, "thread ktx pool",
                            (uint64_t)ThreadWorker.PerThreadContext[i].textureCreationcommandPoolmanager->commandPool);
     }
     

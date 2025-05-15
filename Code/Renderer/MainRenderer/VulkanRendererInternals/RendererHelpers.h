@@ -29,7 +29,7 @@ void createSemaphore(VkDevice device, VkSemaphore* semaphorePtr, const char* deb
                      RendererDeletionQueue* deletionQueue);
 
 //Utilities/helpers
-void pipelineBarrier(VkCommandBuffer commandBuffer, VkDependencyFlags dependencyFlags, size_t bufferBarrierCount,
+void SetPipelineBarrier(VkCommandBuffer commandBuffer, VkDependencyFlags dependencyFlags, size_t bufferBarrierCount,
                      const VkBufferMemoryBarrier2* bufferBarriers, size_t imageBarrierCount,
                      const VkImageMemoryBarrier2* imageBarriers);
 void PipelineMemoryBarrier(VkCommandBuffer commandBuffer, VkPipelineStageFlags2 srcStageMask, VkAccessFlags2 srcAccessMask,
@@ -40,7 +40,7 @@ VkImageMemoryBarrier2 AllTextureAccessBarrier(CommandBufferPoolQueue bandp, VkIm
     VkImageLayout newLayout, uint32_t mipLevel, uint32_t levelCount = 1);
 VkBufferMemoryBarrier2 bufferBarrier(VkBuffer buffer, VkPipelineStageFlags2 srcStageMask, VkAccessFlags2 srcAccessMask,
                                      VkPipelineStageFlags2 dstStageMask, VkAccessFlags2 dstAccessMask);
-VkImageMemoryBarrier2 imageBarrier(VkImage image, VkPipelineStageFlags2 srcStageMask, VkAccessFlags2 srcAccessMask,
+VkImageMemoryBarrier2 GetImageBarrier(VkImage image, VkPipelineStageFlags2 srcStageMask, VkAccessFlags2 srcAccessMask,
                                    VkImageLayout oldLayout, VkPipelineStageFlags2 dstStageMask,
                                    VkAccessFlags2 dstAccessMask, VkImageLayout newLayout, VkImageAspectFlags aspectMask,
                                    uint32_t baseMipLevel, uint32_t levelCount);

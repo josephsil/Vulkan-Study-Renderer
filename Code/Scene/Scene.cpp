@@ -12,6 +12,7 @@
 #include "General/Array.h"
 #include "General/InputHandling.h"
 #include "General/MemoryArena.h"
+#include "Renderer/AssetManagerTypes.h"
 
 void InitializeScene(MemoryArena::memoryArena* arena, Scene* scene)
 {
@@ -21,17 +22,17 @@ void InitializeScene(MemoryArena::memoryArena* arena, Scene* scene)
     scene->objects.translations = Array(MemoryArena::AllocSpan<glm::vec3>(arena, OBJECT_MAX));
     scene->objects.rotations = Array(MemoryArena::AllocSpan<glm::quat>(arena, OBJECT_MAX));
     scene->objects.scales = Array(MemoryArena::AllocSpan<glm::vec3>(arena, OBJECT_MAX));
-    scene->objects.materialsForSubmeshes = Array(MemoryArena::AllocSpan<std::span<uint32_t>>(arena, OBJECT_MAX));
-    scene->_materials_memory = Array(MemoryArena::AllocSpanDefaultInitialize<uint32_t>(arena, OBJECT_MAX));
-    scene->objects.firstMeshIndex = Array(MemoryArena::AllocSpan<uint32_t>(arena, OBJECT_MAX));
-    scene->objects.subMeshCtForObject = Array(MemoryArena::AllocSpan<uint32_t>(arena, OBJECT_MAX));
+    scene->objects.subMeshMaterials = Array(MemoryArena::AllocSpan<std::span<uint32_t>>(arena, OBJECT_MAX));
+    scene->allMaterials = Array(MemoryArena::AllocSpanDefaultInitialize<uint32_t>(arena, OBJECT_MAX * 100));
+    scene->allSubmeshes = Array(MemoryArena::AllocSpanDefaultInitialize<uint32_t>(arena, OBJECT_MAX * 100));
+    scene->objects.subMeshes = Array(MemoryArena::AllocSpan<std::span<uint32_t>>(arena, OBJECT_MAX));
     scene->objects.transformIDs = Array(MemoryArena::AllocSpan<size_t>(arena, OBJECT_MAX));
 
     //Lights 
     scene->lightposandradius = Array(MemoryArena::AllocSpan<glm::vec4>(arena, LIGHT_MAX));
     scene->lightcolorAndIntensity = Array(MemoryArena::AllocSpan<glm::vec4>(arena, LIGHT_MAX));
     scene->lightDir = Array(MemoryArena::AllocSpan<glm::vec4>(arena, LIGHT_MAX));
-    scene->lightTypes = Array(MemoryArena::AllocSpan<lightType>(arena, LIGHT_MAX));
+    scene->lightTypes = Array(MemoryArena::AllocSpan<LightType>(arena, LIGHT_MAX));
     scene->sceneCamera = {};
     scene->lightCount = 0;
 
@@ -43,7 +44,7 @@ void InitializeScene(MemoryArena::memoryArena* arena, Scene* scene)
     scene->transforms.rootTransformsView = Array(MemoryArena::AllocSpan<localTransform*>(arena, OBJECT_MAX));
 }
 
-size_t shadowCountFromLightType(lightType t)
+size_t shadowCountFromLightType(LightType t)
 {
     return t == LIGHT_POINT ? 6 : t == LIGHT_DIR ? CASCADE_CT : 1;
 }
@@ -112,30 +113,30 @@ void Scene::Update()
     transforms.UpdateWorldTransforms();
 }
 
-size_t Scene::AddObject(size_t meshIndexTODO, size_t meshct, uint32_t materialIndex,
+size_t Scene::AddObject(ID::MeshID meshIndexTODO, size_t meshct, ID::MaterialID materialIndex,
                      glm::vec3 position, glm::quat rotation, glm::vec3 scale, localTransform* parent, std::string name)
 {
     assert(meshct == 1); //Can only use this override for single submesh cases. todo clean this up
 
     auto span = std::span<uint32_t>(&materialIndex, 1);
-    return AddObject(meshIndexTODO, meshct, span,
+    auto span2 = std::span<uint32_t>(&meshIndexTODO, meshct);
+    return AddObject(span2, span,
                      position,rotation, scale, parent,name);
     
 }
-size_t Scene::AddObject(size_t meshIndexTODO, size_t meshct, std::span<uint32_t> materialIndices,
+size_t Scene::AddObject(std::span<ID::MeshID> submeshIndices, std::span<ID::MaterialID> materialIndices,
                      glm::vec3 position, glm::quat rotation, glm::vec3 scale, localTransform* parent, std::string name)
 {
-    uint32_t submeshCt = static_cast<uint32_t>(meshct);
+    uint32_t submeshCt = static_cast<uint32_t>(submeshIndices.size());
     //TODD JS: version that can add
     // objects.meshes.push_back(mesh);
 
-    objects.materialsForSubmeshes.push_back(_materials_memory.push_back_span(materialIndices));
+    objects.subMeshMaterials.push_back(allMaterials.push_back_span(materialIndices));
     objects.translations.push_back(position);
     objects.rotations.push_back(rotation);
     objects.scales.push_back(scale);
     // transforms.worldMatrices.push_back(glm::mat4(1.0));
-    objects.firstMeshIndex.push_back(static_cast<uint32_t>(meshIndexTODO));
-    objects.subMeshCtForObject.push_back(static_cast<uint32_t>(submeshCt));
+    objects.subMeshes.push_back(allSubmeshes.push_back_span(submeshIndices));
     objects.transformIDs.push_back(objects.transformIDs.size());
 
     //TODO JS: When we use real objects, we'll only create transforms with these ids
@@ -171,6 +172,11 @@ size_t Scene::ObjectsCount()
     return objects.objectsCount;
 }
 
+size_t Scene::DrawCount()
+{
+    return MeshesCount();
+}
+
 size_t Scene::MeshesCount()
 {
     return objects.subMeshesCount;
@@ -181,7 +187,7 @@ size_t Scene:: GetTotalSubmeshesForObjects(std::span<uint32_t> objectIndices)
     size_t result = 0;
     for (auto element : objectIndices)
     {
-        result += objects.subMeshCtForObject[element];
+        result += objects.subMeshes[element].size();
     }
     return result;
 }
@@ -216,7 +222,7 @@ void Scene::lightSort()
     std::span<glm::vec4> tempPos;
     std::span<glm::vec4> tempCol;
     std::span<glm::vec4> tempDir;
-    std::span<lightType> tempType;
+    std::span<LightType> tempType;
 
     //if there's room, use the back half of the existing arrays
     if (lightCount < LIGHT_MAX / 2)
@@ -224,7 +230,7 @@ void Scene::lightSort()
         tempPos = std::span<glm::vec4>(lightposandradius.data, LIGHT_MAX).subspan(LIGHT_MAX / 2, LIGHT_MAX / 2);
         tempCol = std::span<glm::vec4>(lightcolorAndIntensity.data, LIGHT_MAX).subspan(LIGHT_MAX / 2, LIGHT_MAX / 2);
         tempDir = std::span<glm::vec4>(lightDir.data, LIGHT_MAX).subspan(LIGHT_MAX / 2, LIGHT_MAX / 2);
-        tempType = std::span<lightType>(lightTypes.data, LIGHT_MAX).subspan(LIGHT_MAX / 2, LIGHT_MAX / 2);
+        tempType = std::span<LightType>(lightTypes.data, LIGHT_MAX).subspan(LIGHT_MAX / 2, LIGHT_MAX / 2);
     }
     else
     {
@@ -271,18 +277,18 @@ void Scene::lightSort()
     }
 }
 
-size_t Scene::getShadowDataIndex(size_t idx, std::span<lightType> lightTypes)
+size_t Scene::getShadowDataIndex(size_t idx, std::span<LightType> lightTypes)
 {
     size_t output = 0;
     for (size_t i = 0; i < idx; i++)
     {
-        lightType type = lightTypes[i];
+        LightType type = lightTypes[i];
         output += shadowCountFromLightType(type);
     }
     return output;
 }
 
-int Scene::AddLight(glm::vec3 position, glm::vec3 dir, glm::vec3 color, float radius, float intensity, lightType type)
+int Scene::AddLight(glm::vec3 position, glm::vec3 dir, glm::vec3 color, float radius, float intensity, LightType type)
 {
     lightposandradius.push_back(glm::vec4(position.x, position.y, position.z, radius));
     lightcolorAndIntensity.push_back(glm::vec4(color.x, color.y, color.z, intensity));

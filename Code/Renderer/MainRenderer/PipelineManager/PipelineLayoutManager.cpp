@@ -78,7 +78,7 @@ VkPipelineLayout PipelineLayoutManager::GetLayout(PipelineLayoutHandle handle)
 FullShaderHandle PipelineLayoutManager::createPipeline(PipelineLayoutHandle i,
                                                        std::span<VkPipelineShaderStageCreateInfo> shaders,
                                                        const char* name,
-                                                       graphicsPipelineSettings settings)
+                                                       GraphicsPipelineSettings settings)
 {
     pipelineLayoutGroups[i].createPipeline(shaders, name, settings);
     return {i, pipelineLayoutGroups[i].getPipelineCt() -1};
@@ -110,9 +110,8 @@ BindlessObjectShaderGroup::BindlessObjectShaderGroup()
 {
 }
 
-void BindlessObjectShaderGroup::push_back(FullShaderHandle o, FullShaderHandle s, FullShaderHandle d)
+void BindlessObjectShaderGroup::push_back(FullShaderHandle o, FullShaderHandle s)
 {
     opaqueShaders.push_back(o);
     shadowShaders.push_back(s);
-    depthOnlyShaders.push_back(d);
 }

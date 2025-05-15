@@ -42,7 +42,7 @@ VkImageView TextureUtilities::createImageViewCustomMip(BufferCreationContext ren
 
     VkImageView imageView;
     VK_CHECK(vkCreateImageView(rendererContext.device, &viewInfo, nullptr, &imageView));
-    setDebugObjectName(rendererContext.device, VK_OBJECT_TYPE_IMAGE_VIEW, "TextureCreation image view",
+    SetDebugObjectName(rendererContext.device, VK_OBJECT_TYPE_IMAGE_VIEW, "TextureCreation image view",
                        (uint64_t)imageView);
     rendererContext.rendererdeletionqueue->push_backVk(deletionType::ImageView, (uint64_t)imageView);
     return imageView;
@@ -208,7 +208,7 @@ VkImageMemoryBarrier2 AllTextureAccessBarrier(CommandBufferPoolQueue bandp, VkIm
     VkImageLayout oldLayout,
     VkImageLayout newLayout, uint32_t mipLevel)
 {
-    VkImageMemoryBarrier2 barrier11 = imageBarrier(image,
+    VkImageMemoryBarrier2 barrier11 = GetImageBarrier(image,
                                                 VK_ACCESS_MEMORY_WRITE_BIT,
                                                 srcStage,
                                                 oldLayout,
@@ -218,12 +218,12 @@ VkImageMemoryBarrier2 AllTextureAccessBarrier(CommandBufferPoolQueue bandp, VkIm
                                                 VK_IMAGE_ASPECT_COLOR_BIT,
                                                 mipLevel,
                                                 1);
-    pipelineBarrier(bandp->buffer, 0, 0, nullptr, 1, &barrier11);
+    SetPipelineBarrier(bandp->buffer, 0, 0, nullptr, 1, &barrier11);
     return barrier11;
 }
 VkImageMemoryBarrier2 blitBarrier(CommandBufferPoolQueue bandp, VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevel)
 {
-    VkImageMemoryBarrier2 barrier11 = imageBarrier(image,
+    VkImageMemoryBarrier2 barrier11 = GetImageBarrier(image,
                                                 VK_PIPELINE_STAGE_TRANSFER_BIT,
                                                VK_ACCESS_MEMORY_WRITE_BIT,
                                                 oldLayout,
@@ -233,7 +233,7 @@ VkImageMemoryBarrier2 blitBarrier(CommandBufferPoolQueue bandp, VkImage image, V
                                                 VK_IMAGE_ASPECT_COLOR_BIT,
                                                 mipLevel,
                                                 1);
-    pipelineBarrier(bandp->buffer, 0, 0, nullptr, 1, &barrier11);
+    SetPipelineBarrier(bandp->buffer, 0, 0, nullptr, 1, &barrier11);
     return barrier11;
 }
 void TextureUtilities::generateMipmaps(BufferCreationContext rendererContext, VkImage image, VkFormat imageFormat,
@@ -243,14 +243,14 @@ void TextureUtilities::generateMipmaps(BufferCreationContext rendererContext, Vk
     std::vector<VkImageMemoryBarrier2> barrierMemory= {};
 
     auto commandBuffer = bandp->buffer;
-    setDebugObjectName(rendererContext.device, VK_OBJECT_TYPE_COMMAND_BUFFER, "mipmap commandbuffer",
+    SetDebugObjectName(rendererContext.device, VK_OBJECT_TYPE_COMMAND_BUFFER, "mipmap commandbuffer",
                        uint64_t(bandp->buffer));
     VkImageMemoryBarrier barrier{};
 
     uint32_t currentMipLevel = 0;
     int32_t mipWidth = texWidth;
     int32_t mipHeight = texHeight;
-    setDebugObjectName(rendererContext.device, VK_OBJECT_TYPE_IMAGE, "mipmap transition image", (uint64_t)image);
+    SetDebugObjectName(rendererContext.device, VK_OBJECT_TYPE_IMAGE, "mipmap transition image", (uint64_t)image);
     //Transfer the first mip level into transfer src
 
     //Set up the first miplevels;
@@ -290,7 +290,7 @@ void TextureUtilities::generateMipmaps(BufferCreationContext rendererContext, Vk
         if (mipHeight > 1) mipHeight /= 2;
         // rendererContext.commandPoolmanager->endSingleTimeCommands(_bandp);
     }
-    setDebugObjectName(rendererContext.device, VK_OBJECT_TYPE_IMAGE, "FINISHED mipmap blit image", (uint64_t)image);
+    SetDebugObjectName(rendererContext.device, VK_OBJECT_TYPE_IMAGE, "FINISHED mipmap blit image", (uint64_t)image);
     //Transfer the src mip levels to read only
 
     barrierMemory.push_back( AllTextureAccessBarrier(bandp, image,  VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
@@ -304,7 +304,7 @@ void TextureUtilities::generateMipmaps(BufferCreationContext rendererContext, Vk
 
     }
 
-    setDebugObjectName(rendererContext.device, VK_OBJECT_TYPE_IMAGE, "FINISHED mipmap transition image", (uint64_t)image);
+    SetDebugObjectName(rendererContext.device, VK_OBJECT_TYPE_IMAGE, "FINISHED mipmap transition image", (uint64_t)image);
 }
 
 void TextureUtilities::copyBufferToImage(CommandPoolManager* commandPoolManager, VkBuffer buffer, VkImage image,

@@ -27,7 +27,7 @@ std::span<T > CreatePerFrameCollection(MemoryArena::memoryArena* arena)
 
 void registerDebugUtilsFn(PFN_vkSetDebugUtilsObjectNameEXT ptr);
 void registerTransitionImagefn(PFN_vkTransitionImageLayoutEXT ptr);
-void setDebugObjectName(VkDevice device, VkObjectType type, std::string name, uint64_t handle);
+void SetDebugObjectName(VkDevice device, VkObjectType type, std::string name, uint64_t handle);
 void vkTransitionImageLayout(
     VkDevice                                    device,
     uint32_t                                    transitionCount,
