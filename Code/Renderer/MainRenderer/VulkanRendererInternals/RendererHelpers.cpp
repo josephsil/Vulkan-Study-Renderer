@@ -253,6 +253,7 @@ void AddBufferTrasnfer(VkBuffer sourceBuffer, VkBuffer targetBuffer, size_t copy
     //Copy vertex data over
     BufferUtilities::copyBufferWithCommandBuffer(cmdBuffer, sourceBuffer,
                                                  targetBuffer, copySize);
+    
     VkBufferMemoryBarrier bufMemBarrier2 = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER};
     bufMemBarrier2.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
     bufMemBarrier2.dstAccessMask =  VK_ACCESS_INDEX_READ_BIT | VK_ACCESS_2_TRANSFER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_UNIFORM_READ_BIT | VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT; // We created a uniform buffer
@@ -280,16 +281,6 @@ void TransitionImageForRendering(PerThreadRenderContext context, ActiveRenderSte
                                             RenderStepContext->commandBuffer, mipCount, false, depth);
 
 
-    VkSubmitInfo swapChainInSubmitInfo{};
-    VkPipelineStageFlags _waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-    swapChainInSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    swapChainInSubmitInfo.commandBufferCount = 1;
-    swapChainInSubmitInfo.pWaitDstStageMask = _waitStages;
-    swapChainInSubmitInfo.pCommandBuffers = &RenderStepContext->commandBuffer;
-    swapChainInSubmitInfo.waitSemaphoreCount = static_cast<uint32_t>(RenderStepContext->waitSemaphores.size());
-    swapChainInSubmitInfo.pWaitSemaphores = RenderStepContext->waitSemaphores.data();
-    swapChainInSubmitInfo.signalSemaphoreCount = static_cast<uint32_t>(RenderStepContext->signalSempahores.size());
-    swapChainInSubmitInfo.pSignalSemaphores = RenderStepContext->signalSempahores.data();
 
     ///////////////////////// Transition swapChain  />
 }

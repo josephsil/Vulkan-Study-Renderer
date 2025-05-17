@@ -139,7 +139,7 @@ private:
     {
         uint32_t swapChainIndex;
         std::span<uint32_t> boundCommandBuffers;
-        acquireImageSemaphore semaphores;
+        FrameSemaphores perFrameSemaphores;
        
         VkFence inFlightFence{};
         HostDataBufferObject<ShaderGlobals> opaqueShaderGlobalsBuffer;

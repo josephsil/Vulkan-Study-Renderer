@@ -60,9 +60,10 @@ struct DepthPyramidInfo
     imageSize depthSize;
 };
 
-struct acquireImageSemaphore
+struct FrameSemaphores
 {
-    VkSemaphore semaphore{};
+    VkSemaphore swapchainSemaphore{};
+    VkSemaphore presentSemaphore{};
 };
 
 
@@ -77,8 +78,10 @@ struct ActiveRenderStepData
     VkPipeline boundPipeline;
     VkCommandBuffer commandBuffer;
     VkQueue Queue; 
-    std::span<VkSemaphore> waitSemaphores;
-    std::span<VkSemaphore> signalSempahores;
+    VkSemaphore* waitSemaphore;
+    uint32_t waitSemaphoreCt;
+    VkSemaphore* signalSempahore;
+    uint32_t signalSemaphoreCt;
     std::span<VkDescriptorSet> boundDescriptorSets;
     VkFence* fence;
 };

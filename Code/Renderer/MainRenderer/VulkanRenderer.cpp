@@ -51,7 +51,9 @@ FullShaderHandle SHADOW_PREPASS_SHADER_INDEX = {SIZE_MAX,SIZE_MAX};
 FullShaderHandle DEBUG_LINE_SHADER_INDEX = {SIZE_MAX,SIZE_MAX};
 FullShaderHandle  DEBUG_RAYMARCH_SHADER_INDEX ={SIZE_MAX,SIZE_MAX};
 //Slowly making this less of a giant class that owns lots of things and moving to these static FNS -- will eventually migrate thewm
-
+size_t TODO_KLUDGE_SHADOWIDX = 0;
+size_t TODO_KLUDGE_OPAQUEIDX = 0;
+size_t TODO_KLUDGE_PREPASSIDX = 0;
 
 LinearDictionary<FullShaderHandle, FullShaderHandle> PlaceholderDepthPassLookup = {};
 
@@ -93,7 +95,8 @@ VulkanRenderer::VulkanRenderer()
     //semaphores
     for (int i = 0; i < FramesInFlightData.size(); i++)
     {
-        createSemaphore(rendererVulkanObjects.vkbdevice.device, &(FramesInFlightData[i].semaphores.semaphore), "Per Frame semaphpre", deletionQueue.get());
+        createSemaphore(rendererVulkanObjects.vkbdevice.device, &(FramesInFlightData[i].perFrameSemaphores.swapchainSemaphore), "Per Frame swapchain semaphore", deletionQueue.get());
+        createSemaphore(rendererVulkanObjects.vkbdevice.device, &(FramesInFlightData[i].perFrameSemaphores.presentSemaphore), "Per Frame ready to present semaphore", deletionQueue.get());
         static_createFence(rendererVulkanObjects.vkbdevice.device,  &FramesInFlightData[i].inFlightFence, "Per Frame fence", deletionQueue.get());
        perFrameDeletionQueuse[i] = std::make_unique<RendererDeletionQueue>(rendererVulkanObjects.vkbdevice, rendererVulkanObjects.vmaAllocator); //todo js double create, oops
     }
@@ -914,11 +917,11 @@ void VulkanRenderer::RecordMipChainCompute(ActiveRenderStepData commandBufferCon
     //For each texture, for each mip level, we want to work on, dispatch X/Y texture resolution and set a barrier (for the next phase)
     //Compute shader will read in texture and write back out to it
     VkImageMemoryBarrier2 barrier12 = GetImageBarrier(dstImage,
-        VK_PIPELINE_STAGE_TRANSFER_BIT | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-        VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        VK_ACCESS_2_SHADER_READ_BIT,
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-        VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+        VK_ACCESS_2_SHADER_READ_BIT |VK_ACCESS_2_SHADER_WRITE_BIT   ,
         VK_IMAGE_LAYOUT_GENERAL,
         VK_IMAGE_ASPECT_COLOR_BIT,
         i,
@@ -984,7 +987,7 @@ void VulkanRenderer::RecordMipChainCompute(ActiveRenderStepData commandBufferCon
             VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
             VK_ACCESS_MEMORY_WRITE_BIT,
             VK_IMAGE_LAYOUT_GENERAL,
-            VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
              VK_ACCESS_SHADER_READ_BIT,
             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             VK_IMAGE_ASPECT_COLOR_BIT,
@@ -1150,14 +1153,14 @@ void SubmitCommandBuffer(ActiveRenderStepData* commandBufferContext)
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     VkPipelineStageFlags _waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-    submitInfo.waitSemaphoreCount = (uint32_t)commandBufferContext->waitSemaphores.size();
-    submitInfo.pWaitSemaphores = commandBufferContext->waitSemaphores.data();
+    submitInfo.waitSemaphoreCount = commandBufferContext->waitSemaphoreCt;
+    submitInfo.pWaitSemaphores = commandBufferContext->waitSemaphore;
     submitInfo.pWaitDstStageMask =_waitStages;
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &commandBufferContext->commandBuffer;
 
-    submitInfo.signalSemaphoreCount = (uint32_t)commandBufferContext->signalSempahores.size();
-    submitInfo.pSignalSemaphores = commandBufferContext->signalSempahores.data();
+    submitInfo.signalSemaphoreCount = commandBufferContext->signalSemaphoreCt;
+    submitInfo.pSignalSemaphores = commandBufferContext->signalSempahore;
     
     //Submit pass 
     VK_CHECK(vkQueueSubmit(commandBufferContext->Queue, 1,
@@ -1208,6 +1211,9 @@ void VulkanRenderer::Update(Scene* scene)
         printf("begin wait for fence %d \n", currentFrame);
         clock_t before = clock();
         vkWaitForFences(rendererVulkanObjects.vkbdevice.device, 1, &FramesInFlightData[currentFrame].inFlightFence, VK_TRUE, UINT64_MAX);
+        //Render
+
+      
         clock_t afterFence = clock();
         clock_t difference = clock() - afterFence;
         auto msec = difference * 1000 / CLOCKS_PER_SEC;
@@ -1397,8 +1403,8 @@ size_t UpdateDrawCommanddataDrawIndirectCommands(std::span<drawCommandData> targ
 }
 
 
-ActiveRenderStepData CreateAndBeginRenderStep(VkDevice device, const char* debugName, const char* cbufferDebugName,  RendererDeletionQueue* deletionQueue, VkCommandPool pool,     std::span<VkSemaphore> waitSemaphores,
-    std::span<VkSemaphore> signalSempahores)
+ActiveRenderStepData CreateAndBeginRenderStep(VkDevice device, const char* debugName, const char* cbufferDebugName,  RendererDeletionQueue* deletionQueue, VkCommandPool pool,     VkSemaphore* waitSemaphore,
+    VkSemaphore* signalSempahore)
 {
     VkCommandBufferAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -1410,11 +1416,10 @@ ActiveRenderStepData CreateAndBeginRenderStep(VkDevice device, const char* debug
     VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer));
     SetDebugObjectName(device,VK_OBJECT_TYPE_COMMAND_BUFFER, cbufferDebugName, (uint64_t)commandBuffer);
 
-    for(int i = 0; i < signalSempahores.size(); i++) 
+    for(int i = 0; i <  1; i++) 
     {
-        auto sem = &signalSempahores[i];
-        createSemaphore(device, sem, debugName, deletionQueue);
-        SetDebugObjectName(device, VK_OBJECT_TYPE_SEMAPHORE,debugName, (uint64_t)*sem);
+        createSemaphore(device, signalSempahore, debugName, deletionQueue);
+        SetDebugObjectName(device, VK_OBJECT_TYPE_SEMAPHORE,debugName, (uint64_t)*signalSempahore);
     }
 
     //Begin command buffer
@@ -1426,7 +1431,7 @@ ActiveRenderStepData CreateAndBeginRenderStep(VkDevice device, const char* debug
     VK_CHECK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
 
     return{.active = true, .indexBuffer = VK_NULL_HANDLE, .boundPipeline = VK_NULL_HANDLE,
-        .commandBuffer = commandBuffer, .waitSemaphores = waitSemaphores, .signalSempahores = signalSempahores };
+        .commandBuffer = commandBuffer, .waitSemaphore = waitSemaphore, .signalSempahore= signalSempahore };
 }
 
 VkDescriptorSet UpdateAndGetBindlessDescriptorSetForFrame(PerThreadRenderContext context, DescriptorDataForPipeline* descriptorData, int currentFrame,  std::span<descriptorUpdates> updates)
@@ -1460,9 +1465,8 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     //Prepare for pass
     per_frame_data* thisFrameData = &FramesInFlightData[currentFrame];
     
-    acquireImageSemaphore acquireImageSemaphore = thisFrameData->semaphores;
     vkAcquireNextImageKHR(rendererVulkanObjects.vkbdevice.device, rendererVulkanObjects.swapchain,
-        60000,acquireImageSemaphore.semaphore, VK_NULL_HANDLE,&thisFrameData->swapChainIndex);
+        60000,thisFrameData->perFrameSemaphores.swapchainSemaphore, VK_NULL_HANDLE,&thisFrameData->swapChainIndex);
     
     //Sync data updated from the engine
     updateShadowData(&perFrameArenas[currentFrame], perLightShadowData, scene, scene->sceneCamera);
@@ -1480,8 +1484,6 @@ void VulkanRenderer::RenderFrame(Scene* scene)
         VkDevice device;
         RendererDeletionQueue* deletionQueue;
         Array<ActiveRenderStepData> renderstepDatas;
-        Array<VkSemaphore> semaphorePool;
-        std::span<VkSemaphore> previousStepSignalSemaphores;
 
         void EndCommandBuffer(ActiveRenderStepData* data)
         {
@@ -1503,16 +1505,11 @@ void VulkanRenderer::RenderFrame(Scene* scene)
             }
         }
         //Set up a command buffer, initialize it, return an object wrapping all the relevant stuff
-        //Default to chaining semaphores with the last/next one
         ActiveRenderStepData* PushAndInitializeRenderStep(const char* debugName,  const char* cbufferDebugName, MemoryArena::memoryArena* arena, CommandPoolManager* poolManager,
-            bool overrideWaitSemaphores= false , std::span<VkSemaphore> overridenWaitSemaphores = {}, //Overhead for empty spans? Fix someday
-             bool overrideSignalSemaphores = false , std::span<VkSemaphore> overridenSignalSemaphores = {}) //Overhead for empty spans? Fix someday
+            VkSemaphore* WaitSemaphores = nullptr, 
+             VkSemaphore* SignalSemaphores = nullptr) 
         {
-            assert(!(!overrideWaitSemaphores && renderstepDatas.ct == 0));  //We can only override wait semaphores if we have prior steps. 
-            
-            auto signalSemaphores = overrideSignalSemaphores ? overridenSignalSemaphores : semaphorePool.pushUninitializedSubspan(1);
-            auto waitSemaphores = overrideWaitSemaphores ? overridenWaitSemaphores : previousStepSignalSemaphores;
-            previousStepSignalSemaphores = signalSemaphores;
+        
             VkCommandBufferAllocateInfo allocInfo{};
             allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
             allocInfo.commandPool = poolManager->commandPool;
@@ -1523,11 +1520,11 @@ void VulkanRenderer::RenderFrame(Scene* scene)
             VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer));
             SetDebugObjectName(device,VK_OBJECT_TYPE_COMMAND_BUFFER, cbufferDebugName, (uint64_t)commandBuffer);
 
-            for(int i = 0; i < signalSemaphores.size(); i++) 
+            if(SignalSemaphores != nullptr)
             {
-                auto sem = &signalSemaphores[i];
-                createSemaphore(device, sem, debugName, deletionQueue);
-                SetDebugObjectName(device, VK_OBJECT_TYPE_SEMAPHORE,debugName, (uint64_t)*sem);
+          
+                createSemaphore(device, SignalSemaphores, debugName, deletionQueue);
+                SetDebugObjectName(device, VK_OBJECT_TYPE_SEMAPHORE,debugName, (uint64_t)*SignalSemaphores);
             }
 
             //Begin command buffer
@@ -1542,8 +1539,17 @@ void VulkanRenderer::RenderFrame(Scene* scene)
             {
                 boundDescriptorSets[i] = VK_NULL_HANDLE;
             }
-            renderstepDatas.push_back({.active = true, .indexBuffer = VK_NULL_HANDLE, .boundPipeline = VK_NULL_HANDLE,
-                .commandBuffer = commandBuffer, .Queue =GET_QUEUES()->graphicsQueue, .waitSemaphores = waitSemaphores, .signalSempahores = signalSemaphores, .boundDescriptorSets = boundDescriptorSets });
+            renderstepDatas.push_back({.active = true,
+             .indexBuffer = VK_NULL_HANDLE,
+              .boundPipeline = VK_NULL_HANDLE,
+              
+                .commandBuffer = commandBuffer,
+                 .Queue =GET_QUEUES()->graphicsQueue,
+                  .waitSemaphore = WaitSemaphores,
+                  .waitSemaphoreCt = (uint32_t)(WaitSemaphores == nullptr ? 0 : 1),
+                   .signalSempahore = SignalSemaphores,
+                   .signalSemaphoreCt = (uint32_t)(SignalSemaphores == nullptr ? 0 : 1),
+                .boundDescriptorSets = boundDescriptorSets });
 
             return &renderstepDatas.back();
         }
@@ -1557,43 +1563,39 @@ void VulkanRenderer::RenderFrame(Scene* scene)
         .device =   rendererVulkanObjects.vkbdevice.device,
         .deletionQueue = perFrameDeletionQueuse[currentFrame].get(),
         .renderstepDatas =  MemoryArena::AllocSpan<ActiveRenderStepData>(&perFrameArenas[currentFrame], 20),
-        .semaphorePool = MemoryArena::AllocSpan<VkSemaphore>(&perFrameArenas[currentFrame], 100)
         };
 
     //I'm currently using multiple command buffers to handle most of my concurrency
     //each one of these step datas gets a signal and wait semaphore list, and then their command buffers are all submitted in order in the loop near the end of this fn
     //This needs revisted, but not right away
-    //Create command buffers for this frame and allocate their signal semaphores/set up their dependencies. Written here in linear order
+    //Create command buffers for this frame and allocate their signal semaphore/set up their dependencies. Written here in linear order
 
     /////////<Set up command buffers
     //////////
     /////////
-    auto preRenderTransitionsrenderStepContext = renderCommandBufferObjects.PushAndInitializeRenderStep(
+    auto preRenderBufferTransitions = renderCommandBufferObjects.PushAndInitializeRenderStep(
+    "swapTransitionInSignalSemaphores", "swapTransitionInCommandBuffer", &perFrameArenas[currentFrame],
+    commandPoolmanager.get());
+
+    auto computeRenderStepContext = preRenderBufferTransitions;
+    
+    auto preRenderSwapchainTransition = renderCommandBufferObjects.PushAndInitializeRenderStep(
         "swapTransitionInSignalSemaphores", "swapTransitionInCommandBuffer", &perFrameArenas[currentFrame],
-        commandPoolmanager.get(),
-        true, std::span<VkSemaphore>(&acquireImageSemaphore.semaphore, 1));
-
-    auto computeRenderStepContext = renderCommandBufferObjects.PushAndInitializeRenderStep(
-        "frustumSignalSemaphores", "frustumCommandBuffer", &perFrameArenas[currentFrame],
-        commandPoolmanager.get());
-
-    auto cullingDepthPrepassRenderStepContext = renderCommandBufferObjects.PushAndInitializeRenderStep(
-        "depthPrepassSignalSemaphores", "depthPrepassCommandBuffer", &perFrameArenas[currentFrame],
-        commandPoolmanager.get());
+        commandPoolmanager.get(), &thisFrameData->perFrameSemaphores.swapchainSemaphore);
+    
+    auto cullingDepthPrepassRenderStepContext =preRenderBufferTransitions;
 
     auto mipChainRenderStepContext = renderCommandBufferObjects.PushAndInitializeRenderStep(
         "MipChainSignalSemaphores", "MipChainCommandBuffer", &perFrameArenas[currentFrame],
         commandPoolmanager.get());
     
     auto shadowRenderStepContext = renderCommandBufferObjects.PushAndInitializeRenderStep(
-        "ShadowAndBeforeOpaqueSemaphores", "ShadowAndBeforeOpaqueCommandBuffer", &perFrameArenas[currentFrame],
-        commandPoolmanager.get());
+        "OpaqueAndTransitionOutSignalSemaphores", "OpaqueAndTransitionOutCommandBuffer", &perFrameArenas[currentFrame],
+        commandPoolmanager.get(), nullptr, &thisFrameData->perFrameSemaphores.presentSemaphore);
     
     auto& beforeOpaqueTransitionOutRenderStepContext = shadowRenderStepContext;
     
-    auto opaqueRenderStepContext = renderCommandBufferObjects.PushAndInitializeRenderStep(
-        "OpaqueAndTransitionOutSignalSemaphores", "OpaqueAndTransitionOutCommandBuffer", &perFrameArenas[currentFrame],
-        commandPoolmanager.get());
+    auto opaqueRenderStepContext = shadowRenderStepContext;
 
     //TODO JS: the fence is very important I think -- need to understand what i was doing when i added it lol
     //TODO JS: Mutating the opaqueRenderStepContext like this doesnt feel amazing, would love to set this all in creation
@@ -1612,14 +1614,14 @@ void VulkanRenderer::RenderFrame(Scene* scene)
        VK_REMAINING_ARRAY_LAYERS);
 
     
-    SetPipelineBarrier(preRenderTransitionsrenderStepContext->commandBuffer,0, 0, 0, 1, &barrier);
+    SetPipelineBarrier(preRenderSwapchainTransition->commandBuffer,0, 0, 0, 1, &barrier);
 
     
     VkImageMemoryBarrier2 barrier2 = GetImageBarrier(shadowResources.shadowImages[currentFrame],
        VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT, 
-       VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
+       {},
        VK_IMAGE_LAYOUT_UNDEFINED,
-       VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT ,
+       VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
        VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT|VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
        VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
        VK_IMAGE_ASPECT_DEPTH_BIT,
@@ -1627,16 +1629,16 @@ void VulkanRenderer::RenderFrame(Scene* scene)
        VK_REMAINING_ARRAY_LAYERS);
 
     
-    SetPipelineBarrier(preRenderTransitionsrenderStepContext->commandBuffer,0, 0, 0, 1, &barrier2);
+    SetPipelineBarrier(preRenderBufferTransitions->commandBuffer,0, 0, 0, 1, &barrier2);
     
     
     //Transferring cpu -> gpu data -- should improve
     AddBufferTrasnfer(thisFrameData->hostVerts.buffer.data, thisFrameData->deviceVerts.data,
-                      thisFrameData->deviceVerts.size, preRenderTransitionsrenderStepContext->commandBuffer);
+                      thisFrameData->deviceVerts.size, preRenderBufferTransitions->commandBuffer);
     AddBufferTrasnfer(thisFrameData->hostMesh.buffer.data, thisFrameData->deviceMesh.data,
-                      thisFrameData->deviceMesh.size, preRenderTransitionsrenderStepContext->commandBuffer);
+                      thisFrameData->deviceMesh.size, preRenderBufferTransitions->commandBuffer);
     AddBufferTrasnfer(thisFrameData->hostIndices.buffer.data, thisFrameData->deviceIndices.data,
-                      thisFrameData->deviceIndices.size, preRenderTransitionsrenderStepContext->commandBuffer);
+                      thisFrameData->deviceIndices.size, preRenderBufferTransitions->commandBuffer);
 
     //Set up draws
     //This is the bulk of the render, the main opaque pass which depends on compute, shadow, opaque, culling, etc
@@ -1663,7 +1665,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
         };
 
 
-    
+    TODO_KLUDGE_SHADOWIDX = 0;
     renderBatches.AddBatches(
         &renderPassContext,
         CreateShadowPassConfigs(GetNextFirstIndex(&renderBatches), renderPassContext, 
@@ -1672,7 +1674,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     
     VkRenderingAttachmentInfoKHR* depthDrawAttatchment = MemoryArena::Alloc<VkRenderingAttachmentInfoKHR>(&perFrameArenas[currentFrame]);
     *depthDrawAttatchment = CreateRenderingAttatchmentStruct( globalResources.depthBufferInfoPerFrame[currentFrame].view, 1.0, true);
-    
+    TODO_KLUDGE_OPAQUEIDX = renderBatches.batchConfigs.size();
      renderBatches.AddBatch(
          &renderPassContext,
          CreateOpaquePassesConfig(GetNextFirstIndex(&renderBatches),opaqueObjectShaderSets.opaqueShaders.getSpan(), renderPassContext, 
@@ -1688,6 +1690,8 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     //Going to move creation of these into the add passes fns, and have the logic to look up the appropriate sahder passed thru there
     //Need to think about how 
     auto batches = renderBatches.batchConfigs;
+
+    TODO_KLUDGE_PREPASSIDX = renderBatches.batchConfigs.size();
     for(size_t i = 0; i < batches.size(); i++)
     {
         auto oldBatch = batches[i];
@@ -1710,36 +1714,63 @@ void VulkanRenderer::RenderFrame(Scene* scene)
 
   
     //Submti the actual Draws
-    RecordPrimaryRenderPasses(renderBatches.batchConfigs, &pipelineLayoutManager, thisFrameData->drawBuffers.buffer.data, currentFrame);
+    //prepass 
+    RecordPrimaryRenderPasses(std::span<RenderBatch>(&renderBatches.batchConfigs[TODO_KLUDGE_PREPASSIDX], renderBatches.batchConfigs.size() - TODO_KLUDGE_PREPASSIDX), &pipelineLayoutManager, thisFrameData->drawBuffers.buffer.data, currentFrame);
+
+
+    VkImageMemoryBarrier2 depthToShadowBarrier = GetImageBarrier(shadowResources.shadowImages[currentFrame],
+   VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, 
+   VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+   VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+   VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT ,
+   VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+   VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+   VK_IMAGE_ASPECT_DEPTH_BIT,
+   0,
+   VK_REMAINING_MIP_LEVELS);
+    SetPipelineBarrier(shadowRenderStepContext->commandBuffer,0,0,0,1, &depthToShadowBarrier );
+    //shadowrenderBatches.batchConfigs.size() -
+    RecordPrimaryRenderPasses(std::span<RenderBatch>(&renderBatches.batchConfigs[0], TODO_KLUDGE_OPAQUEIDX), &pipelineLayoutManager, thisFrameData->drawBuffers.buffer.data, currentFrame);
+    VkImageMemoryBarrier2 shadowToOpaqueBarrier = GetImageBarrier(shadowResources.shadowImages[currentFrame],
+     VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, 
+     VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+     VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+     VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT ,
+     VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+     VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+     VK_IMAGE_ASPECT_DEPTH_BIT,
+     0,
+     VK_REMAINING_MIP_LEVELS);
+    SetPipelineBarrier(shadowRenderStepContext->commandBuffer,0,0,0,1, &shadowToOpaqueBarrier );
     
+    //opaque
+    RecordPrimaryRenderPasses(std::span<RenderBatch>(&renderBatches.batchConfigs[TODO_KLUDGE_OPAQUEIDX], TODO_KLUDGE_PREPASSIDX - TODO_KLUDGE_OPAQUEIDX), &pipelineLayoutManager, thisFrameData->drawBuffers.buffer.data, currentFrame);
+
     RecordUtilityPasses(opaqueRenderStepContext->commandBuffer, currentFrame);
     //
 
     //After render steps
     //
     //
-    
-    TransitionImageForRendering(
-      GetMainRendererContext(),
-      beforeOpaqueTransitionOutRenderStepContext,
-      shadowResources.shadowImages[currentFrame],
-      VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, shadowWaitStages, 1, true);
-    TransitionImageForRendering(
-        GetMainRendererContext(),
-        beforeOpaqueTransitionOutRenderStepContext,
-        globalResources.swapchainImages[thisFrameData->swapChainIndex],
-        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, swapchainWaitStages, 1, false);
 
-
+    VkImageMemoryBarrier2 swapchainToPresent = GetImageBarrier(globalResources.swapchainImages[thisFrameData->swapChainIndex],
+         VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, 
+         VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+         VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+         VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT ,
+         VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+         VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+         VK_IMAGE_ASPECT_COLOR_BIT,
+         0,
+         VK_REMAINING_MIP_LEVELS);
+    SetPipelineBarrier(shadowRenderStepContext->commandBuffer,0,0,0,1, &swapchainToPresent );
     // //Submit commandbuffers
     renderCommandBufferObjects.FinishAndSubmitAll();
 
     VkPresentInfoKHR presentInfo{};
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
     presentInfo.waitSemaphoreCount =  1;
-    presentInfo.pWaitSemaphores = opaqueRenderStepContext->signalSempahores.data();
+    presentInfo.pWaitSemaphores = opaqueRenderStepContext->signalSempahore;
     presentInfo.swapchainCount = 1;
     presentInfo.pSwapchains = {&rendererVulkanObjects.swapchain.swapchain};
     presentInfo.pImageIndices = &FramesInFlightData[currentFrame].swapChainIndex;
