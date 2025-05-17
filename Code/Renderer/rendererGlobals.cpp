@@ -36,3 +36,44 @@ void vkTransitionImageLayout(VkDevice device, uint32_t transitionCount,
     assert(FP_vkTransitionImageLayoutEXT != VK_NULL_HANDLE);
     VK_CHECK(FP_vkTransitionImageLayoutEXT(device, transitionCount, pTransitions));
 }
+
+
+
+PFN_vkCopyImageToMemoryEXT FP_vkCopyImageToMemoryEXT;
+
+void registerCopyImageToMemoryFn(PFN_vkCopyImageToMemoryEXT ptr)
+{
+    FP_vkCopyImageToMemoryEXT = ptr;
+}
+
+
+void vkCopyImageToMemory(VkDevice device, void*targetHostPointer, VkImage sourceImage,
+    VkExtent3D extent, uint32_t mipLevel, uint32_t baseArrayLayer, uint32_t mipCt, uint32_t layerCt)
+{
+    
+    assert(FP_vkCopyImageToMemoryEXT != VK_NULL_HANDLE);
+    VkImageSubresourceLayers subresource = {VK_IMAGE_ASPECT_COLOR_BIT,
+        static_cast<uint32_t>(mipLevel),
+        baseArrayLayer,
+        layerCt};
+    VkImageToMemoryCopyEXT region = {
+        VK_STRUCTURE_TYPE_IMAGE_TO_MEMORY_COPY_EXT,
+        VK_NULL_HANDLE,
+        targetHostPointer,
+        0,
+        0,
+        subresource,
+        {0, 0},
+        extent
+    };
+    VkCopyImageToMemoryInfoEXT info = {
+        VK_STRUCTURE_TYPE_COPY_IMAGE_TO_MEMORY_INFO_EXT,
+        VK_NULL_HANDLE,
+        0, 
+        sourceImage,
+        VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL,
+        1,
+        &region
+    };
+    VK_CHECK(FP_vkCopyImageToMemoryEXT(device, &info));
+}

@@ -27,8 +27,11 @@ std::span<T > CreatePerFrameCollection(MemoryArena::memoryArena* arena)
 
 void registerDebugUtilsFn(PFN_vkSetDebugUtilsObjectNameEXT ptr);
 void registerTransitionImagefn(PFN_vkTransitionImageLayoutEXT ptr);
+void registerCopyImageToMemoryFn(PFN_vkCopyImageToMemoryEXT ptr);
 void SetDebugObjectName(VkDevice device, VkObjectType type, std::string name, uint64_t handle);
 void vkTransitionImageLayout(
     VkDevice                                    device,
     uint32_t                                    transitionCount,
     const VkHostImageLayoutTransitionInfoEXT*   pTransitions);
+    void vkCopyImageToMemory(VkDevice device, void*targetHostPointer, VkImage sourceImage,
+    VkExtent3D extent, uint32_t mipLevel, uint32_t baseArrayLayer, uint32_t mipCt = 1, uint32_t layerCt = VK_REMAINING_ARRAY_LAYERS);

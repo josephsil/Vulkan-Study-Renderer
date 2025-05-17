@@ -11,6 +11,7 @@
 #include <Renderer/VulkanIncludes/Vulkan_Includes.h>
 #include "Renderer/PerThreadRenderContext.h"
 #include "Renderer/MainRenderer/VulkanRendererInternals/RendererHelpers.h"
+#include "Renderer/TextureCreation/TextureData.h"
 
 
 //todo js
@@ -22,6 +23,7 @@ struct temporaryTextureInfo
     uint64_t height;
     uint64_t mipCt;
 };
+
 
 VkImageView TextureUtilities::createImageViewCustomMip(BufferCreationContext rendererContext, VkImage image,
                                                        VkFormat format,

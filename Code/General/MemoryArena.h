@@ -137,10 +137,12 @@ std::span<T> AllocSpanEmplaceInitialize(memoryArena* a, uint32_t length, Args&&.
 
 
     template <typename T>
-    std::span<T> copySpan(memoryArena* a, std::span<T> src)
+    std::span<T> copySpan(memoryArena* a, std::span<T> src, size_t additionalLength = 0)
     {
         assert(!std::is_void_v< T >);
-        T* start = static_cast<T*>(MemoryArena::copy(a, src.data(), src.size_bytes()));
+        // assert(src.extent != std::dynamic_extent);
+        auto size = src.size() + additionalLength;
+        T* start = static_cast<T*>(MemoryArena::copy(a, src.data(), size * sizeof(T)));
         std::span<T> ret{start, src.size()};
         return ret;
     }

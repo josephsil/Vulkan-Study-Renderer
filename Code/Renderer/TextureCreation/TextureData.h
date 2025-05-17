@@ -20,6 +20,8 @@ enum TextureType
     DATA_DONT_COMPRESS
 };
 
+
+
 struct textureFormatInfo
 {
     VkFormat format;
@@ -53,7 +55,7 @@ struct TextureData
 
 namespace TextureCreation
 {
-    static TextureMetaData createImageKTX(PerThreadRenderContext rendererContext, const char* path, TextureType type, bool mips,
+    static TextureMetaData CreateImageFromCachedKTX(PerThreadRenderContext rendererContext, const char* path, TextureType type, bool mips,
                                           VkSamplerAddressMode mode);
     static VkImageView createTextureImageView(PerThreadRenderContext rendererContext, TextureMetaData data, VkImageViewType type);
     void createTextureSampler(VkSampler* textureSampler, PerThreadRenderContext rendererContext, VkSamplerAddressMode mode,
@@ -64,7 +66,7 @@ namespace TextureCreation
     {
         FILE,
         GLTFCREATE,
-        GLTFCACHED
+        KTXCACHED
     };
     struct FILE_addtlargs
     {
@@ -83,10 +85,11 @@ namespace TextureCreation
         int mipCt;
         bool compress;
     };
-    struct GLTFCACHE_addtlargs
+    struct KTX_CACHE_addtlargs
     {
         char* OUTPUT_PATH;
         VkSamplerAddressMode samplerMode;
+        bool isCube;
     };
   
     struct TextureCreationInfoArgs
@@ -95,7 +98,7 @@ namespace TextureCreation
         union TextureCreationModeArgs {
             FILE_addtlargs fileArgs;
             GLTFCREATE_addtlargs gltfCreateArgs;
-            GLTFCACHE_addtlargs gltfCacheArgs;
+            KTX_CACHE_addtlargs gltfCacheArgs;
         }args;
     };
 
@@ -106,15 +109,39 @@ namespace TextureCreation
         TextureType type;
         VkImageViewType viewType;
     };
-    TextureCreationInfoArgs MakeCreationArgsFromFilepathArgs(const char* path, TextureType type,
+
+    //Everywhere in the actual renderer we use ktx textures, but sometimes we load other textures from disk before caching them to ktx
+    //These structs are used for those temporary import textures. Need a better name / home
+    struct stagingTextureData
+    {
+        VkImage textureImage;
+        VmaAllocation alloc;
+        uint64_t width;
+        uint64_t height;
+        uint64_t mipCt;
+    };
+    
+    struct WIP_InbetweenStep
+    {
+        stagingTextureData stagingTexture;
+        char* outputPath;
+        VkFormat format;
+        bool compress;
+        VkSamplerAddressMode samplerMode;
+        TextureType type;
+        
+    };
+
+    
+    TextureCreationInfoArgs MakeCreationArgsFromFilepathArgs(const char* path,Allocator arena, TextureType type,
                                                              VkImageViewType viewType = static_cast<VkImageViewType>(-1));
 
     TextureCreationInfoArgs MakeTextureCreationArgsFromGLTFArgs(const char* OUTPUT_PATH,
                                                                 VkFormat format, VkSamplerAddressMode samplerMode, unsigned char* pixels, uint64_t width,
                                                                 uint64_t height, int mipCt, bool compress);
 
-    TextureCreationInfoArgs MakeTextureCreationArgsFromCachedGLTFArgs(const char* OUTPUT_PATH,
-                                                                      VkSamplerAddressMode samplerMode);
+    TextureCreationInfoArgs MakeTextureCreationArgsFromCachedKTX(const char* OUTPUT_PATH,
+                                                                      VkSamplerAddressMode samplerMode, bool isCube = false, bool noCompress = false);
 
     TextureCreationStep1Result CreateTextureFromArgs_Start(PerThreadRenderContext context, TextureCreationInfoArgs a);
     TextureData CreateTextureFromArgsFinalize(PerThreadRenderContext outputTextureOwnerContext, TextureCreationStep1Result startResult);

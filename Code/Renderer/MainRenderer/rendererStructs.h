@@ -73,8 +73,8 @@ struct FrameSemaphores
 
 struct ActiveRenderStepData
 {
-    bool active;
-    VkBuffer indexBuffer;
+    bool commandBufferActive;
+    VkBuffer boundIndexBuffer;
     VkPipeline boundPipeline;
     VkCommandBuffer commandBuffer;
     VkQueue Queue; 

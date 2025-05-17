@@ -92,9 +92,9 @@ VulkanRenderer::VulkanRenderer()
     //semaphores
     for (int i = 0; i < FramesInFlightData.size(); i++)
     {
-        createSemaphore(rendererVulkanObjects.vkbdevice.device, &(FramesInFlightData[i].perFrameSemaphores.swapchainSemaphore), "Per Frame swapchain semaphore", deletionQueue.get());
+        createSemaphore(rendererVulkanObjects.vkbdevice.device, &(FramesInFlightData[i].perFrameSemaphores.swapchainSemaphore), "Per Frame swapchain ready semaphore", deletionQueue.get());
         createSemaphore(rendererVulkanObjects.vkbdevice.device, &(FramesInFlightData[i].perFrameSemaphores.presentSemaphore), "Per Frame ready to present semaphore", deletionQueue.get());
-        static_createFence(rendererVulkanObjects.vkbdevice.device,  &FramesInFlightData[i].inFlightFence, "Per Frame fence", deletionQueue.get());
+        static_createFence(rendererVulkanObjects.vkbdevice.device,  &FramesInFlightData[i].inFlightFence, "Per Frame finished rendering Fence", deletionQueue.get());
        perFrameDeletionQueuse[i] = std::make_unique<RendererDeletionQueue>(rendererVulkanObjects.vkbdevice, rendererVulkanObjects.vmaAllocator); //todo js double create, oops
     }
     //Initialize sceneData
@@ -344,9 +344,9 @@ void VulkanRenderer::InitializeRendererForScene(sceneCountData sceneCountData) /
     TextureCreation::createDepthPyramidSampler(&globalResources.depthMipSampler, GetMainRendererContext(), HIZDEPTH);
 
     TextureCreation::TextureCreationInfoArgs args[3] = {
-    TextureCreation::MakeCreationArgsFromFilepathArgs("textures/outputLUT.png", TextureType::DATA_DONT_COMPRESS),
-    TextureCreation::MakeCreationArgsFromFilepathArgs("textures/output_cubemap2_diff8.ktx2",TextureType::CUBE),
-    TextureCreation::MakeCreationArgsFromFilepathArgs("textures/output_cubemap2_spec8.ktx2",TextureType::CUBE)};
+    TextureCreation::MakeTextureCreationArgsFromCachedKTX("textures/outputLUT.ktx", VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE),
+    TextureCreation::MakeTextureCreationArgsFromCachedKTX("textures/output_cubemap2_diff8.ktx2",VK_SAMPLER_ADDRESS_MODE_REPEAT),
+    TextureCreation::MakeTextureCreationArgsFromCachedKTX("textures/output_cubemap2_spec8.ktx2",VK_SAMPLER_ADDRESS_MODE_REPEAT)};
     TextureData data[3];
     LoadTexturesThreaded(GetMainRendererContext(), data, args);
 
@@ -778,9 +778,9 @@ void VulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<std::spa
 
 void EndCommandBufferRecording(ActiveRenderStepData* context)
 {
-    assert(context->active);
+    assert(context->commandBufferActive);
     VK_CHECK(vkEndCommandBuffer(context->commandBuffer));
-    context->active = false;
+    context->commandBufferActive = false;
 }
 
 VkRenderingAttachmentInfoKHR CreateRenderingAttatchmentWithLayout(VkImageView target, float clearColor, bool clear, VkImageLayout layout)
@@ -841,7 +841,7 @@ void BeginRendering(VkRenderingAttachmentInfo* depthAttatchment, int colorAttatc
 void VulkanRenderer::updateBindingsComputeCulling(ActiveRenderStepData commandBufferContext, 
     MemoryArena::memoryArena* arena, uint32_t _currentFrame)
 {
-    assert(commandBufferContext.active);
+    assert(commandBufferContext.commandBufferActive);
     VkDescriptorBufferInfo* frustumData =  MemoryArena::Alloc<VkDescriptorBufferInfo>(&perFrameArenas[_currentFrame], 1);
     *frustumData = GetDescriptorBufferInfo(FramesInFlightData[_currentFrame].frustumsForCullBuffers);
     
@@ -877,7 +877,7 @@ void VulkanRenderer::updateBindingsComputeCulling(ActiveRenderStepData commandBu
 void RecordCommandBufferCulling(ActiveRenderStepData commandBufferContext, uint32_t currentFrame, ComputeCullListInfo pass,  VkBuffer indirectCommandsBuffer)
 {
 
-    assert(commandBufferContext.active);
+    assert(commandBufferContext.commandBufferActive);
 
     auto drawcount = pass.drawCount;
 
@@ -903,7 +903,7 @@ void RecordCommandBufferCulling(ActiveRenderStepData commandBufferContext, uint3
 void VulkanRenderer::RecordMipChainCompute(ActiveRenderStepData commandBufferContext, Allocator arena, VkImage dstImage,
     VkImageView srcView, std::span<VkImageView> pyramidviews, VkSampler sampler, uint32_t _currentFrame, uint32_t pyramidWidth, uint32_t pyramidHeight)
 {
-    assert(commandBufferContext.active);
+    assert(commandBufferContext.commandBufferActive);
     auto descriptorData = pipelineLayoutManager.GetDescriptordata(mipChainLayoutIDX, 0);
    
     vkCmdBindPipeline(commandBufferContext.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayoutManager.GetPipeline(mipChainLayoutIDX, 0));
@@ -1089,13 +1089,13 @@ void RecordPrimaryRenderPasses( std::span<RenderBatch> Batches, PipelineLayoutMa
         auto context = passInfo.drawRenderStepContext;
 
         //Bind required resources for the pass
-        assert(context->active);
+        assert(context->commandBufferActive);
         pipelineLayoutManager->BindRequiredSetsToCommandBuffer(passInfo.pipelineLayoutGroup, context->commandBuffer, context->boundDescriptorSets, currentFrame);
         VkPipelineLayout layout = pipelineLayoutManager->GetLayout(passInfo.pipelineLayoutGroup);
-        if (context->indexBuffer != passInfo.indexBuffer )
+        if (context->boundIndexBuffer != passInfo.indexBuffer )
         {
             vkCmdBindIndexBuffer(context->commandBuffer, passInfo.indexBuffer,0,passInfo.indexBufferType);
-            context->indexBuffer = passInfo.indexBuffer;
+            context->boundIndexBuffer = passInfo.indexBuffer;
         }
 
         BeginRendering(
@@ -1146,7 +1146,7 @@ void RecordPrimaryRenderPasses( std::span<RenderBatch> Batches, PipelineLayoutMa
 void SubmitCommandBuffer(ActiveRenderStepData* commandBufferContext)
 {
 
-    assert(!commandBufferContext->active);
+    assert(!commandBufferContext->commandBufferActive);
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     VkPipelineStageFlags _waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
@@ -1418,6 +1418,26 @@ uint32_t GetNextFirstIndex(RenderBatchQueue* q)
     auto& pass =  q->batchConfigs.back().meshPasses.back();
     return pass.firstIndex + pass.ct;
 }
+
+VkCommandBuffer AllocateAndBeginCommandBuffer(VkDevice device, CommandPoolManager* poolManager)
+{
+    VkCommandBufferAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.commandPool = poolManager->commandPool;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandBufferCount = 1;
+    
+    VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
+    VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer));
+    //Begin command buffer
+    VkCommandBufferBeginInfo beginInfo{};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT ; // Optional
+    beginInfo.pInheritanceInfo = nullptr; // Optional
+    
+    VK_CHECK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
+    return commandBuffer;
+}
 void VulkanRenderer::RenderFrame(Scene* scene)
 {
     if (debug_cull_override_index != internal_debug_cull_override_index)
@@ -1445,24 +1465,23 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     
 
     //Kinda a convenience thing, todo more later, wrote in a hurry
-    struct ComandBufferSubmissionPipeline
+    struct OrderedCommandBufferSteps
     {
         VkDevice device;
-        RendererDeletionQueue* deletionQueue;
         Array<ActiveRenderStepData> renderstepDatas;
 
         void EndCommandBuffer(ActiveRenderStepData* data)
         {
-            assert(data->active);
+            assert(data->commandBufferActive);
+            data->commandBufferActive = false;
             VK_CHECK(vkEndCommandBuffer(data->commandBuffer));
-            data->active = false;
         }
         void _SubmitCommandBuffer(ActiveRenderStepData* ctx)
         {
             SubmitCommandBuffer(ctx);
         }
 
-        void FinishAndSubmitAll()
+        void SubmitSteps()
         {
             for (auto& past_time : renderstepDatas.getSpan())
             {
@@ -1470,53 +1489,31 @@ void VulkanRenderer::RenderFrame(Scene* scene)
                 _SubmitCommandBuffer(&past_time);
             }
         }
-        //TODO need to get rid of this stack concept
-        //Set up a command buffer, initialize it, return an object wrapping all the relevant stuff
-        ActiveRenderStepData* PushAndInitializeRenderStep(const char* debugName,  const char* cbufferDebugName, MemoryArena::memoryArena* arena, CommandPoolManager* poolManager,
-            VkSemaphore* WaitSemaphores = nullptr, 
-             VkSemaphore* SignalSemaphores = nullptr) 
+        ActiveRenderStepData* PushAndInitializeRenderStep(const char* cbufferDebugName, MemoryArena::memoryArena* arena, CommandPoolManager* poolManager,
+            VkSemaphore* WaitSemaphore = nullptr, 
+             VkSemaphore* SignalSemaphore = nullptr, VkFence* CbufferSignalFence = nullptr) 
         {
-        
-            VkCommandBufferAllocateInfo allocInfo{};
-            allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-            allocInfo.commandPool = poolManager->commandPool;
-            allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-            allocInfo.commandBufferCount = 1;
-    
-            VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
-            VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer));
+            auto commandBuffer = AllocateAndBeginCommandBuffer(device, poolManager);
             SetDebugObjectName(device,VK_OBJECT_TYPE_COMMAND_BUFFER, cbufferDebugName, (uint64_t)commandBuffer);
-
-            if(SignalSemaphores != nullptr)
-            {
           
-                createSemaphore(device, SignalSemaphores, debugName, deletionQueue, false);
-                SetDebugObjectName(device, VK_OBJECT_TYPE_SEMAPHORE,debugName, (uint64_t)*SignalSemaphores);
-            }
-
-            //Begin command buffer
-            VkCommandBufferBeginInfo beginInfo{};
-            beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-            beginInfo.flags = 0; // Optional
-            beginInfo.pInheritanceInfo = nullptr; // Optional
-    
-            VK_CHECK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
             auto boundDescriptorSets = MemoryArena::AllocSpan<VkDescriptorSet>(arena, 4);
             for (int i = 0; i <boundDescriptorSets.size(); i++)
             {
                 boundDescriptorSets[i] = VK_NULL_HANDLE;
             }
-            renderstepDatas.push_back({.active = true,
-             .indexBuffer = VK_NULL_HANDLE,
+            
+            renderstepDatas.push_back({
+                .commandBufferActive = true,
+             .boundIndexBuffer = VK_NULL_HANDLE,
               .boundPipeline = VK_NULL_HANDLE,
-              
                 .commandBuffer = commandBuffer,
-                 .Queue =GET_QUEUES()->graphicsQueue,
-                  .waitSemaphore = WaitSemaphores,
-                  .waitSemaphoreCt = (uint32_t)(WaitSemaphores == nullptr ? 0 : 1),
-                   .signalSempahore = SignalSemaphores,
-                   .signalSemaphoreCt = (uint32_t)(SignalSemaphores == nullptr ? 0 : 1),
-                .boundDescriptorSets = boundDescriptorSets });
+                 .Queue = GET_QUEUES()->graphicsQueue,
+                  .waitSemaphore = WaitSemaphore,
+                  .waitSemaphoreCt = (uint32_t)(WaitSemaphore == nullptr ? 0 : 1),
+                   .signalSempahore = SignalSemaphore,
+                   .signalSemaphoreCt = (uint32_t)(SignalSemaphore == nullptr ? 0 : 1),
+                .boundDescriptorSets = boundDescriptorSets,
+            .fence =  CbufferSignalFence});
 
             return &renderstepDatas.back();
         }
@@ -1525,10 +1522,9 @@ void VulkanRenderer::RenderFrame(Scene* scene)
         
     };
 
-    ComandBufferSubmissionPipeline renderCommandBufferObjects =
+    OrderedCommandBufferSteps renderCommandBufferObjects =
         {
         .device =   rendererVulkanObjects.vkbdevice.device,
-        .deletionQueue = perFrameDeletionQueuse[currentFrame].get(),
         .renderstepDatas =  MemoryArena::AllocSpan<ActiveRenderStepData>(&perFrameArenas[currentFrame], 20),
         };
 
@@ -1541,18 +1537,16 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     //////////
     /////////
     auto beforeSwapChainStep = renderCommandBufferObjects.PushAndInitializeRenderStep(
-    "_", "Early Cbuffer", &perFrameArenas[currentFrame],
+    "Early Cbuffer", &perFrameArenas[currentFrame],
     commandPoolmanager.get());
 
     auto SwapChainTransitioninStep = renderCommandBufferObjects.PushAndInitializeRenderStep(
-        "_", "Transition swap buffer Cbuffer", &perFrameArenas[currentFrame],
+        "Transition swap buffer Cbuffer", &perFrameArenas[currentFrame],
         commandPoolmanager.get(), &thisFrameData->perFrameSemaphores.swapchainSemaphore);
     
-    auto opaqueRenderStepContext =renderCommandBufferObjects.PushAndInitializeRenderStep(
-        "Rendering signal semaphore", "Main/Rendering Cbuffer", &perFrameArenas[currentFrame],
-        commandPoolmanager.get(), nullptr, &thisFrameData->perFrameSemaphores.presentSemaphore);
-
-    opaqueRenderStepContext->fence = &FramesInFlightData[currentFrame].inFlightFence;
+    auto opaqueRenderStepContext =renderCommandBufferObjects.PushAndInitializeRenderStep("Main/Rendering Cbuffer", &perFrameArenas[currentFrame],
+        commandPoolmanager.get(), nullptr, &thisFrameData->perFrameSemaphores.presentSemaphore,
+        &FramesInFlightData[currentFrame].inFlightFence);
 
     VkImageMemoryBarrier2 swapChainTransitionInBarrier = GetImageBarrier(globalResources.swapchainImages[thisFrameData->swapChainIndex],
        VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT, 
@@ -1744,7 +1738,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
 
 
     // //Submit commandbuffers
-    renderCommandBufferObjects.FinishAndSubmitAll();
+    renderCommandBufferObjects.SubmitSteps();
 
     VkPresentInfoKHR presentInfo{};
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;

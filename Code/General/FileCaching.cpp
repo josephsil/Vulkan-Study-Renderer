@@ -12,6 +12,7 @@
 
 std::wstring widenString(std::string s);
 
+
 bool FileCaching::fileExists(std::string_view assetPath)
 {
     return fileExists(widenString(std::string(assetPath)));
@@ -27,6 +28,22 @@ std::wstring widenString(std::string s)
 {
     //
     return std::wstring(CA2W(std::string(s).c_str()));
+}
+
+const char suffix[] = {".ktx\0"};
+bool FileCaching::tryGetKTXCachedPath(Allocator arena, const char* path, std::span<char>& ktxPath)
+{
+    auto str_chars = strnlen_s(path, 128) / sizeof(char);
+    auto ktxPathMemory = MemoryArena::AllocSpan<char>(arena, strlen(path) + 5); //+4 for ".ktx\0"
+    auto oldPathSubSpan = ktxPathMemory.subspan(0, str_chars);
+    auto suffixSubSpan = ktxPathMemory.subspan(str_chars, 5);
+    
+    std::copy(path, path + (str_chars * sizeof(char)), oldPathSubSpan.data());
+    _memccpy(suffixSubSpan.data(), suffix, 0, sizeof(suffix));
+    ktxPath = ktxPathMemory.subspan(0, ktxPathMemory.size() -1); //Return a view which omits the null terminator
+    return FileCaching::fileExists(std::string_view(ktxPath.data()));
+    
+    
 }
 
 void FileCaching::saveAssetChangedTime(std::string_view assetPath)

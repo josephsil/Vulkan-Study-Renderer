@@ -23,17 +23,17 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
     std::vector<char*> paths;
     std::vector<TextureCreation::TextureCreationInfoArgs> creationArgs;
 
-    creationArgs.push_back(TextureCreation::MakeCreationArgsFromFilepathArgs("textures/blank.png", DIFFUSE));
+    creationArgs.push_back(TextureCreation::MakeCreationArgsFromFilepathArgs("textures/blank.png", rendererContext.tempArena, DIFFUSE));
     paths.push_back(const_cast<char*>("textures/blank.png_diff"));
-    creationArgs.push_back(TextureCreation::MakeCreationArgsFromFilepathArgs("textures/default_roug.tga",  SPECULAR));
+    creationArgs.push_back(TextureCreation::MakeCreationArgsFromFilepathArgs("textures/default_roug.tga",rendererContext.tempArena,  SPECULAR));
     paths.push_back(const_cast<char*>("textures/default_roug.tga"));
-    creationArgs.push_back(TextureCreation::MakeCreationArgsFromFilepathArgs("textures/blank.png",SPECULAR));
+    creationArgs.push_back(TextureCreation::MakeCreationArgsFromFilepathArgs("textures/blank.png", rendererContext.tempArena,SPECULAR));
     paths.push_back(const_cast<char*>("textures/blank.png_spec"));
-    creationArgs.push_back(TextureCreation::MakeCreationArgsFromFilepathArgs("textures/pbr_cruiser-panels/space-cruiser-panels2_albedo.png", DIFFUSE, VK_IMAGE_VIEW_TYPE_2D));
+    creationArgs.push_back(TextureCreation::MakeCreationArgsFromFilepathArgs("textures/pbr_cruiser-panels/space-cruiser-panels2_albedo.png", rendererContext.tempArena, DIFFUSE, VK_IMAGE_VIEW_TYPE_2D));
     paths.push_back(const_cast<char*>("textures/pbr_cruiser-panels/space-cruiser-panels2_albedo.png"));
-    creationArgs.push_back(TextureCreation::MakeCreationArgsFromFilepathArgs("textures/pbr_cruiser-panels/space-cruiser-panels2_roughness_metallic.tga", SPECULAR, VK_IMAGE_VIEW_TYPE_2D));
+    creationArgs.push_back(TextureCreation::MakeCreationArgsFromFilepathArgs("textures/pbr_cruiser-panels/space-cruiser-panels2_roughness_metallic.tga", rendererContext.tempArena, SPECULAR, VK_IMAGE_VIEW_TYPE_2D));
     paths.push_back(const_cast<char*>("textures/pbr_cruiser-panels/space-cruiser-panels2_roughness_metallic.tga"));
-    creationArgs.push_back(TextureCreation::MakeCreationArgsFromFilepathArgs("textures/pbr_cruiser-panels/space-cruiser-panels2_normal-dx.png", NORMAL, VK_IMAGE_VIEW_TYPE_2D));
+    creationArgs.push_back(TextureCreation::MakeCreationArgsFromFilepathArgs("textures/pbr_cruiser-panels/space-cruiser-panels2_normal-dx.png", rendererContext.tempArena, NORMAL, VK_IMAGE_VIEW_TYPE_2D));
     paths.push_back(const_cast<char*>("textures/pbr_cruiser-panels/space-cruiser-panels2_normal-dx.png"));
 
     auto resultTexturedata = MemoryArena::AllocSpan<TextureData>(rendererContext.tempArena, creationArgs.size());

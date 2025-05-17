@@ -18,76 +18,90 @@
 
 #include "Renderer/MainRenderer/VulkanRendererInternals/RendererHelpers.h"
 
-//Everywhere in the actual renderer we use ktx textures, but sometimes we load other textures from disk before caching them to ktx
-//These structs are used for those temporary import textures. Need a better name / home
-struct nonKTXTextureInfo
-{
-    VkImage textureImage;
-    VmaAllocation alloc;
-    uint64_t width;
-    uint64_t height;
-    uint64_t mipCt;
-};
 
-static nonKTXTextureInfo createtempTextureFromPath(PerThreadRenderContext rendererContext,CommandBufferPoolQueue buffer, const char* path, VkFormat format,
+
+static TextureCreation::stagingTextureData createtempTextureFromPath(PerThreadRenderContext rendererContext,CommandBufferPoolQueue buffer, const char* path, VkFormat format,
                                                    bool mips);
-static nonKTXTextureInfo createTextureImage(PerThreadRenderContext rendererContext, const unsigned char* pixels,
+static TextureCreation::stagingTextureData createTextureImage(PerThreadRenderContext rendererContext, const unsigned char* pixels,
                                             uint64_t texWidth, uint64_t texHeight, VkFormat format, bool mips, CommandBufferPoolQueue workingTextureBuffer);
-static void cacheKTXFromTempTexture(PerThreadRenderContext rendererContext, nonKTXTextureInfo tempTexture, const char* outpath,
-                                    VkFormat format, TextureType textureType, bool use_mipmaps, bool compress);
-TextureMetaData GetOrLoadTextureFromPath(PerThreadRenderContext rendererContext, const char* path, VkFormat format, VkSamplerAddressMode mode,
+static void CacheImportedTextureToKTXFile(VkDevice device, TextureCreation::stagingTextureData tempTexture, const char* outpath,
+                                    VkFormat format,  bool compress);
+TextureCreation::WIP_InbetweenStep GetOrLoadTextureFromPath(PerThreadRenderContext rendererContext, const char* path, VkFormat format, VkSamplerAddressMode mode,
                                  TextureType textureType, bool use_mipmaps, bool compress);
 
 // TextureData TextureCreation::CreateTexture_part1(RendererContext rendererContext, const char* path, TextureType type, VkImageViewType viewType)
 // {
 // }
-TextureMetaData CreateTextureFromPath_Synchronously_Start(PerThreadRenderContext rendererContext, TextureCreation::FILE_addtlargs args)
+TextureMetaData CreateTextureInbetweenStep(PerThreadRenderContext rendererContext, TextureCreation::WIP_InbetweenStep r)
 {
-    VkFormat inputFormat;
-    VkSamplerAddressMode mode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    bool uncompressed = false;
+    CacheImportedTextureToKTXFile(rendererContext.device,r.stagingTexture, r.outputPath,  r.format, 
+       r.compress);
+    auto ktxResult = TextureCreation::CreateImageFromCachedKTX(rendererContext, r.outputPath, r.type, true, r.samplerMode);
+    return ktxResult;
+}
 
-    bool use_mipmaps = true;
-    switch (args.type)
+struct PerTypeImportSettings
+{
+    VkFormat formatOverride;
+    VkSamplerAddressMode mode;
+    bool uncompressed;
+    bool use_mipmaps;
+};
+PerTypeImportSettings ImportSettingsForType(TextureType t)
+{
+    PerTypeImportSettings result =
+        {
+        .formatOverride = VK_FORMAT_R8G8B8A8_SRGB,
+        .mode = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+        .uncompressed = false,
+        .use_mipmaps = true
+        };
+    switch (t)
     {
     case DIFFUSE:
         {
-            inputFormat = VK_FORMAT_R8G8B8A8_SRGB;
+            result.formatOverride = VK_FORMAT_R8G8B8A8_SRGB;
             break;
         }
     case SPECULAR:
         {
-            inputFormat = VK_FORMAT_R8G8B8A8_UNORM;
+            result.formatOverride = VK_FORMAT_R8G8B8A8_UNORM;
             break;
         }
     case NORMAL:
         {
-            inputFormat = VK_FORMAT_R8G8B8A8_UNORM;
+            result.formatOverride = VK_FORMAT_R8G8B8A8_UNORM;
             break;
         }
     case LINEAR_DATA:
         {
-            inputFormat = VK_FORMAT_R8G8B8A8_UNORM;
-            mode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-            use_mipmaps = false;
+            result.formatOverride = VK_FORMAT_R8G8B8A8_UNORM;
+            result.mode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+            result.use_mipmaps = false;
             break;
         }
     case CUBE:
         {
-            inputFormat = VK_FORMAT_R8G8B8A8_UNORM;
-            mode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+            result.formatOverride = VK_FORMAT_R8G8B8A8_UNORM;
+            result.mode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
             break;
         }
     case DATA_DONT_COMPRESS:
         {
-            inputFormat = VK_FORMAT_R8G8B8A8_UNORM;
-            mode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-            use_mipmaps = false;
-            uncompressed = true;
+            result.formatOverride = VK_FORMAT_R8G8B8A8_UNORM;
+            result.mode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+            result.use_mipmaps = false;
+            result.uncompressed = true;
         }
     }
+    return result;
+}
+TextureCreation::WIP_InbetweenStep CreateTextureFromPath_Start(PerThreadRenderContext rendererContext, TextureCreation::FILE_addtlargs args)
+{
+    auto perTypeSettings = ImportSettingsForType(args.type);
+    
 
-    return GetOrLoadTextureFromPath(rendererContext, args.path, inputFormat, mode, args.type, use_mipmaps, !uncompressed);
+    return GetOrLoadTextureFromPath(rendererContext, args.path, perTypeSettings.formatOverride, perTypeSettings.mode, args.type, perTypeSettings.use_mipmaps, !perTypeSettings.uncompressed);
 }
 
 TextureData CreateTextureFromPath_Finalize(PerThreadRenderContext rendererContext, TextureMetaData tData, TextureType type,
@@ -118,12 +132,27 @@ TextureData CreateTextureFromPath_Finalize(PerThreadRenderContext rendererContex
 }
 
 TextureCreation::TextureCreationInfoArgs TextureCreation::MakeCreationArgsFromFilepathArgs(
-    const char* path, TextureType type, VkImageViewType viewType)
+    const char* path, Allocator arena, TextureType type, VkImageViewType viewType)
 {
+
+    //Don't regenerate ktx if image modified time is older than last ktx
+    //todo js: hoist this up to the texturecreationinfo step
+    std::span<char> resultPath = {};
+    if (FileCaching::tryGetKTXCachedPath(arena, path, resultPath)) 
+    {
+        printf("Using cached texture at %s\n", resultPath.data()); //
+        if (!FileCaching::assetOutOfDate(path))
+        {
+            auto settings = ImportSettingsForType(type);
+            return MakeTextureCreationArgsFromCachedKTX(resultPath.data(),settings.mode, settings.uncompressed);
+        }
+    }
+    
     TextureCreationInfoArgs args;
     args = TextureCreationInfoArgs{
         TextureCreationMode::FILE
     };
+    
     args.args.fileArgs =
         FILE_addtlargs{
             .path = const_cast<char*>(path),
@@ -155,35 +184,46 @@ TextureCreation::TextureCreationInfoArgs TextureCreation::MakeTextureCreationArg
     return args;
 }
 
-TextureCreation::TextureCreationInfoArgs TextureCreation::MakeTextureCreationArgsFromCachedGLTFArgs(
-     const char* OUTPUT_PATH, VkSamplerAddressMode samplerMode)
+TextureCreation::TextureCreationInfoArgs TextureCreation::MakeTextureCreationArgsFromCachedKTX(
+     const char* OUTPUT_PATH, VkSamplerAddressMode samplerMode, bool isCube, bool nocompress)
 {
+    assert(!nocompress); //unused;
     TextureCreationInfoArgs args;
     args = TextureCreationInfoArgs{
-        TextureCreationMode::GLTFCACHED
+        TextureCreationMode::KTXCACHED
     };
     args.args.gltfCacheArgs =
-        GLTFCACHE_addtlargs{
+        KTX_CACHE_addtlargs{
             .OUTPUT_PATH = const_cast<char*>(OUTPUT_PATH),
             .samplerMode = samplerMode,
+            .isCube =  isCube
         };
     return args;     
 }
 
 
-TextureMetaData CreateTextureNewGltfTexture_Start(PerThreadRenderContext rendererContext,  TextureCreation::GLTFCREATE_addtlargs args)
+TextureCreation::WIP_InbetweenStep CreateTextureNewGltfTexture_Start(PerThreadRenderContext rendererContext,  TextureCreation::GLTFCREATE_addtlargs args)
 {
     auto bandp = rendererContext.textureCreationcommandPoolmanager->beginSingleTimeCommands(false);
-    nonKTXTextureInfo staging = createTextureImage(rendererContext, args.pixels, args.width, args.height, args.format, true, bandp);
+    TextureCreation::stagingTextureData staging = createTextureImage(rendererContext, args.pixels, args.width, args.height, args.format, true, bandp);
 
     //We need a fence between creating the texture and caching the ktx, because the ktx requires a read to host memory
     //I'd really rather go wide paralellizing the cache ktx, but I forgot how it worked when i started writing this. Someday I should break this up
     //I could also do the ktx thing on a background pool, and just return the texture I got from staging?
     rendererContext.textureCreationcommandPoolmanager->endSingleTimeCommands(bandp, true);
 
-    cacheKTXFromTempTexture(rendererContext, staging, args.OUTPUT_PATH, args.format, DIFFUSE, args.mipCt != 0, args.compress);
-    auto ktxResult = TextureCreation::createImageKTX(rendererContext, args.OUTPUT_PATH, DIFFUSE, true, args.samplerMode);
-    return ktxResult;
+    TextureCreation::WIP_InbetweenStep r =
+        {
+        .stagingTexture = staging,
+        .outputPath = args.OUTPUT_PATH,
+         .format = args.format,
+        .compress = true,
+        .samplerMode = args.samplerMode,
+        .type =  DIFFUSE
+        };
+
+    return r;
+
 }
 
 TextureData CreateTextureNewGltfTexture_Finalize(PerThreadRenderContext rendererContext, TextureMetaData tData)
@@ -209,9 +249,9 @@ TextureData CreateTextureNewGltfTexture_Finalize(PerThreadRenderContext renderer
 
 
 //FROM CACHED GLTF
-TextureMetaData GetCachedTexture_Start(PerThreadRenderContext rendererContext, TextureCreation::GLTFCACHE_addtlargs args)
+TextureMetaData GetCachedTexture_Start(PerThreadRenderContext rendererContext, TextureCreation::KTX_CACHE_addtlargs args)
 {
-    return  TextureCreation::createImageKTX(rendererContext, args.OUTPUT_PATH, DIFFUSE, true, args.samplerMode);
+    return  TextureCreation::CreateImageFromCachedKTX(rendererContext, args.OUTPUT_PATH, args.isCube ? CUBE : DIFFUSE, true, args.samplerMode);
 }
 TextureData GetCachedTexture_Finalize(PerThreadRenderContext rendererContext, TextureMetaData tData)
 {
@@ -423,41 +463,12 @@ uint32_t getFormatSize(VkFormat f)
 }
 
 
-void readImageData(PerThreadRenderContext rendererInfo, VmaAllocation alloc, VkImage image, void* data, VkExtent3D extent,
-                   size_t level)
+void readImageData(VkDevice device, VkImage image, void* data, VkExtent3D extent,
+                   uint32_t level)
 {
-    auto vkCopyImageToMemoryEXT = (PFN_vkCopyImageToMemoryEXT)vkGetDeviceProcAddr(
-        rendererInfo.device, "vkCopyImageToMemoryEXT");
-
-    assert(vkCopyImageToMemoryEXT != VK_NULL_HANDLE);
-    VkImageSubresourceLayers subresource = {VK_IMAGE_ASPECT_COLOR_BIT, static_cast<uint32_t>(level), 0, 1};
-    VkImageToMemoryCopyEXT region = {
-        VK_STRUCTURE_TYPE_IMAGE_TO_MEMORY_COPY_EXT, VK_NULL_HANDLE, data, 0, 0, subresource, {0, 0}, extent
-    };
-    VkCopyImageToMemoryInfoEXT info = {
-        VK_STRUCTURE_TYPE_COPY_IMAGE_TO_MEMORY_INFO_EXT, VK_NULL_HANDLE, 0, image, VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL, 1, &region
-    };
-    vkCopyImageToMemoryEXT(rendererInfo.device, &info);
+    vkCopyImageToMemory(device, data, image, extent, level, 0, 1);
 }
 
-std::basic_string<char> replaceExt(const char* target, const char* extension)
-{
-    std::basic_string<char> ktxPath;
-    size_t ext = strcspn(target, ".");
-    ktxPath.resize(ext + 4);
-
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable : 4996)
-#endif
-    strncpy(ktxPath.data(), target, ext);
-    strncpy(&ktxPath.data()[ext], extension, 4);
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
-
-    return ktxPath;
-}
 
 constexpr uint32_t cubeMips = 6;
 
@@ -467,43 +478,28 @@ struct TextureLoadResultsQueue
     size_t processed;
 };
 
-TextureMetaData GetOrLoadTextureFromPath(PerThreadRenderContext rendererContext, const char* path, VkFormat format, VkSamplerAddressMode mode,
+TextureCreation::WIP_InbetweenStep GetOrLoadTextureFromPath(PerThreadRenderContext rendererContext, const char* path, VkFormat format, VkSamplerAddressMode mode,
                                  TextureType textureType, bool use_mipmaps, bool compress)
 {
-    //TODO JS: Figure out cubes later -- when we add compression we should cache cubes too
-    int maxmip = 0;
-    if (textureType == CUBE)
-    {
-        maxmip = cubeMips;
 
-        auto ktxResult = TextureCreation::createImageKTX(rendererContext, path, textureType, true, mode);
-        VkFormat loadedFormat = ktxResult.dimensionsInfo.format;
+    auto bandp = rendererContext.textureCreationcommandPoolmanager->beginSingleTimeCommands(false);
+    TextureCreation::stagingTextureData staging = createtempTextureFromPath(rendererContext, bandp, path, format, use_mipmaps);
+    rendererContext.textureCreationcommandPoolmanager->endSingleTimeCommands(bandp, true);
+    std::span<char> ktxCachePath = {};
+    FileCaching::tryGetKTXCachedPath(rendererContext.tempArena, path, ktxCachePath);
+    TextureCreation::WIP_InbetweenStep r =
+       {
+        .stagingTexture = staging,
+        .outputPath = ktxCachePath.data(),
+         .format = format,
+        .compress = compress,
+        .samplerMode = mode,
+        .type = textureType
+        };
+    FileCaching::saveAssetChangedTime(path);
+    return r;
 
 
-        return ktxResult;
-    }
-
-    auto ktxPath = replaceExt(path, ".ktx");
-    bool generateKTX = true;
-    //Don't regenerate ktx if image modified time is older than last ktx 
-    if (FileCaching::fileExists(ktxPath))
-    {
-        if (!FileCaching::assetOutOfDate(path))
-        {
-            generateKTX = false;
-        }
-    }
-    // generateKTX = true;
-    if (generateKTX)
-    {
-        auto bandp = rendererContext.textureCreationcommandPoolmanager->beginSingleTimeCommands(false);
-        nonKTXTextureInfo staging = createtempTextureFromPath(rendererContext, bandp, path, format, use_mipmaps);
-        rendererContext.textureCreationcommandPoolmanager->endSingleTimeCommands(bandp, true);
-        cacheKTXFromTempTexture(rendererContext, staging, ktxPath.data(), format, textureType, use_mipmaps, compress);
-        FileCaching::saveAssetChangedTime(path);
-    }
-
-    return TextureCreation::createImageKTX(rendererContext, ktxPath.data(), textureType, use_mipmaps, mode);
 }
 
 
@@ -574,28 +570,25 @@ void TextureCreation::createTextureSampler(VkSampler* textureSampler, PerThreadR
 
 //
 
-void cacheKTXFromTempTexture(PerThreadRenderContext rendererContext, nonKTXTextureInfo tempTexture, const char* outpath,
-                             VkFormat format, TextureType textureType, bool use_mipmaps, bool compress)
+void CacheImportedTextureToKTXFile(VkDevice device, TextureCreation::stagingTextureData tempTexture, const char* outpath,
+                             VkFormat format, bool compress)
 {
 
     ktx_size_t srcSize = 0;
     VkImage image = tempTexture.textureImage;
     ktxTexture2* texture; // For KTX2
-    //ktxTexture1* texture;                 // For KTX
     ktxTextureCreateInfo createInfo;
     KTX_error_code result;
-    //FILE* src;
     createInfo.vkFormat = format; // Ignored if creating a ktxTexture1.
     createInfo.baseWidth = static_cast<ktx_uint32_t>(tempTexture.width);
     createInfo.baseHeight = static_cast<ktx_uint32_t>(tempTexture.height);
     createInfo.baseDepth = 1; //TODO JS: ?????? I think only for 3d textures
     createInfo.numDimensions = 2;
-    // Note: it is not necessary to provide a full mipmap pyramid.
-    createInfo.numLevels = use_mipmaps ? static_cast<ktx_uint32_t>(tempTexture.mipCt) : 1;
+    createInfo.numLevels =static_cast<ktx_uint32_t>(tempTexture.mipCt);
     createInfo.numLayers = 1; //TOOD JS: Get this when we load cube 
-    createInfo.numFaces = textureType == CUBE ? 6 : 1;
+    createInfo.numFaces = 1; //todo js: bug?
     createInfo.isArray = KTX_FALSE;
-    createInfo.generateMipmaps = KTX_FALSE; // TODO JS: Make false and save mipmaps?
+    createInfo.generateMipmaps = KTX_FALSE; 
 
 
     result = ktxTexture2_Create(&createInfo,
@@ -605,20 +598,18 @@ void cacheKTXFromTempTexture(PerThreadRenderContext rendererContext, nonKTXTextu
     uint32_t currentLevelWidth = static_cast<uint32_t>(tempTexture.width);
     uint32_t currentLevelheight = static_cast<uint32_t>(tempTexture.height);
     ktxTexture2_Create(&createInfo, KTX_TEXTURE_CREATE_ALLOC_STORAGE, &texture);
-    for (uint32_t i = 0; i < createInfo.numLevels; i++)
+    printf("Reading texture to cpu....\n");
+    for (uint32_t mipLevel = 0; mipLevel < createInfo.numLevels; mipLevel++)
     {
-        int j = 0;
-        int k = 0;
-        int mipLevel = i;
-        int layer = j;
-        int faceSlice = k;
+        int layer = 0;
+        int faceSlice = 0;
 
         std::vector<uint8_t> _imageData;
         const size_t imageByteSize = currentLevelWidth * currentLevelheight * static_cast<size_t>(
             getFormatSize(format));
         _imageData.resize(imageByteSize);
 
-        readImageData(rendererContext, tempTexture.alloc, tempTexture.textureImage, _imageData.data(),
+        readImageData( device, tempTexture.textureImage, _imageData.data(),
                       {currentLevelWidth, currentLevelheight, 1}, mipLevel);
 
 
@@ -638,10 +629,6 @@ void cacheKTXFromTempTexture(PerThreadRenderContext rendererContext, nonKTXTextu
     printf("Writing texture to file...\n");
     ktxTexture_WriteToNamedFile(ktxTexture(texture), outpath);
     ktxTexture_Destroy(ktxTexture(texture));
-
-    //Destroy temporary texture
-    //dupe
-    // rendererContext.threadDeletionQueue->push_backVMA(deletionType::VmaImage, (uint64_t)tempTexture.textureImage, tempTexture.alloc);
 }
 
 VkImageView TextureCreation::createTextureImageView(PerThreadRenderContext rendererContext, TextureMetaData data, VkImageViewType type)
@@ -656,7 +643,7 @@ VkImageView TextureCreation::createTextureImageView(PerThreadRenderContext rende
 }
 
 
-static nonKTXTextureInfo createTextureImage(PerThreadRenderContext rendererContext, const unsigned char* pixels,
+static TextureCreation::stagingTextureData createTextureImage(PerThreadRenderContext rendererContext, const unsigned char* pixels,
                                             uint64_t texWidth, uint64_t texHeight, VkFormat format, bool mips, CommandBufferPoolQueue workingTextureBuffer)
 {
     VkDeviceSize imageSize = texWidth * texHeight * 4;
@@ -726,22 +713,22 @@ static nonKTXTextureInfo createTextureImage(PerThreadRenderContext rendererConte
 
     // exit(1);
 
-    return nonKTXTextureInfo(_textureImage, _textureImageAlloc, texWidth, texHeight, fullMipPyramid);
+    return TextureCreation::stagingTextureData(_textureImage, _textureImageAlloc, texWidth, texHeight, fullMipPyramid);
 }
 
-static nonKTXTextureInfo createtempTextureFromPath(PerThreadRenderContext rendererContext,CommandBufferPoolQueue buffer, const char* path, VkFormat format,
+static TextureCreation::stagingTextureData createtempTextureFromPath(PerThreadRenderContext rendererContext,CommandBufferPoolQueue buffer, const char* path, VkFormat format,
                                                    bool mips)
 {
     int texWidth, texHeight, texChannels;
     stbi_uc* pixels = stbi_load(path, &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 
-    nonKTXTextureInfo tex = createTextureImage(rendererContext, pixels, texWidth, texHeight, format, mips,  buffer);
+    TextureCreation::stagingTextureData tex = createTextureImage(rendererContext, pixels, texWidth, texHeight, format, mips,  buffer);
     stbi_image_free(pixels);
     return tex;
 }
 
 ktxVulkanDeviceInfo vdi = {};
-TextureMetaData TextureCreation::createImageKTX(PerThreadRenderContext rendererContext, const char* path, TextureType type, bool mips, VkSamplerAddressMode mode)
+TextureMetaData TextureCreation::CreateImageFromCachedKTX(PerThreadRenderContext rendererContext, const char* path, TextureType type, bool mips, VkSamplerAddressMode mode)
 {
    
     ktxVulkanTexture texture;
@@ -790,7 +777,7 @@ TextureMetaData TextureCreation::createImageKTX(PerThreadRenderContext rendererC
                                        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 
-    SetDebugObjectName(rendererContext.device, VK_OBJECT_TYPE_IMAGE, "KTX texture", (uint64_t)texture.image);
+    SetDebugObjectName(rendererContext.device, VK_OBJECT_TYPE_IMAGE, path, (uint64_t)texture.image);
 
 
     ktxTexture_Destroy((ktxTexture*)kTexture);
@@ -812,7 +799,7 @@ TextureMetaData TextureCreation::createImageKTX(PerThreadRenderContext rendererC
             .width = texture.width,
             .height = texture.height,
             .mipCt = type == CUBE ? cubeMips : texture.levelCount,
-            .layerCt = texture.layerCount,
+            .layerCt = type == CUBE ? (uint32_t)6 : (uint32_t)1,
         },
 
         .ktxMemory = texture.deviceMemory,
@@ -829,15 +816,16 @@ TextureCreation::TextureCreationStep1Result TextureCreation::CreateTextureFromAr
     {
     case TextureCreation::TextureCreationMode::FILE:
         {
-            r.metaData = CreateTextureFromPath_Synchronously_Start(context, a.args.fileArgs);
+            r.metaData =  CreateTextureInbetweenStep(context, CreateTextureFromPath_Start(context, a.args.fileArgs));
             r.viewType = a.args.fileArgs.viewType;
             r.type = a.args.fileArgs.type;
             break;
         }
     case TextureCreation::TextureCreationMode::GLTFCREATE:
-        r.metaData = CreateTextureNewGltfTexture_Start(context, a.args.gltfCreateArgs);
+        r.metaData = CreateTextureInbetweenStep(context, CreateTextureNewGltfTexture_Start(context, a.args.gltfCreateArgs));
         break;
-    case TextureCreation::TextureCreationMode::GLTFCACHED:
+    case TextureCreation::TextureCreationMode::KTXCACHED:
+        // assert(!"Moving cached gltf out of step 1");
         r.metaData  = GetCachedTexture_Start(context, a.args.gltfCacheArgs);
         break;
 assert("!error!");
@@ -858,7 +846,7 @@ TextureData TextureCreation::CreateTextureFromArgsFinalize(PerThreadRenderContex
         return CreateTextureFromPath_Finalize(outputTextureOwnerContext, startResult.metaData, startResult.type, startResult.viewType);
     case TextureCreationMode::GLTFCREATE:
         return CreateTextureNewGltfTexture_Finalize(outputTextureOwnerContext, startResult.metaData);
-    case TextureCreationMode::GLTFCACHED:
+    case TextureCreationMode::KTXCACHED:
         return GetCachedTexture_Finalize(outputTextureOwnerContext, startResult.metaData);
     }
     assert("!Error");

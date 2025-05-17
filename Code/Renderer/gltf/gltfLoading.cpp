@@ -421,7 +421,7 @@ void GltfLoadTextures(size_t imageCt, std::span<TextureData> textures,  std::spa
         TextureCreation::TextureCreationInfoArgs jobArg = {};
         if (loadFromCache)
         {
-            textureCreationRequests[i] = TextureCreation::MakeTextureCreationArgsFromCachedGLTFArgs(
+            textureCreationRequests[i] = TextureCreation::MakeTextureCreationArgsFromCachedKTX(
                 path.data(), VK_SAMPLER_ADDRESS_MODE_REPEAT);
         }
         else

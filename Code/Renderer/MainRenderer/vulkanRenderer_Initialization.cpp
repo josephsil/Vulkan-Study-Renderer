@@ -34,13 +34,12 @@ void VulkanRenderer::initializeWindow()
 
 vkb::PhysicalDevice getPhysicalDevice(vkb::Instance instance, VkSurfaceKHR surface)
 {
-// #define RENDERDOC_COMPATIBILITY
+#define RENDERDOC_COMPATIBILITY
     const std::vector<const char*> deviceExtensions = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_MAINTENANCE_4_EXTENSION_NAME, VK_KHR_MAINTENANCE_3_EXTENSION_NAME,
         VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME, VK_EXT_MUTABLE_DESCRIPTOR_TYPE_EXTENSION_NAME
 #ifndef RENDERDOC_COMPATIBILITY
-        ,
-        VK_EXT_HOST_IMAGE_COPY_EXTENSION_NAME
+        ,VK_EXT_HOST_IMAGE_COPY_EXTENSION_NAME
 #endif
         //for image copy:
         // VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, VK_KHR_COPY_COMMANDS_2_EXTENSION_NAME, VK_KHR_FORMAT_FEATURE_FLAGS_2_EXTENSION_NAME,
@@ -59,18 +58,23 @@ features13.dynamicRendering = VK_TRUE;
 features13.synchronization2 = VK_TRUE;
 features12.samplerFilterMinmax = VK_TRUE;
 
+#ifndef RENDERDOC_COMPATIBILITY
 VkPhysicalDeviceHostImageCopyFeaturesEXT deviceHostExt{};
 deviceHostExt =
 {
     .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_IMAGE_COPY_FEATURES_EXT,
     .hostImageCopy = VK_TRUE
 };
+
+#endif
 vkb::PhysicalDeviceSelector phys_device_selector(instance);
 auto physicalDeviceBuilderResult = phys_device_selector
                                    .set_minimum_version(1, 3)
                                    .set_surface(surface)
                                    .require_separate_transfer_queue()
+#ifndef RENDERDOC_COMPATIBILITY
                                    .add_required_extension_features(deviceHostExt)
+#endif
                                    .set_required_features(features)
                                    .set_required_features_11(features11)
                                    .set_required_features_12(features12)
@@ -78,12 +82,7 @@ auto physicalDeviceBuilderResult = phys_device_selector
                                    .set_required_features_13(features13)
                                    //NOTE: Not supporting gpus without dedicated queue 
                                    .require_separate_compute_queue()
-                                   .add_required_extensions(deviceExtensions)
-
-#ifndef RENDERDOC_COMPATIBILITY
-
-#endif
-    .select();
+                                   .add_required_extensions(deviceExtensions).select();
 
 
     if (!physicalDeviceBuilderResult)
@@ -224,6 +223,10 @@ rendererObjects initializeVulkanObjects(SDL_Window* _window, int WIDTH, int HEIG
     
     registerTransitionImagefn(
     (PFN_vkTransitionImageLayoutEXT)vkGetDeviceProcAddr(vkb_device.device, "vkTransitionImageLayoutEXT"));
+
+    registerCopyImageToMemoryFn(
+    (PFN_vkCopyImageToMemoryEXT)    vkGetDeviceProcAddr(
+        vkb_device.device, "vkCopyImageToMemoryEXT"));
 
     //Swapchain
     vkb::SwapchainBuilder swapchain_builder{vkb_device};

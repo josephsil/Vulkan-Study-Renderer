@@ -47,9 +47,27 @@ void createPerThreadRenderContexts(Allocator allocator, PerThreadRenderContext m
 void LoadTexturesThreaded(PerThreadRenderContext mainThreadContext, std::span<TextureData> dstTextures,
     std::span<TextureCreation::TextureCreationInfoArgs> textureCreationWork)
 {
-    
+
     MemoryArena::memoryArena threadPoolAllocator{};
     initialize(&threadPoolAllocator, 64 * 100000);
+
+    // Array newArgs = MemoryArena::AllocSpan<TextureCreation::TextureCreationInfoArgs>(&threadPoolAllocator, textureCreationWork.size());
+    // Array newPhase2Input = MemoryArena::AllocSpan<TextureCreation::TextureCreationStep1Result>(&threadPoolAllocator, textureCreationWork.size());
+    // //WIP -- separate out 'new phase 2' stuff from the rest
+    // for(int i =0; i < textureCreationWork.size(); i++)
+    // {
+    //     auto& w = textureCreationWork[i];
+    //     switch (w.mode)
+    //     {
+    //     case TextureCreation::TextureCreationMode::FILE:
+    //     case TextureCreation::TextureCreationMode::GLTFCREATE:
+    //         newArgs.push_back(w);
+    //         break;
+    //     case TextureCreation::TextureCreationMode::GLTFCACHED:
+    //         // newPhase2Input.push_back(w);
+    //         break;
+    //     }
+    // }
     
     //Initialize a pool
     ThreadPool::Pool threadPool;
