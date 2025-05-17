@@ -914,10 +914,10 @@ void VulkanRenderer::RecordMipChainCompute(ActiveRenderStepData commandBufferCon
     //For each texture, for each mip level, we want to work on, dispatch X/Y texture resolution and set a barrier (for the next phase)
     //Compute shader will read in texture and write back out to it
     VkImageMemoryBarrier2 barrier12 = GetImageBarrier(dstImage,
-        VK_PIPELINE_STAGE_TRANSFER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-        VK_ACCESS_2_SHADER_READ_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
+        VK_ACCESS_2_SHADER_READ_BIT |VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT ,
         VK_ACCESS_2_SHADER_WRITE_BIT   ,
         VK_IMAGE_LAYOUT_GENERAL,
         VK_IMAGE_ASPECT_COLOR_BIT,
@@ -984,7 +984,7 @@ void VulkanRenderer::RecordMipChainCompute(ActiveRenderStepData commandBufferCon
             VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
             VK_ACCESS_MEMORY_WRITE_BIT,
             VK_IMAGE_LAYOUT_GENERAL,
-            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
              VK_ACCESS_SHADER_READ_BIT,
             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             VK_IMAGE_ASPECT_COLOR_BIT,
@@ -1205,7 +1205,7 @@ void VulkanRenderer::Update(Scene* scene)
     if (checkFences)
     {
 
-        printf("begin wait for fence %d \n", currentFrame);
+        // printf("begin wait for fence %d \n", currentFrame);
         clock_t before = clock();
         vkWaitForFences(rendererVulkanObjects.vkbdevice.device, 1, &FramesInFlightData[currentFrame].inFlightFence, VK_TRUE, UINT64_MAX);
         //Render
@@ -1217,7 +1217,7 @@ void VulkanRenderer::Update(Scene* scene)
 
 
         
-        printf("end wait for fence %d, MS %d \n", currentFrame, msec);
+        // printf("end wait for fence %d, MS %d \n", currentFrame, msec);
         
        
         perFrameDeletionQueuse[currentFrame]->FreeQueue();
@@ -1247,7 +1247,7 @@ void VulkanRenderer::Update(Scene* scene)
     auto t2 = SDL_GetPerformanceCounter();
     auto difference =SDL_GetPerformanceCounter() - RenderLoop;
     float msec = ((1000.0f * difference) / SDL_GetPerformanceFrequency());
-    printf("end render loop %d, MS %ld \n", currentFrame, (long)msec);
+    // printf("end render loop %d, MS %ld \n", currentFrame, (long)msec);
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
     
     // vkDeviceWaitIdle(rendererVulkanObjects.vkbdevice.device);
@@ -1572,15 +1572,15 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     //////////
     /////////
     auto beforeSwapChainStep = renderCommandBufferObjects.PushAndInitializeRenderStep(
-    "swapTransitionInSignalSemaphores", "swapTransitionInCommandBuffer", &perFrameArenas[currentFrame],
+    "_", "Early Cbuffer", &perFrameArenas[currentFrame],
     commandPoolmanager.get());
 
     auto SwapChainTransitioninStep = renderCommandBufferObjects.PushAndInitializeRenderStep(
-        "swapTransitionInSignalSemaphores", "swapTransitionInCommandBuffer", &perFrameArenas[currentFrame],
+        "_", "Transition swap buffer Cbuffer", &perFrameArenas[currentFrame],
         commandPoolmanager.get(), &thisFrameData->perFrameSemaphores.swapchainSemaphore);
     
     auto opaqueRenderStepContext =renderCommandBufferObjects.PushAndInitializeRenderStep(
-        "OpaqueAndTransitionOutSignalSemaphores", "OpaqueAndTransitionOutCommandBuffer", &perFrameArenas[currentFrame],
+        "Rendering signal semaphore", "Main/Rendering Cbuffer", &perFrameArenas[currentFrame],
         commandPoolmanager.get(), nullptr, &thisFrameData->perFrameSemaphores.presentSemaphore);
 
     opaqueRenderStepContext->fence = &FramesInFlightData[currentFrame].inFlightFence;
@@ -1686,6 +1686,18 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     //prepass 
     RecordPrimaryRenderPasses(prepassBatches, &pipelineLayoutManager, thisFrameData->drawBuffers.buffer.data, currentFrame);
 
+
+    VkImageMemoryBarrier2 depthtoCompute = GetImageBarrier(globalResources.depthBufferInfoPerFrame[currentFrame].image,
+        VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT, 
+           VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+           VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+           VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT ,
+           VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_MEMORY_READ_BIT,
+           VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+           VK_IMAGE_ASPECT_DEPTH_BIT,
+           0,
+        VK_REMAINING_MIP_LEVELS);
+    SetPipelineBarrier(opaqueRenderStepContext->commandBuffer,0,0,0,1, &depthtoCompute );
     RecordMipChainCompute(*opaqueRenderStepContext, &perFrameArenas[currentFrame],  globalResources.depthPyramidInfoPerFrame[currentFrame].image,
                       globalResources.depthBufferInfoPerFrame[currentFrame].view, globalResources.depthPyramidInfoPerFrame[currentFrame].viewsForMips, globalResources.depthMipSampler, currentFrame, globalResources.depthPyramidInfoPerFrame[currentFrame].depthSize.x,
                       globalResources.depthPyramidInfoPerFrame[currentFrame].depthSize.y);     
@@ -1706,7 +1718,18 @@ void VulkanRenderer::RenderFrame(Scene* scene)
        1, i);
         shadowBarriers[i] = depthToShadowBarrier;
     }
+    VkImageMemoryBarrier2 depthtoDrawing = GetImageBarrier(globalResources.depthBufferInfoPerFrame[currentFrame].image,
+    VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 
+       VK_ACCESS_2_SHADER_WRITE_BIT,
+       VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+       VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT ,
+       VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_MEMORY_READ_BIT,
+       VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+       VK_IMAGE_ASPECT_DEPTH_BIT,
+       0,
+    VK_REMAINING_MIP_LEVELS);
     SetPipelineBarrier(opaqueRenderStepContext->commandBuffer,0,0,0,MAX_SHADOWMAPS, shadowBarriers.data() );
+    SetPipelineBarrier(opaqueRenderStepContext->commandBuffer,0,0,0,1, &depthtoDrawing);
     //shadowrenderBatches.batchConfigs.size() -
     RecordPrimaryRenderPasses(shadowBatches, &pipelineLayoutManager, thisFrameData->drawBuffers.buffer.data, currentFrame);
     VkImageMemoryBarrier2 shadowToOpaqueBarrier = GetImageBarrier(shadowResources.shadowImages[currentFrame],
@@ -1735,13 +1758,22 @@ void VulkanRenderer::RenderFrame(Scene* scene)
          VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, 
          VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
          VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-         VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT ,
+         VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
          VK_ACCESS_MEMORY_READ_BIT,
          VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
          VK_IMAGE_ASPECT_COLOR_BIT,
          0,
          VK_REMAINING_MIP_LEVELS);
+
+
     SetPipelineBarrier(opaqueRenderStepContext->commandBuffer,0,0,0,1, &swapchainToPresent );
+
+    auto indirectCommandsOutBarrier = bufferBarrier(thisFrameData->drawBuffers.buffer.data, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        VK_ACCESS_MEMORY_WRITE_BIT,  VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT, VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT);
+    
+    SetPipelineBarrier(beforeSwapChainStep->commandBuffer,0,1,&indirectCommandsOutBarrier,0, 0 );
+
+
     // //Submit commandbuffers
     renderCommandBufferObjects.FinishAndSubmitAll();
 
@@ -1756,7 +1788,6 @@ void VulkanRenderer::RenderFrame(Scene* scene)
 
     //Present e
     vkQueuePresentKHR(GET_QUEUES()->presentQueue, &presentInfo);
-    printf("submit render%d %d\n", clock(), currentFrame);
     
 
    
