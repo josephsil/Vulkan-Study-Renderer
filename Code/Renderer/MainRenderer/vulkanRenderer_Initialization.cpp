@@ -45,37 +45,45 @@ vkb::PhysicalDevice getPhysicalDevice(vkb::Instance instance, VkSurfaceKHR surfa
         //for image copy:
         // VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, VK_KHR_COPY_COMMANDS_2_EXTENSION_NAME, VK_KHR_FORMAT_FEATURE_FLAGS_2_EXTENSION_NAME,
     };
-    VkPhysicalDeviceFeatures features{};
-    VkPhysicalDeviceVulkan11Features features11{};
-    VkPhysicalDeviceVulkan12Features features12{};
-    VkPhysicalDeviceVulkan13Features features13{};
-    features.multiDrawIndirect = VK_TRUE;
-    features.wideLines = VK_TRUE;
-    features11.shaderDrawParameters = VK_TRUE;
-    features12.descriptorIndexing = VK_TRUE;
-    features12.runtimeDescriptorArray = VK_TRUE;
-    features12.descriptorBindingPartiallyBound = VK_TRUE;
-    features13.dynamicRendering = VK_TRUE;
-    features13.synchronization2 = VK_TRUE;
-    features12.samplerFilterMinmax = VK_TRUE;
+VkPhysicalDeviceFeatures features{};
+VkPhysicalDeviceVulkan11Features features11{};
+VkPhysicalDeviceVulkan12Features features12{};
+VkPhysicalDeviceVulkan13Features features13{};
+features.multiDrawIndirect = VK_TRUE;
+features.wideLines = VK_TRUE;
+features11.shaderDrawParameters = VK_TRUE;
+features12.descriptorIndexing = VK_TRUE;
+features12.runtimeDescriptorArray = VK_TRUE;
+features12.descriptorBindingPartiallyBound = VK_TRUE;
+features13.dynamicRendering = VK_TRUE;
+features13.synchronization2 = VK_TRUE;
+features12.samplerFilterMinmax = VK_TRUE;
 
-    vkb::PhysicalDeviceSelector phys_device_selector(instance);
-    auto physicalDeviceBuilderResult = phys_device_selector
-                                       .set_minimum_version(1, 3)
-                                       .set_surface(surface)
-                                       .require_separate_transfer_queue()
-                                       .set_required_features(features)
-                                       .set_required_features_11(features11)
-                                       .set_required_features_12(features12)
-                                       // .set_required_features({.})
-                                       .set_required_features_13(features13)
-                                       //NOTE: Not supporting gpus without dedicated queue 
-                                       .require_separate_compute_queue()
-                                       .add_required_extensions(deviceExtensions)
+VkPhysicalDeviceHostImageCopyFeaturesEXT deviceHostExt{};
+deviceHostExt =
+{
+    .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_IMAGE_COPY_FEATURES_EXT,
+    .hostImageCopy = VK_TRUE
+};
+vkb::PhysicalDeviceSelector phys_device_selector(instance);
+auto physicalDeviceBuilderResult = phys_device_selector
+                                   .set_minimum_version(1, 3)
+                                   .set_surface(surface)
+                                   .require_separate_transfer_queue()
+                                   .add_required_extension_features(deviceHostExt)
+                                   .set_required_features(features)
+                                   .set_required_features_11(features11)
+                                   .set_required_features_12(features12)
+                                   // .set_required_features({.})
+                                   .set_required_features_13(features13)
+                                   //NOTE: Not supporting gpus without dedicated queue 
+                                   .require_separate_compute_queue()
+                                   .add_required_extensions(deviceExtensions)
+
 #ifndef RENDERDOC_COMPATIBILITY
-                                        .add_required_extension_features(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_IMAGE_COPY_FEATURES_EXT)
+
 #endif
-        .select();
+    .select();
 
 
     if (!physicalDeviceBuilderResult)
@@ -89,6 +97,9 @@ vkb::PhysicalDevice getPhysicalDevice(vkb::Instance instance, VkSurfaceKHR surfa
     {
         printf("%s \n", v.c_str());
     }
+#ifndef RENDERDOC_COMPATIBILITY
+    physicalDeviceBuilderResult.value().enable_extension_if_present(VK_EXT_HOST_IMAGE_COPY_EXTENSION_NAME);
+#endif
     return physicalDeviceBuilderResult.value();
 }
 
