@@ -918,7 +918,7 @@ void VulkanRenderer::RecordMipChainCompute(ActiveRenderStepData commandBufferCon
         VK_ACCESS_2_SHADER_READ_BIT,
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-        VK_ACCESS_2_SHADER_READ_BIT |VK_ACCESS_2_SHADER_WRITE_BIT   ,
+        VK_ACCESS_2_SHADER_WRITE_BIT   ,
         VK_IMAGE_LAYOUT_GENERAL,
         VK_IMAGE_ASPECT_COLOR_BIT,
         i,
@@ -1600,21 +1600,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     SetPipelineBarrier(SwapChainTransitioninStep->commandBuffer,0, 0, 0, 1, &swapChainTransitionInBarrier);
 
     
-    VkImageMemoryBarrier2 ShadowsTransitionInBarrier = GetImageBarrier(shadowResources.shadowImages[currentFrame],
-       VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT, 
-       {},
-       VK_IMAGE_LAYOUT_UNDEFINED,
-       VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-       VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_MEMORY_READ_BIT,
-       VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-       VK_IMAGE_ASPECT_DEPTH_BIT,
-       0,
-       VK_REMAINING_ARRAY_LAYERS);
 
-    
-    SetPipelineBarrier(beforeSwapChainStep->commandBuffer,0, 0, 0, 1, &ShadowsTransitionInBarrier);
-    
-    
     //Transferring cpu -> gpu data -- should improve
     AddBufferTrasnfer(thisFrameData->hostVerts.buffer.data, thisFrameData->deviceVerts.data,
                       thisFrameData->deviceVerts.size, beforeSwapChainStep->commandBuffer);
@@ -1705,17 +1691,22 @@ void VulkanRenderer::RenderFrame(Scene* scene)
                       globalResources.depthPyramidInfoPerFrame[currentFrame].depthSize.y);     
 
 
-    VkImageMemoryBarrier2 depthToShadowBarrier = GetImageBarrier(shadowResources.shadowImages[currentFrame],
-   VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 
-   VK_ACCESS_2_SHADER_WRITE_BIT,
-   VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-   VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT ,
-   VK_ACCESS_2_SHADER_READ_BIT,
-   VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-   VK_IMAGE_ASPECT_DEPTH_BIT,
-   0,
-   VK_REMAINING_MIP_LEVELS);
-    SetPipelineBarrier(opaqueRenderStepContext->commandBuffer,0,0,0,1, &depthToShadowBarrier );
+    auto shadowBarriers = MemoryArena::AllocSpan<VkImageMemoryBarrier2>(&perFrameArenas[currentFrame], MAX_SHADOWMAPS);
+    for(int i =0; i < MAX_SHADOWMAPS; i++)
+    {
+        VkImageMemoryBarrier2 depthToShadowBarrier = GetImageBarrier(shadowResources.shadowImages[currentFrame],
+       VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 
+       VK_ACCESS_2_SHADER_WRITE_BIT,
+       VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+       VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT ,
+       VK_ACCESS_2_SHADER_READ_BIT,
+       VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+       VK_IMAGE_ASPECT_DEPTH_BIT,
+       0,
+       1, i);
+        shadowBarriers[i] = depthToShadowBarrier;
+    }
+    SetPipelineBarrier(opaqueRenderStepContext->commandBuffer,0,0,0,MAX_SHADOWMAPS, shadowBarriers.data() );
     //shadowrenderBatches.batchConfigs.size() -
     RecordPrimaryRenderPasses(shadowBatches, &pipelineLayoutManager, thisFrameData->drawBuffers.buffer.data, currentFrame);
     VkImageMemoryBarrier2 shadowToOpaqueBarrier = GetImageBarrier(shadowResources.shadowImages[currentFrame],

@@ -215,7 +215,7 @@ void PipelineMemoryBarrier(VkCommandBuffer commandBuffer, VkPipelineStageFlags2 
 VkImageMemoryBarrier2 GetImageBarrier(VkImage image, VkPipelineStageFlags2 srcStageMask, VkAccessFlags2 srcAccessMask,
                                    VkImageLayout oldLayout, VkPipelineStageFlags2 dstStageMask,
                                    VkAccessFlags2 dstAccessMask, VkImageLayout newLayout, VkImageAspectFlags aspectMask,
-                                   uint32_t baseMipLevel, uint32_t levelCount)
+                                   uint32_t baseMipLevel, uint32_t levelCount, uint32_t baselayer)
 {
     VkImageMemoryBarrier2 result = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
 
@@ -231,6 +231,7 @@ VkImageMemoryBarrier2 GetImageBarrier(VkImage image, VkPipelineStageFlags2 srcSt
     result.subresourceRange.aspectMask = aspectMask;
     result.subresourceRange.baseMipLevel = baseMipLevel;
     result.subresourceRange.levelCount = levelCount;
+    result.subresourceRange.baseArrayLayer = baselayer;
     result.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
 
     return result;
