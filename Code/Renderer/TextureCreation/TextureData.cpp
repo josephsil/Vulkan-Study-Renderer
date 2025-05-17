@@ -845,17 +845,9 @@ break;
     }
     return r;
 }
-TextureData TextureCreation::CreateTextureSynchronously(PerThreadRenderContext context, TextureCreation::TextureCreationInfoArgs a)
-{
-    auto cbap = context.textureCreationcommandPoolmanager->beginSingleTimeCommands(false);
-    auto s = CreateTextureFromArgs_Start( context, a);
-    context.textureCreationcommandPoolmanager->endSingleTimeCommands(cbap, true);
-    return CreateTextureFromArgsFinalize(context, s);
-    
-}
+
 TextureData TextureCreation::CreateTextureFromArgsFinalize(PerThreadRenderContext outputTextureOwnerContext, TextureCreationStep1Result startResult)
 {
-
     //These probably came from another thread, with its own deletion queue.
     //We can delete this when our rendercontext winds down;
     outputTextureOwnerContext.threadDeletionQueue->push_backVk(deletionType::Image, uint64_t(startResult.metaData.textureImage.image));

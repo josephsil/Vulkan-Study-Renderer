@@ -35,6 +35,9 @@
 #include <Renderer/MainRenderer/VulkanRendererInternals/LightAndCameraHelpers.h>
 #include <Renderer/MainRenderer/VulkanRendererInternals/RendererHelpers.h>
 
+#include "General/LinearDictionary.h"
+#include "General/ThreadedTextureLoading.h"
+
 struct gpuPerShadowData;
 std::vector<unsigned int> pastTimes;
 unsigned int averageCbTime;
@@ -50,39 +53,7 @@ FullShaderHandle  DEBUG_RAYMARCH_SHADER_INDEX ={SIZE_MAX,SIZE_MAX};
 //Slowly making this less of a giant class that owns lots of things and moving to these static FNS -- will eventually migrate thewm
 
 
-
-size_t DepthPassLookupCt = 0;
-FullShaderHandle DepthPassLookupKeys[30];
-FullShaderHandle DepthPassLookupValues[30];
-void PlaceholderDepthPassLookupPush(FullShaderHandle k, FullShaderHandle v)
-{
-    for(int i =0; i < DepthPassLookupCt; i++)
-    {
-        auto key = DepthPassLookupKeys[i];
-        
-        if (k.layout == key.layout && k.shader == key.shader)
-        {
-            assert(!"Can't re-submit key");
-        }
-    }
-    DepthPassLookupKeys[DepthPassLookupCt] = k;
-    DepthPassLookupValues[DepthPassLookupCt++] = v;
-}
-FullShaderHandle PlaceholderDepthPassLookupFind(FullShaderHandle source)
-{
-
-    for(int i =0; i < DepthPassLookupCt; i++)
-    {
-        auto key = DepthPassLookupKeys[i];
-        
-        if ((source.layout == key.layout) && (source.shader == key.shader))
-        {
-            return DepthPassLookupValues[i];
-        }
-    }
-        assert(!"Not in lookup!");
-    return {};
-}
+LinearDictionary<FullShaderHandle, FullShaderHandle> PlaceholderDepthPassLookup = {};
 
 PerSceneShadowResources  init_allocate_shadow_memory(rendererObjects initializedrenderer,  MemoryArena::memoryArena* allocationArena);
 VkDescriptorSet UpdateAndGetBindlessDescriptorSetForFrame(PerThreadRenderContext context, DescriptorDataForPipeline descriptorData, int currentFrame,  std::span<descriptorUpdates> updates);
@@ -337,11 +308,11 @@ void VulkanRenderer::initializePipelines(size_t shadowCasterCount)
     const GraphicsPipelineSettings debugRaymarchPipelineSettings =  {std::span(&swapchainFormat, 1), globalResources.depthBufferInfoPerFrame[currentFrame].format, VK_CULL_MODE_FRONT_BIT, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST};
     DEBUG_RAYMARCH_SHADER_INDEX = pipelineLayoutManager.createPipeline(opaqueLayoutIDX, globalResources.shaderLoader->compiledShaders["debug"],  "debug", debugRaymarchPipelineSettings);
 
-    PlaceholderDepthPassLookupPush( (shadow),  (SHADOW_PREPASS_SHADER_INDEX));
-    PlaceholderDepthPassLookupPush((opaque1), (OPAQUE_PREPASS_SHADER_INDEX));
-    PlaceholderDepthPassLookupPush((opaque2), (OPAQUE_PREPASS_SHADER_INDEX));
-    PlaceholderDepthPassLookupPush((DEBUG_RAYMARCH_SHADER_INDEX), (OPAQUE_PREPASS_SHADER_INDEX));
-    PlaceholderDepthPassLookupPush((DEBUG_LINE_SHADER_INDEX), (OPAQUE_PREPASS_SHADER_INDEX));
+    PlaceholderDepthPassLookup.Push( (shadow),  (SHADOW_PREPASS_SHADER_INDEX));
+    PlaceholderDepthPassLookup.Push((opaque1), (OPAQUE_PREPASS_SHADER_INDEX));
+    PlaceholderDepthPassLookup.Push((opaque2), (OPAQUE_PREPASS_SHADER_INDEX));
+    PlaceholderDepthPassLookup.Push((DEBUG_RAYMARCH_SHADER_INDEX), (OPAQUE_PREPASS_SHADER_INDEX));
+    PlaceholderDepthPassLookup.Push((DEBUG_LINE_SHADER_INDEX), (OPAQUE_PREPASS_SHADER_INDEX));
 
     //Cleanup
     for (auto kvp : globalResources.shaderLoader->compiledShaders)
@@ -372,16 +343,18 @@ void VulkanRenderer::InitializeRendererForScene(sceneCountData sceneCountData) /
 
     TextureCreation::createDepthPyramidSampler(&globalResources.depthMipSampler, GetMainRendererContext(), HIZDEPTH);
 
+    TextureCreation::TextureCreationInfoArgs args[3] = {
+    TextureCreation::MakeCreationArgsFromFilepathArgs("textures/outputLUT.png", TextureType::DATA_DONT_COMPRESS),
+    TextureCreation::MakeCreationArgsFromFilepathArgs("textures/output_cubemap2_diff8.ktx2",TextureType::CUBE),
+    TextureCreation::MakeCreationArgsFromFilepathArgs("textures/output_cubemap2_spec8.ktx2",TextureType::CUBE)};
+    TextureData data[3];
+    LoadTexturesThreaded(GetMainRendererContext(), data, args);
+
     //Initialize scene-ish objects we don't have a place for yet 
-     auto cubemaplut_utilitytexture = TextureCreation::CreateTextureSynchronously(
-        GetMainRendererContext(), TextureCreation::MakeCreationArgsFromFilepathArgs("textures/outputLUT.png", TextureType::DATA_DONT_COMPRESS));
+     auto cubemaplut_utilitytexture =data[0];
     cubemaplut_utilitytexture_index = AssetDataAndMemory->AddTexture(cubemaplut_utilitytexture);
-     cube_irradiance = TextureCreation::CreateTextureSynchronously(
-        GetMainRendererContext(), TextureCreation::MakeCreationArgsFromFilepathArgs("textures/output_cubemap2_diff8.ktx2",
-            TextureType::CUBE));
-     cube_specular = TextureCreation::CreateTextureSynchronously(
-        GetMainRendererContext(), TextureCreation::MakeCreationArgsFromFilepathArgs("textures/output_cubemap2_spec8.ktx2",
-            TextureType::CUBE));
+     cube_irradiance =data[1];
+     cube_specular = data[2];
 
     CreateUniformBuffers(sceneCountData.subMeshCount, sceneCountData.objectCount, sceneCountData.lightCount);
 
@@ -1727,7 +1700,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
         std::span<simpleMeshPassInfo> newPasses = MemoryArena::copySpan<simpleMeshPassInfo>(&perFrameArenas[currentFrame], oldPasses);
         for(int j =0; j < newPasses.size(); j++)
         {
-            newPasses[j].shader = PlaceholderDepthPassLookupFind(oldPasses[j].shader); 
+            newPasses[j].shader = PlaceholderDepthPassLookup.Find(oldPasses[j].shader); 
         }
         newBatch.debugName = std::string("depth prepass");
         newBatch.meshPasses = newPasses;

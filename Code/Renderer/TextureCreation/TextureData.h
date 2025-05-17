@@ -118,5 +118,4 @@ namespace TextureCreation
 
     TextureCreationStep1Result CreateTextureFromArgs_Start(PerThreadRenderContext context, TextureCreationInfoArgs a);
     TextureData CreateTextureFromArgsFinalize(PerThreadRenderContext outputTextureOwnerContext, TextureCreationStep1Result startResult);
-    TextureData CreateTextureSynchronously(PerThreadRenderContext context, TextureCreation::TextureCreationInfoArgs a);
 }

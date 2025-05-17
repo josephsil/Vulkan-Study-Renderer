@@ -24,6 +24,7 @@ struct FullShaderHandle
 {
     PipelineLayoutHandle layout;
     ShaderHandle shader;
+    bool operator==(FullShaderHandle const& rhs) const { return layout == rhs.layout && shader == rhs.shader; }
 };
 //can have one or more descriptor sets to draw per frame. Most only have one
 //Need multiple for cases where we need to "update" more than once per frame, for non-bindless style drawing
