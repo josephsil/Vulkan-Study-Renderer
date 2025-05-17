@@ -26,7 +26,7 @@ DepthPyramidInfo static_createDepthPyramidResources(rendererObjects initializedr
 void static_createFence(VkDevice device, VkFence* fencePtr, const char* debugName,
                         RendererDeletionQueue* deletionQueue);
 void createSemaphore(VkDevice device, VkSemaphore* semaphorePtr, const char* debugName,
-                     RendererDeletionQueue* deletionQueue);
+                     RendererDeletionQueue* deletionQueue,  bool pushToDeletionQueue = true);
 
 //Utilities/helpers
 void SetPipelineBarrier(VkCommandBuffer commandBuffer, VkDependencyFlags dependencyFlags, size_t bufferBarrierCount,

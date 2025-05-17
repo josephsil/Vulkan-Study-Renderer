@@ -482,13 +482,13 @@ void VulkanRenderer::createDescriptorSetPool(PerThreadRenderContext context, VkD
     
     std::vector<VkDescriptorPoolSize> sizes =
     {
-        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 80 },
-        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 80 },
-        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 80 },
-        { VK_DESCRIPTOR_TYPE_SAMPLER, 80 },
-        { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 80 },
-        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 80 },
-        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 80 }
+        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 320 },
+        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 320 },
+        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 320 },
+        { VK_DESCRIPTOR_TYPE_SAMPLER, 320 },
+        { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 320 },
+        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 320 },
+        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 320 }
     };
 
     VkDescriptorPoolCreateInfo pool_info = {};
@@ -1400,37 +1400,6 @@ size_t UpdateDrawCommanddataDrawIndirectCommands(std::span<drawCommandData> targ
 }
 
 
-ActiveRenderStepData CreateAndBeginRenderStep(VkDevice device, const char* debugName, const char* cbufferDebugName,  RendererDeletionQueue* deletionQueue, VkCommandPool pool,     VkSemaphore* waitSemaphore,
-    VkSemaphore* signalSempahore)
-{
-    VkCommandBufferAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.commandPool = pool;
-    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandBufferCount = 1;
-    
-    VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
-    VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer));
-    SetDebugObjectName(device,VK_OBJECT_TYPE_COMMAND_BUFFER, cbufferDebugName, (uint64_t)commandBuffer);
-
-    for(int i = 0; i <  1; i++) 
-    {
-        createSemaphore(device, signalSempahore, debugName, deletionQueue);
-        SetDebugObjectName(device, VK_OBJECT_TYPE_SEMAPHORE,debugName, (uint64_t)*signalSempahore);
-    }
-
-    //Begin command buffer
-    VkCommandBufferBeginInfo beginInfo{};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo.flags = 0; // Optional
-    beginInfo.pInheritanceInfo = nullptr; // Optional
-    
-    VK_CHECK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
-
-    return{.active = true, .indexBuffer = VK_NULL_HANDLE, .boundPipeline = VK_NULL_HANDLE,
-        .commandBuffer = commandBuffer, .waitSemaphore = waitSemaphore, .signalSempahore= signalSempahore };
-}
-
 VkDescriptorSet UpdateAndGetBindlessDescriptorSetForFrame(PerThreadRenderContext context, DescriptorDataForPipeline* descriptorData, int currentFrame,  std::span<descriptorUpdates> updates)
 {
     size_t idx = descriptorData->isPerFrame ? currentFrame : 0;
@@ -1521,7 +1490,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
             if(SignalSemaphores != nullptr)
             {
           
-                createSemaphore(device, SignalSemaphores, debugName, deletionQueue);
+                createSemaphore(device, SignalSemaphores, debugName, deletionQueue, false);
                 SetDebugObjectName(device, VK_OBJECT_TYPE_SEMAPHORE,debugName, (uint64_t)*SignalSemaphores);
             }
 
@@ -1693,7 +1662,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
            VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
            VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT ,
            VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_MEMORY_READ_BIT,
-           VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+           VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
            VK_IMAGE_ASPECT_DEPTH_BIT,
            0,
         VK_REMAINING_MIP_LEVELS);

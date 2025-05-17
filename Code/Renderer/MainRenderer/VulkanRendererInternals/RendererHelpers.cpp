@@ -119,13 +119,17 @@ DepthPyramidInfo static_createDepthPyramidResources(rendererObjects initializedr
 
 
 void createSemaphore(VkDevice device, VkSemaphore* semaphorePtr, const char* debugName,
-                     RendererDeletionQueue* deletionQueue)
+                     RendererDeletionQueue* deletionQueue, bool pushToDeletionQueue)
 {
     VkSemaphoreCreateInfo semaphoreInfo{};
     semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
     VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, semaphorePtr));
-    deletionQueue->push_backVk(deletionType::Semaphore, uint64_t(*semaphorePtr));
     SetDebugObjectName(device, VK_OBJECT_TYPE_SEMAPHORE, debugName, uint64_t(*semaphorePtr));
+    if (!pushToDeletionQueue)
+    {
+        return;
+    }
+    deletionQueue->push_backVk(deletionType::Semaphore, uint64_t(*semaphorePtr));
 }
 
 void static_createFence(VkDevice device, VkFence* fencePtr, const char* debugName, RendererDeletionQueue* deletionQueue)
