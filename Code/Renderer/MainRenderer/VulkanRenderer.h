@@ -112,7 +112,7 @@ private:
 
     
     std::span<per_frame_data> FramesInFlightData;
-    bool firstRunOfFrame[MAX_FRAMES_IN_FLIGHT];
+    bool haveInitializedFrame[MAX_FRAMES_IN_FLIGHT];
     bool isFirstFrame = true;
     size_t cubemaplut_utilitytexture_index;
     uint32_t currentFrame = 0;

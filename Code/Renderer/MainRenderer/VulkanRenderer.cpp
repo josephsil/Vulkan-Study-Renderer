@@ -1200,7 +1200,8 @@ void VulkanRenderer::Update(Scene* scene)
     //Note -- we're not just submitting imgu icalls here, some are from the higher level of the app
     ImGui::Render();
 
-    auto checkFences = !firstRunOfFrame[currentFrame];
+    auto checkFences = haveInitializedFrame[currentFrame];
+    
     if (checkFences)
     {
 
@@ -1211,18 +1212,7 @@ void VulkanRenderer::Update(Scene* scene)
         clock_t difference = clock() - afterFence;
         auto msec = difference * 1000 / CLOCKS_PER_SEC;
 
-        //Render
-        VkPresentInfoKHR presentInfo{};
-        presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-        presentInfo.waitSemaphoreCount =  0;
-        presentInfo.pWaitSemaphores = {};
-        presentInfo.swapchainCount = 1;
-        presentInfo.pSwapchains = {&rendererVulkanObjects.swapchain.swapchain};
-        presentInfo.pImageIndices = &FramesInFlightData[currentFrame].swapChainIndex;
-        presentInfo.pResults = nullptr; // Optional
 
-        //Present e
-        vkQueuePresentKHR(GET_QUEUES()->presentQueue, &presentInfo);
         
         printf("end wait for fence %d, MS %d \n", currentFrame, msec);
         
@@ -1230,25 +1220,32 @@ void VulkanRenderer::Update(Scene* scene)
         perFrameDeletionQueuse[currentFrame]->FreeQueue();
         MemoryArena::free(&perFrameArenas[currentFrame]);
    
-        vkResetFences(rendererVulkanObjects.vkbdevice.device, 1, &FramesInFlightData[currentFrame].inFlightFence);
+    
   
     }
     if (!checkFences)
     {
-        firstRunOfFrame[currentFrame] = false;
+        haveInitializedFrame[currentFrame] = true;
+        
     }
+    vkResetFences(rendererVulkanObjects.vkbdevice.device, 1, &FramesInFlightData[currentFrame].inFlightFence);
     uint64_t RenderLoop =SDL_GetPerformanceCounter();
     AssetDataAndMemory->Update();
 
     //This stuff belongs here
     pipelineLayoutManager.ResetForFrame(currentFrame);
     RenderFrame(scene);
+    
+  
+
+    
     debugLinesManager.debugLines.clear();
 
     auto t2 = SDL_GetPerformanceCounter();
     auto difference =SDL_GetPerformanceCounter() - RenderLoop;
     float msec = ((1000.0f * difference) / SDL_GetPerformanceFrequency());
     printf("end render loop %d, MS %ld \n", currentFrame, (long)msec);
+    currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
     
     // vkDeviceWaitIdle(rendererVulkanObjects.vkbdevice.device);
 }
@@ -1738,11 +1735,22 @@ void VulkanRenderer::RenderFrame(Scene* scene)
 
     // //Submit commandbuffers
     renderCommandBufferObjects.FinishAndSubmitAll();
-    
+
+    VkPresentInfoKHR presentInfo{};
+    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+    presentInfo.waitSemaphoreCount =  1;
+    presentInfo.pWaitSemaphores = opaqueRenderStepContext->signalSempahores.data();
+    presentInfo.swapchainCount = 1;
+    presentInfo.pSwapchains = {&rendererVulkanObjects.swapchain.swapchain};
+    presentInfo.pImageIndices = &FramesInFlightData[currentFrame].swapChainIndex;
+    presentInfo.pResults = nullptr; // Optional
+
+    //Present e
+    vkQueuePresentKHR(GET_QUEUES()->presentQueue, &presentInfo);
     printf("submit render%d %d\n", clock(), currentFrame);
     
 
-    currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+   
 
 }
 
