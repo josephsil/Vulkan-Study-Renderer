@@ -45,10 +45,10 @@ struct RenderBatchQueue
 {
     size_t drawCount;
     std::vector<RenderBatch> batchConfigs;
-    void AddBatch(
+    std::span<RenderBatch> AddBatch(
         CommonRenderPassData* context,
         RenderBatchCreationConfig passCreationConfig);
-    void AddBatches(CommonRenderPassData* context, std::span<RenderBatchCreationConfig> configs);
+    std::span<RenderBatch> AddBatches(CommonRenderPassData* context, std::span<RenderBatchCreationConfig> configs);
 };
 
 struct RenderBatch

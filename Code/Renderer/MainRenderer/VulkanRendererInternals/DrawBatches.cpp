@@ -15,21 +15,25 @@ struct pipelineBucket
 };
 
 
-void RenderBatchQueue::AddBatch(
+std::span<RenderBatch> RenderBatchQueue::AddBatch(
     CommonRenderPassData* context,
-    RenderBatchCreationConfig passCreationConfig )
+    RenderBatchCreationConfig passCreationConfig)
 {
     batchConfigs.emplace_back(passCreationConfig.name, context, passCreationConfig);
     drawCount += passCreationConfig.objectCount;
+    return std::span<RenderBatch>(&batchConfigs.back(), 1);
 }
 
-void RenderBatchQueue::AddBatches(CommonRenderPassData* context, std::span<RenderBatchCreationConfig> configs)
+std::span<RenderBatch> RenderBatchQueue::AddBatches(CommonRenderPassData* context,
+                                                    std::span<RenderBatchCreationConfig> configs)
 {
+    auto start = batchConfigs.size();
     for (auto c :  configs)
     {
         batchConfigs.emplace_back(c.name, context, c);
         drawCount += c.objectCount;
     }
+    return {&batchConfigs[start], configs.size()};
 }
 
 RenderBatch::RenderBatch(const char* name, CommonRenderPassData* context, RenderBatchCreationConfig passCreationConfig)
