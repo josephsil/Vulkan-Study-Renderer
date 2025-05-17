@@ -16,7 +16,7 @@ struct TextureLoadingJobContext
     PerThreadRenderContext MainThreadContext;
     std::span<TextureCreation::TextureCreationStep1Result> workItemOutput;
     std::span<TextureCreation::TextureCreationInfoArgs> workItemInput;
-    std::span<PerThreadRenderContext> PerThreadContext;
+    std::span<PerThreadRenderContext> PerThreadContexts;
     std::span<TextureData> FinalOutput;
     
     void WORKER_FN(size_t work_item_idx, uint8_t thread_idx);
@@ -25,4 +25,4 @@ struct TextureLoadingJobContext
 };
 
 
-void LoadTexturesThreaded(PerThreadRenderContext handles, std::span<TextureData> dstTextures, std::span<TextureCreation::TextureCreationInfoArgs> textureCreationWork);
+void LoadTexturesThreaded(PerThreadRenderContext mainThreadContext, std::span<TextureData> dstTextures, std::span<TextureCreation::TextureCreationInfoArgs> textureCreationWork);
