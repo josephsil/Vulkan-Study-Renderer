@@ -25,7 +25,6 @@ enum TextureType
 struct textureFormatInfo
 {
     VkFormat format;
-    VkImageType type;
     uint32_t width;
     uint32_t height;
     uint32_t mipCt;
@@ -106,7 +105,6 @@ namespace TextureCreation
     {
         TextureCreationMode mode;
         TextureMetaData metaData;
-        TextureType type;
         VkImageViewType viewType;
     };
 
@@ -121,7 +119,7 @@ namespace TextureCreation
         uint64_t mipCt;
     };
     
-    struct WIP_InbetweenStep
+    struct TempTextureStepResult
     {
         stagingTextureData stagingTexture;
         char* outputPath;
