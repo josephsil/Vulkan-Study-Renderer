@@ -86,7 +86,7 @@ namespace TextureCreation
     };
     struct KTX_CACHE_addtlargs
     {
-        char* OUTPUT_PATH;
+        char* cachedKtxPath;
         VkSamplerAddressMode samplerMode;
         bool isCube;
     };
@@ -127,6 +127,7 @@ namespace TextureCreation
         bool compress;
         VkSamplerAddressMode samplerMode;
         TextureType type;
+        VkImageViewType viewType;
         
     };
 
@@ -138,9 +139,14 @@ namespace TextureCreation
                                                                 VkFormat format, VkSamplerAddressMode samplerMode, unsigned char* pixels, uint64_t width,
                                                                 uint64_t height, int mipCt, bool compress);
 
-    TextureCreationInfoArgs MakeTextureCreationArgsFromCachedKTX(const char* OUTPUT_PATH,
+    TextureCreationInfoArgs MakeTextureCreationArgsFromCachedKTX(const char* cachedFilePath,
                                                                       VkSamplerAddressMode samplerMode, bool isCube = false, bool noCompress = false);
 
-    TextureCreationStep1Result CreateTextureFromArgs_Start(PerThreadRenderContext context, TextureCreationInfoArgs a);
+    TextureCreation::TempTextureStepResult CreateTextureFromArgs_Start(PerThreadRenderContext context,
+                                                                       TextureCreationInfoArgs a);
+    TextureCreationStep1Result
+CreateTextureFromArgs_LoadCachedFiles(PerThreadRenderContext context, TextureCreation::TextureCreationInfoArgs a);
     TextureData CreateTextureFromArgsFinalize(PerThreadRenderContext outputTextureOwnerContext, TextureCreationStep1Result startResult);
+
+    TextureCreation::TextureCreationInfoArgs CreateTexture_Cache_Temp_To_KTX_Step(PerThreadRenderContext rendererContext, TextureCreation::TempTextureStepResult r);
 }

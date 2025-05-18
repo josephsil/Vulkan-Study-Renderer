@@ -113,6 +113,11 @@ struct Array
     {
         return std::span<T>(data, _min(ct, size));
     }
+    
+    std::span<T> getSubSpanToCapacity(size_t offset = 0)
+    {
+        return std::span<T>(&data[offset], capacity - offset);
+    }
 
     size_t size() const { return ct; }
     size_t size_bytes() const { return sizeof(T) * ct; }
