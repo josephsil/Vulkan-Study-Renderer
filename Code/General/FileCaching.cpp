@@ -31,7 +31,7 @@ std::wstring widenString(std::string s)
 }
 
 const char suffix[] = {".ktx\0"};
-bool FileCaching::tryGetKTXCachedPath(Allocator arena, const char* path, std::span<char>& ktxPath)
+bool FileCaching::tryGetKTXCachedPath(ArenaAllocator arena, const char* path, std::span<char>& ktxPath)
 {
     auto str_chars = strnlen_s(path, 128) / sizeof(char);
     auto ktxPathMemory = MemoryArena::AllocSpan<char>(arena, strlen(path) + 5); //+4 for ".ktx\0"

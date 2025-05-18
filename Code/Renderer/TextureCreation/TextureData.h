@@ -56,10 +56,10 @@ namespace TextureCreation
 {
     static TextureMetaData CreateImageFromCachedKTX(PerThreadRenderContext rendererContext, const char* path, TextureType type,
                                                     bool mips, VkSamplerAddressMode mode);
-    static VkImageView createTextureImageView(PerThreadRenderContext rendererContext, TextureMetaData data, VkImageViewType type);
-    void createTextureSampler(VkSampler* textureSampler, PerThreadRenderContext rendererContext, VkSamplerAddressMode mode,
+    static VkImageView CreateTextureImageView(PerThreadRenderContext rendererContext, TextureMetaData data, VkImageViewType type);
+    void CreateTextureSampler(VkSampler* textureSampler, PerThreadRenderContext rendererContext, VkSamplerAddressMode mode,
                               float bias, uint32_t maxMip, bool shadow = false);
-    void createDepthPyramidSampler(VkSampler* textureSampler, PerThreadRenderContext rendererContext, uint32_t maxMip);
+    void CreateDepthPyramidSampler(VkSampler* textureSampler, PerThreadRenderContext rendererContext, uint32_t maxMip);
 
     enum class TextureImportMode
     {
@@ -105,7 +105,6 @@ namespace TextureCreation
     //Imported texture, ready to be passed to the renderer 
     struct TextureImportResult
     {
-        TextureImportMode mode;
         TextureMetaData metaData;
         VkImageViewType viewType;
     };
@@ -134,7 +133,7 @@ namespace TextureCreation
     };
 
     
-    TextureImportRequest MakeCreationArgsFromFilepathArgs(const char* path,Allocator arena, TextureType type,
+    TextureImportRequest MakeCreationArgsFromFilepathArgs(const char* path,ArenaAllocator arena, TextureType type,
                                                              VkImageViewType viewType = static_cast<VkImageViewType>(-1));
 
     TextureImportRequest MakeTextureCreationArgsFromGLTFArgs(const char* OUTPUT_PATH,
@@ -144,10 +143,10 @@ namespace TextureCreation
     TextureImportRequest MakeTextureCreationArgsFromCachedKTX(const char* cachedFilePath,
                                                                       VkSamplerAddressMode samplerMode, bool isCube = false, bool noCompress = false);
 
-    TextureCreation::TextureImportProcessTemporaryTexture CreateTextureFromArgs_Start(PerThreadRenderContext context,
+    TextureCreation::TextureImportProcessTemporaryTexture GetTemporaryTextureDataForImportCache(PerThreadRenderContext context,
                                                                        TextureImportRequest a);
     TextureImportResult
-CreateTextureFromArgs_LoadCachedFiles(PerThreadRenderContext context, TextureCreation::LOAD_KTX_CACHED_args importArguments);
+LoadAndUploadTextureFromImportCache(PerThreadRenderContext context, TextureCreation::LOAD_KTX_CACHED_args importArguments);
     TextureData CreateTextureFromArgsFinalize(PerThreadRenderContext outputTextureOwnerContext, TextureImportResult startResult);
 
     TextureCreation::LOAD_KTX_CACHED_args CreateTexture_Cache_Temp_To_KTX_Step(

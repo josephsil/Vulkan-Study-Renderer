@@ -147,4 +147,4 @@ std::span<T> AllocSpanEmplaceInitialize(memoryArena* a, uint32_t length, Args&&.
         return ret;
     }
 }
-typedef MemoryArena::memoryArena* Allocator;
+typedef MemoryArena::memoryArena* ArenaAllocator;

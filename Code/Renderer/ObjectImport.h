@@ -70,8 +70,8 @@ namespace ObjectImport
         //std::span<tinygltf::Light> lights;
     };
 
-    void CreateObjectAssets(Allocator& arena, Scene& scene, AssetManager& assetManager, ImportedObjectData& gltf, DefaultTextures defaults);
-    void AddObjectToScene(Allocator& arena, Scene& scene, ImportedObjectData& gltf);
+    void CreateObjectAssets(ArenaAllocator& arena, Scene& scene, AssetManager& assetManager, ImportedObjectData& gltf, DefaultTextures defaults);
+    void AddObjectToScene(ArenaAllocator& arena, Scene& scene, ImportedObjectData& gltf);
 
 
     

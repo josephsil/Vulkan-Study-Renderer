@@ -12,7 +12,7 @@ struct AddObjectResult
 {
     
 };
-void ObjectImport::CreateObjectAssets(Allocator &arena, Scene &scene, AssetManager &assetManager, ImportedObjectData &gltf, DefaultTextures defaults)
+void ObjectImport::CreateObjectAssets(ArenaAllocator &arena, Scene &scene, AssetManager &assetManager, ImportedObjectData &gltf, DefaultTextures defaults)
 {
     auto perSubmeshMeshHandles = MemoryArena::AllocSpan<std::span<ID::MeshID>>(arena, gltf.meshes.size());
     auto perSubmeshMaterialHandles = MemoryArena::AllocSpan<std::span<ID::MaterialID>>(arena, gltf.meshes.size());

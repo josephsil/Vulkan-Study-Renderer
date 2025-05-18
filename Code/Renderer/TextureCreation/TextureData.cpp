@@ -20,9 +20,9 @@
 
 
 
-static TextureCreation::stagingTextureData createtempTextureFromPath(PerThreadRenderContext rendererContext,CommandBufferPoolQueue buffer, const char* path, VkFormat format,
+static TextureCreation::stagingTextureData CreatetempTextureFromPath(PerThreadRenderContext rendererContext,CommandBufferPoolQueue buffer, const char* path, VkFormat format,
                                                    bool mips);
-static TextureCreation::stagingTextureData createTextureImage(PerThreadRenderContext rendererContext, const unsigned char* pixels,
+static TextureCreation::stagingTextureData CreateTextureImage(PerThreadRenderContext rendererContext, const unsigned char* pixels,
                                             uint64_t texWidth, uint64_t texHeight, VkFormat format, bool mips, CommandBufferPoolQueue workingTextureBuffer);
 static void CacheImportedTextureToKTXFile(VkDevice device, TextureCreation::stagingTextureData tempTexture, const char* outpath,
                                     VkFormat format,  bool compress);
@@ -101,7 +101,7 @@ PerTypeImportSettings ImportSettingsForType(TextureType t)
     }
     return result;
 }
-TextureCreation::TextureImportProcessTemporaryTexture CreateTextureFromPath_Start(PerThreadRenderContext rendererContext, TextureCreation::IMPORT_FILE_args args)
+TextureCreation::TextureImportProcessTemporaryTexture CreateTextureFromPath(PerThreadRenderContext rendererContext, TextureCreation::IMPORT_FILE_args args)
 {
     auto perTypeSettings = ImportSettingsForType(args.type);
     
@@ -109,31 +109,8 @@ TextureCreation::TextureImportProcessTemporaryTexture CreateTextureFromPath_Star
     return GetOrLoadTextureFromPath(rendererContext, args.path, perTypeSettings.formatOverride, perTypeSettings.mode, args.type, args.viewType, perTypeSettings.use_mipmaps, !perTypeSettings.uncompressed);
 }
 
-TextureData CreateTextureFromPath_Finalize(PerThreadRenderContext rendererContext, TextureMetaData tData, 
-        VkImageViewType _viewType)
-{
-    assert(_viewType != -1);
-    auto textureImageView = TextureCreation::createTextureImageView(rendererContext, tData, _viewType);
-    VkSampler textureSampler = {};
-    TextureCreation::createTextureSampler(&textureSampler, rendererContext, tData.mode, 0, tData.dimensionsInfo.mipCt);
-    return TextureData 
-      {
-        .vkImageInfo = {
-            .sampler = textureSampler,
-            .imageView = textureImageView,
-            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-        },
-        .metaData = {
-            .textureImage = tData.textureImage,
-            .dimensionsInfo = tData.dimensionsInfo,
-            .ktxMemory = tData.ktxMemory
-        }
-
-      };
-}
-
 TextureCreation::TextureImportRequest TextureCreation::MakeCreationArgsFromFilepathArgs(
-    const char* path, Allocator arena, TextureType type, VkImageViewType viewType)
+    const char* path, ArenaAllocator arena, TextureType type, VkImageViewType viewType)
 {
     if (viewType == -1)
     {
@@ -206,10 +183,10 @@ TextureCreation::TextureImportRequest TextureCreation::MakeTextureCreationArgsFr
 }
 
 
-TextureCreation::TextureImportProcessTemporaryTexture CreateTextureNewGltfTexture_Start(PerThreadRenderContext rendererContext,  TextureCreation::IMPORT_GLTF_args args)
+TextureCreation::TextureImportProcessTemporaryTexture CreateTextureFromGLTF(PerThreadRenderContext rendererContext,  TextureCreation::IMPORT_GLTF_args args)
 {
     auto bandp = rendererContext.textureCreationcommandPoolmanager->beginSingleTimeCommands(false);
-    TextureCreation::stagingTextureData staging = createTextureImage(rendererContext, args.pixels, args.width, args.height, args.format, true, bandp);
+    TextureCreation::stagingTextureData staging = CreateTextureImage(rendererContext, args.pixels, args.width, args.height, args.format, true, bandp);
 
     //We need a fence between creating the texture and caching the ktx, because the ktx requires a read to host memory
     //I'd really rather go wide paralellizing the cache ktx, but I forgot how it worked when i started writing this. Someday I should break this up
@@ -230,13 +207,13 @@ TextureCreation::TextureImportProcessTemporaryTexture CreateTextureNewGltfTextur
 
 }
 
-TextureData FinalzeKTXTexture(PerThreadRenderContext rendererContext, TextureMetaData tData, VkImageViewType viewType)
+TextureData CreateSamplerAndViewForLoadedTexture(PerThreadRenderContext rendererContext, TextureMetaData tData, VkImageViewType viewType)
 {
-    VkImageView textureImageView = TextureCreation::createTextureImageView(rendererContext,
+    VkImageView textureImageView = TextureCreation::CreateTextureImageView(rendererContext,
         tData, viewType);
     assert(textureImageView != VK_NULL_HANDLE);
     VkSampler textureSampler = {};
-    TextureCreation::createTextureSampler(&textureSampler,
+    TextureCreation::CreateTextureSampler(&textureSampler,
         rendererContext,
         tData.mode, 0, tData.dimensionsInfo.mipCt);
 
@@ -249,15 +226,6 @@ TextureData FinalzeKTXTexture(PerThreadRenderContext rendererContext, TextureMet
         },
         .metaData = tData //TODO1 check
     };
-}
-
-//FROM CACHED GLTF
-TextureMetaData GetCachedTexture_Start(PerThreadRenderContext rendererContext, TextureCreation::LOAD_KTX_CACHED_args args)
-{
-
-    auto result = TextureCreation::CreateImageFromCachedKTX(rendererContext, args.cachedKtxPath, args.isCube ? CUBE : DIFFUSE, true, args.samplerMode);
-
-    return result;
 }
 
 //TODO JS: Lifted from gltfiblsampler -- replace
@@ -471,7 +439,7 @@ TextureCreation::TextureImportProcessTemporaryTexture GetOrLoadTextureFromPath(P
 {
 
     auto bandp = rendererContext.textureCreationcommandPoolmanager->beginSingleTimeCommands(false);
-    TextureCreation::stagingTextureData staging = createtempTextureFromPath(rendererContext, bandp, path, format, useMipmaps);
+    TextureCreation::stagingTextureData staging = CreatetempTextureFromPath(rendererContext, bandp, path, format, useMipmaps);
     rendererContext.textureCreationcommandPoolmanager->endSingleTimeCommands(bandp, true);
     std::span<char> ktxCachePath = {};
     FileCaching::tryGetKTXCachedPath(rendererContext.tempArena, path, ktxCachePath);
@@ -491,7 +459,7 @@ TextureCreation::TextureImportProcessTemporaryTexture GetOrLoadTextureFromPath(P
 
 }
 
-void TextureCreation::createDepthPyramidSampler(VkSampler* textureSampler, PerThreadRenderContext rendererContext, uint32_t maxMip)
+void TextureCreation::CreateDepthPyramidSampler(VkSampler* textureSampler, PerThreadRenderContext rendererContext, uint32_t maxMip)
 {
     VkPhysicalDeviceProperties properties{};
     vkGetPhysicalDeviceProperties(rendererContext.physicalDevice, &properties);
@@ -520,7 +488,7 @@ void TextureCreation::createDepthPyramidSampler(VkSampler* textureSampler, PerTh
     rendererContext.threadDeletionQueue->push_backVk(deletionType::Sampler, uint64_t(*textureSampler));
 }
 
-void TextureCreation::createTextureSampler(VkSampler* textureSampler, PerThreadRenderContext rendererContext, VkSamplerAddressMode mode,
+void TextureCreation::CreateTextureSampler(VkSampler* textureSampler, PerThreadRenderContext rendererContext, VkSamplerAddressMode mode,
                           float bias, uint32_t maxMip, bool shadow)
 {
     VkPhysicalDeviceProperties properties{};
@@ -612,7 +580,7 @@ void CacheImportedTextureToKTXFile(VkDevice device, TextureCreation::stagingText
     ktxTexture_Destroy(ktxTexture(texture));
 }
 
-VkImageView TextureCreation::createTextureImageView(PerThreadRenderContext rendererContext, TextureMetaData data, VkImageViewType type)
+VkImageView TextureCreation::CreateTextureImageView(PerThreadRenderContext rendererContext, TextureMetaData data, VkImageViewType type)
 {
     VkImageView view = TextureUtilities::createImageView(objectCreationContextFromRendererContext(rendererContext),
                                                          data.textureImage.image, data.dimensionsInfo.format,
@@ -624,17 +592,14 @@ VkImageView TextureCreation::createTextureImageView(PerThreadRenderContext rende
 }
 
 
-static TextureCreation::stagingTextureData createTextureImage(PerThreadRenderContext rendererContext, const unsigned char* pixels,
+static TextureCreation::stagingTextureData CreateTextureImage(PerThreadRenderContext rendererContext, const unsigned char* pixels,
                                             uint64_t texWidth, uint64_t texHeight, VkFormat format, bool mips, CommandBufferPoolQueue workingTextureBuffer)
 {
     VkDeviceSize imageSize = texWidth * texHeight * 4;
     assert(pixels);
 
-
     VkBuffer stagingBuffer;
-
     VmaAllocation bufferAlloc = {};
-
     VkImage _textureImage = {};
     VmaAllocation _textureImageAlloc;
 
@@ -697,13 +662,13 @@ static TextureCreation::stagingTextureData createTextureImage(PerThreadRenderCon
     return TextureCreation::stagingTextureData(_textureImage, _textureImageAlloc, texWidth, texHeight, fullMipPyramid);
 }
 
-static TextureCreation::stagingTextureData createtempTextureFromPath(PerThreadRenderContext rendererContext,CommandBufferPoolQueue buffer, const char* path, VkFormat format,
+static TextureCreation::stagingTextureData CreatetempTextureFromPath(PerThreadRenderContext rendererContext,CommandBufferPoolQueue buffer, const char* path, VkFormat format,
                                                    bool mips)
 {
     int texWidth, texHeight, texChannels;
     stbi_uc* pixels = stbi_load(path, &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 
-    TextureCreation::stagingTextureData tex = createTextureImage(rendererContext, pixels, texWidth, texHeight, format, mips,  buffer);
+    TextureCreation::stagingTextureData tex = CreateTextureImage(rendererContext, pixels, texWidth, texHeight, format, mips,  buffer);
     stbi_image_free(pixels);
     return tex;
 }
@@ -740,7 +705,7 @@ TextureMetaData TextureCreation::CreateImageFromCachedKTX(PerThreadRenderContext
     uint32_t fullMipPyramid = static_cast<uint32_t>(std::floor(
         std::log2(glm::max(kTexture->baseWidth, kTexture->baseHeight)))) + 1;
 
-    //Need to eventually get away from calling ktx vkupload -- because it managers it own command buffer/queue submission, I have to mutex here :[ 
+    //Need to eventually get away from calling ktx vkupload -- because it manages it own command buffer/queue submission I have to mutex here :[ 
     GET_QUEUES()->graphicsQueueMutex.lock();
     ktxresult = ktxTexture2_VkUploadEx(kTexture, &vdi, &texture,
                                        VK_IMAGE_TILING_OPTIMAL,
@@ -776,17 +741,17 @@ TextureMetaData TextureCreation::CreateImageFromCachedKTX(PerThreadRenderContext
     };
 }
 
-TextureCreation::TextureImportProcessTemporaryTexture TextureCreation::CreateTextureFromArgs_Start(
+TextureCreation::TextureImportProcessTemporaryTexture TextureCreation::GetTemporaryTextureDataForImportCache(
     PerThreadRenderContext context, TextureCreation::TextureImportRequest a)
 {
     switch (a.mode)
     {
     case TextureCreation::TextureImportMode::IMPORT_FILE:
         {
-           return CreateTextureFromPath_Start(context, a.addtlData.fileArgs);
+           return CreateTextureFromPath(context, a.addtlData.fileArgs);
         }
     case TextureCreation::TextureImportMode::IMPORT_GLTF:
-       return CreateTextureNewGltfTexture_Start(context, a.addtlData.gltfCreateArgs);
+       return CreateTextureFromGLTF(context, a.addtlData.gltfCreateArgs);
    default:
         assert(!"Invalid texture import frontend type!");
         return {};
@@ -794,10 +759,10 @@ TextureCreation::TextureImportProcessTemporaryTexture TextureCreation::CreateTex
     }
 }
 
-TextureCreation::TextureImportResult TextureCreation::CreateTextureFromArgs_LoadCachedFiles(PerThreadRenderContext context, TextureCreation::LOAD_KTX_CACHED_args importArguments)
+TextureCreation::TextureImportResult TextureCreation::LoadAndUploadTextureFromImportCache(PerThreadRenderContext context, TextureCreation::LOAD_KTX_CACHED_args importArguments)
 {
     TextureCreation::TextureImportResult r = {};
-        r.metaData  = GetCachedTexture_Start(context, importArguments);
+        r.metaData  = TextureCreation::CreateImageFromCachedKTX(context, importArguments.cachedKtxPath, importArguments.isCube ? CUBE : DIFFUSE, true, importArguments.samplerMode);
         r.viewType = importArguments.isCube ? VK_IMAGE_VIEW_TYPE_CUBE : VK_IMAGE_VIEW_TYPE_2D;
         return r;
 }
@@ -806,19 +771,10 @@ TextureCreation::TextureImportResult TextureCreation::CreateTextureFromArgs_Load
 TextureData TextureCreation::CreateTextureFromArgsFinalize(PerThreadRenderContext outputTextureOwnerContext, TextureImportResult startResult)
 {
     //These probably came from another thread, with its own deletion queue.
-    //We can delete this when our rendercontext winds down;
+    //We can delete these when our rendercontext winds down
     outputTextureOwnerContext.threadDeletionQueue->push_backVk(deletionType::Image, uint64_t(startResult.metaData.textureImage.image));
     outputTextureOwnerContext.threadDeletionQueue->push_backVk(deletionType::VkMemory, uint64_t(startResult.metaData.textureImage.memory));
-    switch (startResult.mode)
-    {
-    case TextureImportMode::IMPORT_FILE:
-        return CreateTextureFromPath_Finalize(outputTextureOwnerContext, startResult.metaData, startResult.viewType);
-    case TextureImportMode::IMPORT_GLTF:
-        return FinalzeKTXTexture(outputTextureOwnerContext, startResult.metaData, startResult.viewType);
-    case TextureImportMode::LOAD_KTX_CACHED:
-        return FinalzeKTXTexture(outputTextureOwnerContext, startResult.metaData, startResult.viewType);
-    }
-    assert("!Error");
-    return {};
+
+    return CreateSamplerAndViewForLoadedTexture(outputTextureOwnerContext, startResult.metaData, startResult.viewType);
 }
 

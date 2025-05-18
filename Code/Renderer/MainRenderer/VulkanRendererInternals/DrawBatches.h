@@ -16,7 +16,7 @@ struct RenderBatch;
 struct CommonRenderPassData 
 {
     //name <- not common
-    Allocator tempAllocator;
+    ArenaAllocator tempAllocator;
     Scene* scenePtr;
     AssetManager* assetDataPtr;
     VkPipelineLayout cullLayout; //todo get from a lookup

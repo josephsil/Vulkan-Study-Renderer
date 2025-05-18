@@ -335,13 +335,13 @@ void VulkanRenderer::InitializeRendererForScene(sceneCountData sceneCountData) /
     {
         TextureUtilities::createImage(getPartialRendererContext(),SHADOW_MAP_SIZE, SHADOW_MAP_SIZE,shadowFormat,VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
                VK_IMAGE_USAGE_SAMPLED_BIT,0,shadowResources.shadowImages[i],shadowResources.shadowMemory[i],1, MAX_SHADOWMAPS, true);
-        TextureCreation::createTextureSampler(&shadowResources.shadowSamplers[i], GetMainRendererContext(), VK_SAMPLER_ADDRESS_MODE_REPEAT, 0, 1, true);
+        TextureCreation::CreateTextureSampler(&shadowResources.shadowSamplers[i], GetMainRendererContext(), VK_SAMPLER_ADDRESS_MODE_REPEAT, 0, 1, true);
         SetDebugObjectName(rendererVulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_IMAGE, "SHADOW IMAGE", (uint64_t)(shadowResources.shadowImages[i]));
         SetDebugObjectName(rendererVulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_SAMPLER, "SHADOW IMAGE SAMPLER", (uint64_t)(shadowResources.shadowSamplers[i]));
         UpdateShadowImageViews(i, sceneCountData);
     }
 
-    TextureCreation::createDepthPyramidSampler(&globalResources.depthMipSampler, GetMainRendererContext(), HIZDEPTH);
+    TextureCreation::CreateDepthPyramidSampler(&globalResources.depthMipSampler, GetMainRendererContext(), HIZDEPTH);
 
     TextureCreation::TextureImportRequest args[3] = {
     TextureCreation::MakeCreationArgsFromFilepathArgs("textures/outputLUT.png", &perFrameArenas[currentFrame], TextureType::LINEAR_DATA, VK_IMAGE_VIEW_TYPE_2D),
@@ -900,7 +900,7 @@ void RecordCommandBufferCulling(ActiveRenderStepData commandBufferContext, uint3
     SetPipelineBarrier(commandBufferContext.commandBuffer,0, 1, &barrier, 0, 0);
 
 }
-void VulkanRenderer::RecordMipChainCompute(ActiveRenderStepData commandBufferContext, Allocator arena, VkImage dstImage,
+void VulkanRenderer::RecordMipChainCompute(ActiveRenderStepData commandBufferContext, ArenaAllocator arena, VkImage dstImage,
     VkImageView srcView, std::span<VkImageView> pyramidviews, VkSampler sampler, uint32_t _currentFrame, uint32_t pyramidWidth, uint32_t pyramidHeight)
 {
     assert(commandBufferContext.commandBufferActive);
