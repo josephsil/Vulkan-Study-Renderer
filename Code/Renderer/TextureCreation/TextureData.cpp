@@ -26,25 +26,23 @@ static TextureCreation::stagingTextureData createTextureImage(PerThreadRenderCon
                                             uint64_t texWidth, uint64_t texHeight, VkFormat format, bool mips, CommandBufferPoolQueue workingTextureBuffer);
 static void CacheImportedTextureToKTXFile(VkDevice device, TextureCreation::stagingTextureData tempTexture, const char* outpath,
                                     VkFormat format,  bool compress);
-TextureCreation::TempTextureStepResult GetOrLoadTextureFromPath(PerThreadRenderContext rendererContext, const char* path, VkFormat format, VkSamplerAddressMode mode,
+TextureCreation::TextureImportProcessTemporaryTexture GetOrLoadTextureFromPath(PerThreadRenderContext rendererContext, const char* path, VkFormat format, VkSamplerAddressMode mode,
                                  TextureType textureType, VkImageViewType imageViewType, bool useMipmaps, bool compress);
 
 // TextureData TextureCreation::CreateTexture_part1(RendererContext rendererContext, const char* path, TextureType type, VkImageViewType viewType)
 // {
 // }
-TextureCreation::TextureCreationInfoArgs TextureCreation::CreateTexture_Cache_Temp_To_KTX_Step(PerThreadRenderContext rendererContext, TextureCreation::TempTextureStepResult r)
+TextureCreation::LOAD_KTX_CACHED_args TextureCreation::CreateTexture_Cache_Temp_To_KTX_Step(
+    PerThreadRenderContext rendererContext, TextureCreation::TextureImportProcessTemporaryTexture r)
 {
     CacheImportedTextureToKTXFile(rendererContext.device,r.stagingTexture, r.outputPath,  r.format, 
        r.compress);
-    auto result = TextureCreation::TextureCreationInfoArgs {
-    .mode = TextureCreation::TextureCreationMode::KTXCACHED};
-    result.args.gltfCacheArgs =
-     {
-    .cachedKtxPath = r.outputPath,
-    .samplerMode = r.samplerMode,
-    .isCube =r.type == CUBE };
+
     // auto ktxResult = TextureCreation::CreateImageFromCachedKTX(rendererContext, r.outputPath, r.type, true, r.samplerMode);
-    return result;
+        return   {
+            .cachedKtxPath = r.outputPath,
+            .samplerMode = r.samplerMode,
+            .isCube =r.type == CUBE };
 }
 
 struct PerTypeImportSettings
@@ -103,7 +101,7 @@ PerTypeImportSettings ImportSettingsForType(TextureType t)
     }
     return result;
 }
-TextureCreation::TempTextureStepResult CreateTextureFromPath_Start(PerThreadRenderContext rendererContext, TextureCreation::FILE_addtlargs args)
+TextureCreation::TextureImportProcessTemporaryTexture CreateTextureFromPath_Start(PerThreadRenderContext rendererContext, TextureCreation::IMPORT_FILE_args args)
 {
     auto perTypeSettings = ImportSettingsForType(args.type);
     
@@ -134,16 +132,15 @@ TextureData CreateTextureFromPath_Finalize(PerThreadRenderContext rendererContex
       };
 }
 
-TextureCreation::TextureCreationInfoArgs TextureCreation::MakeCreationArgsFromFilepathArgs(
+TextureCreation::TextureImportRequest TextureCreation::MakeCreationArgsFromFilepathArgs(
     const char* path, Allocator arena, TextureType type, VkImageViewType viewType)
 {
-
     if (viewType == -1)
     {
         viewType = type == CUBE ? VK_IMAGE_VIEW_TYPE_CUBE : VK_IMAGE_VIEW_TYPE_2D;
     }
+    
     //Don't regenerate ktx if image modified time is older than last ktx
-    //todo js: hoist this up to the texturecreationinfo step
     std::span<char> resultPath = {};
     if (FileCaching::tryGetKTXCachedPath(arena, path, resultPath)) 
     {
@@ -155,13 +152,13 @@ TextureCreation::TextureCreationInfoArgs TextureCreation::MakeCreationArgsFromFi
         }
     }
     
-    TextureCreationInfoArgs args;
-    args = TextureCreationInfoArgs{
-        TextureCreationMode::FILE
+    TextureImportRequest args;
+    args = TextureImportRequest{
+        TextureImportMode::IMPORT_FILE
     };
     
-    args.args.fileArgs =
-        FILE_addtlargs{
+    args.addtlData.fileArgs =
+        IMPORT_FILE_args{
             .path = const_cast<char*>(path),
             .type = type,
             .viewType = viewType
@@ -169,16 +166,16 @@ TextureCreation::TextureCreationInfoArgs TextureCreation::MakeCreationArgsFromFi
 return args;
 }
 
-TextureCreation::TextureCreationInfoArgs TextureCreation::MakeTextureCreationArgsFromGLTFArgs(
+TextureCreation::TextureImportRequest TextureCreation::MakeTextureCreationArgsFromGLTFArgs(
     const char* OUTPUT_PATH, VkFormat format, VkSamplerAddressMode samplerMode, unsigned char* pixels, uint64_t width,
     uint64_t height, int mipCt, bool compress)
 {
-    TextureCreationInfoArgs args;
-    args = TextureCreationInfoArgs{
-        TextureCreationMode::GLTFCREATE
+    TextureImportRequest args;
+    args = TextureImportRequest{
+        TextureImportMode::IMPORT_GLTF
     };
-    args.args.gltfCreateArgs =
-        GLTFCREATE_addtlargs{
+    args.addtlData.gltfCreateArgs =
+        IMPORT_GLTF_args{
             .OUTPUT_PATH = const_cast<char*>(OUTPUT_PATH),
             .format = format,
             .samplerMode = samplerMode,
@@ -191,16 +188,16 @@ TextureCreation::TextureCreationInfoArgs TextureCreation::MakeTextureCreationArg
     return args;
 }
 
-TextureCreation::TextureCreationInfoArgs TextureCreation::MakeTextureCreationArgsFromCachedKTX(
+TextureCreation::TextureImportRequest TextureCreation::MakeTextureCreationArgsFromCachedKTX(
      const char* cachedFilePath, VkSamplerAddressMode samplerMode, bool isCube, bool nocompress)
 {
     assert(!nocompress); //unused;
-    TextureCreationInfoArgs args;
-    args = TextureCreationInfoArgs{
-        TextureCreationMode::KTXCACHED
+    TextureImportRequest args;
+    args = TextureImportRequest{
+        TextureImportMode::LOAD_KTX_CACHED
     };
-    args.args.gltfCacheArgs =
-        KTX_CACHE_addtlargs{
+    args.addtlData.gltfCacheArgs =
+        LOAD_KTX_CACHED_args{
             .cachedKtxPath = const_cast<char*>(cachedFilePath),
             .samplerMode = samplerMode,
             .isCube =  isCube
@@ -209,7 +206,7 @@ TextureCreation::TextureCreationInfoArgs TextureCreation::MakeTextureCreationArg
 }
 
 
-TextureCreation::TempTextureStepResult CreateTextureNewGltfTexture_Start(PerThreadRenderContext rendererContext,  TextureCreation::GLTFCREATE_addtlargs args)
+TextureCreation::TextureImportProcessTemporaryTexture CreateTextureNewGltfTexture_Start(PerThreadRenderContext rendererContext,  TextureCreation::IMPORT_GLTF_args args)
 {
     auto bandp = rendererContext.textureCreationcommandPoolmanager->beginSingleTimeCommands(false);
     TextureCreation::stagingTextureData staging = createTextureImage(rendererContext, args.pixels, args.width, args.height, args.format, true, bandp);
@@ -219,7 +216,7 @@ TextureCreation::TempTextureStepResult CreateTextureNewGltfTexture_Start(PerThre
     //I could also do the ktx thing on a background pool, and just return the texture I got from staging?
     rendererContext.textureCreationcommandPoolmanager->endSingleTimeCommands(bandp, true);
 
-    TextureCreation::TempTextureStepResult r =
+    TextureCreation::TextureImportProcessTemporaryTexture r =
         {
         .stagingTexture = staging,
         .outputPath = args.OUTPUT_PATH,
@@ -255,7 +252,7 @@ TextureData FinalzeKTXTexture(PerThreadRenderContext rendererContext, TextureMet
 }
 
 //FROM CACHED GLTF
-TextureMetaData GetCachedTexture_Start(PerThreadRenderContext rendererContext, TextureCreation::KTX_CACHE_addtlargs args)
+TextureMetaData GetCachedTexture_Start(PerThreadRenderContext rendererContext, TextureCreation::LOAD_KTX_CACHED_args args)
 {
     return  TextureCreation::CreateImageFromCachedKTX(rendererContext, args.cachedKtxPath, args.isCube ? CUBE : DIFFUSE, true, args.samplerMode);
 }
@@ -466,7 +463,7 @@ struct TextureLoadResultsQueue
     size_t processed;
 };
 
-TextureCreation::TempTextureStepResult GetOrLoadTextureFromPath(PerThreadRenderContext rendererContext, const char* path, VkFormat format, VkSamplerAddressMode mode,
+TextureCreation::TextureImportProcessTemporaryTexture GetOrLoadTextureFromPath(PerThreadRenderContext rendererContext, const char* path, VkFormat format, VkSamplerAddressMode mode,
                                  TextureType textureType, VkImageViewType imageViewType, bool useMipmaps, bool compress)
 {
 
@@ -475,7 +472,7 @@ TextureCreation::TempTextureStepResult GetOrLoadTextureFromPath(PerThreadRenderC
     rendererContext.textureCreationcommandPoolmanager->endSingleTimeCommands(bandp, true);
     std::span<char> ktxCachePath = {};
     FileCaching::tryGetKTXCachedPath(rendererContext.tempArena, path, ktxCachePath);
-    TextureCreation::TempTextureStepResult r =
+    TextureCreation::TextureImportProcessTemporaryTexture r =
        {
         .stagingTexture = staging,
         .outputPath = ktxCachePath.data(),
@@ -491,14 +488,6 @@ TextureCreation::TempTextureStepResult GetOrLoadTextureFromPath(PerThreadRenderC
 
 }
 
-
-//TODO JS 0
-// void TextureData::cleanup()
-// {
-//     vkDestroySampler(rendererContext.device, textureSampler, nullptr);
-//     vkDestroyImageView(rendererContext.device, textureImageView, nullptr);
-// 	   VulkanMemory::DestroyImage(rendererContext.allocator, textureImage, textureImageMemory);
-// }
 void TextureCreation::createDepthPyramidSampler(VkSampler* textureSampler, PerThreadRenderContext rendererContext, uint32_t maxMip)
 {
     VkPhysicalDeviceProperties properties{};
@@ -796,59 +785,34 @@ TextureMetaData TextureCreation::CreateImageFromCachedKTX(PerThreadRenderContext
     };
 }
 
-TextureCreation::TempTextureStepResult TextureCreation::CreateTextureFromArgs_Start(
-    PerThreadRenderContext context, TextureCreation::TextureCreationInfoArgs a)
+TextureCreation::TextureImportProcessTemporaryTexture TextureCreation::CreateTextureFromArgs_Start(
+    PerThreadRenderContext context, TextureCreation::TextureImportRequest a)
 {
-    // TextureCreation::TextureCreationStep1Result r = {};
-    // r.mode = a.mode;
     switch (a.mode)
     {
-    case TextureCreation::TextureCreationMode::FILE:
+    case TextureCreation::TextureImportMode::IMPORT_FILE:
         {
-           return CreateTextureFromPath_Start(context, a.args.fileArgs);
-    
-            break;
+           return CreateTextureFromPath_Start(context, a.addtlData.fileArgs);
         }
-    case TextureCreation::TextureCreationMode::GLTFCREATE:
-    
-       return CreateTextureNewGltfTexture_Start(context, a.args.gltfCreateArgs);
- 
+    case TextureCreation::TextureImportMode::IMPORT_GLTF:
+       return CreateTextureNewGltfTexture_Start(context, a.addtlData.gltfCreateArgs);
+   default:
+        assert(!"Invalid texture import frontend type!");
+        return {};
         break;
-    case TextureCreation::TextureCreationMode::KTXCACHED:
-        assert(!"Moving create gltf out of step!");
-        // r.metaData  = GetCachedTexture_Start(context, a.args.gltfCacheArgs);
-        // r.viewType = a.args.gltfCacheArgs.isCube ? VK_IMAGE_VIEW_TYPE_CUBE : VK_IMAGE_VIEW_TYPE_2D;
-        break;
-assert("!error!");
-break;
     }
-    // return r;
-    return {};
 }
 
-TextureCreation::TextureCreationStep1Result TextureCreation::CreateTextureFromArgs_LoadCachedFiles(PerThreadRenderContext context, TextureCreation::TextureCreationInfoArgs a)
+TextureCreation::TextureImportResult TextureCreation::CreateTextureFromArgs_LoadCachedFiles(PerThreadRenderContext context, TextureCreation::LOAD_KTX_CACHED_args importArguments)
 {
-    TextureCreation::TextureCreationStep1Result r = {};
-    r.mode = a.mode;
-    switch (a.mode)
-    {
-    case TextureCreationMode::FILE:
-      assert(!"Moving out of this step!");
-        break;
-    case TextureCreationMode::GLTFCREATE:
-      assert(!"Moving out of this step!");
-        break;
-    case TextureCreationMode::KTXCACHED:
-        r.metaData  = GetCachedTexture_Start(context, a.args.gltfCacheArgs);
-        r.viewType = a.args.gltfCacheArgs.isCube ? VK_IMAGE_VIEW_TYPE_CUBE : VK_IMAGE_VIEW_TYPE_2D;
+    TextureCreation::TextureImportResult r = {};
+        r.metaData  = GetCachedTexture_Start(context, importArguments);
+        r.viewType = importArguments.isCube ? VK_IMAGE_VIEW_TYPE_CUBE : VK_IMAGE_VIEW_TYPE_2D;
         return r;
-        break;
-    }
-    return {};
 }
 
 
-TextureData TextureCreation::CreateTextureFromArgsFinalize(PerThreadRenderContext outputTextureOwnerContext, TextureCreationStep1Result startResult)
+TextureData TextureCreation::CreateTextureFromArgsFinalize(PerThreadRenderContext outputTextureOwnerContext, TextureImportResult startResult)
 {
     //These probably came from another thread, with its own deletion queue.
     //We can delete this when our rendercontext winds down;
@@ -856,11 +820,11 @@ TextureData TextureCreation::CreateTextureFromArgsFinalize(PerThreadRenderContex
     outputTextureOwnerContext.threadDeletionQueue->push_backVk(deletionType::VkMemory, uint64_t(startResult.metaData.textureImage.memory));
     switch (startResult.mode)
     {
-    case TextureCreationMode::FILE:
+    case TextureImportMode::IMPORT_FILE:
         return CreateTextureFromPath_Finalize(outputTextureOwnerContext, startResult.metaData, startResult.viewType);
-    case TextureCreationMode::GLTFCREATE:
+    case TextureImportMode::IMPORT_GLTF:
         return FinalzeKTXTexture(outputTextureOwnerContext, startResult.metaData, startResult.viewType);
-    case TextureCreationMode::KTXCACHED:
+    case TextureImportMode::LOAD_KTX_CACHED:
         return FinalzeKTXTexture(outputTextureOwnerContext, startResult.metaData, startResult.viewType);
     }
     assert("!Error");

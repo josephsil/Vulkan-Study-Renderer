@@ -61,19 +61,19 @@ namespace TextureCreation
                               float bias, uint32_t maxMip, bool shadow = false);
     void createDepthPyramidSampler(VkSampler* textureSampler, PerThreadRenderContext rendererContext, uint32_t maxMip);
 
-    enum class TextureCreationMode
+    enum class TextureImportMode
     {
-        FILE,
-        GLTFCREATE,
-        KTXCACHED
+        IMPORT_FILE,
+        IMPORT_GLTF,
+        LOAD_KTX_CACHED
     };
-    struct FILE_addtlargs
+    struct IMPORT_FILE_args
     {
         char* path;
         TextureType type;
         VkImageViewType viewType;
     };
-    struct GLTFCREATE_addtlargs
+    struct IMPORT_GLTF_args
     {
         char* OUTPUT_PATH;
         VkFormat format;
@@ -84,26 +84,28 @@ namespace TextureCreation
         int mipCt;
         bool compress;
     };
-    struct KTX_CACHE_addtlargs
+    struct LOAD_KTX_CACHED_args
     {
         char* cachedKtxPath;
         VkSamplerAddressMode samplerMode;
         bool isCube;
     };
   
-    struct TextureCreationInfoArgs
+    struct TextureImportRequest
     {
-        TextureCreationMode mode;
-        union TextureCreationModeArgs {
-            FILE_addtlargs fileArgs;
-            GLTFCREATE_addtlargs gltfCreateArgs;
-            KTX_CACHE_addtlargs gltfCacheArgs;
-        }args;
+        TextureImportMode mode;
+        union TextureLoadingModeData {
+            IMPORT_FILE_args fileArgs;
+            IMPORT_GLTF_args gltfCreateArgs;
+            LOAD_KTX_CACHED_args gltfCacheArgs;
+        }addtlData;
     };
 
-    struct TextureCreationStep1Result
+
+    //Imported texture, ready to be passed to the renderer 
+    struct TextureImportResult
     {
-        TextureCreationMode mode;
+        TextureImportMode mode;
         TextureMetaData metaData;
         VkImageViewType viewType;
     };
@@ -119,7 +121,7 @@ namespace TextureCreation
         uint64_t mipCt;
     };
     
-    struct TempTextureStepResult
+    struct TextureImportProcessTemporaryTexture
     {
         stagingTextureData stagingTexture;
         char* outputPath;
@@ -132,21 +134,22 @@ namespace TextureCreation
     };
 
     
-    TextureCreationInfoArgs MakeCreationArgsFromFilepathArgs(const char* path,Allocator arena, TextureType type,
+    TextureImportRequest MakeCreationArgsFromFilepathArgs(const char* path,Allocator arena, TextureType type,
                                                              VkImageViewType viewType = static_cast<VkImageViewType>(-1));
 
-    TextureCreationInfoArgs MakeTextureCreationArgsFromGLTFArgs(const char* OUTPUT_PATH,
+    TextureImportRequest MakeTextureCreationArgsFromGLTFArgs(const char* OUTPUT_PATH,
                                                                 VkFormat format, VkSamplerAddressMode samplerMode, unsigned char* pixels, uint64_t width,
                                                                 uint64_t height, int mipCt, bool compress);
 
-    TextureCreationInfoArgs MakeTextureCreationArgsFromCachedKTX(const char* cachedFilePath,
+    TextureImportRequest MakeTextureCreationArgsFromCachedKTX(const char* cachedFilePath,
                                                                       VkSamplerAddressMode samplerMode, bool isCube = false, bool noCompress = false);
 
-    TextureCreation::TempTextureStepResult CreateTextureFromArgs_Start(PerThreadRenderContext context,
-                                                                       TextureCreationInfoArgs a);
-    TextureCreationStep1Result
-CreateTextureFromArgs_LoadCachedFiles(PerThreadRenderContext context, TextureCreation::TextureCreationInfoArgs a);
-    TextureData CreateTextureFromArgsFinalize(PerThreadRenderContext outputTextureOwnerContext, TextureCreationStep1Result startResult);
+    TextureCreation::TextureImportProcessTemporaryTexture CreateTextureFromArgs_Start(PerThreadRenderContext context,
+                                                                       TextureImportRequest a);
+    TextureImportResult
+CreateTextureFromArgs_LoadCachedFiles(PerThreadRenderContext context, TextureCreation::LOAD_KTX_CACHED_args importArguments);
+    TextureData CreateTextureFromArgsFinalize(PerThreadRenderContext outputTextureOwnerContext, TextureImportResult startResult);
 
-    TextureCreation::TextureCreationInfoArgs CreateTexture_Cache_Temp_To_KTX_Step(PerThreadRenderContext rendererContext, TextureCreation::TempTextureStepResult r);
+    TextureCreation::LOAD_KTX_CACHED_args CreateTexture_Cache_Temp_To_KTX_Step(
+        PerThreadRenderContext rendererContext, TextureCreation::TextureImportProcessTemporaryTexture r);
 }

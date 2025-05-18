@@ -412,13 +412,13 @@ void GltfLoadTextures(size_t imageCt, std::span<TextureData> textures,  std::spa
 
     auto memoryTempAllocator = MemoryArena::memoryArena {};
     MemoryArena::initialize(&memoryTempAllocator, 6000);
-    auto textureCreationRequests = MemoryArena::AllocSpan<TextureCreation::TextureCreationInfoArgs>(&memoryTempAllocator, imagePaths.size());
+    auto textureCreationRequests = MemoryArena::AllocSpan<TextureCreation::TextureImportRequest>(&memoryTempAllocator, imagePaths.size());
     for (size_t i = 0; i < imagePaths.size(); i++)
     {
         auto path = imagePaths[i];
         auto loadFromCache = (FileCaching::fileExists(path) && !gltfOutOfDate);
         auto& image = gltfImages[i];
-        TextureCreation::TextureCreationInfoArgs jobArg = {};
+        TextureCreation::TextureImportRequest jobArg = {};
         if (loadFromCache)
         {
             textureCreationRequests[i] = TextureCreation::MakeTextureCreationArgsFromCachedKTX(

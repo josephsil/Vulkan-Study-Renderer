@@ -21,7 +21,7 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
     std::vector<TextureData> completedTextures;
 
     std::vector<char*> paths;
-    std::vector<TextureCreation::TextureCreationInfoArgs> creationArgs;
+    std::vector<TextureCreation::TextureImportRequest> creationArgs;
 
     creationArgs.push_back(TextureCreation::MakeCreationArgsFromFilepathArgs("textures/blank.png", rendererContext.tempArena, DIFFUSE));
     paths.push_back(const_cast<char*>("textures/blank.png_diff"));

@@ -43,9 +43,9 @@ void createPerThreadRenderContexts(Allocator allocator, PerThreadRenderContext m
     }
 }
 void LoadTexturesThreaded_Backend(Allocator threadPoolAllocator, PerThreadRenderContext mainThreadContext, std::span<TextureData> dstTextures,
-    std::span<TextureCreation::TextureCreationInfoArgs> textureCreationWork);
-void LoadTexturesThreaded_Frontend(Allocator threadPoolAllocator, PerThreadRenderContext mainThreadContext, std::span<TextureCreation::TempTextureStepResult> threadInput,
-    std::span<TextureCreation::TextureCreationInfoArgs> threadOutput);
+    std::span<TextureCreation::LOAD_KTX_CACHED_args> textureCreationWork);
+void LoadTexturesThreaded_Frontend(Allocator threadPoolAllocator, PerThreadRenderContext mainThreadContext, std::span<TextureCreation::TextureImportProcessTemporaryTexture> threadInput,
+    std::span<TextureCreation::LOAD_KTX_CACHED_args> threadOutput);
 
 void TextureLoadingFrontendJob::WORKER_FN(size_t work_item_idx, uint8_t thread_idx)
 {
@@ -66,42 +66,43 @@ unsigned long long TextureLoadingFrontendJob::READ_RESULTS_FN()
 }
 
 void LoadTexturesThreaded(PerThreadRenderContext mainThreadContext, std::span<TextureData> dstTextures,
-                          std::span<TextureCreation::TextureCreationInfoArgs> textureCreationWork)
+                          std::span<TextureCreation::TextureImportRequest> textureCreationWork)
 {
     MemoryArena::memoryArena threadPoolAllocator{};
     initialize(&threadPoolAllocator, 64 * 100000);
 
-    Array newphase1Input = MemoryArena::AllocSpan<TextureCreation::TextureCreationInfoArgs>(&threadPoolAllocator, textureCreationWork.size());
-    Array newphase1Result = MemoryArena::AllocSpan<TextureCreation::TempTextureStepResult>(&threadPoolAllocator, textureCreationWork.size());
-    Array newFinalPhase2Input = MemoryArena::AllocSpan<TextureCreation::TextureCreationInfoArgs>(&threadPoolAllocator, textureCreationWork.size());
-    //WIP -- separate out 'new phase 2' stuff from the rest
+    Array texturesToImport = MemoryArena::AllocSpan<TextureCreation::TextureImportRequest>(&threadPoolAllocator, textureCreationWork.size());
+    Array newphase1Result = MemoryArena::AllocSpan<TextureCreation::TextureImportProcessTemporaryTexture>(&threadPoolAllocator, textureCreationWork.size());
+    Array TexturesToLoadFromCache = MemoryArena::AllocSpan<TextureCreation::LOAD_KTX_CACHED_args>(&threadPoolAllocator, textureCreationWork.size());
     for(int i =0; i < textureCreationWork.size(); i++)
     {
         auto& w = textureCreationWork[i];
         switch (w.mode)
         {
-        case TextureCreation::TextureCreationMode::FILE:
-        case TextureCreation::TextureCreationMode::GLTFCREATE:
-            newphase1Input.push_back(w);
+        case TextureCreation::TextureImportMode::IMPORT_FILE:
+        case TextureCreation::TextureImportMode::IMPORT_GLTF:
+            //Add all of the textures which need to go through the frontend in order to be converted into TexturesToLoadFromCache
+            texturesToImport.push_back(w);
             break;
-        case TextureCreation::TextureCreationMode::KTXCACHED:
-            newFinalPhase2Input.push_back(w);
+        case TextureCreation::TextureImportMode::LOAD_KTX_CACHED:
+            //Add all of the textures we can immediately load from cache -- later, the frontend job will add the rest of the textures.
+            TexturesToLoadFromCache.push_back(w.addtlData.gltfCacheArgs);
             break;
         }
     }
     
-    for(int i = 0; i < newphase1Input.size(); i++)
+    for(int i = 0; i < texturesToImport.size(); i++)
     {
-        newphase1Result.push_back(TextureCreation::CreateTextureFromArgs_Start(mainThreadContext, newphase1Input[i])); //Do this synchronously for now, its fast and can be faster if I b uild the cbuffer
+        newphase1Result.push_back(TextureCreation::CreateTextureFromArgs_Start(mainThreadContext, texturesToImport[i])); //Do this synchronously for now, its fast and can be faster if I b uild the cbuffer
     }
     
-    LoadTexturesThreaded_Frontend(&threadPoolAllocator, mainThreadContext,newphase1Result.getSpan(), newFinalPhase2Input.getSubSpanToCapacity(newFinalPhase2Input.size()));
+    LoadTexturesThreaded_Frontend(&threadPoolAllocator, mainThreadContext,newphase1Result.getSpan(), TexturesToLoadFromCache.getSubSpanToCapacity(TexturesToLoadFromCache.size()));
 
-    LoadTexturesThreaded_Backend(&threadPoolAllocator, mainThreadContext, dstTextures, newFinalPhase2Input.getSubSpanToCapacity());
+    LoadTexturesThreaded_Backend(&threadPoolAllocator, mainThreadContext, dstTextures, TexturesToLoadFromCache.getSubSpanToCapacity());
 }
 
-void LoadTexturesThreaded_Frontend(Allocator threadPoolAllocator, PerThreadRenderContext mainThreadContext, std::span<TextureCreation::TempTextureStepResult> threadInput,
-    std::span<TextureCreation::TextureCreationInfoArgs> threadOutput)
+void LoadTexturesThreaded_Frontend(Allocator threadPoolAllocator, PerThreadRenderContext mainThreadContext, std::span<TextureCreation::TextureImportProcessTemporaryTexture> threadInput,
+    std::span<TextureCreation::LOAD_KTX_CACHED_args> threadOutput)
 {
     assert(threadInput.size() == threadOutput.size());
     //Initialize a pool 
@@ -127,7 +128,7 @@ void LoadTexturesThreaded_Frontend(Allocator threadPoolAllocator, PerThreadRende
     
 }
 void LoadTexturesThreaded_Backend(Allocator threadPoolAllocator, PerThreadRenderContext mainThreadContext, std::span<TextureData> dstTextures,
-    std::span<TextureCreation::TextureCreationInfoArgs> textureCreationWork)
+    std::span<TextureCreation::LOAD_KTX_CACHED_args> textureCreationWork)
 {
     assert(textureCreationWork.size() == dstTextures.size());
     //Initialize a pool
@@ -137,7 +138,7 @@ void LoadTexturesThreaded_Backend(Allocator threadPoolAllocator, PerThreadRender
     InitializeThreadPool(threadPoolAllocator, &threadPool, workItemCt, threadCt);
 
     std::span<VkFence> fences = MemoryArena::AllocSpan<VkFence>(threadPoolAllocator, threadCt);
-    auto step1Output = MemoryArena::AllocSpan<TextureCreation::TextureCreationStep1Result>(threadPoolAllocator, workItemCt);
+    auto step1Output = MemoryArena::AllocSpan<TextureCreation::TextureImportResult>(threadPoolAllocator, workItemCt);
 
     TextureLoadingBackendJob ThreadWorker =
     {

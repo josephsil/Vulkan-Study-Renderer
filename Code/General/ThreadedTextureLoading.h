@@ -7,16 +7,17 @@ struct TextureData;
 
 namespace TextureCreation
 {
-    struct TempTextureStepResult;
-    struct TextureCreationInfoArgs;
-    struct TextureCreationStep1Result;
+    struct LOAD_KTX_CACHED_args;
+    struct TextureImportProcessTemporaryTexture;
+    struct TextureImportRequest;
+    struct TextureImportResult;
 }
 
 struct TextureLoadingBackendJob
 {
     PerThreadRenderContext MainThreadContext;
-    std::span<TextureCreation::TextureCreationStep1Result> workItemOutput;
-    std::span<TextureCreation::TextureCreationInfoArgs> workItemInput;
+    std::span<TextureCreation::TextureImportResult> workItemOutput;
+    std::span<TextureCreation::LOAD_KTX_CACHED_args> workItemInput;
     std::span<PerThreadRenderContext> PerThreadContexts;
     std::span<TextureData> FinalOutput;
     
@@ -28,8 +29,8 @@ struct TextureLoadingBackendJob
 struct TextureLoadingFrontendJob
 {
     PerThreadRenderContext MainThreadContext;
-    std::span<TextureCreation::TextureCreationInfoArgs> workItemOutput;
-    std::span<TextureCreation::TempTextureStepResult> workItemInput;
+    std::span<TextureCreation::LOAD_KTX_CACHED_args> workItemOutput;
+    std::span<TextureCreation::TextureImportProcessTemporaryTexture> workItemInput;
     std::span<PerThreadRenderContext> PerThreadContexts;
     
     void WORKER_FN(size_t work_item_idx, uint8_t thread_idx);
@@ -38,4 +39,4 @@ struct TextureLoadingFrontendJob
 };
 
 
-void LoadTexturesThreaded(PerThreadRenderContext mainThreadContext, std::span<TextureData> dstTextures, std::span<TextureCreation::TextureCreationInfoArgs> textureCreationWork);
+void LoadTexturesThreaded(PerThreadRenderContext mainThreadContext, std::span<TextureData> dstTextures, std::span<TextureCreation::TextureImportRequest> textureCreationWork);

@@ -343,7 +343,7 @@ void VulkanRenderer::InitializeRendererForScene(sceneCountData sceneCountData) /
 
     TextureCreation::createDepthPyramidSampler(&globalResources.depthMipSampler, GetMainRendererContext(), HIZDEPTH);
 
-    TextureCreation::TextureCreationInfoArgs args[3] = {
+    TextureCreation::TextureImportRequest args[3] = {
     TextureCreation::MakeCreationArgsFromFilepathArgs("textures/outputLUT.png", &perFrameArenas[currentFrame], TextureType::LINEAR_DATA, VK_IMAGE_VIEW_TYPE_2D),
     TextureCreation::MakeTextureCreationArgsFromCachedKTX("textures/output_cubemap2_diff8.ktx2",VK_SAMPLER_ADDRESS_MODE_REPEAT, true),
     TextureCreation::MakeTextureCreationArgsFromCachedKTX("textures/output_cubemap2_spec8.ktx2",VK_SAMPLER_ADDRESS_MODE_REPEAT, true)};
