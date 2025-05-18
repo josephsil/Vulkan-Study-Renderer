@@ -1,6 +1,9 @@
+#define _AMD64_
 #include "rendererGlobals.h"
 #include "VulkanIncludes/Vulkan_Includes.h"
-
+#include <Superluminal/PerformanceAPI_capi.h>
+#include "minwindef.h"
+#include "libloaderapi.h"
 PFN_vkSetDebugUtilsObjectNameEXT FP_vkSetDebugUtilsObjectNameEXT;
 
 void registerDebugUtilsFn(PFN_vkSetDebugUtilsObjectNameEXT ptr)
@@ -76,4 +79,46 @@ void vkCopyImageToMemory(VkDevice device, void*targetHostPointer, VkImage source
         &region
     };
     VK_CHECK(FP_vkCopyImageToMemoryEXT(device, &info));
+}
+
+
+PerformanceAPI_Functions SuperluminalFns;
+
+int PerformanceAPI_Load(const wchar_t* inPathToDLL, PerformanceAPI_Functions* outFunctions)
+{
+
+    HMODULE module = LoadLibraryW(inPathToDLL);
+    if (module == NULL)
+        return 0;
+
+    PerformanceAPI_GetAPI_Func getAPI = (PerformanceAPI_GetAPI_Func)((void*)GetProcAddress(module, "PerformanceAPI_GetAPI"));
+    if (getAPI == NULL)
+    {
+        FreeLibrary(module);
+        return 0;
+    }
+
+    if (getAPI(PERFORMANCEAPI_VERSION, outFunctions) == 0)
+    {
+        FreeLibrary(module);
+        return 0;
+    }
+
+    return 1;
+}
+void registerSuperluminal()
+{
+    assert(PerformanceAPI_Load(L"./dll/PerformanceAPI.dll",&SuperluminalFns));
+    // PerformanceAPI_GetAPI_Func
+    // PerformanceAPI_LoadFrom(L"./dll/PerformanceAPI.dll",SuperluminalFns);
+}
+
+void superLuminalEnd()
+{
+    SuperluminalFns.EndEvent();
+}
+
+void superLuminalAdd(const char* inID)
+{
+   SuperluminalFns.BeginEvent(inID, NULL, PERFORMANCEAPI_MAKE_COLOR(128, 128, 255 ));
 }

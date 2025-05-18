@@ -1,6 +1,7 @@
 #include "RendererDeletionQueue.h"
 
 #include <cassert>
+#include <ktx.h>
 #include <Renderer/VulkanIncludes/Vulkan_Includes.h>
 
 #include <Renderer/VulkanIncludes/VulkanMemory.h>
@@ -63,6 +64,15 @@ void RendererDeletionQueue::push_backVMA(deletionType t, uint64_t vulkanObject, 
     
 }
 
+void RendererDeletionQueue::TransferOwnershipTo(RendererDeletionQueue* target)
+{
+    for (auto element : ToDeleteStaging)
+    {
+        target->ToDeleteStaging.push_back(element);
+    }
+    ToDeleteStaging.clear();
+}
+
 void RendererDeletionQueue::FreeResource(VkDevice device, VmaAllocator allocator, deleteableResource r)
 {
     
@@ -70,9 +80,19 @@ void RendererDeletionQueue::FreeResource(VkDevice device, VmaAllocator allocator
     // printf("deleting %d %p\n", i,resource.handle);
     switch (resource.type)
     {
+    case deletionType::KTXDestroyTexture:
+    {
+            ktxTexture_Destroy((ktxTexture*)(resource.handle));
+        break;
+    }
     case deletionType::vmaBuffer:
         {
             VulkanMemory::DestroyBuffer(allocator, (VkBuffer)(resource.handle), resource.vmaAllocation);
+            break;
+        }
+    case deletionType::vkBuffer:
+        {
+            vkDestroyBuffer(device, (VkBuffer)(resource.handle), nullptr);
             break;
         }
     case deletionType::descriptorPool:
@@ -107,6 +127,11 @@ void RendererDeletionQueue::FreeResource(VkDevice device, VmaAllocator allocator
             break;
         }
     case deletionType::Image:
+        {
+            vkDestroyImage(device, (VkImage)(resource.handle), nullptr);
+            break;
+        }
+    case deletionType::vkImage:
         {
             vkDestroyImage(device, (VkImage)(resource.handle), nullptr);
             break;

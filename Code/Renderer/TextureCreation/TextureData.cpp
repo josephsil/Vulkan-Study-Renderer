@@ -254,7 +254,10 @@ TextureData FinalzeKTXTexture(PerThreadRenderContext rendererContext, TextureMet
 //FROM CACHED GLTF
 TextureMetaData GetCachedTexture_Start(PerThreadRenderContext rendererContext, TextureCreation::LOAD_KTX_CACHED_args args)
 {
-    return  TextureCreation::CreateImageFromCachedKTX(rendererContext, args.cachedKtxPath, args.isCube ? CUBE : DIFFUSE, true, args.samplerMode);
+
+    auto result = TextureCreation::CreateImageFromCachedKTX(rendererContext, args.cachedKtxPath, args.isCube ? CUBE : DIFFUSE, true, args.samplerMode);
+
+    return result;
 }
 
 //TODO JS: Lifted from gltfiblsampler -- replace
@@ -705,22 +708,18 @@ static TextureCreation::stagingTextureData createtempTextureFromPath(PerThreadRe
     return tex;
 }
 
-ktxVulkanDeviceInfo vdi = {};
-TextureMetaData TextureCreation::CreateImageFromCachedKTX(PerThreadRenderContext rendererContext, const char* path, TextureType type, bool mips, VkSamplerAddressMode mode)
-{
-   
-    ktxVulkanTexture texture;
 
+
+TextureMetaData TextureCreation::CreateImageFromCachedKTX(PerThreadRenderContext rendererContext,const char* path, TextureType type, bool mips, VkSamplerAddressMode mode)
+{
+    superLuminalAdd("Cachedktxtexturecreation");
+    ktxVulkanTexture texture;
+    ktxVulkanDeviceInfo vdi = {};
     ktxTexture2* kTexture;
     KTX_error_code ktxresult;
-    GET_QUEUES()->graphicsQueueMutex.lock(); //todo js
-    GET_QUEUES()->transferQueueMutex.lock(); //todo js
     ktxVulkanDeviceInfo_Construct(&vdi, rendererContext.physicalDevice, rendererContext.device,
                                  GET_QUEUES()->graphicsQueue,  rendererContext.textureCreationcommandPoolmanager->commandPool, nullptr);
 
-    // Note: If I want to pass in an existing command buffer, I need to set it directly on vdi
-    //This may be anti pattern, vdi may expect ownership of cbuffer(s)
-    // vdi.cmdBuffer = workingTextureBuffer.buffer;
     ktxresult = ktxTexture2_CreateFromNamedFile(path, KTX_TEXTURE_CREATE_NO_STORAGE, &kTexture);
 
     if (KTX_SUCCESS != ktxresult)
@@ -728,46 +727,38 @@ TextureMetaData TextureCreation::CreateImageFromCachedKTX(PerThreadRenderContext
         std::cerr << "Creation of ktxTexture from \"" << path << "\" failed: " << ktxErrorString(ktxresult);
     }
     bool debugnomips = false;
-    VkFormat outputFormat;
-
+    
     //If it's a basis texture, we need to transcode (and also can't generate mipmaps)
-    //TODO JS: paralellize, i think this is the main bottleneck for texture loading
     if (ktxTexture2_NeedsTranscoding(kTexture))
     {
         ktx_transcode_fmt_e transcodeFormat;
-
         transcodeFormat = KTX_TTF_BC1_OR_3;
-
-
         ktxTexture2_TranscodeBasis(kTexture, transcodeFormat, KTX_TF_HIGH_QUALITY);
         kTexture->generateMipmaps = false;
     }
 
     uint32_t fullMipPyramid = static_cast<uint32_t>(std::floor(
         std::log2(glm::max(kTexture->baseWidth, kTexture->baseHeight)))) + 1;
-    uint32_t mipCount = kTexture->generateMipmaps ? fullMipPyramid : kTexture->numLevels;
 
-    outputFormat = static_cast<VkFormat>(kTexture->vkFormat);
-
+    //Need to eventually get away from calling ktx vkupload -- because it managers it own command buffer/queue submission, I have to mutex here :[ 
+    GET_QUEUES()->graphicsQueueMutex.lock();
     ktxresult = ktxTexture2_VkUploadEx(kTexture, &vdi, &texture,
                                        VK_IMAGE_TILING_OPTIMAL,
                                        VK_IMAGE_USAGE_SAMPLED_BIT,
                                        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
+    GET_QUEUES()->graphicsQueueMutex.unlock(); //todo js
 
     SetDebugObjectName(rendererContext.device, VK_OBJECT_TYPE_IMAGE, path, (uint64_t)texture.image);
 
-
-    ktxTexture_Destroy((ktxTexture*)kTexture);
-    GET_QUEUES()->graphicsQueueMutex.unlock(); //todo js
-    GET_QUEUES()->transferQueueMutex.unlock(); //todo js
-
+    rendererContext.threadDeletionQueue->push_backVk(deletionType::KTXDestroyTexture, (uint64_t)kTexture);
 
 #ifdef DEBUG
     if (KTX_SUCCESS != ktxresult)
     {
         std::cerr << "ktxTexture_VkUpload failed: " << ktxErrorString(ktxresult);
     }
+    superLuminalEnd();
 
 #endif
     return {

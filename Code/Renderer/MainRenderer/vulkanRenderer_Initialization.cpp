@@ -216,7 +216,7 @@ rendererObjects initializeVulkanObjects(SDL_Window* _window, int WIDTH, int HEIG
     // vkCopyImageToMemoryEXT = (PFN_vkCopyImageToMemoryEXT)VkGetCopy(device, "vkCopyImageToMemoryEXT");
     auto allocator = VulkanMemory::GetAllocator(vkb_device.device, vkb_physicalDevice.physical_device,
                                                 vkb_instance.instance);
-
+    registerSuperluminal();
     //TODO JS: organize FPs somewhere
     registerDebugUtilsFn(
         (PFN_vkSetDebugUtilsObjectNameEXT)vkGetDeviceProcAddr(vkb_device.device, "vkSetDebugUtilsObjectNameEXT"));

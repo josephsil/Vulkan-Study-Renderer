@@ -42,9 +42,9 @@ void createPerThreadRenderContexts(Allocator allocator, PerThreadRenderContext m
         SetDebugObjectName(newctx.device, VK_OBJECT_TYPE_COMMAND_POOL, "thread ktx pool",(uint64_t)newctx.textureCreationcommandPoolmanager->commandPool);
     }
 }
-void LoadTexturesThreaded_Backend(Allocator threadPoolAllocator, PerThreadRenderContext mainThreadContext, std::span<TextureData> dstTextures,
+void LoadTexturesThreaded_LoadCachedTextures(Allocator threadPoolAllocator, PerThreadRenderContext mainThreadContext, std::span<TextureData> dstTextures,
     std::span<TextureCreation::LOAD_KTX_CACHED_args> textureCreationWork);
-void LoadTexturesThreaded_Frontend(Allocator threadPoolAllocator, PerThreadRenderContext mainThreadContext, std::span<TextureCreation::TextureImportProcessTemporaryTexture> threadInput,
+void LoadTexturesThreaded_CacheUnimportedTextures(Allocator threadPoolAllocator, PerThreadRenderContext mainThreadContext, std::span<TextureCreation::TextureImportProcessTemporaryTexture> threadInput,
     std::span<TextureCreation::LOAD_KTX_CACHED_args> threadOutput);
 
 void TextureLoadingFrontendJob::WORKER_FN(size_t work_item_idx, uint8_t thread_idx)
@@ -96,12 +96,12 @@ void LoadTexturesThreaded(PerThreadRenderContext mainThreadContext, std::span<Te
         newphase1Result.push_back(TextureCreation::CreateTextureFromArgs_Start(mainThreadContext, texturesToImport[i])); //Do this synchronously for now, its fast and can be faster if I b uild the cbuffer
     }
     
-    LoadTexturesThreaded_Frontend(&threadPoolAllocator, mainThreadContext,newphase1Result.getSpan(), TexturesToLoadFromCache.getSubSpanToCapacity(TexturesToLoadFromCache.size()));
+    LoadTexturesThreaded_CacheUnimportedTextures(&threadPoolAllocator, mainThreadContext,newphase1Result.getSpan(), TexturesToLoadFromCache.getSubSpanToCapacity(TexturesToLoadFromCache.size()));
 
-    LoadTexturesThreaded_Backend(&threadPoolAllocator, mainThreadContext, dstTextures, TexturesToLoadFromCache.getSubSpanToCapacity());
+    LoadTexturesThreaded_LoadCachedTextures(&threadPoolAllocator, mainThreadContext, dstTextures, TexturesToLoadFromCache.getSubSpanToCapacity());
 }
 
-void LoadTexturesThreaded_Frontend(Allocator threadPoolAllocator, PerThreadRenderContext mainThreadContext, std::span<TextureCreation::TextureImportProcessTemporaryTexture> threadInput,
+void LoadTexturesThreaded_CacheUnimportedTextures(Allocator threadPoolAllocator, PerThreadRenderContext mainThreadContext, std::span<TextureCreation::TextureImportProcessTemporaryTexture> threadInput,
     std::span<TextureCreation::LOAD_KTX_CACHED_args> threadOutput)
 {
     assert(threadInput.size() == threadOutput.size());
@@ -127,14 +127,15 @@ void LoadTexturesThreaded_Frontend(Allocator threadPoolAllocator, PerThreadRende
 
     
 }
-void LoadTexturesThreaded_Backend(Allocator threadPoolAllocator, PerThreadRenderContext mainThreadContext, std::span<TextureData> dstTextures,
+void LoadTexturesThreaded_LoadCachedTextures(Allocator threadPoolAllocator, PerThreadRenderContext mainThreadContext, std::span<TextureData> dstTextures,
     std::span<TextureCreation::LOAD_KTX_CACHED_args> textureCreationWork)
 {
+    superLuminalAdd("Texture loading backend run");
     assert(textureCreationWork.size() == dstTextures.size());
     //Initialize a pool
     ThreadPool::Pool threadPool;
     size_t workItemCt = textureCreationWork.size();
-    size_t threadCt = std::min(workItemCt, (size_t)1);
+    size_t threadCt = std::min(workItemCt, (size_t)6);
     InitializeThreadPool(threadPoolAllocator, &threadPool, workItemCt, threadCt);
 
     std::span<VkFence> fences = MemoryArena::AllocSpan<VkFence>(threadPoolAllocator, threadCt);
@@ -158,5 +159,6 @@ void LoadTexturesThreaded_Backend(Allocator threadPoolAllocator, PerThreadRender
     CreateThreads(&threadPool, JobDataWrapper);
     SubmitRequests(&threadPool, workItemCt);
     WaitForCompletion(&threadPool, JobDataWrapper);
+    superLuminalEnd();
 }
 

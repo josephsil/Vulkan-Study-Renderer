@@ -35,3 +35,8 @@ void vkTransitionImageLayout(
     const VkHostImageLayoutTransitionInfoEXT*   pTransitions);
     void vkCopyImageToMemory(VkDevice device, void*targetHostPointer, VkImage sourceImage,
     VkExtent3D extent, uint32_t mipLevel, uint32_t baseArrayLayer, uint32_t mipCt = 1, uint32_t layerCt = VK_REMAINING_ARRAY_LAYERS);
+
+void registerSuperluminal();
+
+void superLuminalAdd(const char* inID);
+void superLuminalEnd();
