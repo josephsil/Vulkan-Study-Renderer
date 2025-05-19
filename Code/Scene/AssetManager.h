@@ -2,6 +2,7 @@
 #include <General/Array.h>
 #include <Renderer/rendererGlobals.h>
 
+#include "General/LinearDictionary.h"
 #include "Renderer/RendererSharedTypes.h"
 #include "Renderer/TextureCreation/TextureData.h"
 #include "Renderer/AssetManagerTypes.h"
@@ -26,7 +27,7 @@ struct TextureMetaData;
 struct MeshData;
 struct VkDescriptorImageInfo;
 class AssetManager;
-void static_AllocateAssetMemory(MemoryArena::memoryArena* arena, AssetManager* scene);
+void static_AllocateAssetMemory(MemoryArena::memoryArena* arena, AssetManager* assetManager);
 class AssetManager
 {
 public:
@@ -46,8 +47,9 @@ public:
     Array<Material> materials;
     Array<VkDescriptorImageInfo> textures; //What we need to render the textures
     Array<TextureMetaData> texturesMetaData; //Other info about the texture in parallel array
-    Array<MeshData> backing_meshes;
+    Array<MeshData> backing_submeshes;
     Array<positionRadius> meshBoundingSphereRad;
+    Array<Array<ID::SubMeshID>>  subMeshGroups;
 
 
     //Returns the index to the object in the vectors
@@ -59,7 +61,10 @@ public:
     //TODO JS: these are temporary
     ID::TextureID AddTexture(TextureData T);
     textureSetIDs AddTextureSet(TextureData D, TextureData S, TextureData N);
-    ID::MeshID AddBackingMesh(MeshData M);
+    ID::SubMeshID AddBackingMesh(MeshData M);
+    std::span<ID::SubMeshID> GetMesh( ID::SubMeshGroupID meshId);
+    ID::SubMeshGroupID AddSingleSubmeshMeshMesh(MeshData Ms);
+    ID::SubMeshGroupID AddMultiSubmeshMeshMesh(std::span<MeshData> Ms);
 
     void Update();
     void Cleanup();

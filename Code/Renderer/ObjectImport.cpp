@@ -14,11 +14,8 @@ struct AddObjectResult
 };
 void ObjectImport::CreateObjectAssets(ArenaAllocator &arena, Scene &scene, AssetManager &assetManager, ImportedObjectData &gltf, DefaultTextures defaults)
 {
-    auto perSubmeshMeshHandles = MemoryArena::AllocSpan<std::span<ID::MeshID>>(arena, gltf.meshes.size());
+    auto perSubmeshMeshHandles = MemoryArena::AllocSpan<std::span<ID::SubMeshID>>(arena, gltf.meshes.size());
     auto perSubmeshMaterialHandles = MemoryArena::AllocSpan<std::span<ID::MaterialID>>(arena, gltf.meshes.size());
-
-
-
 
     std::span<ID::TextureID> createdTextureIDs = MemoryArena::AllocSpan<ID::TextureID>(arena, gltf.textures.size());
     for (int i = 0; i < gltf.textures.size(); i++)
@@ -40,7 +37,7 @@ void ObjectImport::CreateObjectAssets(ArenaAllocator &arena, Scene &scene, Asset
 
     for (int i = 0; i < gltf.meshes.size(); i++)
     {
-        perSubmeshMeshHandles[i] = MemoryArena::AllocSpan<ID::MeshID>(arena, gltf.meshes[i].submeshes.size());
+        perSubmeshMeshHandles[i] = MemoryArena::AllocSpan<ID::SubMeshID>(arena, gltf.meshes[i].submeshes.size());
         perSubmeshMaterialHandles[i] = MemoryArena::AllocSpan<ID::MaterialID>(arena, gltf.meshes[i].submeshes.size());
         for (int j = 0; j < gltf.meshes[i].submeshes.size(); j++)
         {

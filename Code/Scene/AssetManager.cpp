@@ -7,14 +7,19 @@
 #include "General/Array.h"
 
 //No scale for now
-void static_AllocateAssetMemory(MemoryArena::memoryArena* arena, AssetManager* scene)
+void static_AllocateAssetMemory(MemoryArena::memoryArena* arena, AssetManager* assetManager)
 {
     // arallel arrays per Light
-    scene->texturesMetaData = Array(MemoryArena::AllocSpan<TextureMetaData>(arena, ASSET_MAX));
-    scene->textures = Array(MemoryArena::AllocSpan<VkDescriptorImageInfo>(arena, ASSET_MAX));
-    scene->backing_meshes = Array(MemoryArena::AllocSpan<MeshData>(arena, ASSET_MAX));
-    scene->meshBoundingSphereRad = Array(MemoryArena::AllocSpan<positionRadius>(arena, ASSET_MAX));
-    scene->materials = Array(MemoryArena::AllocSpan<Material>(arena, OBJECT_MAX));
+    assetManager->texturesMetaData = Array(MemoryArena::AllocSpan<TextureMetaData>(arena, ASSET_MAX));
+    assetManager->textures = Array(MemoryArena::AllocSpan<VkDescriptorImageInfo>(arena, ASSET_MAX));
+    assetManager->backing_submeshes = Array(MemoryArena::AllocSpan<MeshData>(arena, ASSET_MAX));
+    assetManager->subMeshGroups = Array(MemoryArena::AllocSpan<Array<uint32_t>>(arena, ASSET_MAX));
+    for (auto& g : assetManager->subMeshGroups.getSubSpanToCapacity())
+    {
+        g = MemoryArena::AllocSpan<ID::SubMeshID>(arena, UINT8_MAX);
+    }
+    assetManager->meshBoundingSphereRad = Array(MemoryArena::AllocSpan<positionRadius>(arena, ASSET_MAX));
+    assetManager->materials = Array(MemoryArena::AllocSpan<Material>(arena, OBJECT_MAX));
 }
 
 
@@ -46,7 +51,7 @@ uint32_t AssetManager::getOffsetFromMeshID(int id)
     uint32_t indexcount = 0;
     for (int i = 0; i < id; i++)
     {
-        indexcount += static_cast<uint32_t>(backing_meshes[i].indices.size());
+        indexcount += static_cast<uint32_t>(backing_submeshes[i].indices.size());
     }
     return indexcount;
 }
@@ -56,7 +61,7 @@ uint32_t AssetManager::getIndexCount()
     uint32_t indexcount = 0;
     for (int i = 0; i < meshCount; i++)
     {
-        indexcount += static_cast<uint32_t>(backing_meshes[i].indices.size());
+        indexcount += static_cast<uint32_t>(backing_submeshes[i].indices.size());
     }
     return indexcount;
 }
@@ -66,7 +71,7 @@ uint32_t AssetManager::getVertexCount()
     uint32_t vertexCount = 0;
     for (int i = 0; i < meshCount; i++)
     {
-        vertexCount += static_cast<uint32_t>(backing_meshes[i].vertices.size());
+        vertexCount += static_cast<uint32_t>(backing_submeshes[i].vertices.size());
     }
     return vertexCount;
 }
@@ -94,11 +99,35 @@ textureSetIDs AssetManager::AddTextureSet(TextureData D, TextureData S, TextureD
     return {static_cast<uint32_t>(dI), static_cast<uint32_t>(sI), static_cast<uint32_t>(nI)};
 }
 
-ID::MeshID AssetManager::AddBackingMesh(MeshData M)
+ID::SubMeshID AssetManager::AddBackingMesh(MeshData M)
 {
-    backing_meshes.push_back(M);
+    backing_submeshes.push_back(M);
     meshBoundingSphereRad.push_back(MeshDataCreation::boundingSphereFromMeshBounds(M.boundsCorners));
     return meshCount++;
+}
+
+std::span<ID::SubMeshID> AssetManager::GetMesh(ID::SubMeshGroupID meshId)
+{
+    return subMeshGroups[meshId].getSpan();
+}
+
+ID::SubMeshGroupID AssetManager::AddSingleSubmeshMeshMesh(MeshData Ms)
+{
+    return AddMultiSubmeshMeshMesh({&Ms, 1});
+}
+
+
+ID::SubMeshGroupID AssetManager::AddMultiSubmeshMeshMesh(std::span<MeshData> Ms)
+{
+    auto& _span = subMeshGroups.push_back();
+
+    auto start = backing_submeshes.back();
+    for (auto m : Ms)
+    {
+        _span.push_back(AddBackingMesh(m));
+        
+    }
+    return (uint32_t)(subMeshGroups.ct -1);
 }
 
 //TODO JS: 

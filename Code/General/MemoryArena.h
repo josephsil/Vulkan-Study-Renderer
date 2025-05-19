@@ -118,23 +118,6 @@ namespace MemoryArena
         return ret;
     }
 
-    template <typename  T, typename... Args>
-std::span<T> AllocSpanEmplaceInitialize(memoryArena* a, uint32_t length, Args&&... args)
-    {
-        assert(!std::is_void< T >());
-
-        auto size = length * sizeof(T);
-        auto* start = static_cast<T*>(alloc(a, size, 16));
-        std::span<T> ret{start, length};
-
-        for(int i =0; i < ret.size(); i++)
-        {
-            new (&ret[i]) T(std::forward<Args>(args)...);
-        }
-        
-        return ret;
-    }
-
 
     template <typename T>
     std::span<T> copySpan(memoryArena* a, std::span<T> src, size_t additionalLength = 0)

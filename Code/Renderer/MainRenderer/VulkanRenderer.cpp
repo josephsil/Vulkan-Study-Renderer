@@ -372,8 +372,8 @@ void VulkanRenderer::PopulateMeshBuffers()
     size_t vertCt = 0;
     for (int i = 0; i < AssetDataAndMemory->meshCount; i++)
     {
-        indexCt += AssetDataAndMemory->backing_meshes[i].indices.size();
-        vertCt += AssetDataAndMemory->backing_meshes[i].vertices.size();
+        indexCt += AssetDataAndMemory->backing_submeshes[i].indices.size();
+        vertCt += AssetDataAndMemory->backing_submeshes[i].vertices.size();
     }
 
     auto gpuVerts = MemoryArena::AllocSpan<gpuvertex>(GetMainRendererContext().arena, vertCt);
@@ -384,7 +384,7 @@ void VulkanRenderer::PopulateMeshBuffers()
     uint32_t meshoffset = 0;
     for (int j = 0; j < AssetDataAndMemory->meshCount; j++)
     {
-        MeshData mesh = AssetDataAndMemory->backing_meshes[j];
+        MeshData mesh = AssetDataAndMemory->backing_submeshes[j];
         for (int i = 0; i < mesh.indices.size(); i++)
         {
          
@@ -1044,18 +1044,18 @@ void RecordIndirectCommandBufferForPasses(Scene* scene, AssetManager* rendererDa
 
     std::span<uint32_t> subMeshIds  = scene->allSubmeshes.getSpan();
     std::span<uint32_t> sortedDraws = MemoryArena::AllocSpan<uint32_t>(allocator, scene->objects.subMeshesCount);
-    std::span<uint32_t> meshIDtoFirstIndex = MemoryArena::AllocSpan<uint32_t>(allocator, rendererData->backing_meshes.size());
-    std::span<uint32_t> meshIDtoIndexCount = MemoryArena::AllocSpan<uint32_t>(allocator, rendererData->backing_meshes.size());
+    std::span<uint32_t> meshIDtoFirstIndex = MemoryArena::AllocSpan<uint32_t>(allocator, rendererData->backing_submeshes.size());
+    std::span<uint32_t> meshIDtoIndexCount = MemoryArena::AllocSpan<uint32_t>(allocator, rendererData->backing_submeshes.size());
     uint32_t indexCtoffset = 0;
     for(size_t i = 0; i < scene->objects.subMeshesCount; i++)
     {
         sortedDraws[i] =  static_cast<uint32_t>(i); //
     }
-    for(size_t i = 0; i < rendererData->backing_meshes.size(); i++)
+    for(size_t i = 0; i < rendererData->backing_submeshes.size(); i++)
     {
         meshIDtoFirstIndex[i] = indexCtoffset;
-        meshIDtoIndexCount[i] =  static_cast<uint32_t>(rendererData->backing_meshes[i].indices.size());
-        indexCtoffset +=  static_cast<uint32_t>(rendererData->backing_meshes[i].indices.size());
+        meshIDtoIndexCount[i] =  static_cast<uint32_t>(rendererData->backing_submeshes[i].indices.size());
+        indexCtoffset +=  static_cast<uint32_t>(rendererData->backing_submeshes[i].indices.size());
     }
 
     

@@ -131,7 +131,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>.\vkbootstrap;C:\VulkanSDK\1.3.239.0\Include;C:\Program Files\Microsoft Visual Studio\2022\Community\libraries\stb-master;C:\VulkanSDK\1.3.239.0\Include\vma;C:\Program Files\Microsoft Visual Studio\2022\Community\libraries\tinyobjloader-release;C:\VulkanSDK\KTX-Software\include;.\Code;.\tinygltf;.\External;.\External\imgui;.\External\JoltPhysics;.\External\meshoptimizer;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\vkbootstrap;C:\VulkanSDK\1.3.239.0\Include;C:\Program Files\Microsoft Visual Studio\2022\Community\libraries\stb-master;C:\VulkanSDK\1.3.239.0\Include\vma;C:\Program Files\Microsoft Visual Studio\2022\Community\libraries\tinyobjloader-release;C:\VulkanSDK\KTX-Software\include;.\Code;.\tinygltf;.\External;.\External\imgui;.\External\JoltPhysics;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <TreatWarningAsError>true</TreatWarningAsError>
@@ -154,7 +154,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_DEPRECATE;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>.\vkbootstrap;C:\VulkanSDK\1.3.239.0\Include;C:\Program Files\Microsoft Visual Studio\2022\Community\libraries\stb-master;C:\VulkanSDK\1.3.239.0\Include\vma;C:\Program Files\Microsoft Visual Studio\2022\Community\libraries\tinyobjloader-release;C:\VulkanSDK\KTX-Software\include;.\Code;.\tinygltf;.\External;.\External\imgui;.\External\JoltPhysics;.\External\meshoptimizer;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\vkbootstrap;C:\VulkanSDK\1.3.239.0\Include;C:\Program Files\Microsoft Visual Studio\2022\Community\libraries\stb-master;C:\VulkanSDK\1.3.239.0\Include\vma;C:\Program Files\Microsoft Visual Studio\2022\Community\libraries\tinyobjloader-release;C:\VulkanSDK\KTX-Software\include;.\Code;.\tinygltf;.\External;.\External\imgui;.\External\JoltPhysics;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
@@ -173,6 +173,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Code\game.cpp" />
+    <ClCompile Include="Code\General\Algorithms.cpp" />
     <ClCompile Include="Code\General\FileCaching.cpp">
     </ClCompile>
     <ClCompile Include="Code\General\LinearDictionary.cpp" />
@@ -205,6 +206,7 @@
     <ClCompile Include="Code\Renderer\MainRenderer\vulkanRenderer_Initialization.cpp" />
     <ClCompile Include="Code\Renderer\MeshCreation\MeshData.cpp">
     </ClCompile>
+    <ClCompile Include="Code\Renderer\MeshCreation\MeshOptimizer.cpp" />
     <ClCompile Include="Code\Renderer\MikkTImpl.cpp" />
     <ClCompile Include="Code\Renderer\ObjectImport.cpp" />
     <ClCompile Include="Code\Renderer\RendererDeletionQueue.cpp" />
@@ -236,6 +238,22 @@
     <ClCompile Include="External\imgui\imgui_widgets.cpp" />
     <ClCompile Include="External\imgui\misc\cpp\imgui_stdlib.cpp" />
     <ClCompile Include="External\MeshLibraryImplementations.cpp" />
+    <ClCompile Include="External\meshoptimizer\src\allocator.cpp" />
+    <ClCompile Include="External\meshoptimizer\src\clusterizer.cpp" />
+    <ClCompile Include="External\meshoptimizer\src\indexcodec.cpp" />
+    <ClCompile Include="External\meshoptimizer\src\indexgenerator.cpp" />
+    <ClCompile Include="External\meshoptimizer\src\overdrawanalyzer.cpp" />
+    <ClCompile Include="External\meshoptimizer\src\overdrawoptimizer.cpp" />
+    <ClCompile Include="External\meshoptimizer\src\quantization.cpp" />
+    <ClCompile Include="External\meshoptimizer\src\simplifier.cpp" />
+    <ClCompile Include="External\meshoptimizer\src\spatialorder.cpp" />
+    <ClCompile Include="External\meshoptimizer\src\stripifier.cpp" />
+    <ClCompile Include="External\meshoptimizer\src\vcacheanalyzer.cpp" />
+    <ClCompile Include="External\meshoptimizer\src\vcacheoptimizer.cpp" />
+    <ClCompile Include="External\meshoptimizer\src\vertexcodec.cpp" />
+    <ClCompile Include="External\meshoptimizer\src\vertexfilter.cpp" />
+    <ClCompile Include="External\meshoptimizer\src\vfetchanalyzer.cpp" />
+    <ClCompile Include="External\meshoptimizer\src\vfetchoptimizer.cpp" />
     <ClCompile Include="External\mikktspace.c">
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">MaxSpeed</Optimization>
       <BasicRuntimeChecks Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -245,6 +263,7 @@
     <ClCompile Include="vulkan-tutorial.cpp" />
     <ClInclude Include="Code\engineGlobals.h" />
     <ClInclude Include="Code\game.h" />
+    <ClInclude Include="Code\General\Algorithms.h" />
     <ClInclude Include="Code\General\Array.h" />
     <ClInclude Include="Code\General\FileCaching.h" />
     <ClInclude Include="Code\General\GLM_impl.h" />
@@ -298,6 +317,7 @@
     <ClInclude Include="External\imgui\imstb_textedit.h" />
     <ClInclude Include="External\imgui\imstb_truetype.h" />
     <ClInclude Include="External\imgui\misc\cpp\imgui_stdlib.h" />
+    <ClInclude Include="External\meshoptimizer\src\meshoptimizer.h" />
     <ClInclude Include="ImageLibraryImplementations.h" />
     <ClInclude Include="MeshLibraryImplementations.h" />
     <ClCompile Include="External\weldmesh.c" />

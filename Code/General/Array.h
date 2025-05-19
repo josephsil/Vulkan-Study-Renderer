@@ -52,10 +52,11 @@ struct Array
         return data[ct - 1];
     }
 
-    void push_back()
+    T& push_back()
     {
         assert(ct < capacity);
         ct++;
+        return data[ct -1];
     }
 
     void push_back(T entry)

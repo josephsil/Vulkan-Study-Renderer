@@ -33,7 +33,6 @@ struct MeshData
     std::span<Vertex> vertices;
     std::span<uint32_t> indices;
     std::span<glm::vec3> boundsCorners;
-    int id; //TODO JS: needed?
 };
 
 namespace MeshDataCreation

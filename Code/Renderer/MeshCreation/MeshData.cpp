@@ -3,7 +3,6 @@
 #include <unordered_map>
 #include <Renderer/PerThreadRenderContext.h>
 #include <General/Array.h>
-#include <Renderer/VulkanBuffers/bufferCreation.h>
 #include <Renderer/gpu-data-structs.h>
 #include <General/MemoryArena.h>
 #include <MeshLibraryImplementations.h>
@@ -19,7 +18,6 @@ MeshData MeshDataCreation::MeshDataFromSpans(std::span<Vertex> vertices,
     MeshData m = {};
     m.vertices = vertices;
     m.indices = indices;
-    m.id = MESHID++;
     return m;
 }
 
@@ -110,7 +108,6 @@ MeshData MeshDataCreation::FinalizeMeshDataFromTempMesh(MemoryArena::memoryArena
     }
 
 
-    m.id = MESHID++;
     return m;
 }
 

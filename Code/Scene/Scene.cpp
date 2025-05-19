@@ -113,25 +113,26 @@ void Scene::Update()
     transforms.UpdateWorldTransforms();
 }
 
-size_t Scene::AddObject(ID::MeshID meshIndexTODO, size_t meshct, ID::MaterialID materialIndex,
-                     glm::vec3 position, glm::quat rotation, glm::vec3 scale, localTransform* parent, std::string name)
-{
-    assert(meshct == 1); //Can only use this override for single submesh cases. todo clean this up
-
-    auto span = std::span<uint32_t>(&materialIndex, 1);
-    auto span2 = std::span<uint32_t>(&meshIndexTODO, meshct);
-    return AddObject(span2, span,
-                     position,rotation, scale, parent,name);
-    
-}
-size_t Scene::AddObject(std::span<ID::MeshID> submeshIndices, std::span<ID::MaterialID> materialIndices,
+size_t Scene::AddObject(std::span<ID::SubMeshID> submeshIndices, std::span<ID::MaterialID> materialIndices,
                      glm::vec3 position, glm::quat rotation, glm::vec3 scale, localTransform* parent, std::string name)
 {
     uint32_t submeshCt = static_cast<uint32_t>(submeshIndices.size());
+
+
     //TODD JS: version that can add
     // objects.meshes.push_back(mesh);
 
-    objects.subMeshMaterials.push_back(allMaterials.push_back_span(materialIndices));
+    //Add our materials
+   auto firstSubmeshMaterial = allMaterials.size();
+    allMaterials.push_back_span(materialIndices);
+    for(int i =0; i < submeshIndices.size() - materialIndices.size(); i++)
+    {
+        //Use the last material index for the remaining submeshes. Don't love this behavior, but it's convenient for now
+        allMaterials.push_back(materialIndices.back());
+    }
+    objects.subMeshMaterials.push_back(allMaterials.getSpan().subspan(firstSubmeshMaterial, submeshIndices.size()));
+
+    
     objects.translations.push_back(position);
     objects.rotations.push_back(rotation);
     objects.scales.push_back(scale);

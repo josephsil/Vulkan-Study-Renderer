@@ -64,12 +64,10 @@ struct Scene
 
 
     
-    size_t AddObject(std::span<ID::MeshID> submeshIndices, std::span<ID::MaterialID> materialIndices,
+    size_t AddObject(std::span<ID::SubMeshID> submeshIndices, std::span<ID::MaterialID> materialIndices,
                      glm::vec3 position, glm::quat rotation, glm::vec3 scale = glm::vec3(1), localTransform* parent = nullptr,
                      std::string name = "");
-    size_t AddObject(ID::MeshID meshIndexTODO, size_t meshct, ID::MaterialID materialIndex,
-    glm::vec3 position, glm::quat rotation, glm::vec3 scale,localTransform* parent = nullptr,
-        std::string name = "");
+
     size_t ObjectsCount();
     size_t DrawCount();
     size_t MeshesCount();

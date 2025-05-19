@@ -11,12 +11,13 @@
 
 #include "General/LinearDictionary.h"
 #include "General/ThreadedTextureLoading.h"
+#include "Renderer/MeshCreation/MeshOptimizer.h"
 
 void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* rendererData, Scene* scene)
 {
     LinearDictionary<char*, TextureData> textureLookup = {};
     scene->sceneCamera.extent = {16, 10}; // ????
-    std::vector<ID::MeshID> randomMeshes;
+    std::vector<ID::SubMeshGroupID> randomMeshes;
     std::vector<ID::MaterialID> randomMaterials;
     std::vector<TextureData> completedTextures;
 
@@ -110,12 +111,16 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
     placeholderMatidx = rendererData->AddMaterial(0.2f, 0, glm::vec3(1.0f), placeholderTextureidx, 1);
     randomMaterials.push_back(placeholderMatidx);
 
-    randomMeshes.push_back(rendererData->AddBackingMesh(gltf.meshes[0].submeshes[0]));
+    randomMeshes.push_back(rendererData->AddSingleSubmeshMeshMesh(gltf.meshes[0].submeshes[0]));
     randomMeshes.push_back(
-        rendererData->AddBackingMesh(GltfLoadMeshes(rendererContext, "Meshes/cubesphere.glb").meshes[0].submeshes[0]));
-    randomMeshes.push_back(rendererData->AddBackingMesh(MeshDataCreation::MeshDataFromObjFile(rendererContext, "Meshes/monkey.obj")));
+        rendererData->AddSingleSubmeshMeshMesh(GltfLoadMeshes(rendererContext, "Meshes/cubesphere.glb").meshes[0].submeshes[0]));
 
-    ID::MeshID cube = rendererData->AddBackingMesh(GltfLoadMeshes(rendererContext, "Meshes/cube.glb").meshes[0].submeshes[0]);
+    auto monkeyMesh = MeshDataCreation::MeshDataFromObjFile(rendererContext, "Meshes/monkey.obj");
+
+    auto meshLetMonkey =  MeshOptimizer::RunMeshOptimizer(rendererContext.arena, monkeyMesh);
+    randomMeshes.push_back(rendererData->AddMultiSubmeshMeshMesh(meshLetMonkey));
+
+    ID::SubMeshID cube = rendererData->AddSingleSubmeshMeshMesh(GltfLoadMeshes(rendererContext, "Meshes/cube.glb").meshes[0].submeshes[0]);
 
     //direciton light
 
@@ -124,8 +129,7 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
     auto MyQuaternion = glm::quat(EulerAngles);
 
     auto root = scene->AddObject(
-        randomMeshes[rand() % randomMeshes.size()], 1,
-        (uint32_t)randomMaterials[1], glm::vec4(0, 0, 0, 0) * 1.2f, MyQuaternion,
+        rendererData->GetMesh(randomMeshes[rand() % randomMeshes.size()]), MemoryArena::AllocSpanEmplaceInitialize<uint32_t>(rendererContext.arena, 1, (uint32_t) (uint32_t)randomMaterials[1]), glm::vec4(0, 0, 0, 0) * 1.2f, MyQuaternion,
         glm::vec3(0.5));
 
     localTransform* tform = &scene->transforms.transformNodes[root];
@@ -144,8 +148,8 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
             sourceMaterial.roughness, sourceMaterial.metallic, randColorLinear, {sourceMaterial.diffuseIndex, sourceMaterial.specIndex, sourceMaterial.normalIndex}, sourceMaterial.shaderGroupIndex);
 
             scene->AddObject(
-                randomMeshes[rand() % randomMeshes.size()], 1,
-               (uint32_t)newRandomColorMaterial, glm::vec4((j), (i / 10) * 1.0, -(i % 10), 1) * 1.2f, MyQuaternion,
+                rendererData->GetMesh(randomMeshes[rand() % randomMeshes.size()]), 
+               MemoryArena::AllocSpanEmplaceInitialize<uint32_t>(rendererContext.arena, 1, (uint32_t)newRandomColorMaterial), glm::vec4((j), (i / 10) * 1.0, -(i % 10), 1) * 1.2f, MyQuaternion,
                 glm::vec3(0.5));
             matIDX = rand() % randomMaterials.size();
         }
