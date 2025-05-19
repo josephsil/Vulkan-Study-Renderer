@@ -15,6 +15,10 @@
 
 void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* rendererData, Scene* scene)
 {
+    
+    auto sceneLoading = MemoryArena::memoryArena {};
+    MemoryArena::initialize(&sceneLoading, 68000 * 120);
+    ArenaAllocator loadingArena = &sceneLoading;
     LinearDictionary<char*, TextureData> textureLookup = {};
     scene->sceneCamera.extent = {16, 10}; // ????
     std::vector<ID::SubMeshGroupID> randomMeshes;
@@ -24,20 +28,20 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
     std::vector<char*> paths;
     std::vector<TextureCreation::TextureImportRequest> creationArgs;
 
-    creationArgs.push_back(TextureCreation::MakeCreationArgsFromFilepathArgs("textures/blank.png", rendererContext.tempArena, DIFFUSE));
+    creationArgs.push_back(TextureCreation::MakeCreationArgsFromFilepathArgs("textures/blank.png", loadingArena, DIFFUSE));
     paths.push_back(const_cast<char*>("textures/blank.png_diff"));
-    creationArgs.push_back(TextureCreation::MakeCreationArgsFromFilepathArgs("textures/default_roug.tga",rendererContext.tempArena,  SPECULAR));
+    creationArgs.push_back(TextureCreation::MakeCreationArgsFromFilepathArgs("textures/default_roug.tga",loadingArena,  SPECULAR));
     paths.push_back(const_cast<char*>("textures/default_roug.tga"));
-    creationArgs.push_back(TextureCreation::MakeCreationArgsFromFilepathArgs("textures/blank.png", rendererContext.tempArena,SPECULAR));
+    creationArgs.push_back(TextureCreation::MakeCreationArgsFromFilepathArgs("textures/blank.png", loadingArena,SPECULAR));
     paths.push_back(const_cast<char*>("textures/blank.png_spec"));
-    creationArgs.push_back(TextureCreation::MakeCreationArgsFromFilepathArgs("textures/pbr_cruiser-panels/space-cruiser-panels2_albedo.png", rendererContext.tempArena, DIFFUSE, VK_IMAGE_VIEW_TYPE_2D));
+    creationArgs.push_back(TextureCreation::MakeCreationArgsFromFilepathArgs("textures/pbr_cruiser-panels/space-cruiser-panels2_albedo.png", loadingArena, DIFFUSE, VK_IMAGE_VIEW_TYPE_2D));
     paths.push_back(const_cast<char*>("textures/pbr_cruiser-panels/space-cruiser-panels2_albedo.png"));
-    creationArgs.push_back(TextureCreation::MakeCreationArgsFromFilepathArgs("textures/pbr_cruiser-panels/space-cruiser-panels2_roughness_metallic.tga", rendererContext.tempArena, SPECULAR, VK_IMAGE_VIEW_TYPE_2D));
+    creationArgs.push_back(TextureCreation::MakeCreationArgsFromFilepathArgs("textures/pbr_cruiser-panels/space-cruiser-panels2_roughness_metallic.tga", loadingArena, SPECULAR, VK_IMAGE_VIEW_TYPE_2D));
     paths.push_back(const_cast<char*>("textures/pbr_cruiser-panels/space-cruiser-panels2_roughness_metallic.tga"));
-    creationArgs.push_back(TextureCreation::MakeCreationArgsFromFilepathArgs("textures/pbr_cruiser-panels/space-cruiser-panels2_normal-dx.png", rendererContext.tempArena, NORMAL, VK_IMAGE_VIEW_TYPE_2D));
+    creationArgs.push_back(TextureCreation::MakeCreationArgsFromFilepathArgs("textures/pbr_cruiser-panels/space-cruiser-panels2_normal-dx.png", loadingArena, NORMAL, VK_IMAGE_VIEW_TYPE_2D));
     paths.push_back(const_cast<char*>("textures/pbr_cruiser-panels/space-cruiser-panels2_normal-dx.png"));
 
-    auto resultTexturedata = MemoryArena::AllocSpan<TextureData>(rendererContext.tempArena, creationArgs.size());
+    auto resultTexturedata = MemoryArena::AllocSpan<TextureData>(loadingArena, creationArgs.size());
     
     LoadTexturesThreaded(rendererContext, resultTexturedata, creationArgs);
     for(int i =0; i < resultTexturedata.size(); i++)
@@ -90,7 +94,7 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
 #ifdef SPONZA
     //rendererContext: gltf load fn that gets back struct, then append its contents to scene 
     gltf = GltfLoadMeshes(rendererContext, "Meshes/sponza.glb");
-    ObjectImport::CreateObjectAssets(rendererContext.tempArena, *scene, *rendererData, gltf, {defaultTexture, defaultSPec,defaultNormal});
+    ObjectImport::CreateObjectAssets(loadingArena, *scene, *rendererData, gltf, {defaultTexture, defaultSPec,defaultNormal});
 #pragma region gltf adding stuff --- todo move to fn
    
 #endif
@@ -111,16 +115,18 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
     placeholderMatidx = rendererData->AddMaterial(0.2f, 0, glm::vec3(1.0f), placeholderTextureidx, 1);
     randomMaterials.push_back(placeholderMatidx);
 
-    randomMeshes.push_back(rendererData->AddSingleSubmeshMeshMesh(gltf.meshes[0].submeshes[0]));
-    randomMeshes.push_back(
-        rendererData->AddSingleSubmeshMeshMesh(GltfLoadMeshes(rendererContext, "Meshes/cubesphere.glb").meshes[0].submeshes[0]));
+    randomMeshes.push_back(rendererData->AddSingleSubmeshMeshMesh(gltf.meshes[0].submeshesAndMeshlets, gltf.meshletInfo[0][0]));
+    auto _cubesphere = GltfLoadMeshes(rendererContext, "Meshes/cubesphere.glb");
+    randomMeshes.push_back(rendererData->AddSingleSubmeshMeshMesh(_cubesphere.meshes[0].submeshesAndMeshlets, _cubesphere.meshletInfo[0][0]));
 
     auto monkeyMesh = MeshDataCreation::MeshDataFromObjFile(rendererContext, "Meshes/monkey.obj");
 
     auto meshLetMonkey =  MeshOptimizer::RunMeshOptimizer(rendererContext.arena, monkeyMesh);
-    randomMeshes.push_back(rendererData->AddMultiSubmeshMeshMesh(meshLetMonkey));
-
-    ID::SubMeshID cube = rendererData->AddSingleSubmeshMeshMesh(GltfLoadMeshes(rendererContext, "Meshes/cube.glb").meshes[0].submeshes[0]);
+    auto meshletMonkeyMeshletInfo = MemoryArena::AllocSpan<meshletIndexInfo>(rendererContext.arena, 1);
+    meshletMonkeyMeshletInfo[0] = {0, meshLetMonkey.size()};
+    randomMeshes.push_back(rendererData->AddSingleSubmeshMeshMesh(meshLetMonkey, meshletMonkeyMeshletInfo[0]));
+    auto _cube =GltfLoadMeshes(rendererContext, "Meshes/cube.glb");
+    ID::SubMeshID cube = rendererData->AddSingleSubmeshMeshMesh(_cube.meshes[0].submeshesAndMeshlets,_cube.meshletInfo[0][0]);
 
     //direciton light
 

@@ -4,11 +4,12 @@
 #include "General/Algorithms.h"
 #include "General/MemoryArena.h"
 #include "meshoptimizer/src/meshoptimizer.h"
+#include "Renderer/rendererGlobals.h"
 
 std::span<MeshData> MeshOptimizer::RunMeshOptimizer(ArenaAllocator arena, MeshData input)
 {
-    const size_t max_vertices = 64;
-    const size_t max_triangles = 124;
+    const size_t max_vertices = MESHLET_VERTICES;
+    const size_t max_triangles = MESHLET_TRIS;
     const float cone_weight = 0.0f;
 
     size_t max_meshlets = meshopt_buildMeshletsBound(input.indices.size(), max_vertices, max_triangles);

@@ -40,6 +40,7 @@ void InitializeScene(MemoryArena::memoryArena* arena, Scene* scene)
     scene->transforms = {};
 
     scene->transforms.worldMatrices = Array(MemoryArena::AllocSpan<std::span<glm::mat4>>(arena, OBJECT_MAX));
+    scene->transforms.worldUniformScales = Array(MemoryArena::AllocSpan<std::span<float>>(arena, OBJECT_MAX));
     scene->transforms.transformNodes.reserve(OBJECT_MAX);
     scene->transforms.rootTransformsView = Array(MemoryArena::AllocSpan<localTransform*>(arena, OBJECT_MAX));
 }
@@ -96,18 +97,19 @@ void Scene::Update()
     inputData input = {
         glm::vec3(INPUT_translate_x, INPUT_translate_y, 0.0f) * translateSpeed, glm::vec2(INPUT_mouse_x, INPUT_mouse_y)
     };
-    glm::mat4 model;
 
     UpdateCamera(input);
     UpdateRotations();
     for (int i = 0; i < objects.objectsCount; i++)
     {
+        glm::mat4& model =  transforms.get(objects.transformIDs[i])->matrix;
         model = glm::mat4(1.0f);
         glm::mat4 objectLocalRotation = toMat4(objects.rotations[i]);
         model = translate(model, objects.translations[i]);
         model *= objectLocalRotation;
         model = scale(model, objects.scales[i]);
-        transforms.get(objects.transformIDs[i])->matrix = model;
+        auto& scale = objects.scales[i];
+        transforms.get(objects.transformIDs[i])->uniformScale = glm::max(scale.y, glm::max(scale.z, scale.x));
     }
 
     transforms.UpdateWorldTransforms();
@@ -147,6 +149,7 @@ size_t Scene::AddObject(std::span<ID::SubMeshID> submeshIndices, std::span<ID::M
     {
         localTransform newT = {
         .matrix =  glm::mat4(1.0),
+            .uniformScale = glm::max(scale.x,glm::max(scale.y,scale.z)),
         .name = "CHILD",
         .ID = objects.transformIDs[objects.objectsCount],
         .depth = static_cast<uint8_t>(parent->depth + 1),
@@ -157,7 +160,7 @@ size_t Scene::AddObject(std::span<ID::SubMeshID> submeshIndices, std::span<ID::M
     else
     {
         transforms.transformNodes.push_back({
-            glm::mat4(1.0), name.empty() ? "default" : name, objects.transformIDs[objects.objectsCount], 0, {}
+            glm::mat4(1.0),  glm::max(scale.x,glm::max(scale.y,scale.z)), name.empty() ? "default" : name, objects.transformIDs[objects.objectsCount], 0, {}
         });
         transforms.rootTransformsView.push_back(&transforms.transformNodes[transforms.transformNodes.size() - 1]);
     }

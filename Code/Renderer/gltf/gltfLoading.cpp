@@ -13,6 +13,7 @@
 #include "gltf_impl.h"
 #include <Renderer/CommandPoolManager.h>
 #include <Renderer/PerThreadRenderContext.h>
+#include <Renderer/MeshCreation/MeshOptimizer.h>
 #include <Renderer/TextureCreation/TextureData.h>
 
 #include "General/ThreadedTextureLoading.h"
@@ -215,8 +216,8 @@ void loadAttributeOrDefault(Array<glm::vec4>* target, tinygltf::Model* model, ti
                     accessor.count, stride);
                 break;
             }
-        default:
-            assert(!"unsupported attribute type on attribute", attribute);
+         default:
+            assert(!"unsupported attribute type ");
         }
     }
     switch (accessor.componentType)
@@ -249,7 +250,7 @@ void loadAttributeOrDefault(Array<glm::vec4>* target, tinygltf::Model* model, ti
             break;
         }
     default:
-        assert(!"unsupported attribute type on attribute", attribute);
+        assert(!"unsupported attribute type on attribute");
     }
 }
 
@@ -294,7 +295,7 @@ temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygl
         positionvec.push_back(position);
     }
 
-    assert(prim.attributes.contains("NORMAL"), "NOT IMPLEMENTED -- DONT WORK SUPPORT MODELS WITHOUT NORMALS");
+    assert(prim.attributes.contains("NORMAL"));
 
     accessor = model->accessors[prim.attributes[std::string("NORMAL")]];
     bufferView = model->bufferViews[accessor.bufferView];
@@ -331,7 +332,7 @@ temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygl
 
         accessor = model->accessors[prim.attributes[std::string("TANGENT")]];
 
-        assert(accessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT, "tanget is not float!");
+        assert(accessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT);
         bufferView = model->bufferViews[accessor.bufferView];
         buffer = model->buffers[bufferView.buffer];
         auto tangents = reinterpret_cast<const float*>(&buffer.data[bufferView.byteOffset + accessor.
@@ -446,7 +447,7 @@ GltfData GltfLoadMeshes(PerThreadRenderContext handles, const char* gltfpath)
     // gltfOutOfdate = true;
 
     MemoryArena::memoryArena loadingArena = {};
-    initialize(&loadingArena, 100000 * 500); //TODO JS: right size this to the gltf size;
+    initialize(&loadingArena, 100000 * 5000); //TODO JS: right size this to the gltf size;
 
     GltfData output = {};
     const char* ext = strrchr(gltfpath, '.');
@@ -472,7 +473,7 @@ GltfData GltfLoadMeshes(PerThreadRenderContext handles, const char* gltfpath)
     size_t nodeCt = model.nodes.size();
 
     //TODO JS: leaking some extra gltf loading data for now
-    std::span<GltfMesh> meshes = MemoryArena::AllocSpan<GltfMesh>(permanentArena, meshCt);
+    std::span<GltfMesh> importedMeshes = MemoryArena::AllocSpan<GltfMesh>(permanentArena, meshCt); 
     std::span<TextureData> textures = MemoryArena::AllocSpan<TextureData>(permanentArena, imageCt);
     //These are what I call textures, what vulkan calls images
     std::span<gltfMaterial> materials = MemoryArena::AllocSpan<gltfMaterial>(permanentArena, matCt);
@@ -482,30 +483,55 @@ GltfData GltfLoadMeshes(PerThreadRenderContext handles, const char* gltfpath)
         printf("GLTF LOADER WARNING: %s\n", warn.data());
     }
     assert(err.empty());
-
+    std::span<std::span<meshletIndexInfo>> meshletIndexInfos = MemoryArena::AllocSpan<std::span<meshletIndexInfo>>(permanentArena, meshCt);
     for (int i = 0; i < meshCt; i++)
     {
         setCursor(tempArena);
         size_t submeshCt = model.meshes[i].primitives.size();
-        std::span<MeshData> submeshes = MemoryArena::AllocSpan<MeshData>(permanentArena, submeshCt);
-        std::span<uint32_t> submeshMats = MemoryArena::AllocSpan<uint32_t>(permanentArena, submeshCt);
+        auto subMeshesStart = permanentArena->head;
+        Array<MeshData> submeshes = MemoryArena::AllocSpan<MeshData>(tempArena, submeshCt * 4096); //what's a good max meshlet number?
+        auto subMeshMatsStart = permanentArena->head;
+        Array<uint32_t> submeshMats = MemoryArena::AllocSpan<uint32_t>(tempArena, submeshCt * 4096); //what's a good max meshlet number?
+    
+         meshletIndexInfos[i] = MemoryArena::AllocSpan<meshletIndexInfo>(permanentArena, submeshCt);
         for (size_t j = 0; j < submeshCt; j++)
         {
             temporaryloadingMesh tempMesh = geoFromGLTFMesh(tempArena, &model, model.meshes[i].primitives[j]);
 
             //TODO JS: at some point move this out to run on the whole mesh, rather than submeshes 
-            submeshes[j] = MeshDataCreation::FinalizeMeshDataFromTempMesh(permanentArena, tempArena, tempMesh);
-            submeshMats[j] = model.meshes[i].primitives[j].material;
-            assert(
-                model.meshes[i].primitives[j].material != -1 && "-1 Material index (no material) not supported. TODO.");
+            auto tempMeshresult = MeshDataCreation::FinalizeMeshDataFromTempMesh(tempArena, tempArena, tempMesh);
+            uint32_t tempMatresult = model.meshes[i].primitives[j].material;
+
+            auto meshlets = MeshOptimizer::RunMeshOptimizer(tempArena, tempMeshresult);
+            auto meshletMats = MemoryArena::AllocSpanEmplaceInitialize<uint32_t>(tempArena, meshlets.size(), tempMatresult); //Allocate copies of the mat index for all the meshlets
+            meshletIndexInfos[i][j] = {submeshes.ct, meshlets.size()}; 
+     
+            submeshes.push_back_span(meshlets);
+            submeshMats.push_back_span(meshletMats);
+         
+            assert(model.meshes[i].primitives[j].material != -1 && "-1 Material index (no material) not supported. TODO.");
             //TODO JS
-            freeToCursor(tempArena);
         }
-        meshes[i].submeshes = submeshes;
-        meshes[i].materialIndices = submeshMats;
+        //copy everything to permanent memory
+        for(size_t j = 0; j < submeshes.size(); j++)
+        {
+            submeshes[j].indices =  MemoryArena::copySpan(permanentArena, submeshes[j].indices);
+        }
+        for(size_t j = 0; j < submeshes.size(); j++)
+        {
+            submeshes[j].vertices =  MemoryArena::copySpan(permanentArena, submeshes[j].vertices);
+        }
+        for(size_t j = 0; j < submeshes.size(); j++)
+        {
+            submeshes[j].boundsCorners =  MemoryArena::copySpan(permanentArena, submeshes[j].boundsCorners);
+        }
+
+      
+        importedMeshes[i].submeshesAndMeshlets =   MemoryArena::copySpan(permanentArena,   submeshes.getSpan());
+        importedMeshes[i].materialIndices = MemoryArena::copySpan(permanentArena,   submeshMats.getSpan());
+        freeToCursor(tempArena);
     }
 
-    //TODO NEXT: submesh concept, real submeshes
     //TODO support: lights
     //Won't do currently: any kinds of animation, cameras, samplers 
 
@@ -583,5 +609,5 @@ GltfData GltfLoadMeshes(PerThreadRenderContext handles, const char* gltfpath)
 
 
     RELEASE(&loadingArena);
-    return {meshes, textures, materials, gltfNodes};
+    return {importedMeshes, meshletIndexInfos, textures, materials, gltfNodes};
 }

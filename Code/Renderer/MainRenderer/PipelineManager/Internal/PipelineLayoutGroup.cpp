@@ -103,7 +103,7 @@ void PipelineLayoutGroup::BindRequiredDescriptorSetsToCommandBuffer(VkCommandBuf
         VkDescriptorSet set = {};
         size_t isPerFrameOffset = descriptorData.isPerFrame ? currentFrame : 0;
         PreAllocatedDescriptorSetPool* c = &descriptorData.descriptorSetsCaches[isPerFrameOffset];
-        assert(c->activeDescriptorSet != SIZE_MAX, "Uninitialized descriptor pool");
+        assert(c->activeDescriptorSet != SIZE_MAX);
         set = descriptorData.descriptorSetsCaches[isPerFrameOffset].descriptorSets[(c->activeDescriptorSet)];
 
 

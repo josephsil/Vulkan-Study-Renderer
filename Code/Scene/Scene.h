@@ -36,11 +36,11 @@ struct Scene
         Array<glm::quat> rotations;
         Array<glm::vec3> scales;
         Array<std::span<uint32_t>> subMeshes; //for renderer
-        Array<std::span<uint32_t>> subMeshMaterials;
+        Array<std::span<uint32_t>> subMeshMaterials; //todo js meshlet perf: there are one of these per meshlet currently -- need to fix
         Array<size_t> transformIDs;
     };
 
-    Array<uint32_t> allMaterials; //Backs the span of spans
+    Array<uint32_t>  allMaterials; //Backs the span of spans
     Array<uint32_t> allSubmeshes; //Backs the span of spans
     // arallel arrays per Light
     size_t lightCount;

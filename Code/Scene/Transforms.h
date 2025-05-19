@@ -26,6 +26,7 @@ class AssetManager;
 struct localTransform
 {
     glm::mat4 matrix;
+    float uniformScale;
     std::string name;
     size_t ID;
     uint8_t depth;
@@ -50,6 +51,7 @@ struct flT_lookup
 struct flatlocalTransform
 {
     glm::mat4 matrix;
+    float uniformScale;
     std::string name;
     uint8_t parent; // Parent is always one level up 
 };
@@ -66,6 +68,7 @@ struct objectTransforms
     //world matrices we upload to gpu
     //Add validation to make sure they've been updated?
     Array<std::span<glm::mat4>> worldMatrices;
+    Array<std::span<float>> worldUniformScales;
 
     //Representation we use every frame to calc transforms
     //TODO: Flatten more, use contiguous memory

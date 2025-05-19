@@ -4,6 +4,7 @@
 
 #include "AssetManagerTypes.h"
 #include "General/MemoryArena.h"
+#include "MainRenderer/rendererStructs.h"
 
 
 struct TextureData;
@@ -54,7 +55,8 @@ namespace ObjectImport
     
     struct Mesh
     {
-        std::span<MeshData> submeshes;
+        //TODO JS MESHLET PERF: Separate meshlet/submesh concept better 
+        std::span<MeshData> submeshesAndMeshlets;
         std::span<uint32_t> materialIndices;
     };
 
@@ -63,7 +65,7 @@ namespace ObjectImport
     {
         //TODO JS: to span of spans for submeshes 
         std::span<Mesh> meshes;
-
+        std::span<std::span<meshletIndexInfo>> meshletInfo;
         std::span<TextureData> textures;
         std::span<Material> materials;
         std::span<MeshObject> objects;

@@ -68,8 +68,8 @@ VulkanRenderer::VulkanRenderer()
     MemoryArena::initialize(&rendererArena, 1000000 * 200); // 200mb
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        MemoryArena::initialize(&perFrameArenas[i], 100000 * 50);
-        // 50mb each //TODO JS: Could be much smaller if I used stable memory for per frame verts and stuff
+        MemoryArena::initialize(&perFrameArenas[i], 100000 * 1200);
+        //TODO JS: Could be much smaller if I used stable memory for per frame verts and stuff
     }
 
 
@@ -726,7 +726,8 @@ void VulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<std::spa
         
         transforms[objectIndex].model = *model;
         transforms[objectIndex].Normal = transpose(inverse(glm::mat3(*model)));
-        
+
+        //todo js MESHLET PERF: This is happening *per meshlet*, most (all except setting submesh index?) only needs to happen *per submesh*
         for(uint32_t subMeshIndex = 0; subMeshIndex < subMeshCount; subMeshIndex++)
         {
             uint32_t submeshIndex =scene->objects.subMeshes[objectIndex][subMeshIndex];
@@ -747,20 +748,9 @@ void VulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<std::spa
 
         
             //Set position and radius for culling
-            //Decompose out scale from the model matrix
-            //todo: better to store radius separately and avoid this calculation?
-            glm::vec3 scale = glm::vec3(1.0);
-            glm::quat _1 = glm::quat();
-            glm::vec3 _2 = glm::vec3(0);
-            glm::vec3 _3;
-            glm::vec4 _4;
-            glm::decompose( (*model), scale, _1, _2, _3, _4);
-            auto model2 = transpose(*model);
-
-
             positionRadius meshSpacePositionAndRadius =  AssetDataAndMemory->meshBoundingSphereRad[submeshIndex];
             float meshRadius = meshSpacePositionAndRadius.radius;
-            float objectScale = glm::max(glm::max( scale.x, scale.x), scale.x);
+            float objectScale = scene->transforms.worldUniformScales[lookup.depth][lookup.index];
             perMesh[uboIndex].cullingInfo.pos = meshSpacePositionAndRadius.pos;
             meshRadius *= objectScale;
             perMesh[uboIndex].cullingInfo.radius = meshRadius;
@@ -1440,6 +1430,7 @@ VkCommandBuffer AllocateAndBeginCommandBuffer(VkDevice device, CommandPoolManage
 }
 void VulkanRenderer::RenderFrame(Scene* scene)
 {
+    superLuminalAdd("RenderFrame");
     if (debug_cull_override_index != internal_debug_cull_override_index)
     {
         debug_cull_override_index %= Scene::getShadowDataIndex(glm::min(scene->lightCount, MAX_SHADOWCASTERS), scene->lightTypes.getSpan());
@@ -1754,7 +1745,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     
 
    
-
+    superLuminalEnd();
 }
 
 void VulkanRenderer::Cleanup()

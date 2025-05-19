@@ -6,6 +6,7 @@
 #include "Renderer/RendererSharedTypes.h"
 #include "Renderer/TextureCreation/TextureData.h"
 #include "Renderer/AssetManagerTypes.h"
+#include "Renderer/MainRenderer/rendererStructs.h"
 //
 struct positionRadius;
 
@@ -19,6 +20,12 @@ struct textureSetIDs
     ID::TextureID diffuseIndex;
     ID::TextureID specIndex;
     ID::TextureID normIndex;
+};
+
+struct offsetData
+{
+    size_t vertex_start;
+    size_t index_start;  
 };
 
 //Objects have like, transformation info, ref to their mesh, ref to their material
@@ -48,8 +55,10 @@ public:
     Array<VkDescriptorImageInfo> textures; //What we need to render the textures
     Array<TextureMetaData> texturesMetaData; //Other info about the texture in parallel array
     Array<MeshData> backing_submeshes;
+    Array<offsetData> backing_submeshOffsetData;
     Array<positionRadius> meshBoundingSphereRad;
     Array<Array<ID::SubMeshID>>  subMeshGroups;
+    Array<std::span<meshletIndexInfo>>  subMeshMeshletInfo;
 
 
     //Returns the index to the object in the vectors
@@ -63,8 +72,8 @@ public:
     textureSetIDs AddTextureSet(TextureData D, TextureData S, TextureData N);
     ID::SubMeshID AddBackingMesh(MeshData M);
     std::span<ID::SubMeshID> GetMesh( ID::SubMeshGroupID meshId);
-    ID::SubMeshGroupID AddSingleSubmeshMeshMesh(MeshData Ms);
-    ID::SubMeshGroupID AddMultiSubmeshMeshMesh(std::span<MeshData> Ms);
+    ID::SubMeshGroupID AddSingleSubmeshMeshMesh(std::span<MeshData> Meshlets, meshletIndexInfo meshletInfo);
+    ID::SubMeshGroupID AddMultiSubmeshMeshMesh(std::span<std::span<MeshData>> Submeshes, std::span<meshletIndexInfo> meshletInfo);
 
     void Update();
     void Cleanup();

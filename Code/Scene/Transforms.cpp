@@ -60,12 +60,6 @@ flatlocalTransform* objectTransforms::get(uint64_t ID)
     return &_local_transform_hiearchy[lookup.depth][lookup.index];
 }
 
-void objectTransforms::set(uint64_t ID, glm::mat4 mat)
-{
-    auto lookup = _transform_lookup[ID];
-    _local_transform_hiearchy[lookup.depth][lookup.index].matrix = mat;
-}
-
 void objectTransforms::UpdateWorldTransforms()
 {
     uint32_t idx = 0;
@@ -77,10 +71,12 @@ void objectTransforms::UpdateWorldTransforms()
             if (i != 0)
             {
                 worldMatrices[i][j] = worldMatrices[i - 1][transform.parent] * transform.matrix;
+                worldUniformScales[i][j] = worldUniformScales[i - 1][transform.parent] * transform.uniformScale;
             }
             else
             {
                 worldMatrices[i][j] = transform.matrix;
+                worldUniformScales[i][j] =transform.uniformScale;
             }
             idx++;
         }
@@ -102,7 +98,7 @@ void objectTransforms::RebuildTransformDataFromNodes(MemoryArena::memoryArena* a
     {
         if (rootTransformsView[i]->children.size() != 0)
             queue.push({0, std::span(rootTransformsView[i]->children)});
-        _local_transform_hiearchy[0].push_back({rootTransformsView[i]->matrix, rootTransformsView[i]->name, 0});
+        _local_transform_hiearchy[0].push_back({rootTransformsView[i]->matrix, rootTransformsView[i]->uniformScale, rootTransformsView[i]->name, 0});
         _transform_lookup[rootTransformsView[i]->ID] = {
             rootTransformsView[i]->depth,
             static_cast<uint32_t>(_local_transform_hiearchy[rootTransformsView[i]->depth].size()) - 1
@@ -129,7 +125,7 @@ void objectTransforms::RebuildTransformDataFromNodes(MemoryArena::memoryArena* a
             assert(t->entry[i]->depth > 0);
             _local_transform_hiearchy[t->entry[i]->depth]
                 .push_back({
-                    t->entry[i]->matrix, t->entry[i]->name,
+                    t->entry[i]->matrix, t->entry[i]->uniformScale, t->entry[i]->name,
                     static_cast<uint8_t>(_local_transform_hiearchy[t->entry[i]->depth - 1].size() - 1)
                 });
             _transform_lookup[t->entry[i]->ID] = {
@@ -140,10 +136,13 @@ void objectTransforms::RebuildTransformDataFromNodes(MemoryArena::memoryArena* a
         }
     }
 
-    //Allocate memory for matrices -- TODO leaks the old ones 
+    //Allocate memory for matrices -- TODO leaks the old ones
+    //TODO JS MESHLET PERF -- cache coherency here? 
     for (int i = 0; i < _local_transform_hiearchy.size(); i++)
     {
         worldMatrices.push_back();
         worldMatrices[i] = MemoryArena::AllocSpan<glm::mat4>(arena, _local_transform_hiearchy[i].size());
+        worldUniformScales.push_back();
+        worldUniformScales[i] = MemoryArena::AllocSpan<float>(arena, _local_transform_hiearchy[i].size());
     }
 }

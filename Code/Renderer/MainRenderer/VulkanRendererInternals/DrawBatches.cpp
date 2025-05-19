@@ -11,7 +11,7 @@ struct pipelineBucket
 {
     uint32_t pipelineIDX;
     Array<uint32_t> objectIndices; //todo js
-    Array<uint32_t> subMeshIndices; //todo js 
+    Array<uint32_t> subMeshIndices; //todo js -- make subMeshMeshletInfo
 };
 
 
@@ -39,13 +39,16 @@ std::span<RenderBatch> RenderBatchQueue::AddBatches(CommonRenderPassData* contex
 RenderBatch::RenderBatch(const char* name, CommonRenderPassData* context, RenderBatchCreationConfig passCreationConfig)
 {
 
+
     //Culling override code
     uint32_t cullFrustumIndex = (passCreationConfig.drawOffset) * 6;
     if (debug_cull_override)
     {
         cullFrustumIndex =  debug_cull_override_index * 6;
     }
-
+    ///todo js MESHLET PERF: This is happening *per meshlet*, most only needs to happen *per submesh*
+    //todo js I can reduce the number of materials back down to the real number, and use`subMeshMeshletInfo` to operate over spans of submeshct instead of meshletct
+    // printf("TODO: batch draws %d objects. \n This is a combination of issues -- need to compact, and need to treat meshlets differntly than submeshes to avoid passing around giant spans\n  ",   passCreationConfig.objectCount );
     //Configure frustum culling compute shader for this batch
     cullPConstants* cullconstants = MemoryArena::Alloc<cullPConstants>(context->tempAllocator);
     *cullconstants = {.view = passCreationConfig.cameraViewProjForCulling.view, .firstDraw = passCreationConfig.drawOffset, .frustumIndex = cullFrustumIndex, .objectCount = passCreationConfig.objectCount};

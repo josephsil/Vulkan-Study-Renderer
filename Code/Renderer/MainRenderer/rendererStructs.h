@@ -10,6 +10,13 @@ struct pointerSize
     uint32_t size;
 };
 
+//TODO JS MESHLET PERF
+//Each mesh has a span of these, which says how to index in to its submeshes meshlets
+struct meshletIndexInfo
+{
+    size_t offset;
+    size_t ct;
+};
 
 
 struct simpleMeshPassInfo
