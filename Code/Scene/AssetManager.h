@@ -8,6 +8,7 @@
 #include "Renderer/AssetManagerTypes.h"
 #include "Renderer/MainRenderer/rendererStructs.h"
 //
+struct MeshData;
 struct positionRadius;
 
 namespace MemoryArena
@@ -22,10 +23,18 @@ struct textureSetIDs
     ID::TextureID normIndex;
 };
 
+//todo js to remove
 struct offsetData
 {
     size_t vertex_start;
-    size_t index_start;  
+    size_t index_start;
+};
+struct PerSubmeshData
+{
+   
+    std::span<MeshData> meshlets;
+    std::span<offsetData> meshletOffsets;
+    std::span<positionRadius> boundingInfo;
 };
 
 //Objects have like, transformation info, ref to their mesh, ref to their material
@@ -74,15 +83,17 @@ public:
         // Array<TEMPmeshletIndexInfo> subMeshInfo; //This says the START of the submesh, and how many meshlets it has. Meshlets are fixed size spans of each of the other 3 ararys
     };
     
-    int meshCount = 0;
+    uint32_t submeshCount = 0;
+    size_t vertexCount = 0;
+    size_t indexCount = 0;
+    size_t meshletCount = 0;
     Array<Material> materials;
     Array<VkDescriptorImageInfo> textures; //What we need to render the textures
     Array<TextureMetaData> texturesMetaData; //Other info about the texture in parallel array
-    Array<MeshData> backing_submeshes;
-    Array<offsetData> TODO_REMOVEbacking_submeshOffsetData;
-    Array<positionRadius> TODO_MOVET_TO_MESHDATA_meshBoundingSphereRad;
+    // Array<MeshData> TODO_UNUSEDbacking_submeshes;
+    Array<PerSubmeshData> perSubmeshData;
+    // Array<positionRadius> TODO_MOVET_TO_MESHDATA_meshBoundingSphereRad;
     Array<Array<ID::SubMeshID>>  subMeshGroups;
-    Array<std::span<meshletIndexInfo>>  subMeshMeshletInfo;
     // RendererMeshData meshData;
     MemoryArena::memoryArena allocator;
 
@@ -91,16 +102,16 @@ public:
     ID::MaterialID AddMaterial(float roughness, float metallic, glm::vec3 color, textureSetIDs textureindex, uint32_t pipeline);
     uint32_t getIndexCount();
     uint32_t getVertexCount();
-    uint32_t getOffsetFromMeshID(int id);
+    uint32_t getOffsetFromMeshID(int submesh, int meshlet);
     positionRadius GetBoundingSphere(int idx); //TODO JS: Change to use mesh idx
     //TODO JS: these are temporary
     ID::TextureID AddTexture(TextureData T);
     textureSetIDs AddTextureSet(TextureData D, TextureData S, TextureData N);
-    ID::SubMeshID AddBackingMesh(MeshData M);
+    ID::SubMeshID AddMesh(std::span<MeshData> SubmeshMeshlets);
     std::span<ID::SubMeshID> GetMesh( ID::SubMeshGroupID meshId);
     ID::SubMeshGroupID AddSingleSubmeshMeshMesh(std::span<MeshData> Meshlets, meshletIndexInfo meshletInfo);
-    ID::SubMeshGroupID AddMultiSubmeshMeshMesh(std::span<std::span<MeshData>> Submeshes, std::span<meshletIndexInfo> meshletInfo);
-
+    ID::SubMeshGroupID AddMultiSubmeshMeshMesh(std::span<std::span<MeshData>> Submeshes, std::span<meshletIndexInfo> _unused);
+    
     void Update();
     void Cleanup();
 

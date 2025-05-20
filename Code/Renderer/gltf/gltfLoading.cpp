@@ -489,9 +489,9 @@ GltfData GltfLoadMeshes(PerThreadRenderContext handles, const char* gltfpath)
         setCursor(tempArena);
         size_t submeshCt = model.meshes[i].primitives.size();
         auto subMeshesStart = permanentArena->head;
-        Array<MeshData> submeshes = MemoryArena::AllocSpan<MeshData>(tempArena, submeshCt * 4096); //what's a good max meshlet number?
+        Array<std::span<MeshData>> submeshes = MemoryArena::AllocSpan<std::span<MeshData>>(permanentArena, submeshCt); 
         auto subMeshMatsStart = permanentArena->head;
-        Array<uint32_t> submeshMats = MemoryArena::AllocSpan<uint32_t>(tempArena, submeshCt * 4096); //what's a good max meshlet number?
+        Array<uint32_t> submeshMats = MemoryArena::AllocSpan<uint32_t>(tempArena, submeshCt); 
     
          meshletIndexInfos[i] = MemoryArena::AllocSpan<meshletIndexInfo>(permanentArena, submeshCt);
         for (size_t j = 0; j < submeshCt; j++)
@@ -500,14 +500,12 @@ GltfData GltfLoadMeshes(PerThreadRenderContext handles, const char* gltfpath)
 
             //TODO JS: at some point move this out to run on the whole mesh, rather than submeshes 
             auto tempMeshresult = MeshDataCreation::FinalizeMeshDataFromTempMesh(tempArena, tempArena, tempMesh);
-            uint32_t tempMatresult = model.meshes[i].primitives[j].material;
+            submeshMats.push_back(model.meshes[i].primitives[j].material);
 
             auto meshlets = MeshOptimizer::RunMeshOptimizer(tempArena, tempMeshresult);
-            auto meshletMats = MemoryArena::AllocSpanEmplaceInitialize<uint32_t>(tempArena, meshlets.size(), tempMatresult); //Allocate copies of the mat index for all the meshlets
             meshletIndexInfos[i][j] = {submeshes.ct, meshlets.size()}; 
-     
-            submeshes.push_copy_span(meshlets);
-            submeshMats.push_copy_span(meshletMats);
+            
+            submeshes.push_back(meshlets);
          
             assert(model.meshes[i].primitives[j].material != -1 && "-1 Material index (no material) not supported. TODO.");
             //TODO JS
@@ -515,20 +513,32 @@ GltfData GltfLoadMeshes(PerThreadRenderContext handles, const char* gltfpath)
         //copy everything to permanent memory
         for(size_t j = 0; j < submeshes.size(); j++)
         {
-            submeshes[j].indices =  MemoryArena::copySpan(permanentArena, submeshes[j].indices);
+            submeshes[j] =  MemoryArena::copySpan(permanentArena, submeshes[j]);
+        for(size_t k = 0; k < submeshes[j].size(); k++)
+        {
+            submeshes[j][k].indices =  MemoryArena::copySpan(permanentArena, submeshes[j][k].indices);
+        }
         }
         for(size_t j = 0; j < submeshes.size(); j++)
         {
-            submeshes[j].vertices =  MemoryArena::copySpan(permanentArena, submeshes[j].vertices);
+        for(size_t k = 0; k < submeshes[j].size(); k++)
+        {
+        
+            submeshes[j][k].vertices =  MemoryArena::copySpan(permanentArena, submeshes[j][k].vertices);
+        }
         }
         for(size_t j = 0; j < submeshes.size(); j++)
         {
-            submeshes[j].boundsCorners =  MemoryArena::copySpan(permanentArena, submeshes[j].boundsCorners);
+        for(size_t k = 0; k < submeshes[j].size(); k++)
+        {
+        
+            submeshes[j][k].boundsCorners =  MemoryArena::copySpan(permanentArena, submeshes[j][k].boundsCorners);
+        }
         }
 
       
-        importedMeshes[i].submeshesAndMeshlets =   MemoryArena::copySpan(permanentArena,   submeshes.getSpan());
-        importedMeshes[i].materialIndices = MemoryArena::copySpan(permanentArena,   submeshMats.getSpan());
+        importedMeshes[i].submeshes =   MemoryArena::copySpan(permanentArena,   submeshes.getSpan());
+        importedMeshes[i].submeshMaterialIndices = MemoryArena::copySpan(permanentArena,   submeshMats.getSpan());
         freeToCursor(tempArena);
     }
 

@@ -55,9 +55,8 @@ namespace ObjectImport
     
     struct Mesh
     {
-        //TODO JS MESHLET PERF: Separate meshlet/submesh concept better 
-        std::span<MeshData> submeshesAndMeshlets;
-        std::span<uint32_t> materialIndices;
+        std::span<std::span<MeshData>> submeshes;
+        std::span<uint32_t> submeshMaterialIndices;
     };
 
     

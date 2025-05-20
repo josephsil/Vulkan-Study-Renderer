@@ -59,7 +59,7 @@ struct RenderBatch
     PipelineLayoutHandle pipelineLayoutGroup; 
     VkBuffer indexBuffer; 
     VkIndexType indexBufferType; // VK_INDEX_TYPE_UINT32
-    std::span<simpleMeshPassInfo> meshPasses;
+    std::span<simpleMeshPassInfo> subMeshPasses;
     ComputeCullListInfo* computeCullingInfo;
     VkRenderingAttachmentInfoKHR* depthAttatchment;
     VkRenderingAttachmentInfoKHR* colorattatchment; //nullptr

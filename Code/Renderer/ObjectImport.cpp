@@ -15,8 +15,14 @@ struct AddObjectResult
 //TODO JS: Unify this path and the other mesh import path -- everything should go thru here 
 void ObjectImport::CreateObjectAssets(ArenaAllocator &arena, Scene &scene, AssetManager &assetManager, ImportedObjectData &gltf, DefaultTextures defaults)
 {
-    auto perSubmeshMeshHandles = MemoryArena::AllocSpan<std::span<ID::SubMeshID>>(arena, gltf.meshes.size());
-    auto perSubmeshMaterialHandles = MemoryArena::AllocSpan<std::span<ID::MaterialID>>(arena, gltf.meshes.size());
+    size_t totalSubmeshct = 0;
+    for (auto& gltfmesh : gltf.meshes)
+    {
+        totalSubmeshct+= gltfmesh.submeshes.size();
+        
+    }
+    auto subMeshHandles = MemoryArena::AllocSpan<ID::SubMeshID>(arena, totalSubmeshct);
+    auto perSubmeshMaterialHandles = MemoryArena::AllocSpan<ID::MaterialID>(arena, totalSubmeshct);
 
     std::span<ID::TextureID> createdTextureIDs = MemoryArena::AllocSpan<ID::TextureID>(arena, gltf.textures.size());
     for (int i = 0; i < gltf.textures.size(); i++)
@@ -36,19 +42,22 @@ void ObjectImport::CreateObjectAssets(ArenaAllocator &arena, Scene &scene, Asset
                                                    textures, 1);
     }
 
+    size_t submeshIndex =0;
     for (int i = 0; i < gltf.meshes.size(); i++)
     {
-        perSubmeshMeshHandles[i] = MemoryArena::AllocSpan<ID::SubMeshID>(arena, gltf.meshes[i].submeshesAndMeshlets.size());
         //TODO JS MESHLET PERF: I now create a material *per meshlet*, which is way too many
-        perSubmeshMaterialHandles[i] = MemoryArena::AllocSpan<ID::MaterialID>(arena, gltf.meshes[i].submeshesAndMeshlets.size());
-        assetManager.subMeshMeshletInfo.push_back(gltf.meshletInfo[i]);
-        for (int j = 0; j < gltf.meshes[i].submeshesAndMeshlets.size(); j++)
+        for (int j = 0; j < gltf.meshes[i].submeshes.size(); j++)
         {
-            assert( gltf.meshes[i].submeshesAndMeshlets[j].vertices.size() <= MESHLET_VERTICES);
-            assert( gltf.meshes[i].submeshesAndMeshlets[j].indices.size() <= (MESHLET_TRIS * 3));
-            perSubmeshMeshHandles[i][j] = assetManager.AddBackingMesh(gltf.meshes[i].submeshesAndMeshlets[j]);
+            for (auto& meshlet : gltf.meshes[i].submeshes[j])
+            {
+                assert( meshlet.vertices.size() <= MESHLET_VERTICES);
+                assert( meshlet.indices.size() <= (MESHLET_TRIS * 3));
+            }
+            subMeshHandles[submeshIndex] = assetManager.AddMesh(gltf.meshes[i].submeshes[j]);
+          
             //TODO JS MESHLET PERF: I now create a material *per meshlet*, which is way too many
-            perSubmeshMaterialHandles[i][j] =  createdMaterialIDs[gltf.meshes[i].materialIndices[j]];
+            perSubmeshMaterialHandles[submeshIndex] =  createdMaterialIDs[gltf.meshes[i].submeshMaterialIndices[j]];
+            submeshIndex++;
         }
     }
 
@@ -71,8 +80,8 @@ void ObjectImport::CreateObjectAssets(ArenaAllocator &arena, Scene &scene, Asset
             auto mesh =gltf.objects[obj].meshidx;
             localTransform* parentTransformReference = (parentTransformIndex[obj] != SIZE_MAX) ? objectTransformReferences[parentTransformIndex[obj]] : nullptr;
             size_t objectID = scene.AddObject(
-                perSubmeshMeshHandles[mesh],
-                perSubmeshMaterialHandles[mesh],
+                subMeshHandles,
+                perSubmeshMaterialHandles,
                 transformData.translation,
                 transformData.rotation,
                 transformData.scale,

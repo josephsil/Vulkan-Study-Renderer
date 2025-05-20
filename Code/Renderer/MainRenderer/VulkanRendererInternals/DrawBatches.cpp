@@ -1,5 +1,6 @@
 #include "DrawBatches.h"
 
+#include "engineGlobals.h"
 #include "Renderer/gpu-data-structs.h"
 #include "Renderer/RendererInterface.h"
 #include "Scene/AssetManager.h"
@@ -51,9 +52,10 @@ RenderBatch::RenderBatch(const char* name, CommonRenderPassData* context, Render
     // printf("TODO: batch draws %d objects. \n This is a combination of issues -- need to compact, and need to treat meshlets differntly than submeshes to avoid passing around giant spans\n  ",   passCreationConfig.objectCount );
     //Configure frustum culling compute shader for this batch
     cullPConstants* cullconstants = MemoryArena::Alloc<cullPConstants>(context->tempAllocator);
-    *cullconstants = {.view = passCreationConfig.cameraViewProjForCulling.view, .firstDraw = passCreationConfig.drawOffset, .frustumIndex = cullFrustumIndex, .objectCount = passCreationConfig.objectCount};
+    *cullconstants = {.view = passCreationConfig.cameraViewProjForCulling.view, .firstDraw = passCreationConfig.drawOffset, .frustumIndex = cullFrustumIndex, .objectCount = (uint32_t)context->assetDataPtr->meshletCount};
+
     ComputeCullListInfo* cullingInfo = MemoryArena::Alloc<ComputeCullListInfo>(context->tempAllocator);
-    *cullingInfo =  {.firstDrawIndirectIndex = passCreationConfig.drawOffset, .drawCount = passCreationConfig.objectCount,
+    *cullingInfo =  {.firstDrawIndirectIndex = passCreationConfig.drawOffset, .drawCount =  (uint32_t)context->assetDataPtr->meshletCount,
         .viewMatrix = passCreationConfig.cameraViewProjForCulling.view,
         .projMatrix = passCreationConfig.cameraViewProjForCulling.proj, 
         .layout =context->cullLayout, 
@@ -104,9 +106,14 @@ RenderBatch::RenderBatch(const char* name, CommonRenderPassData* context, Render
         std::span<unsigned int> objectIndices = bucketedBatch.objectIndices.getSpan();
         auto shaderID =passCreationConfig.shadersSupportedByBatch[bucketedBatch.pipelineIDX];
         auto firstIndex =drawOffset;
-        uint32_t drawsInBatch = (uint32_t)bucketedBatch.subMeshIndices.size();
-        outputMeshPasses.push_back({.firstIndex = firstIndex, .ct = drawsInBatch, .shader = shaderID,
-            .sortedObjectIDs =  bucketedBatch.subMeshIndices.getSpan()});
+        uint32_t drawsInBatch = 0;
+        for (auto& submesh : bucketedBatch.subMeshIndices.getSpan())
+        {
+            //TODO JS MESHLETS
+            drawsInBatch+= (uint32_t)context->assetDataPtr->perSubmeshData[submesh].meshlets.size();
+        }
+      
+        outputMeshPasses.push_back({.firstIndex = firstIndex, .ct = drawsInBatch, .shader = shaderID});
 
         drawOffset += drawsInBatch;
     }
@@ -119,7 +126,7 @@ RenderBatch::RenderBatch(const char* name, CommonRenderPassData* context, Render
       pipelineLayoutGroup =   passCreationConfig.layoutGroup;
       indexBuffer = context->indexBuffer;
       indexBufferType =  VK_INDEX_TYPE_UINT32;
-      meshPasses = outputMeshPasses.getSpan();
+      subMeshPasses = outputMeshPasses.getSpan();
       computeCullingInfo = cullingInfo;
       depthAttatchment = passCreationConfig.attatchmentInfo.depthDraw;
       colorattatchment = passCreationConfig.attatchmentInfo.colorDraw;

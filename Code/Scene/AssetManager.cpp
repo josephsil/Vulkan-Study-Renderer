@@ -21,17 +21,15 @@ AssetManager::AssetManager()
     // this->meshData.vertIndices = MemoryArena::AllocSpan<uint32_t>(&this->allocator, INDEX_MAX); 
     this->texturesMetaData = Array(MemoryArena::AllocSpan<TextureMetaData>(&this->allocator, ASSET_MAX));
     this->textures = Array(MemoryArena::AllocSpan<VkDescriptorImageInfo>(&this->allocator, ASSET_MAX));
-    this->backing_submeshes = Array(MemoryArena::AllocSpan<MeshData>(&this->allocator, MESHLET_MAX_PER * ASSET_MAX));
-    this->TODO_REMOVEbacking_submeshOffsetData = Array(MemoryArena::AllocSpan<offsetData>(&this->allocator, MESHLET_MAX_PER * ASSET_MAX));
+    // this->TODO_UNUSEDbacking_submeshes = Array(MemoryArena::AllocSpan<MeshData>(&this->allocator, MESHLET_MAX_PER * ASSET_MAX));
+    this->perSubmeshData = Array(MemoryArena::AllocSpan<PerSubmeshData>(&this->allocator, MESHLET_MAX_PER * ASSET_MAX));
     this->subMeshGroups = Array(MemoryArena::AllocSpan<Array<uint32_t>>(&this->allocator, ASSET_MAX));
 
 
-    this->subMeshMeshletInfo = Array(MemoryArena::AllocSpan<std::span<meshletIndexInfo>>(&this->allocator, ASSET_MAX));
     for (auto& g : this->subMeshGroups.getSubSpanToCapacity())
     {
         g = MemoryArena::AllocSpan<ID::SubMeshID>(&this->allocator, UINT8_MAX);
     }
-    this->TODO_MOVET_TO_MESHDATA_meshBoundingSphereRad = Array(MemoryArena::AllocSpan<positionRadius>(&this->allocator, MESHLET_MAX_PER * ASSET_MAX));
     this->materials = Array(MemoryArena::AllocSpan<Material>(&this->allocator, OBJECT_MAX));
 }
 
@@ -60,32 +58,31 @@ void AssetManager::Update()
     //noop
 }
 
-uint32_t AssetManager::getOffsetFromMeshID(int id)
+uint32_t AssetManager::getOffsetFromMeshID(int submesh, int meshlet)
 {
-    return (uint32_t)TODO_REMOVEbacking_submeshOffsetData[id].index_start;
+    //TODO MESHLET: This function should be able to 
+    return (uint32_t)perSubmeshData[submesh].meshletOffsets[meshlet].index_start;
 }
 
 uint32_t AssetManager::getIndexCount()
 {
     uint32_t indexcount = 0;
-    for (int i = 0; i < meshCount; i++)
+    for (uint32_t i = 0; i < submeshCount; i++)
     {
-        indexcount += static_cast<uint32_t>(backing_submeshes[i].indices.size());
+    for(size_t j = 0; j < perSubmeshData[i].meshlets.size(); j++)
+       {
+       
+        indexcount += static_cast<uint32_t>( perSubmeshData[i].meshlets[j].indices.size());
+    }
     }
     return indexcount;
 }
 
 uint32_t AssetManager::getVertexCount()
 {
-    uint32_t vertexCount = 0;
-    // return  (uint32_t)meshData.vertices.size(); //todop js
-    for (int i = 0; i < meshCount; i++)
-    {
-        vertexCount += static_cast<uint32_t>(backing_submeshes[i].vertices.size());
-    }
-    return vertexCount;
-}
 
+    return (uint32_t)vertexCount;
+}
 
 size_t AssetManager::materialTextureCount()
 {
@@ -109,18 +106,30 @@ textureSetIDs AssetManager::AddTextureSet(TextureData D, TextureData S, TextureD
     return {static_cast<uint32_t>(dI), static_cast<uint32_t>(sI), static_cast<uint32_t>(nI)};
 }
 
-ID::SubMeshID AssetManager::AddBackingMesh(MeshData M)
+ID::SubMeshID AssetManager::AddMesh(std::span<MeshData> SubmeshMeshlets)
 {
-    backing_submeshes.push_back(M);
-    auto lastOffset = (TODO_REMOVEbacking_submeshOffsetData.size() > 0)? TODO_REMOVEbacking_submeshOffsetData.back() : offsetData{0, 0};
-    TODO_REMOVEbacking_submeshOffsetData.push_back({lastOffset.index_start + M.indices.size(), lastOffset.vertex_start + M.vertices.size()});
-    TODO_MOVET_TO_MESHDATA_meshBoundingSphereRad.push_back(MeshDataCreation::boundingSphereFromMeshBounds(M.boundsCorners));
-    return meshCount++;
-}
-
-std::span<ID::SubMeshID> AssetManager::GetMesh(ID::SubMeshGroupID meshId)
-{
-    return subMeshGroups[meshId].getSpan();
+    auto lastOffset = (perSubmeshData.size() > 0)? perSubmeshData.back().meshletOffsets.back() : offsetData{0, 0};
+    Array offsets = MemoryArena::AllocSpan<offsetData>(&allocator, SubmeshMeshlets.size());
+    Array meshDatas = MemoryArena::AllocSpan<MeshData>(&allocator, SubmeshMeshlets.size());
+    Array boundingInfo = MemoryArena::AllocSpan<positionRadius>(&allocator, SubmeshMeshlets.size());
+    for(int i =0; i < SubmeshMeshlets.size(); i++)
+    {
+        auto& M = SubmeshMeshlets[i];
+        meshDatas.push_back(M);
+        offsets.push_back({lastOffset.index_start + M.indices.size(), lastOffset.vertex_start + M.vertices.size()});
+        boundingInfo.push_back(MeshDataCreation::boundingSphereFromMeshBounds(M.boundsCorners));
+        meshletCount++;
+        indexCount +=  M.indices.size();
+        vertexCount += M.vertices.size();
+    }
+     perSubmeshData.push_back() =
+       PerSubmeshData {
+        .meshlets = meshDatas.getSpan(),
+        .meshletOffsets = offsets.getSpan(),
+        .boundingInfo = boundingInfo.getSpan(),
+        };
+    
+    return submeshCount++;
 }
 
 ID::SubMeshGroupID AssetManager::AddSingleSubmeshMeshMesh(std::span<MeshData> Meshlets, meshletIndexInfo meshletInfo)
@@ -128,30 +137,26 @@ ID::SubMeshGroupID AssetManager::AddSingleSubmeshMeshMesh(std::span<MeshData> Me
     return AddMultiSubmeshMeshMesh({&Meshlets, 1}, {&meshletInfo, 1});
 }
 
-ID::SubMeshGroupID AssetManager::AddMultiSubmeshMeshMesh(std::span<std::span<MeshData>> Submeshes, std::span<meshletIndexInfo> meshletInfo)
+ID::SubMeshGroupID AssetManager::AddMultiSubmeshMeshMesh(std::span<std::span<MeshData>> Submeshes, std::span<meshletIndexInfo> _unused)
 {
     auto& _span = subMeshGroups.push_back();
 
-    auto start = backing_submeshes.back();
     int i = 0;
     for(auto& submesh: Submeshes)
     {
-        for (auto meshlet : submesh)
-        {
-            _span.push_back(AddBackingMesh(meshlet));
-        
-        }
-    subMeshMeshletInfo.push_back(meshletInfo);
+        _span.push_back(AddMesh(submesh));
+
     }
     return (uint32_t)(subMeshGroups.ct -1);
 }
 
+
 //TODO JS: 
-positionRadius AssetManager::GetBoundingSphere(int idx)
-{
-    printf("NOT IMPLEMENTED: NEED TO USE CORRECT INDEX FOR GETBOUNDINGSPHERE\n");
-    return TODO_MOVET_TO_MESHDATA_meshBoundingSphereRad[idx];
-}
+// positionRadius AssetManager::GetBoundingSphere(int idx)
+// {
+//     printf("NOT IMPLEMENTED: NEED TO USE CORRECT INDEX FOR GETBOUNDINGSPHERE\n");
+//     return TODO_MOVET_TO_MESHDATA_meshBoundingSphereRad[idx];
+// }
 
 struct sortData
 {

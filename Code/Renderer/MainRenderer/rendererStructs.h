@@ -25,7 +25,6 @@ struct simpleMeshPassInfo
     uint32_t firstIndex;
     uint32_t ct;
     FullShaderHandle shader;
-    std::span<uint32_t> sortedObjectIDs;
 };
 
 struct ComputeCullListInfo
