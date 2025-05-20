@@ -98,8 +98,7 @@ VulkanRenderer::VulkanRenderer()
        perFrameDeletionQueuse[i] = std::make_unique<RendererDeletionQueue>(rendererVulkanObjects.vkbdevice, rendererVulkanObjects.vmaAllocator); //todo js double create, oops
     }
     //Initialize sceneData
-    AssetDataAndMemory = MemoryArena::Alloc<AssetManager>(&rendererArena);
-    static_AllocateAssetMemory(&rendererArena, AssetDataAndMemory);
+    AssetDataAndMemory = GetGlobalAssetManager();
     //imgui
     initializeDearIMGUI();
     pastTimes.resize(9999);
@@ -748,7 +747,7 @@ void VulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<std::spa
 
         
             //Set position and radius for culling
-            positionRadius meshSpacePositionAndRadius =  AssetDataAndMemory->meshBoundingSphereRad[submeshIndex];
+            positionRadius meshSpacePositionAndRadius =  AssetDataAndMemory->TODO_MOVET_TO_MESHDATA_meshBoundingSphereRad[submeshIndex];
             float meshRadius = meshSpacePositionAndRadius.radius;
             float objectScale = scene->transforms.worldUniformScales[lookup.depth][lookup.index];
             perMesh[uboIndex].cullingInfo.pos = meshSpacePositionAndRadius.pos;

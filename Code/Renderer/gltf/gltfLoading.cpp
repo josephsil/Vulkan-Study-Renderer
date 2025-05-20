@@ -506,8 +506,8 @@ GltfData GltfLoadMeshes(PerThreadRenderContext handles, const char* gltfpath)
             auto meshletMats = MemoryArena::AllocSpanEmplaceInitialize<uint32_t>(tempArena, meshlets.size(), tempMatresult); //Allocate copies of the mat index for all the meshlets
             meshletIndexInfos[i][j] = {submeshes.ct, meshlets.size()}; 
      
-            submeshes.push_back_span(meshlets);
-            submeshMats.push_back_span(meshletMats);
+            submeshes.push_copy_span(meshlets);
+            submeshMats.push_copy_span(meshletMats);
          
             assert(model.meshes[i].primitives[j].material != -1 && "-1 Material index (no material) not supported. TODO.");
             //TODO JS

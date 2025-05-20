@@ -80,16 +80,18 @@ struct Array
         new (&data[ct++]) T(std::forward<Args>(args)...);
     }
 
-    std::span<T> push_copy_span_fixed_size_block(std::span<T> s, size_t size)
+    std::span<T> push_copy_span_into_fixed_size_block(std::span<T> s, size_t size)
     {
         auto spanSize = s.size();
+        auto sizeDiff = size - spanSize;
         assert(ct +  size <capacity && size >= spanSize);
         size_t start = ct;
         for (auto entry :  s)
         {
             this->push_back(entry);
         }
-        return std::span<T>((T*)(data+start), size);
+        this->ct += sizeDiff;
+        return std::span<T>((T*)(data+start), s.size());
     }
 
     std::span<T> push_copy_span(std::span<T> s)
@@ -101,17 +103,6 @@ struct Array
             this->push_back(entry);
         }
         return std::span<T>((T*)(data+start),  s.size());
-    }
-
-    std::span<T> push_back_span(std::initializer_list<T> il)
-    {
-        assert(ct + il.size() <capacity);
-        int start = ct;
-        for (auto entry : il)
-        {
-            this->push_back(entry);
-        }
-        std::span<T>(start, il.size());
     }
 
     std::span<T> pushUninitializedSpan(size_t spanSize)

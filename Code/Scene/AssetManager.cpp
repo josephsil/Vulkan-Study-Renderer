@@ -6,30 +6,42 @@
 #include "engineGlobals.h"
 #include "General/Array.h"
 
+
+
 //No scale for now
-void static_AllocateAssetMemory(MemoryArena::memoryArena* arena, AssetManager* assetManager)
+AssetManager::AssetManager()
 {
+
+    MemoryArena::initialize(&this->allocator, 1000000 * 500); //500mb
     // arallel arrays per Light
-    assetManager->texturesMetaData = Array(MemoryArena::AllocSpan<TextureMetaData>(arena, ASSET_MAX));
-    assetManager->textures = Array(MemoryArena::AllocSpan<VkDescriptorImageInfo>(arena, ASSET_MAX));
-    assetManager->backing_submeshes = Array(MemoryArena::AllocSpan<MeshData>(arena, MESHLET_MAX_PER * ASSET_MAX));
-    assetManager->backing_submeshOffsetData = Array(MemoryArena::AllocSpan<offsetData>(arena, MESHLET_MAX_PER * ASSET_MAX));
-    assetManager->subMeshGroups = Array(MemoryArena::AllocSpan<Array<uint32_t>>(arena, ASSET_MAX));
-    assetManager->subMeshMeshletInfo = Array(MemoryArena::AllocSpan<std::span<meshletIndexInfo>>(arena, ASSET_MAX));
-    for (auto& g : assetManager->subMeshGroups.getSubSpanToCapacity())
+    //1000000
+    // this->meshData.vertices = MemoryArena::AllocSpan<Vertex>(&this->allocator,VERTEX_MAX); 
+    // this->meshData.vertPositions = MemoryArena::AllocSpan<glm::vec4>(&this->allocator,VERTEX_MAX); 
+    // this->meshData.vertData = MemoryArena::AllocSpan<gpuvertex>(&this->allocator,VERTEX_MAX);     
+    // this->meshData.vertIndices = MemoryArena::AllocSpan<uint32_t>(&this->allocator, INDEX_MAX); 
+    this->texturesMetaData = Array(MemoryArena::AllocSpan<TextureMetaData>(&this->allocator, ASSET_MAX));
+    this->textures = Array(MemoryArena::AllocSpan<VkDescriptorImageInfo>(&this->allocator, ASSET_MAX));
+    this->backing_submeshes = Array(MemoryArena::AllocSpan<MeshData>(&this->allocator, MESHLET_MAX_PER * ASSET_MAX));
+    this->TODO_REMOVEbacking_submeshOffsetData = Array(MemoryArena::AllocSpan<offsetData>(&this->allocator, MESHLET_MAX_PER * ASSET_MAX));
+    this->subMeshGroups = Array(MemoryArena::AllocSpan<Array<uint32_t>>(&this->allocator, ASSET_MAX));
+
+
+    this->subMeshMeshletInfo = Array(MemoryArena::AllocSpan<std::span<meshletIndexInfo>>(&this->allocator, ASSET_MAX));
+    for (auto& g : this->subMeshGroups.getSubSpanToCapacity())
     {
-        g = MemoryArena::AllocSpan<ID::SubMeshID>(arena, UINT8_MAX);
+        g = MemoryArena::AllocSpan<ID::SubMeshID>(&this->allocator, UINT8_MAX);
     }
-    assetManager->meshBoundingSphereRad = Array(MemoryArena::AllocSpan<positionRadius>(arena, MESHLET_MAX_PER * ASSET_MAX));
-    assetManager->materials = Array(MemoryArena::AllocSpan<Material>(arena, OBJECT_MAX));
+    this->TODO_MOVET_TO_MESHDATA_meshBoundingSphereRad = Array(MemoryArena::AllocSpan<positionRadius>(&this->allocator, MESHLET_MAX_PER * ASSET_MAX));
+    this->materials = Array(MemoryArena::AllocSpan<Material>(&this->allocator, OBJECT_MAX));
 }
 
+AssetManager GlobalAssetManager;
 
-//TODO JS PRIMS:
-//TODO JS Objects are currently what's drawn -- per object there's a mesh, materal, and translatio ninfo
-//TODO JS: Easiest thing is to add the prims as new objects, and then later break the transform data apart from the object data
-//TODO JS: not every objcet neeeds a transform -- prims should use a praent transform.
-//TODO JS: So I'll do it in two steps -- first I'll add prims as objects, then ill split "drawables" ("models"?) and "transformablse" ("objects"?)
+AssetManager* GetGlobalAssetManager()
+{
+    return &GlobalAssetManager;
+}
+
 //So things like, get the index back from this and then index in to these vecs to update them
 //At some point in the future I can replace this with a more sophisticated reference system if I need
 //Even just returning a pointer is probably plenty, then I can sort the lists, prune stuff, etc.
@@ -50,7 +62,7 @@ void AssetManager::Update()
 
 uint32_t AssetManager::getOffsetFromMeshID(int id)
 {
-    return (uint32_t)backing_submeshOffsetData[id].index_start;
+    return (uint32_t)TODO_REMOVEbacking_submeshOffsetData[id].index_start;
 }
 
 uint32_t AssetManager::getIndexCount()
@@ -66,6 +78,7 @@ uint32_t AssetManager::getIndexCount()
 uint32_t AssetManager::getVertexCount()
 {
     uint32_t vertexCount = 0;
+    // return  (uint32_t)meshData.vertices.size(); //todop js
     for (int i = 0; i < meshCount; i++)
     {
         vertexCount += static_cast<uint32_t>(backing_submeshes[i].vertices.size());
@@ -99,9 +112,9 @@ textureSetIDs AssetManager::AddTextureSet(TextureData D, TextureData S, TextureD
 ID::SubMeshID AssetManager::AddBackingMesh(MeshData M)
 {
     backing_submeshes.push_back(M);
-    auto lastOffset = (backing_submeshOffsetData.size() > 0)? backing_submeshOffsetData.back() : offsetData{0, 0};
-    backing_submeshOffsetData.push_back({lastOffset.index_start + M.indices.size(), lastOffset.vertex_start + M.vertices.size()});
-    meshBoundingSphereRad.push_back(MeshDataCreation::boundingSphereFromMeshBounds(M.boundsCorners));
+    auto lastOffset = (TODO_REMOVEbacking_submeshOffsetData.size() > 0)? TODO_REMOVEbacking_submeshOffsetData.back() : offsetData{0, 0};
+    TODO_REMOVEbacking_submeshOffsetData.push_back({lastOffset.index_start + M.indices.size(), lastOffset.vertex_start + M.vertices.size()});
+    TODO_MOVET_TO_MESHDATA_meshBoundingSphereRad.push_back(MeshDataCreation::boundingSphereFromMeshBounds(M.boundsCorners));
     return meshCount++;
 }
 
@@ -137,7 +150,7 @@ ID::SubMeshGroupID AssetManager::AddMultiSubmeshMeshMesh(std::span<std::span<Mes
 positionRadius AssetManager::GetBoundingSphere(int idx)
 {
     printf("NOT IMPLEMENTED: NEED TO USE CORRECT INDEX FOR GETBOUNDINGSPHERE\n");
-    return meshBoundingSphereRad[idx];
+    return TODO_MOVET_TO_MESHDATA_meshBoundingSphereRad[idx];
 }
 
 struct sortData

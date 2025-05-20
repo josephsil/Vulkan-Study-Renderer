@@ -100,66 +100,68 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
 #endif
 #pragma endregion
     printf("objects count: %llu \n", scene->objects.objectsCount);
+    //Commenting out all this while I fix the meshlet path -- need to unify the way objects are uploaded to scene/backing data and uncomment
+    
     // #else
-    gltf = GltfLoadMeshes(rendererContext, "Meshes/pig.glb");
-    
-
-    auto setSpec3 = (  (textureLookup.Find(const_cast<char*>("textures/pbr_cruiser-panels/space-cruiser-panels2_roughness_metallic.tga"))));
-    auto setNorm3 = (  (textureLookup.Find(const_cast<char*>("textures/pbr_cruiser-panels/space-cruiser-panels2_normal-dx.png"))));
-    
-    placeholderTextureidx = rendererData->AddTextureSet(
-        gltf.textures[gltf.materials[0].diffIndex],
-        setSpec3,
-        setNorm3);
-
-    placeholderMatidx = rendererData->AddMaterial(0.2f, 0, glm::vec3(1.0f), placeholderTextureidx, 1);
-    randomMaterials.push_back(placeholderMatidx);
-
-    randomMeshes.push_back(rendererData->AddSingleSubmeshMeshMesh(gltf.meshes[0].submeshesAndMeshlets, gltf.meshletInfo[0][0]));
-    auto _cubesphere = GltfLoadMeshes(rendererContext, "Meshes/cubesphere.glb");
-    randomMeshes.push_back(rendererData->AddSingleSubmeshMeshMesh(_cubesphere.meshes[0].submeshesAndMeshlets, _cubesphere.meshletInfo[0][0]));
-
-    auto monkeyMesh = MeshDataCreation::MeshDataFromObjFile(rendererContext, "Meshes/monkey.obj");
-
-    auto meshLetMonkey =  MeshOptimizer::RunMeshOptimizer(rendererContext.arena, monkeyMesh);
-    auto meshletMonkeyMeshletInfo = MemoryArena::AllocSpan<meshletIndexInfo>(rendererContext.arena, 1);
-    meshletMonkeyMeshletInfo[0] = {0, meshLetMonkey.size()};
-    randomMeshes.push_back(rendererData->AddSingleSubmeshMeshMesh(meshLetMonkey, meshletMonkeyMeshletInfo[0]));
-    auto _cube =GltfLoadMeshes(rendererContext, "Meshes/cube.glb");
-    ID::SubMeshID cube = rendererData->AddSingleSubmeshMeshMesh(_cube.meshes[0].submeshesAndMeshlets,_cube.meshletInfo[0][0]);
-
-    //direciton light
-
-
-    glm::vec3 EulerAngles(0, 0, 0);
-    auto MyQuaternion = glm::quat(EulerAngles);
-
-    auto root = scene->AddObject(
-        rendererData->GetMesh(randomMeshes[rand() % randomMeshes.size()]), MemoryArena::AllocSpanEmplaceInitialize<uint32_t>(rendererContext.arena, 1, (uint32_t) (uint32_t)randomMaterials[1]), glm::vec4(0, 0, 0, 0) * 1.2f, MyQuaternion,
-        glm::vec3(0.5));
-
-    localTransform* tform = &scene->transforms.transformNodes[root];
-    for (int i = 0; i < 100; i++)
-    {
-        for (int j = i == 0 ? 1 : 0; j < 10; j++)
-        {
-            float rowRoughness = static_cast<float>(glm::clamp(static_cast<float>(i) / 8.0, 0.0, 1.0));
-            bool rowmetlalic = i % 3 == 0;
-            int matIDX = rand() % randomMaterials.size();
-
-            auto sourceMaterial = rendererData->materials[matIDX];
-            auto randColor = glm::ballRand(0.5) + 0.5;
-            auto randColorLinear = randColor*randColor;
-            auto newRandomColorMaterial = rendererData->AddMaterial(
-            sourceMaterial.roughness, sourceMaterial.metallic, randColorLinear, {sourceMaterial.diffuseIndex, sourceMaterial.specIndex, sourceMaterial.normalIndex}, sourceMaterial.shaderGroupIndex);
-
-            scene->AddObject(
-                rendererData->GetMesh(randomMeshes[rand() % randomMeshes.size()]), 
-               MemoryArena::AllocSpanEmplaceInitialize<uint32_t>(rendererContext.arena, 1, (uint32_t)newRandomColorMaterial), glm::vec4((j), (i / 10) * 1.0, -(i % 10), 1) * 1.2f, MyQuaternion,
-                glm::vec3(0.5));
-            matIDX = rand() % randomMaterials.size();
-        }
-    }
+    // gltf = GltfLoadMeshes(rendererContext, "Meshes/pig.glb");
+    //
+    //
+    // auto setSpec3 = (  (textureLookup.Find(const_cast<char*>("textures/pbr_cruiser-panels/space-cruiser-panels2_roughness_metallic.tga"))));
+    // auto setNorm3 = (  (textureLookup.Find(const_cast<char*>("textures/pbr_cruiser-panels/space-cruiser-panels2_normal-dx.png"))));
+    //
+    // placeholderTextureidx = rendererData->AddTextureSet(
+    //     gltf.textures[gltf.materials[0].diffIndex],
+    //     setSpec3,
+    //     setNorm3);
+    //
+    // placeholderMatidx = rendererData->AddMaterial(0.2f, 0, glm::vec3(1.0f), placeholderTextureidx, 1);
+    // randomMaterials.push_back(placeholderMatidx);
+    //
+    // randomMeshes.push_back(rendererData->AddSingleSubmeshMeshMesh(gltf.meshes[0].submeshesAndMeshlets, gltf.meshletInfo[0][0]));
+    // auto _cubesphere = GltfLoadMeshes(rendererContext, "Meshes/cubesphere.glb");
+    // randomMeshes.push_back(rendererData->AddSingleSubmeshMeshMesh(_cubesphere.meshes[0].submeshesAndMeshlets, _cubesphere.meshletInfo[0][0]));
+    //
+    // auto monkeyMesh = MeshDataCreation::MeshDataFromObjFile(rendererContext, "Meshes/monkey.obj");
+    //
+    // auto meshLetMonkey =  MeshOptimizer::RunMeshOptimizer(rendererContext.arena, monkeyMesh);
+    // auto meshletMonkeyMeshletInfo = MemoryArena::AllocSpan<meshletIndexInfo>(rendererContext.arena, 1);
+    // meshletMonkeyMeshletInfo[0] = {0, meshLetMonkey.size()};
+    // randomMeshes.push_back(rendererData->AddSingleSubmeshMeshMesh(meshLetMonkey, meshletMonkeyMeshletInfo[0]));
+    // auto _cube =GltfLoadMeshes(rendererContext, "Meshes/cube.glb");
+    // ID::SubMeshID cube = rendererData->AddSingleSubmeshMeshMesh(_cube.meshes[0].submeshesAndMeshlets,_cube.meshletInfo[0][0]);
+    //
+    // //direciton light
+    //
+    //
+    // glm::vec3 EulerAngles(0, 0, 0);
+    // auto MyQuaternion = glm::quat(EulerAngles);
+    //
+    // auto root = scene->AddObject(
+    //     rendererData->GetMesh(randomMeshes[rand() % randomMeshes.size()]), MemoryArena::AllocSpanEmplaceInitialize<uint32_t>(rendererContext.arena, 1, (uint32_t) (uint32_t)randomMaterials[1]), glm::vec4(0, 0, 0, 0) * 1.2f, MyQuaternion,
+    //     glm::vec3(0.5));
+    //
+    // localTransform* tform = &scene->transforms.transformNodes[root];
+    // for (int i = 0; i < 100; i++)
+    // {
+    //     for (int j = i == 0 ? 1 : 0; j < 10; j++)
+    //     {
+    //         float rowRoughness = static_cast<float>(glm::clamp(static_cast<float>(i) / 8.0, 0.0, 1.0));
+    //         bool rowmetlalic = i % 3 == 0;
+    //         int matIDX = rand() % randomMaterials.size();
+    //
+    //         auto sourceMaterial = rendererData->materials[matIDX];
+    //         auto randColor = glm::ballRand(0.5) + 0.5;
+    //         auto randColorLinear = randColor*randColor;
+    //         auto newRandomColorMaterial = rendererData->AddMaterial(
+    //         sourceMaterial.roughness, sourceMaterial.metallic, randColorLinear, {sourceMaterial.diffuseIndex, sourceMaterial.specIndex, sourceMaterial.normalIndex}, sourceMaterial.shaderGroupIndex);
+    //
+    //         scene->AddObject(
+    //             rendererData->GetMesh(randomMeshes[rand() % randomMeshes.size()]), 
+    //            MemoryArena::AllocSpanEmplaceInitialize<uint32_t>(rendererContext.arena, 1, (uint32_t)newRandomColorMaterial), glm::vec4((j), (i / 10) * 1.0, -(i % 10), 1) * 1.2f, MyQuaternion,
+    //             glm::vec3(0.5));
+    //         matIDX = rand() % randomMaterials.size();
+    //     }
+    // }
 
     scene->transforms.RebuildTransformDataFromNodes(rendererContext.arena);
 }

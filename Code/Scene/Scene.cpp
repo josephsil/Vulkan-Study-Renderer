@@ -126,7 +126,7 @@ size_t Scene::AddObject(std::span<ID::SubMeshID> submeshIndices, std::span<ID::M
 
     //Add our materials
    auto firstSubmeshMaterial = allMaterials.size();
-    allMaterials.push_back_span(materialIndices);
+    allMaterials.push_copy_span(materialIndices);
     for(int i =0; i < submeshIndices.size() - materialIndices.size(); i++)
     {
         //Use the last material index for the remaining submeshes. Don't love this behavior, but it's convenient for now
@@ -139,7 +139,7 @@ size_t Scene::AddObject(std::span<ID::SubMeshID> submeshIndices, std::span<ID::M
     objects.rotations.push_back(rotation);
     objects.scales.push_back(scale);
     // transforms.worldMatrices.push_back(glm::mat4(1.0));
-    objects.subMeshes.push_back(allSubmeshes.push_back_span(submeshIndices));
+    objects.subMeshes.push_back(allSubmeshes.push_copy_span(submeshIndices));
     objects.transformIDs.push_back(objects.transformIDs.size());
 
     //TODO JS: When we use real objects, we'll only create transforms with these ids

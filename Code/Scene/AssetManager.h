@@ -33,12 +33,11 @@ struct offsetData
 struct TextureMetaData;
 struct MeshData;
 struct VkDescriptorImageInfo;
-class AssetManager;
-void static_AllocateAssetMemory(MemoryArena::memoryArena* arena, AssetManager* assetManager);
 class AssetManager
 {
 public:
     size_t materialTextureCount();
+    AssetManager();
 
 
 #pragma region scene
@@ -49,16 +48,43 @@ public:
 
 
 
-
+    //TODO JS: Next steps:
+    //Phased plan for meshlet -> mesh import revamp:
+    //Phase 1: separate "submesh" and "meshlet" concept
+        //Submesh indices point to parallel arrays of material and submesh data
+        //In phase 1, submesh data is span of spans of meshdata
+        //Plumb this through relevant rendering/buffer upload code. Maybe separated as functions to be easy to replace
+        //perdrawdata still needs to get set per submesh
+    //Phase2: 1 vertex buffer per submesh
+        //Basically same as phase 2, but don't duplicate verts onto submeshes. Update vertex buffer binding code and various plumbing appropriately
+        //Also need to update meshlet generation -- according to docs meshlet vertices are the correct thing to use as indices for the original buffer.
+    //Phase3, 4: Contiguous memory for meshes
+        //1. Move all vertex and index allocations onto RendererMeshData struct, update gpu upload code to loop over those buffers directly
+        //2. Move away from spans of spans to a size and stride approach for meshlets -- should be able to compactly represent meshlets as "start + count" for indices, and a reference to the vertex buffer
+        //3. Update assetmanager representation of vertices to match gpu representation in layout so I can just directly copy them
+        
+        //vert positions/data 
+    struct RendererMeshData
+    {
+        // Array<Vertex> vertices;
+                //TODO JS PERF: Break vertices into separate positions/data like below
+                // Array<glm::vec4> vertPositions; //glm::vec4
+                // Array<gpuvertex> vertData; //gpuvertex
+        // Array<uint32_t> vertIndices; //uint32_t
+        // Array<TEMPmeshletIndexInfo> subMeshInfo; //This says the START of the submesh, and how many meshlets it has. Meshlets are fixed size spans of each of the other 3 ararys
+    };
+    
     int meshCount = 0;
     Array<Material> materials;
     Array<VkDescriptorImageInfo> textures; //What we need to render the textures
     Array<TextureMetaData> texturesMetaData; //Other info about the texture in parallel array
     Array<MeshData> backing_submeshes;
-    Array<offsetData> backing_submeshOffsetData;
-    Array<positionRadius> meshBoundingSphereRad;
+    Array<offsetData> TODO_REMOVEbacking_submeshOffsetData;
+    Array<positionRadius> TODO_MOVET_TO_MESHDATA_meshBoundingSphereRad;
     Array<Array<ID::SubMeshID>>  subMeshGroups;
     Array<std::span<meshletIndexInfo>>  subMeshMeshletInfo;
+    // RendererMeshData meshData;
+    MemoryArena::memoryArena allocator;
 
 
     //Returns the index to the object in the vectors
@@ -80,3 +106,4 @@ public:
 
 #pragma endregion
 };
+AssetManager* GetGlobalAssetManager();
