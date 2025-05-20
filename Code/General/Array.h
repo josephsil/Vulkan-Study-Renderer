@@ -1,6 +1,9 @@
 #pragma once
 #include <cassert>
 #include <span>
+
+#include "MemoryArena.h"
+#include <stdlib.h> 
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
@@ -77,7 +80,19 @@ struct Array
         new (&data[ct++]) T(std::forward<Args>(args)...);
     }
 
-    std::span<T> push_back_span(std::span<T> s)
+    std::span<T> push_copy_span_fixed_size_block(std::span<T> s, size_t size)
+    {
+        auto spanSize = s.size();
+        assert(ct +  size <capacity && size >= spanSize);
+        size_t start = ct;
+        for (auto entry :  s)
+        {
+            this->push_back(entry);
+        }
+        return std::span<T>((T*)(data+start), size);
+    }
+
+    std::span<T> push_copy_span(std::span<T> s)
     {
         assert(ct +  s.size() <capacity);
         size_t start = ct;
@@ -99,7 +114,7 @@ struct Array
         std::span<T>(start, il.size());
     }
 
-    std::span<T> pushUninitializedSubspan(size_t spanSize)
+    std::span<T> pushUninitializedSpan(size_t spanSize)
     {
         assert(ct + spanSize < capacity);
         size_t start = ct;
@@ -123,4 +138,41 @@ struct Array
     size_t size() const { return ct; }
     size_t size_bytes() const { return sizeof(T) * ct; }
     size_t capacity_bytes() const { return sizeof(T) * capacity; }
+};
+template <typename T>
+struct FlatSpanOfSpans //need a better name 
+{
+    FlatSpanOfSpans()
+    {
+    };
+    Array<T> BackingData;
+    Array<std::span<T>> Views; //could make something slimmer
+
+    FlatSpanOfSpans(ArenaAllocator allocator, uint32_t max_entries,  size_t max_views = SIZE_MAX )
+    {
+        BackingData = MemoryArena::AllocSpan<T>(allocator, max_entries);
+        Views = MemoryArena::AllocSpan<std::span<T>>(allocator, (max_entries >= max_views ? max_views : max_entries));
+    }
+
+    std::span<T>& AddSpan(size_t size = INT_MAX)
+    {
+        Views.push_back(BackingData.pushUninitializedSpan(size));
+        return Views.back();
+    }
+
+    std::span<T>& AddSpanCopy(std::span<T> src)
+    {
+        Views.push_back(BackingData.push_copy_span(src));
+        return Views.back();
+    }
+
+    std::span<T> operator[](int i)
+    {
+        return Views[i];
+    }
+    std::span<T> getSpan(size_t size = INT_MAX)
+    {
+        return BackingData.getSpan(size);
+    }
+    
 };
