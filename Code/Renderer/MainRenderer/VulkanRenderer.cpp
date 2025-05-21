@@ -1659,7 +1659,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     //Need to think about how 
     auto batches = renderBatches.batchConfigs;
 
-    auto TODO_KLUDGE_PREPASSIDX = renderBatches.batchConfigs.size() -1;
+    auto TODO_KLUDGE_PREPASSIDX = renderBatches.batchConfigs.size();
     for(size_t i = 0; i < batches.size(); i++)
     {
         auto oldBatch = batches[i];
@@ -1678,7 +1678,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
         renderBatches.batchConfigs.push_back(newBatch);
         batches[i].depthAttatchment->loadOp = VK_ATTACHMENT_LOAD_OP_LOAD; 
     }
-    auto prepassBatches = std::span(&renderBatches.batchConfigs[TODO_KLUDGE_PREPASSIDX], renderBatches.batchConfigs.size() -TODO_KLUDGE_PREPASSIDX);
+    auto prepassBatches = std::span(&renderBatches.batchConfigs[TODO_KLUDGE_PREPASSIDX], (renderBatches.batchConfigs.size()) -TODO_KLUDGE_PREPASSIDX);
     prepassBatches = MemoryArena::copySpan<RenderBatch>(&perFrameArenas[currentFrame], prepassBatches);
 
 
