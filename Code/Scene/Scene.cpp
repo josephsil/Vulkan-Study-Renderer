@@ -176,25 +176,11 @@ size_t Scene::ObjectsCount()
     return objects.objectsCount;
 }
 
-size_t Scene::DrawCount()
-{
-    return MeshesCount();
-}
-
 size_t Scene::MeshesCount()
 {
     return objects.subMeshesCount;
 }
 
-size_t Scene:: GetTotalSubmeshesForObjects(std::span<uint32_t> objectIndices)
-{
-    size_t result = 0;
-    for (auto element : objectIndices)
-    {
-        result += objects.subMeshes[element].size();
-    }
-    return result;
-}
 
 
 //very dumb/brute force for now

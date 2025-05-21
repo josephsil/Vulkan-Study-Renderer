@@ -116,7 +116,7 @@ ID::SubMeshID AssetManager::AddMesh(std::span<MeshData> SubmeshMeshlets)
     {
         auto& M = SubmeshMeshlets[i];
         meshDatas.push_back(M);
-        offsets.push_back({lastOffset.index_start + M.indices.size(), lastOffset.vertex_start + M.vertices.size()});
+        offsets.push_back({lastOffset.index_start + M.indices.size(), lastOffset.vertex_start + M.vertices.size(), meshletCount++});
         boundingInfo.push_back(MeshDataCreation::boundingSphereFromMeshBounds(M.boundsCorners));
         meshletCount++;
         indexCount +=  M.indices.size();
@@ -132,12 +132,7 @@ ID::SubMeshID AssetManager::AddMesh(std::span<MeshData> SubmeshMeshlets)
     return submeshCount++;
 }
 
-ID::SubMeshGroupID AssetManager::AddSingleSubmeshMeshMesh(std::span<MeshData> Meshlets, meshletIndexInfo meshletInfo)
-{
-    return AddMultiSubmeshMeshMesh({&Meshlets, 1}, {&meshletInfo, 1});
-}
-
-ID::SubMeshGroupID AssetManager::AddMultiSubmeshMeshMesh(std::span<std::span<MeshData>> Submeshes, std::span<meshletIndexInfo> _unused)
+ID::SubMeshGroupID AssetManager::AddMultiSubmeshMeshMesh(std::span<std::span<MeshData>> Submeshes)
 {
     auto& _span = subMeshGroups.push_back();
 

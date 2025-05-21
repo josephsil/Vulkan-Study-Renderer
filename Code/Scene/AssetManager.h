@@ -26,8 +26,9 @@ struct textureSetIDs
 //todo js to remove
 struct offsetData
 {
-    size_t vertex_start;
-    size_t index_start;
+    size_t vertex_start;//vertex buffer
+    size_t index_start;//index bufer
+    size_t first_meshlet_mesh_index;//ID for the object
 };
 struct PerSubmeshData
 {
@@ -103,14 +104,11 @@ public:
     uint32_t getIndexCount();
     uint32_t getVertexCount();
     uint32_t getOffsetFromMeshID(int submesh, int meshlet);
-    positionRadius GetBoundingSphere(int idx); //TODO JS: Change to use mesh idx
     //TODO JS: these are temporary
     ID::TextureID AddTexture(TextureData T);
     textureSetIDs AddTextureSet(TextureData D, TextureData S, TextureData N);
     ID::SubMeshID AddMesh(std::span<MeshData> SubmeshMeshlets);
-    std::span<ID::SubMeshID> GetMesh( ID::SubMeshGroupID meshId);
-    ID::SubMeshGroupID AddSingleSubmeshMeshMesh(std::span<MeshData> Meshlets, meshletIndexInfo meshletInfo);
-    ID::SubMeshGroupID AddMultiSubmeshMeshMesh(std::span<std::span<MeshData>> Submeshes, std::span<meshletIndexInfo> _unused);
+    ID::SubMeshGroupID AddMultiSubmeshMeshMesh(std::span<std::span<MeshData>> Submeshes);
     
     void Update();
     void Cleanup();

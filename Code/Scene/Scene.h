@@ -19,7 +19,7 @@ namespace MemoryArena
 struct sceneCountData
 {
     size_t objectCount = 0;
-    size_t subMeshCount = 0;
+    size_t totalDrawCt = 0;
     size_t lightCount = 0;
     std::span<LightType> lightTypes;
 };
@@ -62,6 +62,7 @@ struct Scene
     int AddPointLight(glm::vec3 position, glm::vec3 color, float intensity);
 
 
+    
 
     
     size_t AddObject(std::span<ID::SubMeshID> submeshIndices, std::span<ID::MaterialID> materialIndices,
@@ -69,7 +70,6 @@ struct Scene
                      std::string name = "");
 
     size_t ObjectsCount();
-    size_t DrawCount();
     size_t MeshesCount();
     size_t GetTotalSubmeshesForObjects(std::span<uint32_t> objectIndices);
 

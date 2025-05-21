@@ -37,12 +37,14 @@ struct RenderBatchCreationConfig
     viewProj cameraViewProjForCulling;
     uint32_t frustumIndex;
     uint32_t drawOffset;
-    uint32_t objectCount;
+    uint32_t subMeshCount;
+    uint32_t drawCount;
     depthBiasSettng depthBiasConfig;
     
 };
 struct RenderBatchQueue
 {
+    size_t submeshCount;
     size_t drawCount;
     std::vector<RenderBatch> batchConfigs;
     std::span<RenderBatch> AddBatch(
@@ -59,7 +61,7 @@ struct RenderBatch
     PipelineLayoutHandle pipelineLayoutGroup; 
     VkBuffer indexBuffer; 
     VkIndexType indexBufferType; // VK_INDEX_TYPE_UINT32
-    std::span<simpleMeshPassInfo> subMeshPasses;
+    std::span<simpleMeshPassInfo> perPipelinePasses;
     ComputeCullListInfo* computeCullingInfo;
     VkRenderingAttachmentInfoKHR* depthAttatchment;
     VkRenderingAttachmentInfoKHR* colorattatchment; //nullptr

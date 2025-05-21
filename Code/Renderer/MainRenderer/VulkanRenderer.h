@@ -15,6 +15,8 @@
 #include <Renderer/Shaders/ShaderLoading.h>
 #include <Renderer/MainRenderer/PipelineManager/PipelineLayoutManager.h>
 #include <Scene/Scene.h>
+
+#include "Scene/AssetManager.h"
 // My stuff 
 struct gpulight;
 struct gpuvertex;
@@ -74,6 +76,7 @@ public:
     void initializeDearIMGUI();
     VkDescriptorSet GetOrRegisterImguiTextureHandle(VkSampler sampler, VkImageView imageView);
 
+    static uint32_t StaticCalculateTotalDrawCount(Scene* scene, std::span<PerSubmeshData> submeshData);
 private:
     std::unordered_map<VkImageView, VkDescriptorSet> imguiRegisteredTextures;
     struct per_frame_data;
@@ -128,6 +131,9 @@ private:
                                                                     MemoryArena::memoryArena* arena,
                                                                     std::span<VkDescriptorSetLayoutBinding>
                                                                     layoutBindings);
+
+
+    uint32_t CalculateTotalDrawCount(Scene* scene);
 
 
 
