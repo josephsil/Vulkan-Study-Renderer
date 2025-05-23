@@ -7,6 +7,7 @@
 #include "Renderer/TextureCreation/TextureData.h"
 #include "Renderer/AssetManagerTypes.h"
 #include "Renderer/MainRenderer/rendererStructs.h"
+struct gpuvertex;
 struct ImportMeshData;
 //
 struct preMeshletMesh;
@@ -77,10 +78,10 @@ public:
         //vert positions/data 
     struct RendererMeshData
     {
-        Array<Vertex> vertices;
+        // Array<Vertex> vertices;
                 //TODO JS PERF: Break vertices into separate positions/data like below
-                // Array<glm::vec4> vertPositions; //glm::vec4
-                // Array<gpuvertex> vertData; //gpuvertex
+                Array<glm::vec4> vertPositions; //glm::vec4
+                Array<gpuvertex> vertData; //gpuvertex
         Array<uint8_t> vertIndices; //uint32_t
         Array<MeshletData> meshletInfo;
         Array<positionRadius> boundingInfo;
@@ -108,7 +109,7 @@ public:
     ID::TextureID AddTexture(TextureData T);
     textureSetIDs AddTextureSet(TextureData D, TextureData S, TextureData N);
     ID::SubMeshID AddMesh(std::span<preMeshletMesh> SubmeshMeshlets);
-    ID::SubMeshID AddMesh2(ImportMeshData importMesh);
+    ID::SubMeshID UploadMesh(ImportMeshData importMesh);
     ID::SubMeshGroupID AddMultiSubmeshMeshMesh(std::span<std::span<preMeshletMesh>> Submeshes);
     ID::SubMeshGroupID AddMultiSubmeshMeshMesh2(std::span<ImportMeshData> Submeshes);
     

@@ -15,9 +15,9 @@ AssetManager::AssetManager()
     MemoryArena::initialize(&this->allocator, 1000000 * 500); //500mb
     // arallel arrays per Light
     //1000000
-    this->meshData.vertices = MemoryArena::AllocSpan<Vertex>(&this->allocator,350000); 
-    // this->meshData.vertPositions = MemoryArena::AllocSpan<glm::vec4>(&this->allocator,VERTEX_MAX); 
-    // this->meshData.vertData = MemoryArena::AllocSpan<gpuvertex>(&this->allocator,VERTEX_MAX);     
+    // this->meshData.vertices = MemoryArena::AllocSpan<Vertex>(&this->allocator,350000); 
+    this->meshData.vertPositions = MemoryArena::AllocSpan<glm::vec4>(&this->allocator,350000); 
+    this->meshData.vertData = MemoryArena::AllocSpan<gpuvertex>(&this->allocator,350000);     
     this->meshData.vertIndices = MemoryArena::AllocSpan<uint8_t>(&this->allocator, 950000);
     this->meshData.meshletInfo =  MemoryArena::AllocSpan<MeshletData>(&this->allocator, MESHLET_MAX_PER * ASSET_MAX);
     this->meshData.boundingInfo =  MemoryArena::AllocSpan<positionRadius>(&this->allocator, MESHLET_MAX_PER * ASSET_MAX);
@@ -101,10 +101,14 @@ textureSetIDs AssetManager::AddTextureSet(TextureData D, TextureData S, TextureD
 }
 
 
-ID::SubMeshID AssetManager::AddMesh2(ImportMeshData importMesh)
+//I'd kinda rather get rid of the whole "import mesh data has verts" concept
+//It would be nicer if the assetmanager provided asset importers memory to load their verts into, and all that got passed around was layout/config/offset data
+ID::SubMeshID AssetManager::UploadMesh(ImportMeshData importMesh)
 {
     Array offsets = meshData.meshletInfo.pushUninitializedSpan(importMesh.meshletCount);
     Array boundingInfo = meshData.boundingInfo.pushUninitializedSpan(importMesh.meshletCount);
+    std::span<glm::vec4> vertPositions = meshData.vertPositions.pushUninitializedSpan(importMesh.vertices.size());
+    std::span<gpuvertex> vertData = meshData.vertData.pushUninitializedSpan(importMesh.vertices.size());
 
     for (uint32_t j = 0; j < importMesh.meshletCount; j++)
     {
@@ -115,7 +119,20 @@ ID::SubMeshID AssetManager::AddMesh2(ImportMeshData importMesh)
         globalIndexCount += importMesh.indexCounts[j];
     }
 
-    this->meshData.vertices.push_copy_span(importMesh.vertices);
+    for(uint32_t i = 0; i < importMesh.vertices.size(); i++)
+    {
+        vertPositions[i] = importMesh.vertices[i].pos;
+        
+        // glm::vec4 col = importMesh.vertices[i].color;
+        glm::vec4 uv = importMesh.vertices[i].texCoord;
+        glm::vec4 norm = importMesh.vertices[i].normal;
+        glm::vec4 tangent = importMesh.vertices[i].tangent;
+        vertData[i] =
+            {
+            .texCoord = importMesh.vertices[i].texCoord,
+            .normal = importMesh.vertices[i].normal,
+            .tangent = importMesh.vertices[i].tangent};
+    }
     this->meshData.vertIndices.push_copy_span(importMesh.meshletsIndices);
 
      this->meshData.perSubmeshData.push_back() =
@@ -135,7 +152,7 @@ ID::SubMeshGroupID AssetManager::AddMultiSubmeshMeshMesh2(std::span<ImportMeshDa
     int i = 0;
     for(auto& submesh: Submeshes)
     {
-        _span.push_back(AddMesh2(submesh));
+        _span.push_back(UploadMesh(submesh));
 
     }
     return (uint32_t)(subMeshGroups.ct -1);

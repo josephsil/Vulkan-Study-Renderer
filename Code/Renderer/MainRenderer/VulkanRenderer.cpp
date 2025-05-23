@@ -375,43 +375,16 @@ void VulkanRenderer::InitializeRendererForScene(sceneCountData sceneCountData) /
 void VulkanRenderer::PopulateMeshBuffers()
 {
     size_t indexCt = AssetDataAndMemory->meshData.vertIndices.size();
-    size_t vertCt = AssetDataAndMemory->meshData.vertices.size();
-   
-
-    auto gpuVerts = MemoryArena::AllocSpan<gpuvertex>(GetMainRendererContext().arena, vertCt);
-    auto Positoins = MemoryArena::AllocSpan<glm::vec4>(GetMainRendererContext().arena, vertCt);
     auto Indices = MemoryArena::AllocSpan<uint32_t>(GetMainRendererContext().arena, indexCt);
-    size_t vert = 0;
-    size_t _vert = 0;
-    uint32_t meshoffset = 0;
-
-        for(uint32_t j = 0; j <  AssetDataAndMemory->meshData.vertIndices.size(); j++)
-        {
-   
-            Indices[vert++]  = static_cast<uint32_t>(AssetDataAndMemory->meshData.vertIndices[j]) ;
-
-        }
-        for(int k =0; k < AssetDataAndMemory->meshData.vertices.size(); k++)
-        {
-
-            glm::vec4 col = AssetDataAndMemory->meshData.vertices[k].color;
-            glm::vec4 uv = AssetDataAndMemory->meshData.vertices[k].texCoord;
-            glm::vec4 norm = AssetDataAndMemory->meshData.vertices[k].normal;
-            glm::vec4 tangent = AssetDataAndMemory->meshData.vertices[k].tangent;
-
-            gpuVerts[_vert] = {
-                uv, norm, glm::vec4(tangent.x, tangent.y, tangent.z, tangent.w)
-            };
-        
-            Positoins[_vert++] = AssetDataAndMemory->meshData.vertices[k].pos;
-        }
-            meshoffset += static_cast<uint32_t>(AssetDataAndMemory->meshData.vertices.size());
-        
-
+    for(uint32_t j = 0; j <  AssetDataAndMemory->meshData.vertIndices.size(); j++)
+    {
+        Indices[j]  = static_cast<uint32_t>(AssetDataAndMemory->meshData.vertIndices[j]) ;
+    }
+     
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        FramesInFlightData[i].hostMesh.updateMappedMemory({gpuVerts.data(),vertCt});
-        FramesInFlightData[i].hostVerts.updateMappedMemory({Positoins.data(),vertCt});
+        FramesInFlightData[i].hostMesh.updateMappedMemory(AssetDataAndMemory->meshData.vertData.getSpan());
+        FramesInFlightData[i].hostVerts.updateMappedMemory(AssetDataAndMemory->meshData.vertPositions.getSpan());
         FramesInFlightData[i].hostIndices.updateMappedMemory({Indices.data(),indexCt});
     }
 }

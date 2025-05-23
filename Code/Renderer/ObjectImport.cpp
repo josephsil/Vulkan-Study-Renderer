@@ -49,7 +49,7 @@ void ObjectImport::CreateObjectAssets(ArenaAllocator &arena, Scene &scene, Asset
         for (int j = 0; j < gltf.meshes[i].submeshes.size(); j++)
         {
 
-            subMeshHandles[submeshIndex] = assetManager.AddMesh2(gltf.meshes[i].submeshes[j]);
+            subMeshHandles[submeshIndex] = assetManager.UploadMesh(gltf.meshes[i].submeshes[j]);
           
             //TODO JS MESHLET PERF: I now create a material *per meshlet*, which is way too many
             perSubmeshMaterialHandles[submeshIndex] =  createdMaterialIDs[gltf.meshes[i].submeshMaterialIndices[j]];

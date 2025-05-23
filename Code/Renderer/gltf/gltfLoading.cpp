@@ -446,8 +446,8 @@ GltfData GltfLoadMeshes(PerThreadRenderContext handles, const char* gltfpath)
     bool gltfOutOfdate = FileCaching::assetOutOfDate(gltfpath);
     // gltfOutOfdate = true;
 
-    MemoryArena::memoryArena loadingArena = {};
-    initialize(&loadingArena, 100000 * 5000); //TODO JS: right size this to the gltf size;
+    MemoryArena::memoryArena scratchArena = {};
+    initialize(&scratchArena, 100000 * 5000); //TODO JS: right size this to the gltf size;
 
     GltfData output = {};
     const char* ext = strrchr(gltfpath, '.');
@@ -460,8 +460,8 @@ GltfData GltfLoadMeshes(PerThreadRenderContext handles, const char* gltfpath)
     if (gltfOutOfdate) loader.SetImageLoader(LoadImageData, nullptr);
     else loader.SetImageLoader(LoadImageDataNoop, nullptr);
 
-    MemoryArena::memoryArena* tempArena = &loadingArena; 
-    MemoryArena::memoryArena* permanentArena = handles.arena;
+    MemoryArena::memoryArena* ScratchMemory = &scratchArena; 
+    MemoryArena::memoryArena* memoryArenaForLoading = handles.tempArena;
 
 
     bool ret = loader.LoadBinaryFromFile(&model, &err, &warn, gltfpath);
@@ -473,63 +473,44 @@ GltfData GltfLoadMeshes(PerThreadRenderContext handles, const char* gltfpath)
     size_t nodeCt = model.nodes.size();
 
     //TODO JS: leaking some extra gltf loading data for now
-    std::span<GltfMesh> importedMeshes = MemoryArena::AllocSpan<GltfMesh>(permanentArena, meshCt); 
-    std::span<TextureData> textures = MemoryArena::AllocSpan<TextureData>(permanentArena, imageCt);
+    std::span<GltfMesh> importedMeshes = MemoryArena::AllocSpan<GltfMesh>(memoryArenaForLoading, meshCt); 
+    std::span<TextureData> textures = MemoryArena::AllocSpan<TextureData>(memoryArenaForLoading, imageCt);
     //These are what I call textures, what vulkan calls images
-    std::span<gltfMaterial> materials = MemoryArena::AllocSpan<gltfMaterial>(permanentArena, matCt);
-    std::span<gltfNode> gltfNodes = MemoryArena::AllocSpan<gltfNode>(permanentArena, nodeCt);
+    std::span<gltfMaterial> materials = MemoryArena::AllocSpan<gltfMaterial>(memoryArenaForLoading, matCt);
+    std::span<gltfNode> gltfNodes = MemoryArena::AllocSpan<gltfNode>(memoryArenaForLoading, nodeCt);
     if (!warn.empty())
     {
         printf("GLTF LOADER WARNING: %s\n", warn.data());
     }
     assert(err.empty());
-    std::span<std::span<meshletIndexInfo>> meshletIndexInfos = MemoryArena::AllocSpan<std::span<meshletIndexInfo>>(permanentArena, meshCt);
+    std::span<std::span<meshletIndexInfo>> meshletIndexInfos = MemoryArena::AllocSpan<std::span<meshletIndexInfo>>(memoryArenaForLoading, meshCt);
     for (int i = 0; i < meshCt; i++)
     {
-        setCursor(tempArena);
+        setCursor(ScratchMemory);
         size_t submeshCt = model.meshes[i].primitives.size();
-        Array<ImportMeshData> submeshes = MemoryArena::AllocSpan<ImportMeshData>(permanentArena, submeshCt); 
-        Array<uint32_t> submeshMats = MemoryArena::AllocSpan<uint32_t>(tempArena, submeshCt); 
+        Array<ImportMeshData> submeshes = MemoryArena::AllocSpan<ImportMeshData>(memoryArenaForLoading, submeshCt); 
+        Array<uint32_t> submeshMats = MemoryArena::AllocSpan<uint32_t>(ScratchMemory, submeshCt); 
     
-         meshletIndexInfos[i] = MemoryArena::AllocSpan<meshletIndexInfo>(permanentArena, submeshCt);
+         meshletIndexInfos[i] = MemoryArena::AllocSpan<meshletIndexInfo>(memoryArenaForLoading, submeshCt);
         for (size_t j = 0; j < submeshCt; j++)
         {
-            temporaryloadingMesh tempMesh = geoFromGLTFMesh(tempArena, &model, model.meshes[i].primitives[j]);
+            temporaryloadingMesh tempMesh = geoFromGLTFMesh(memoryArenaForLoading, &model, model.meshes[i].primitives[j]);
 
             //TODO JS: at some point move this out to run on the whole mesh, rather than submeshes 
-            auto tempMeshresult = MeshDataCreation::FinalizeMeshDataFromTempMesh(tempArena, tempArena, tempMesh);
+            auto tempMeshresult = MeshDataCreation::FinalizeMeshDataFromTempMesh(memoryArenaForLoading, ScratchMemory, tempMesh);
             submeshMats.push_back(model.meshes[i].primitives[j].material);
 
-            ImportMeshData meshOptimizedMesh = MeshOptimizer::RunMeshOptimizer(tempArena, tempMeshresult);
+            ImportMeshData meshOptimizedMesh = MeshOptimizer::RunMeshOptimizer(memoryArenaForLoading, tempMeshresult);
             meshletIndexInfos[i][j] = {submeshes.ct, meshOptimizedMesh.meshletCount}; 
             
             submeshes.push_back(meshOptimizedMesh);
             assert(model.meshes[i].primitives[j].material != -1 ); //&& "-1 Material index (no material) not supported. TODO."
             //TODO JS
         }
-        //copy everything to permanent memory
-        for(size_t j = 0; j < submeshes.size(); j++)
-        {
-            submeshes[j].meshletsIndices =  MemoryArena::copySpan(permanentArena,    submeshes[j].meshletsIndices);
-            submeshes[j].vertices =   MemoryArena::copySpan(permanentArena,    submeshes[j].vertices);
-            submeshes[j].meshletVertexOffsets =   MemoryArena::copySpan(permanentArena,    submeshes[j].meshletVertexOffsets);
-            submeshes[j].indexCounts =   MemoryArena::copySpan(permanentArena,    submeshes[j].indexCounts);
-            
-        }
-       
-        for(size_t j = 0; j < submeshes.size(); j++)
-        {
-            submeshes[j].meshletBounds =  MemoryArena::copySpan(permanentArena, submeshes[j].meshletBounds);
-        for(size_t k = 0; k < submeshes[j].meshletBounds.size(); k++)
-        {
-        
-            submeshes[j].meshletBounds[k] =  MemoryArena::copySpan(permanentArena, submeshes[j].meshletBounds[k]);
-        }
-        }
-        
-        importedMeshes[i].submeshes =   MemoryArena::copySpan(permanentArena,   submeshes.getSpan());
-        importedMeshes[i].submeshMaterialIndices = MemoryArena::copySpan(permanentArena,   submeshMats.getSpan());
-        freeToCursor(tempArena);
+     
+        importedMeshes[i].submeshes =   MemoryArena::copySpan(memoryArenaForLoading,   submeshes.getSpan());
+        importedMeshes[i].submeshMaterialIndices = MemoryArena::copySpan(memoryArenaForLoading,   submeshMats.getSpan());
+        freeToCursor(ScratchMemory);
     }
 
     //TODO support: lights
@@ -566,7 +547,7 @@ GltfData GltfLoadMeshes(PerThreadRenderContext handles, const char* gltfpath)
         auto translation = glm::vec3(0);
 
         tinygltf::Node node = model.nodes[i];
-        std::span<int> childIndices = MemoryArena::AllocSpan<int>(permanentArena, node.children.size());
+        std::span<int> childIndices = MemoryArena::AllocSpan<int>(memoryArenaForLoading, node.children.size());
         if (node.children.size() > 0)
         {
             for (int i = 0; i < node.children.size(); i++)
@@ -608,6 +589,6 @@ GltfData GltfLoadMeshes(PerThreadRenderContext handles, const char* gltfpath)
         gltfpath, nodeCt, meshCt, matCt, imageCt, cameraCt, animCt, texCt, lightCt);
 
 
-    RELEASE(&loadingArena);
+    RELEASE(&scratchArena);
     return {importedMeshes, meshletIndexInfos, textures, materials, gltfNodes};
 }
