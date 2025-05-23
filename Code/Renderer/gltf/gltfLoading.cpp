@@ -488,7 +488,7 @@ GltfData GltfLoadMeshes(PerThreadRenderContext handles, const char* gltfpath)
     {
         setCursor(tempArena);
         size_t submeshCt = model.meshes[i].primitives.size();
-        Array<MeshData> submeshes = MemoryArena::AllocSpan<MeshData>(permanentArena, submeshCt); 
+        Array<ImportMeshData> submeshes = MemoryArena::AllocSpan<ImportMeshData>(permanentArena, submeshCt); 
         Array<uint32_t> submeshMats = MemoryArena::AllocSpan<uint32_t>(tempArena, submeshCt); 
     
          meshletIndexInfos[i] = MemoryArena::AllocSpan<meshletIndexInfo>(permanentArena, submeshCt);
@@ -500,11 +500,10 @@ GltfData GltfLoadMeshes(PerThreadRenderContext handles, const char* gltfpath)
             auto tempMeshresult = MeshDataCreation::FinalizeMeshDataFromTempMesh(tempArena, tempArena, tempMesh);
             submeshMats.push_back(model.meshes[i].primitives[j].material);
 
-            MeshData meshOptimizedMesh = MeshOptimizer::RunMeshOptimizer(tempArena, tempMeshresult);
+            ImportMeshData meshOptimizedMesh = MeshOptimizer::RunMeshOptimizer(tempArena, tempMeshresult);
             meshletIndexInfos[i][j] = {submeshes.ct, meshOptimizedMesh.meshletCount}; 
             
             submeshes.push_back(meshOptimizedMesh);
-         
             assert(model.meshes[i].primitives[j].material != -1 ); //&& "-1 Material index (no material) not supported. TODO."
             //TODO JS
         }

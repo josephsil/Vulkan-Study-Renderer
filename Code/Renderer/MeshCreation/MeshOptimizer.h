@@ -3,9 +3,9 @@
 
 #include "General/MemoryArena.h"
 
-struct MeshData;
+struct ImportMeshData;
 struct preMeshletMesh;
 namespace MeshOptimizer
 {
-    MeshData RunMeshOptimizer(ArenaAllocator arena, preMeshletMesh input);
+    ImportMeshData RunMeshOptimizer(ArenaAllocator arena, preMeshletMesh input);
 }

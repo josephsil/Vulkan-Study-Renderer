@@ -7,7 +7,7 @@
 #include "MainRenderer/rendererStructs.h"
 
 
-struct MeshData;
+struct ImportMeshData;
 struct TextureData;
 class AssetManager;
 struct Scene;
@@ -56,7 +56,7 @@ namespace ObjectImport
     
     struct Mesh
     {
-        std::span<MeshData> submeshes;
+        std::span<ImportMeshData> submeshes;
         std::span<uint32_t> submeshMaterialIndices;
     };
 

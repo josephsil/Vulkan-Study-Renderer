@@ -15,14 +15,16 @@ AssetManager::AssetManager()
     MemoryArena::initialize(&this->allocator, 1000000 * 500); //500mb
     // arallel arrays per Light
     //1000000
-    // this->meshData.vertices = MemoryArena::AllocSpan<Vertex>(&this->allocator,VERTEX_MAX); 
+    this->meshData.vertices = MemoryArena::AllocSpan<Vertex>(&this->allocator,350000); 
     // this->meshData.vertPositions = MemoryArena::AllocSpan<glm::vec4>(&this->allocator,VERTEX_MAX); 
     // this->meshData.vertData = MemoryArena::AllocSpan<gpuvertex>(&this->allocator,VERTEX_MAX);     
-    // this->meshData.vertIndices = MemoryArena::AllocSpan<uint32_t>(&this->allocator, INDEX_MAX); 
+    this->meshData.vertIndices = MemoryArena::AllocSpan<uint8_t>(&this->allocator, 950000);
+    this->meshData.meshletInfo =  MemoryArena::AllocSpan<MeshletData>(&this->allocator, MESHLET_MAX_PER * ASSET_MAX);
+    this->meshData.boundingInfo =  MemoryArena::AllocSpan<positionRadius>(&this->allocator, MESHLET_MAX_PER * ASSET_MAX);
+    this->meshData.perSubmeshData = Array(MemoryArena::AllocSpan<PerSubmeshData>(&this->allocator, MESHLET_MAX_PER * ASSET_MAX));
     this->texturesMetaData = Array(MemoryArena::AllocSpan<TextureMetaData>(&this->allocator, ASSET_MAX));
     this->textures = Array(MemoryArena::AllocSpan<VkDescriptorImageInfo>(&this->allocator, ASSET_MAX));
     // this->TODO_UNUSEDbacking_submeshes = Array(MemoryArena::AllocSpan<MeshData>(&this->allocator, MESHLET_MAX_PER * ASSET_MAX));
-    this->perSubmeshData = Array(MemoryArena::AllocSpan<PerSubmeshData>(&this->allocator, MESHLET_MAX_PER * ASSET_MAX));
     this->subMeshGroups = Array(MemoryArena::AllocSpan<Array<uint32_t>>(&this->allocator, ASSET_MAX));
 
 
@@ -57,16 +59,16 @@ void AssetManager::Update()
 {
     //noop
 }
-
+//
 uint32_t AssetManager::getOffsetFromMeshID(int submesh, int meshlet)
 {
-    //TODO MESHLET: This function should be able to 
-    return (uint32_t)perSubmeshData[submesh].meshletOffsets[meshlet].meshletIndexOffset;
+    //TODO remove
+    return (uint32_t)meshData.perSubmeshData[submesh].firstMeshletIndex + meshlet;
 }
 
 uint32_t AssetManager::getIndexCount()
 {
-    return (uint32_t)indexCount;
+    return (uint32_t)globalIndexCount;
     
 }
 
@@ -99,32 +101,34 @@ textureSetIDs AssetManager::AddTextureSet(TextureData D, TextureData S, TextureD
 }
 
 
-ID::SubMeshID AssetManager::AddMesh2(MeshData SubmeshMeshlets)
+ID::SubMeshID AssetManager::AddMesh2(ImportMeshData importMesh)
 {
+    Array offsets = meshData.meshletInfo.pushUninitializedSpan(importMesh.meshletCount);
+    Array boundingInfo = meshData.boundingInfo.pushUninitializedSpan(importMesh.meshletCount);
 
-    Array offsets = MemoryArena::AllocSpan<offsetData>(&allocator, SubmeshMeshlets.meshletCount);
-    Array boundingInfo = MemoryArena::AllocSpan<positionRadius>(&allocator, SubmeshMeshlets.meshletCount);
-        
-        for(uint32_t j = 0; j <SubmeshMeshlets.meshletCount; j++)
-        {
-        boundingInfo.push_back(MeshDataCreation::boundingSphereFromMeshBounds(SubmeshMeshlets.meshletBounds[j]));
-        offsets.push_back({SubmeshMeshlets.meshletVertexOffsets[j] + vertexCount, indexCount, meshletCount++});
-        indexCount +=  SubmeshMeshlets.indexCounts[j];
-      
-        }
- 
+    for (uint32_t j = 0; j < importMesh.meshletCount; j++)
+    {
+        boundingInfo.push_back(MeshDataCreation::boundingSphereFromMeshBounds(importMesh.meshletBounds[j]));
+        offsets.push_back({
+            importMesh.meshletVertexOffsets[j] + vertexCount, globalIndexCount, importMesh.indexCounts[j]
+        });
+        globalIndexCount += importMesh.indexCounts[j];
+    }
 
-    perSubmeshData.push_back() =
-      PerSubmeshData {
-          .mesh = MemoryArena::AllocCopy(&allocator, SubmeshMeshlets),
-          .meshletOffsets = offsets.getSpan(),
-          .boundingInfo = boundingInfo.getSpan(),
-          };
-    vertexCount +=SubmeshMeshlets.vertices.size();
+    this->meshData.vertices.push_copy_span(importMesh.vertices);
+    this->meshData.vertIndices.push_copy_span(importMesh.meshletsIndices);
+
+     this->meshData.perSubmeshData.push_back() =
+        PerSubmeshData{
+            .meshletCt =  importMesh.meshletCount,
+            .firstMeshletIndex = globalMeshletcount,
+        };
+    vertexCount += importMesh.vertices.size();
+    globalMeshletcount += importMesh.meshletCount;
     return submeshCount++;
 }
 
-ID::SubMeshGroupID AssetManager::AddMultiSubmeshMeshMesh2(std::span<MeshData> Submeshes)
+ID::SubMeshGroupID AssetManager::AddMultiSubmeshMeshMesh2(std::span<ImportMeshData> Submeshes)
 {
     auto& _span = subMeshGroups.push_back();
 

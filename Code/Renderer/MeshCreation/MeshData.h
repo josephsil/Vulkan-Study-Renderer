@@ -28,7 +28,7 @@ struct temporaryloadingMesh
     bool tangentsLoaded = false;
 };
 
-struct MeshData
+struct ImportMeshData
 {
     std::span<Vertex> vertices;
     std::span<uint8_t> meshletsIndices;
@@ -40,8 +40,9 @@ struct MeshData
 
 struct preMeshletMesh
 {
-    std::span<Vertex> vertices;
+   std::span<Vertex> vertices;
    std::span<uint32_t>indices;
+    std::span<uint32_t> indexCounts;
    std::span<glm::vec3> boundsCorners;
 };
 

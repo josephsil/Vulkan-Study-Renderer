@@ -7,7 +7,7 @@
 #include "meshoptimizer/src/meshoptimizer.h"
 #include "Renderer/rendererGlobals.h"
 
-MeshData MeshOptimizer::RunMeshOptimizer(ArenaAllocator arena, preMeshletMesh input)
+ImportMeshData MeshOptimizer::RunMeshOptimizer(ArenaAllocator arena, preMeshletMesh input)
 {
     const size_t max_vertices = MESHLET_VERTICES;
     const size_t max_triangles = MESHLET_TRIS;
@@ -78,7 +78,7 @@ MeshData MeshOptimizer::RunMeshOptimizer(ArenaAllocator arena, preMeshletMesh in
     // outputVertices = input.vertices;
     // FillIndicesAsdencing(outputIndices);
     return
-            MeshData{
+            ImportMeshData{
         .vertices =outputVertices,
             .meshletsIndices = _outputIndices.getSpan(),
                 .indexCounts = _outputIndexCounts.getSpan(),

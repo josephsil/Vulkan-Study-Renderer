@@ -374,8 +374,8 @@ void VulkanRenderer::InitializeRendererForScene(sceneCountData sceneCountData) /
 //TODO JS: Support changing meshes at runtime
 void VulkanRenderer::PopulateMeshBuffers()
 {
-    size_t indexCt = AssetDataAndMemory->indexCount;
-    size_t vertCt = AssetDataAndMemory->vertexCount;
+    size_t indexCt = AssetDataAndMemory->meshData.vertIndices.size();
+    size_t vertCt = AssetDataAndMemory->meshData.vertices.size();
    
 
     auto gpuVerts = MemoryArena::AllocSpan<gpuvertex>(GetMainRendererContext().arena, vertCt);
@@ -384,32 +384,29 @@ void VulkanRenderer::PopulateMeshBuffers()
     size_t vert = 0;
     size_t _vert = 0;
     uint32_t meshoffset = 0;
-    for (uint32_t i = 0; i < AssetDataAndMemory->submeshCount; i++)
-    {
-        auto& submesh = AssetDataAndMemory->perSubmeshData[i];
-            auto& mesh =submesh.mesh;
-        for(uint32_t j = 0; j < mesh->meshletsIndices.size(); j++)
+
+        for(uint32_t j = 0; j <  AssetDataAndMemory->meshData.vertIndices.size(); j++)
         {
    
-            Indices[vert++]  = static_cast<uint32_t>(submesh.mesh->meshletsIndices[j]) ;
+            Indices[vert++]  = static_cast<uint32_t>(AssetDataAndMemory->meshData.vertIndices[j]) ;
 
         }
-        for(int k =0; k < mesh->vertices.size(); k++)
+        for(int k =0; k < AssetDataAndMemory->meshData.vertices.size(); k++)
         {
 
-            glm::vec4 col = mesh->vertices[k].color;
-            glm::vec4 uv = mesh->vertices[k].texCoord;
-            glm::vec4 norm = mesh->vertices[k].normal;
-            glm::vec4 tangent = mesh->vertices[k].tangent;
+            glm::vec4 col = AssetDataAndMemory->meshData.vertices[k].color;
+            glm::vec4 uv = AssetDataAndMemory->meshData.vertices[k].texCoord;
+            glm::vec4 norm = AssetDataAndMemory->meshData.vertices[k].normal;
+            glm::vec4 tangent = AssetDataAndMemory->meshData.vertices[k].tangent;
 
             gpuVerts[_vert] = {
                 uv, norm, glm::vec4(tangent.x, tangent.y, tangent.z, tangent.w)
             };
         
-            Positoins[_vert++] = mesh->vertices[k].pos;
+            Positoins[_vert++] = AssetDataAndMemory->meshData.vertices[k].pos;
         }
-            meshoffset += static_cast<uint32_t>(mesh->vertices.size());
-        }
+            meshoffset += static_cast<uint32_t>(AssetDataAndMemory->meshData.vertices.size());
+        
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
@@ -612,12 +609,13 @@ std::span<descriptorUpdateData> VulkanRenderer::CreatePerFrameDescriptorUpdates(
    return descriptorUpdates.getSpan();
 }
 
+//todo unneeded remove
 uint32_t VulkanRenderer::StaticCalculateTotalDrawCount(Scene* scene, std::span<PerSubmeshData> submeshData)
 {
     uint32_t meshletCt = 0;
     for (auto& submeshIndex : scene->allSubmeshes.getSpan())
     {
-        meshletCt += (uint32_t)submeshData[submeshIndex].mesh->meshletCount;
+        meshletCt += (uint32_t)submeshData[submeshIndex].meshletCt;
     }
     return meshletCt;
 }
@@ -625,7 +623,8 @@ uint32_t VulkanRenderer::StaticCalculateTotalDrawCount(Scene* scene, std::span<P
 uint32_t VulkanRenderer::CalculateTotalDrawCount(Scene* scene)
 {
 
-    return VulkanRenderer::StaticCalculateTotalDrawCount(scene,  AssetDataAndMemory->perSubmeshData.getSpan());
+    return VulkanRenderer::StaticCalculateTotalDrawCount(scene,  AssetDataAndMemory->meshData.perSubmeshData.getSpan());
+
 }
 
 
@@ -750,13 +749,10 @@ void VulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<std::spa
         for(uint32_t subMeshIndex = 0; subMeshIndex < subMeshCount; subMeshIndex++)
         {
             uint32_t submeshIndex =scene->objects.subMeshes[objectIndex][subMeshIndex];
-            auto& submeshdata = AssetDataAndMemory->perSubmeshData[submeshIndex];
+            auto& submeshdata = AssetDataAndMemory->meshData.perSubmeshData[submeshIndex];
             Material material = AssetDataAndMemory->materials[scene->objects.subMeshMaterials[objectIndex][subMeshIndex]];
-            for(uint32_t meshletIndex = 0; meshletIndex <  submeshdata.mesh->meshletCount; meshletIndex++)
+            for(uint32_t meshletIndex = (uint32_t)submeshdata.firstMeshletIndex; meshletIndex <  (uint32_t)submeshdata.firstMeshletIndex + submeshdata.meshletCt; meshletIndex++)
             {
-           
-                // int i = drawIndices[j];
-        
                 perDrawData[uboIndex].props.indexInfo = glm::vec4(
                 (material.diffuseIndex),
                     AssetDataAndMemory->getOffsetFromMeshID(submeshIndex, meshletIndex),
@@ -764,14 +760,13 @@ void VulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<std::spa
                                               objectIndex);
 
                 perDrawData[uboIndex].props.textureInfo = glm::vec4(material.diffuseIndex, material.specIndex, material.normalIndex, -1.0);
-
                 perDrawData[uboIndex].props.materialprops = glm::vec4(material.roughness, material.roughness, 0, 0);
                 perDrawData[uboIndex].props.color = glm::vec4(material.color,1.0f);
 
 
         
                 //Set position and radius for culling
-                positionRadius meshSpacePositionAndRadius =  submeshdata.boundingInfo[meshletIndex];
+                positionRadius meshSpacePositionAndRadius =   AssetDataAndMemory->meshData.boundingInfo[meshletIndex];
                 float meshRadius = meshSpacePositionAndRadius.radius;
                 float objectScale = scene->transforms.worldUniformScales[lookup.depth][lookup.index];
                 perDrawData[uboIndex].cullingInfo.pos = meshSpacePositionAndRadius.pos;
@@ -1303,7 +1298,7 @@ RenderBatchCreationConfig  CreateOpaquePassesConfig(uint32_t firstObject, std::s
     
 {
     uint32_t subMeshesPerPass = (uint32_t)passData.scenePtr->objects.subMeshesCount;
-    uint32_t totalDraws = VulkanRenderer::StaticCalculateTotalDrawCount(passData.scenePtr, passData.assetDataPtr->perSubmeshData.getSpan());
+    uint32_t totalDraws = VulkanRenderer::StaticCalculateTotalDrawCount(passData.scenePtr, passData.assetDataPtr->meshData.perSubmeshData.getSpan());
     uint32_t nextFirstObject =firstObject;
     viewProj viewProjMatricesForCulling = LightAndCameraHelpers::CalcViewProjFromCamera(passData.scenePtr->sceneCamera);
     //Culling debug stuff
@@ -1350,7 +1345,7 @@ std::span<RenderBatchCreationConfig> CreateShadowPassConfigs(uint32_t firstIndex
                                      std::span<VkImageView> shadowMapRenderingViews)
 {
     uint32_t subMeshesPerPass = (uint32_t)passData.scenePtr->objects.subMeshesCount;
-    uint32_t drawsPerPass = VulkanRenderer::StaticCalculateTotalDrawCount(passData.scenePtr, passData.assetDataPtr->perSubmeshData.getSpan());
+    uint32_t drawsPerPass = VulkanRenderer::StaticCalculateTotalDrawCount(passData.scenePtr, passData.assetDataPtr->meshData.perSubmeshData.getSpan());
     uint32_t nextFirstDraw =firstIndex;
 
     auto shadowCasterCt =  glm::min(passData.scenePtr->lightCount, MAX_SHADOWCASTERS); 
@@ -1404,15 +1399,16 @@ size_t UpdateDrawCommanddataDrawIndirectCommands(AssetManager* rendererData,
     {
         auto subMeshIndex = submeshIndex[i];
         auto firstDraw = submeshFirstDrawIndex[i];
-        for(uint32_t j =0; j < rendererData->perSubmeshData[subMeshIndex].mesh->meshletCount; j++)
+        for(uint32_t j =0; j < rendererData->meshData.perSubmeshData[subMeshIndex].meshletCt; j++)
         {
+            auto meshletIndex = rendererData->meshData.perSubmeshData[subMeshIndex].firstMeshletIndex + j;
             targetDrawCommandSpan[drawCommandIndex++] = {
                 (uint32_t)firstDraw + j,
                 {
-                    .indexCount = (uint32_t)rendererData->perSubmeshData[subMeshIndex].mesh->indexCounts[j],
+                    .indexCount = (uint32_t)rendererData->meshData.meshletInfo[meshletIndex].meshletIndexCount,
                     .instanceCount = 1,
-                    .firstIndex = (uint32_t)rendererData->perSubmeshData[subMeshIndex].meshletOffsets[j].meshletIndexOffset,
-                    .vertexOffset = (int32_t)rendererData->perSubmeshData[subMeshIndex].meshletOffsets[j].meshletVertexOffset ,
+                    .firstIndex = (uint32_t)rendererData->meshData.meshletInfo[meshletIndex].meshletIndexOffset,
+                    .vertexOffset = (int32_t)rendererData->meshData.meshletInfo[meshletIndex].meshletVertexOffset ,
                     .firstInstance = firstDraw + j,
                 }
             };

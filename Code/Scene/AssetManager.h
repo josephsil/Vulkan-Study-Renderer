@@ -7,7 +7,7 @@
 #include "Renderer/TextureCreation/TextureData.h"
 #include "Renderer/AssetManagerTypes.h"
 #include "Renderer/MainRenderer/rendererStructs.h"
-struct MeshData;
+struct ImportMeshData;
 //
 struct preMeshletMesh;
 struct positionRadius;
@@ -25,18 +25,18 @@ struct textureSetIDs
 };
 
 //todo js to remove
-struct offsetData
+struct MeshletData
 {
     size_t meshletVertexOffset; //Offset for this meshlet's verts within the global vertex buffer
     size_t meshletIndexOffset;//Offset for this meshlet within the global index buffer
-    size_t first_meshlet_mesh_index;//ID for the object
+    size_t meshletIndexCount;//Index count for this meshlet
+    // size_t first_meshlet_mesh_index;//ID for the object
 };
 struct PerSubmeshData
 {
    
-    MeshData* mesh;
-    std::span<offsetData> meshletOffsets;
-    std::span<positionRadius> boundingInfo; //
+    uint32_t meshletCt;
+    size_t firstMeshletIndex; //For indexing into global arrays
 };
 
 //Objects have like, transformation info, ref to their mesh, ref to their material
@@ -77,26 +77,25 @@ public:
         //vert positions/data 
     struct RendererMeshData
     {
-        // Array<Vertex> vertices;
+        Array<Vertex> vertices;
                 //TODO JS PERF: Break vertices into separate positions/data like below
                 // Array<glm::vec4> vertPositions; //glm::vec4
                 // Array<gpuvertex> vertData; //gpuvertex
-        // Array<uint32_t> vertIndices; //uint32_t
-        // Array<TEMPmeshletIndexInfo> subMeshInfo; //This says the START of the submesh, and how many meshlets it has. Meshlets are fixed size spans of each of the other 3 ararys
+        Array<uint8_t> vertIndices; //uint32_t
+        Array<MeshletData> meshletInfo;
+        Array<positionRadius> boundingInfo;
+        Array<PerSubmeshData> perSubmeshData;
     };
     
     uint32_t submeshCount = 0;
     size_t vertexCount = 0;
-    size_t indexCount = 0;
-    size_t meshletCount = 0;
+    size_t globalIndexCount = 0;
+    size_t globalMeshletcount = 0;
     Array<Material> materials;
     Array<VkDescriptorImageInfo> textures; //What we need to render the textures
     Array<TextureMetaData> texturesMetaData; //Other info about the texture in parallel array
-    // Array<MeshData> TODO_UNUSEDbacking_submeshes;
-    Array<PerSubmeshData> perSubmeshData;
-    // Array<positionRadius> TODO_MOVET_TO_MESHDATA_meshBoundingSphereRad;
     Array<Array<ID::SubMeshID>>  subMeshGroups;
-    // RendererMeshData meshData;
+    RendererMeshData meshData;
     MemoryArena::memoryArena allocator;
 
 
@@ -109,9 +108,9 @@ public:
     ID::TextureID AddTexture(TextureData T);
     textureSetIDs AddTextureSet(TextureData D, TextureData S, TextureData N);
     ID::SubMeshID AddMesh(std::span<preMeshletMesh> SubmeshMeshlets);
-    ID::SubMeshID AddMesh2(MeshData SubmeshMeshlets);
+    ID::SubMeshID AddMesh2(ImportMeshData importMesh);
     ID::SubMeshGroupID AddMultiSubmeshMeshMesh(std::span<std::span<preMeshletMesh>> Submeshes);
-    ID::SubMeshGroupID AddMultiSubmeshMeshMesh2(std::span<MeshData> Submeshes);
+    ID::SubMeshGroupID AddMultiSubmeshMeshMesh2(std::span<ImportMeshData> Submeshes);
     
     void Update();
     void Cleanup();
