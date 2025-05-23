@@ -55,9 +55,15 @@ FullShaderHandle  DEBUG_RAYMARCH_SHADER_INDEX ={SIZE_MAX,SIZE_MAX};
 
 LinearDictionary<FullShaderHandle, FullShaderHandle> PlaceholderDepthPassLookup = {};
 
-PerSceneShadowResources  init_allocate_shadow_memory(rendererObjects initializedrenderer,  MemoryArena::memoryArena* allocationArena);
-VkDescriptorSet UpdateAndGetBindlessDescriptorSetForFrame(PerThreadRenderContext context, DescriptorDataForPipeline descriptorData, int currentFrame,  std::span<descriptorUpdates> updates);
-size_t UpdateDrawCommanddataDrawIndirectCommands(AssetManager* rendererData, uint32_t subpassOffset, std::span<drawCommandData> targetDrawCommandSpan,std::span<uint32_t> submeshIndexForDraw, std::span<uint32_t>subMeshFirstMeshletIndex, std::span<std::span<uint32_t>>meshIDtoFirstIndex, std::span<std::span<uint32_t>> meshIDtoIndexCount);
+PerSceneShadowResources init_allocate_shadow_memory(rendererObjects initializedrenderer,
+                                                    MemoryArena::memoryArena* allocationArena);
+VkDescriptorSet UpdateAndGetBindlessDescriptorSetForFrame(PerThreadRenderContext context,
+                                                          DescriptorDataForPipeline descriptorData, int currentFrame,
+                                                          std::span<descriptorUpdates> updates);
+size_t UpdateDrawCommanddataDrawIndirectCommands(AssetManager* rendererData,
+                                                 std::span<drawCommandData> targetDrawCommandSpan,
+                                                 std::span<uint32_t> submeshIndex,
+                                                 std::span<uint32_t> submeshFirstDrawIndex);
 
 VulkanRenderer::VulkanRenderer()
 {
@@ -884,23 +890,22 @@ void VulkanRenderer::updateBindingsComputeCulling(ActiveRenderStepData commandBu
 #pragma endregion
 
 #pragma region draw
-void RecordCommandBufferCulling(ActiveRenderStepData commandBufferContext, uint32_t currentFrame, ComputeCullListInfo pass,  VkBuffer indirectCommandsBuffer)
+void RecordCommandBufferCulling(ActiveRenderStepData commandBufferContext, ComputeCullListInfo pass,  VkBuffer indirectCommandsBuffer)
 {
 
     assert(commandBufferContext.commandBufferActive);
 
-    auto drawcount = pass.drawCount;
+    auto& drawCount = pass.drawCount;
 
     vkCmdPushConstants(commandBufferContext.commandBuffer,  pass.layout, VK_SHADER_STAGE_COMPUTE_BIT, 0,
                        pass.pushConstantInfo.size, pass.pushConstantInfo.ptr);
 
-    const uint32_t dispatch_x = drawcount != 0
-                                    ? 1 + static_cast<uint32_t>((drawcount - 1) / 16)
+    const uint32_t dispatch_x = drawCount != 0
+                                    ? 1 + static_cast<uint32_t>((drawCount - 1) / 16)
                                     : 1;
     vkCmdDispatch(commandBufferContext.commandBuffer, dispatch_x, 1, 1);
      
 
-    
     VkBufferMemoryBarrier2 barrier = bufferBarrier(indirectCommandsBuffer,
     VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
       VK_ACCESS_2_SHADER_WRITE_BIT,
@@ -1045,41 +1050,14 @@ void VulkanRenderer::RecordUtilityPasses( VkCommandBuffer commandBuffer, size_t 
 
 
 }
-std::vector<size_t> spanEnds = {};
+
 //This function maps all of our candidate draws to draw indirect buffers
 //We end up with the gpu mapped DrawCommands populated with a unique list of drawcommanddata for each object for each draw
 //I think I did it this way so I can easily set index count to zero later on to skip a draw
 //Would be better to only have one list of objects to draw?
 void RecordIndirectCommandBufferForPasses(Scene* scene, AssetManager* rendererData, MemoryArena::memoryArena* allocator, std::span<drawCommandData> drawCommands, std::span<RenderBatch> passes)
 {
-    //WIP
-    //So we still submit draws PER SUBMESH
-    //We 
-    std::span<std::span<uint32_t>> meshLetIDtoFirstIndex = MemoryArena::AllocSpan<std::span<uint32_t>>(allocator, rendererData->submeshCount);
-    std::span<std::span<uint32_t>> meshLetIDtoIndexCount = MemoryArena::AllocSpan<std::span<uint32_t>>(allocator, rendererData->submeshCount);
-    
-    size_t drawCount = VulkanRenderer::StaticCalculateTotalDrawCount(scene, rendererData->perSubmeshData.getSpan());
-    uint32_t indexCtoffset = 0;
 
-    
-    uint32_t meshletIndex = 0;
-    for(size_t i = 0; i < rendererData->perSubmeshData.size(); i++)
-    {
-        meshLetIDtoFirstIndex[i] = MemoryArena::AllocSpan<uint32_t>(allocator, rendererData->perSubmeshData[i].meshletOffsets.size());
-        meshLetIDtoIndexCount[i] = MemoryArena::AllocSpan<uint32_t>(allocator, rendererData->perSubmeshData[i].meshletOffsets.size());
-        for(size_t j = 0; j < rendererData->perSubmeshData[i].meshletOffsets.size(); j++)
-        {
-            auto indexCt = (uint32_t)rendererData->perSubmeshData[i].meshlets[j].indices.size();
-            meshLetIDtoFirstIndex[i][j] = indexCtoffset;
-            meshLetIDtoIndexCount[i][j] =indexCt;
-            indexCtoffset += indexCt;
-            // drawIndices[drawindex] = drawindex++;
-            meshletIndex++;
-        }
-    }
-
-
-  
     //indirect draw commands
     for(size_t i =0; i < passes.size(); i++)
     {
@@ -1088,11 +1066,11 @@ void RecordIndirectCommandBufferForPasses(Scene* scene, AssetManager* rendererDa
         for (int j = 0; j < _pass.perPipelinePasses.size(); j++)
         {
             auto pass = _pass.perPipelinePasses[j];
-            if (spanEnds.size() > 0)
-            {
-            }
-            UpdateDrawCommanddataDrawIndirectCommands(rendererData, pipelinePassOffset, drawCommands.subspan(pass.offset.firstMeshletIndex, pass.MeshletDrawCount), pass.sortedSubmeshIDs, pass.sortedSubmeshIDOffsets, meshLetIDtoFirstIndex, meshLetIDtoIndexCount);
-            pipelinePassOffset += (uint32_t)pass.MeshletDrawCount;
+            UpdateDrawCommanddataDrawIndirectCommands(rendererData, 
+                                                      drawCommands.subspan(
+                                                          pass.offset.firstDrawIndex, pass.drawCount),
+                                                      pass.sortedSubmeshes, pass.sortedfirstIndices);
+            pipelinePassOffset += (uint32_t)pass.drawCount;
         }
     }
 
@@ -1104,11 +1082,22 @@ void RecordPrimaryRenderPasses( std::span<RenderBatch> Batches, PipelineLayoutMa
 {
   
     uint32_t offset_into_struct = offsetof(drawCommandData, command);
-
+#if _DEBUG
+uint32_t meshpassDrawCountAccumulator = {};
+#endif 
     for(int j = 0; j < Batches.size(); j++)
     {
         auto passInfo = Batches[j];
-        RecordCommandBufferCulling(*passInfo.computeRenderStepContext, currentFrame, *passInfo.computeCullingInfo,indirectCommandsBuffer);
+#if _DEBUG
+        meshpassDrawCountAccumulator = 0;
+        for (auto& pass :  passInfo.perPipelinePasses)
+        {
+            meshpassDrawCountAccumulator += pass.drawCount;
+        }
+        assert(passInfo.computeCullingInfo->drawCount ==meshpassDrawCountAccumulator);
+#endif
+        
+        RecordCommandBufferCulling(*passInfo.computeRenderStepContext, *passInfo.computeCullingInfo,indirectCommandsBuffer);
     }
 
     for(int j = 0; j < Batches.size(); j++)
@@ -1151,8 +1140,7 @@ void RecordPrimaryRenderPasses( std::span<RenderBatch> Batches, PipelineLayoutMa
                 context->boundPipeline = pipeline;
             }
 
-            //todo js unsure
-            uint32_t offset_base =  meshPasses[i].offset.firstMeshletIndex  *  sizeof(drawCommandData);
+            uint32_t offset_base =  meshPasses[i].offset.firstDrawIndex  *  sizeof(drawCommandData);
             uint32_t drawIndirectOffset = offset_base + offset_into_struct;
     
             if (passInfo.pushConstantsSize > 0)
@@ -1161,7 +1149,7 @@ void RecordPrimaryRenderPasses( std::span<RenderBatch> Batches, PipelineLayoutMa
                                    passInfo.pushConstantsSize, passInfo.pushConstants);
             }
 
-            int meshct =  meshPasses[i].MeshletDrawCount;
+            int meshct =  meshPasses[i].drawCount;
         
             vkCmdDrawIndexedIndirect(context->commandBuffer,  indirectCommandsBuffer,drawIndirectOffset, meshct, sizeof(drawCommandData));
 
@@ -1328,9 +1316,7 @@ RenderBatchCreationConfig  CreateOpaquePassesConfig(uint32_t firstObject, std::s
     {
         shadowDrawCt += inputShadowdata[i].size();
     }
-    // assert(targetPassList->drawCount >= shadowDrawCt); //TODO JS-frustum-binding
 
-    
     if ( debug_cull_override && GetFlattenedShadowDataForIndex(debug_cull_override_index,inputShadowdata, data))
     {
         viewProjMatricesForCulling = { data->view,  data->proj};
@@ -1410,27 +1396,29 @@ std::span<RenderBatchCreationConfig> CreateShadowPassConfigs(uint32_t firstIndex
     return resultConfigs.getSpan();
 }
 
-size_t UpdateDrawCommanddataDrawIndirectCommands(AssetManager* rendererData, uint32_t subPassOffset, std::span<drawCommandData> targetDrawCommandSpan, std::span<uint32_t> submeshIndexForDraw, std::span<uint32_t> subMeshFirstMeshletIndex, std::span<std::span<uint32_t>>PerSubmeshMeshletIndexOffset, std::span<std::span<uint32_t>> PerSubmeshMeshletIndexCount)
+size_t UpdateDrawCommanddataDrawIndirectCommands(AssetManager* rendererData,
+                                                 std::span<drawCommandData> targetDrawCommandSpan,
+                                                 std::span<uint32_t> submeshIndex, //Objects are drawn out of order compared to the underlying submesh buffer
+                                                 std::span<uint32_t> submeshFirstDrawIndex //Draws are further out of order due to bucketing
+                                                 )
 {
     size_t drawCommandIndex = 0;
-    size_t meshletIndex =0;
-    for (size_t i = 0; i < submeshIndexForDraw.size(); i++)
+    for (size_t i = 0; i < submeshIndex.size(); i++)
     {
-        auto subMeshIndex = submeshIndexForDraw[i];
-        auto firstMeshlet = subMeshFirstMeshletIndex[i];
+        auto subMeshIndex = submeshIndex[i];
+        auto firstDraw = submeshFirstDrawIndex[i];
         for(int j =0; j < rendererData->perSubmeshData[subMeshIndex].meshlets.size(); j++)
         {
             targetDrawCommandSpan[drawCommandIndex++] = {
-                (uint32_t)firstMeshlet + j,
+                (uint32_t)firstDraw + j,
                 {
-                    .indexCount = PerSubmeshMeshletIndexCount[subMeshIndex][j],
+                    .indexCount = (uint32_t)rendererData->perSubmeshData[subMeshIndex].meshlets[j].indices.size(),
                     .instanceCount = 1,
-                    .firstIndex = (uint32_t)PerSubmeshMeshletIndexOffset[subMeshIndex][j],
+                    .firstIndex = (uint32_t)rendererData->perSubmeshData[subMeshIndex].meshletOffsets[j].index_start,
                     .vertexOffset = 0,
-                    .firstInstance = firstMeshlet + j,
+                    .firstInstance = firstDraw + j,
                 }
             };
-            meshletIndex++;
         }
     }
     return  targetDrawCommandSpan.size() ;
@@ -1453,7 +1441,7 @@ uint32_t GetNextFirstIndex(RenderBatchQueue* q)
         return 0;
     }
     auto& pass =  q->batchConfigs.back().perPipelinePasses.back();
-    return pass.offset.firstMeshletIndex + pass.MeshletDrawCount;
+    return pass.offset.firstDrawIndex + pass.drawCount;
 }
 
 VkCommandBuffer AllocateAndBeginCommandBuffer(VkDevice device, CommandPoolManager* poolManager)

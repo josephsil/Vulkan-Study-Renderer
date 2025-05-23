@@ -21,17 +21,18 @@ struct meshletIndexInfo
 
 struct drawCommandsPassOffset
 {
-    uint32_t firstMeshletIndex;
-    uint32_t firstSubmeshIndex;
+    uint32_t firstDrawIndex;
 };
 
 struct simpleMeshPassInfo
 {
     drawCommandsPassOffset offset;
-    uint32_t MeshletDrawCount;
+    uint32_t drawCount;
     FullShaderHandle shader;
-    std::span<uint32_t> sortedSubmeshIDs;
-    std::span<uint32_t>  sortedSubmeshIDOffsets; 
+        //Both of these are indexed into BY NUMBER OF SUBMESHES IN BATCH
+    
+    std::span<uint32_t> sortedSubmeshes;
+    std::span<uint32_t>  sortedfirstIndices; 
 };
 
 struct ComputeCullListInfo

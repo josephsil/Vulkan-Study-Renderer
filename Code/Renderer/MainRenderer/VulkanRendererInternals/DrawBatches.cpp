@@ -12,7 +12,7 @@
 struct pipelineBucket
 {
     uint32_t pipelineIDX;
-    Array<uint32_t> firstDrawForSubmesh; //todo js
+    Array<uint32_t> firstDrawIndices; //todo js
     Array<uint32_t> subMeshIndices; //todo js 
 };
 
@@ -41,18 +41,16 @@ std::span<RenderBatch> RenderBatchQueue::AddBatches(CommonRenderPassData* contex
 
 RenderBatch::RenderBatch(const char* name, CommonRenderPassData* context, RenderBatchCreationConfig passCreationConfig)
 {
-
-
-
+    
     //Culling override code
     uint32_t cullFrustumIndex = (passCreationConfig.drawOffset) * 6;
     if (debug_cull_override)
     {
         cullFrustumIndex =  debug_cull_override_index * 6;
     }
+    
     ///todo js MESHLET PERF: This is happening *per meshlet*, most only needs to happen *per submesh*
     //todo js I can reduce the number of materials back down to the real number, and use`subMeshMeshletInfo` to operate over spans of submeshct instead of meshletct
-    // printf("TODO: batch draws %d objects. \n This is a combination of issues -- need to compact, and need to treat meshlets differntly than submeshes to avoid passing around giant spans\n  ",   passCreationConfig.objectCount );
     //Configure frustum culling compute shader for this batch
     cullPConstants* cullconstants = MemoryArena::Alloc<cullPConstants>(context->tempAllocator);
     *cullconstants = {.view = passCreationConfig.cameraViewProjForCulling.view, .firstDraw = passCreationConfig.drawOffset, .frustumIndex = cullFrustumIndex, .objectCount = passCreationConfig.drawCount};
@@ -68,17 +66,15 @@ RenderBatch::RenderBatch(const char* name, CommonRenderPassData* context, Render
     
     ////Flatten buckets into simpleMeshPassInfos sorted by pipeline
     ///    //passes are bucketed by pipeline 
-    //initialize and fill pipeline buckets
     Array<pipelineBucket> batchedDrawBuckets = MemoryArena::AllocSpan<pipelineBucket>(context->tempAllocator, passCreationConfig.shadersSupportedByBatch.size());
     for (uint32_t i = 0; i <passCreationConfig.shadersSupportedByBatch.size(); i++)
     {
         //Prepare a bucket for each shader
-        //Note: not obvious to me why I did this this way, with the >= size 
         if (passCreationConfig.shadersSupportedByBatch[i].shader >= batchedDrawBuckets.size())
         {
             batchedDrawBuckets.push_back( {i, Array(MemoryArena::AllocSpan<uint32_t>(context->tempAllocator, MAX_DRAWS_PER_PIPELINE))});
             batchedDrawBuckets.back().subMeshIndices = MemoryArena::AllocSpan<uint32_t>(context->tempAllocator,  passCreationConfig.subMeshCount);
-            batchedDrawBuckets.back().firstDrawForSubmesh = MemoryArena::AllocSpan<uint32_t>(context->tempAllocator,  passCreationConfig.subMeshCount);
+            batchedDrawBuckets.back().firstDrawIndices = MemoryArena::AllocSpan<uint32_t>(context->tempAllocator,  passCreationConfig.subMeshCount);
         }
     }
     
@@ -92,7 +88,7 @@ RenderBatch::RenderBatch(const char* name, CommonRenderPassData* context, Render
             uint32_t shaderGroupIndex = context->assetDataPtr->materials[context->scenePtr->objects.subMeshMaterials[i][j]].shaderGroupIndex; 
             uint32_t pipelineIndex = (uint32_t)passCreationConfig.shadersSupportedByBatch[shaderGroupIndex].shader;
             batchedDrawBuckets[pipelineIndex].subMeshIndices.push_back( context->scenePtr->allSubmeshes[submeshIndex]);
-            batchedDrawBuckets[pipelineIndex].firstDrawForSubmesh.push_back(meshletIndex);
+            batchedDrawBuckets[pipelineIndex].firstDrawIndices.push_back(meshletIndex);
             meshletIndex += (uint32_t)context->assetDataPtr->perSubmeshData[context->scenePtr->allSubmeshes[submeshIndex]].meshlets.size();
             submeshIndex++;
         }
@@ -105,7 +101,7 @@ RenderBatch::RenderBatch(const char* name, CommonRenderPassData* context, Render
     for (size_t i = 0; i < batchedDrawBuckets.size(); i++)
     {
         auto bucketedBatch =  batchedDrawBuckets[i];
-        if (bucketedBatch.firstDrawForSubmesh.size() == 0)
+        if (bucketedBatch.firstDrawIndices.size() == 0)
         {
             continue;
         }
@@ -118,10 +114,14 @@ RenderBatch::RenderBatch(const char* name, CommonRenderPassData* context, Render
         }
 
         drawCommandsPassOffset offset = {
-            .firstMeshletIndex = drawOffset,
-            .firstSubmeshIndex = 0, //unused?
+            .firstDrawIndex = drawOffset,
         };
-        outputMeshPasses.push_back({ .offset =  offset, .MeshletDrawCount = meshletDrawsInBatch,  .shader = shaderID, .sortedSubmeshIDs =  bucketedBatch.subMeshIndices.getSpan(), .sortedSubmeshIDOffsets =  bucketedBatch.firstDrawForSubmesh.getSpan()});
+        outputMeshPasses.push_back({
+            .offset = offset, .drawCount = meshletDrawsInBatch,
+            .shader = shaderID,
+            .sortedSubmeshes = bucketedBatch.subMeshIndices.getSpan(),
+            .sortedfirstIndices = bucketedBatch.firstDrawIndices.getSpan()
+        });
 
         drawOffset += meshletDrawsInBatch;
     }

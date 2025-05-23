@@ -108,15 +108,16 @@ textureSetIDs AssetManager::AddTextureSet(TextureData D, TextureData S, TextureD
 
 ID::SubMeshID AssetManager::AddMesh(std::span<MeshData> SubmeshMeshlets)
 {
-    auto lastOffset = (perSubmeshData.size() > 0)? perSubmeshData.back().meshletOffsets.back() : offsetData{0, 0};
+
     Array offsets = MemoryArena::AllocSpan<offsetData>(&allocator, SubmeshMeshlets.size());
     Array meshDatas = MemoryArena::AllocSpan<MeshData>(&allocator, SubmeshMeshlets.size());
     Array boundingInfo = MemoryArena::AllocSpan<positionRadius>(&allocator, SubmeshMeshlets.size());
+
     for(int i =0; i < SubmeshMeshlets.size(); i++)
     {
         auto& M = SubmeshMeshlets[i];
         meshDatas.push_back(M);
-        offsets.push_back({lastOffset.index_start + M.indices.size(), lastOffset.vertex_start + M.vertices.size(), meshletCount++});
+        offsets.push_back({vertexCount, indexCount, meshletCount++});
         boundingInfo.push_back(MeshDataCreation::boundingSphereFromMeshBounds(M.boundsCorners));
         meshletCount++;
         indexCount +=  M.indices.size();
