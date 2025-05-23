@@ -488,9 +488,7 @@ GltfData GltfLoadMeshes(PerThreadRenderContext handles, const char* gltfpath)
     {
         setCursor(tempArena);
         size_t submeshCt = model.meshes[i].primitives.size();
-        auto subMeshesStart = permanentArena->head;
-        Array<std::span<MeshData>> submeshes = MemoryArena::AllocSpan<std::span<MeshData>>(permanentArena, submeshCt); 
-        auto subMeshMatsStart = permanentArena->head;
+        Array<MeshData2> submeshes = MemoryArena::AllocSpan<MeshData2>(permanentArena, submeshCt); 
         Array<uint32_t> submeshMats = MemoryArena::AllocSpan<uint32_t>(tempArena, submeshCt); 
     
          meshletIndexInfos[i] = MemoryArena::AllocSpan<meshletIndexInfo>(permanentArena, submeshCt);
@@ -502,41 +500,37 @@ GltfData GltfLoadMeshes(PerThreadRenderContext handles, const char* gltfpath)
             auto tempMeshresult = MeshDataCreation::FinalizeMeshDataFromTempMesh(tempArena, tempArena, tempMesh);
             submeshMats.push_back(model.meshes[i].primitives[j].material);
 
-            auto meshlets = MeshOptimizer::RunMeshOptimizer(tempArena, tempMeshresult);
-            meshletIndexInfos[i][j] = {submeshes.ct, meshlets.size()}; 
+            MeshData2 meshOptimizedMesh = MeshOptimizer::RunMeshOptimizer(tempArena, tempMeshresult);
+            meshletIndexInfos[i][j] = {submeshes.ct, meshOptimizedMesh.meshletsIndices.size()}; 
             
-            submeshes.push_back(meshlets);
+            submeshes.push_back(meshOptimizedMesh);
          
-            assert(model.meshes[i].primitives[j].material != -1 && "-1 Material index (no material) not supported. TODO.");
+            assert(model.meshes[i].primitives[j].material != -1 ); //&& "-1 Material index (no material) not supported. TODO."
             //TODO JS
         }
         //copy everything to permanent memory
         for(size_t j = 0; j < submeshes.size(); j++)
         {
-            submeshes[j] =  MemoryArena::copySpan(permanentArena, submeshes[j]);
-        for(size_t k = 0; k < submeshes[j].size(); k++)
+            submeshes[j].meshletsIndices =  MemoryArena::copySpan(permanentArena,    submeshes[j].meshletsIndices);
+            submeshes[j].vertices =   MemoryArena::copySpan(permanentArena,    submeshes[j].vertices);
+            submeshes[j].meshletVertexOffsets =   MemoryArena::copySpan(permanentArena,    submeshes[j].meshletVertexOffsets);
+            
+        for(size_t k = 0; k < submeshes[j].meshletsIndices.size(); k++)
         {
-            submeshes[j][k].indices =  MemoryArena::copySpan(permanentArena, submeshes[j][k].indices);
+            submeshes[j].meshletsIndices[k] =  MemoryArena::copySpan(permanentArena,    submeshes[j].meshletsIndices[k]);
         }
         }
+       
         for(size_t j = 0; j < submeshes.size(); j++)
         {
-        for(size_t k = 0; k < submeshes[j].size(); k++)
+            submeshes[j].meshletBounds =  MemoryArena::copySpan(permanentArena, submeshes[j].meshletBounds);
+        for(size_t k = 0; k < submeshes[j].meshletBounds.size(); k++)
         {
         
-            submeshes[j][k].vertices =  MemoryArena::copySpan(permanentArena, submeshes[j][k].vertices);
+            submeshes[j].meshletBounds[k] =  MemoryArena::copySpan(permanentArena, submeshes[j].meshletBounds[k]);
         }
         }
-        for(size_t j = 0; j < submeshes.size(); j++)
-        {
-        for(size_t k = 0; k < submeshes[j].size(); k++)
-        {
         
-            submeshes[j][k].boundsCorners =  MemoryArena::copySpan(permanentArena, submeshes[j][k].boundsCorners);
-        }
-        }
-
-      
         importedMeshes[i].submeshes =   MemoryArena::copySpan(permanentArena,   submeshes.getSpan());
         importedMeshes[i].submeshMaterialIndices = MemoryArena::copySpan(permanentArena,   submeshMats.getSpan());
         freeToCursor(tempArena);

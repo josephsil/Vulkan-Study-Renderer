@@ -115,25 +115,25 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
     placeholderMatidx = rendererData->AddMaterial(0.2f, 0, glm::vec3(1.0f), placeholderTextureidx, 1);
     randomMaterials.push_back(placeholderMatidx);
     
-    randomMeshes.push_back(rendererData->AddMultiSubmeshMeshMesh(gltf.meshes[0].submeshes));
+    randomMeshes.push_back(rendererData->AddMultiSubmeshMeshMesh2(gltf.meshes[0].submeshes));
     auto _cubesphere = GltfLoadMeshes(rendererContext, "Meshes/cubesphere.glb");
-    randomMeshes.push_back(rendererData->AddMultiSubmeshMeshMesh(_cubesphere.meshes[0].submeshes));
+    randomMeshes.push_back(rendererData->AddMultiSubmeshMeshMesh2(_cubesphere.meshes[0].submeshes));
     
     auto monkeyMesh = MeshDataCreation::MeshDataFromObjFile(rendererContext, "Meshes/monkey.obj");
     
     auto meshLetMonkey =  MeshOptimizer::RunMeshOptimizer(rendererContext.arena, monkeyMesh);
     auto meshletMonkeyMeshletInfo = MemoryArena::AllocSpan<meshletIndexInfo>(rendererContext.arena, 1);
-    meshletMonkeyMeshletInfo[0] = {0, meshLetMonkey.size()};
-    randomMeshes.push_back(rendererData->AddMultiSubmeshMeshMesh({&meshLetMonkey, 1}));
+    meshletMonkeyMeshletInfo[0] = {0, meshLetMonkey.meshletsIndices.size()};
+    randomMeshes.push_back(rendererData->AddMultiSubmeshMeshMesh2({&meshLetMonkey, 1}));
     auto _cube =GltfLoadMeshes(rendererContext, "Meshes/cube.glb");
-    ID::SubMeshID cube = rendererData->AddMultiSubmeshMeshMesh(_cube.meshes[0].submeshes);
+    ID::SubMeshID cube = rendererData->AddMultiSubmeshMeshMesh2(_cube.meshes[0].submeshes);
     
     //direciton light
     
     
     glm::vec3 EulerAngles(0, 0, 0);
     auto MyQuaternion = glm::quat(EulerAngles);
-
+    
     auto root = scene->AddObject(
         rendererData->subMeshGroups[randomMeshes[rand() % randomMeshes.size()]].getSpan(), MemoryArena::AllocSpanEmplaceInitialize<uint32_t>(rendererContext.arena, 1, (uint32_t) (uint32_t)randomMaterials[1]), glm::vec4(0, 0, 0, 0) * 1.2f, MyQuaternion,
         glm::vec3(0.5));

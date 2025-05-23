@@ -7,6 +7,7 @@
 #include "Renderer/TextureCreation/TextureData.h"
 #include "Renderer/AssetManagerTypes.h"
 #include "Renderer/MainRenderer/rendererStructs.h"
+struct MeshData2;
 //
 struct MeshData;
 struct positionRadius;
@@ -33,7 +34,7 @@ struct offsetData
 struct PerSubmeshData
 {
    
-    std::span<MeshData> meshlets;
+    MeshData2* mesh;
     std::span<offsetData> meshletOffsets;
     std::span<positionRadius> boundingInfo;
 };
@@ -108,7 +109,9 @@ public:
     ID::TextureID AddTexture(TextureData T);
     textureSetIDs AddTextureSet(TextureData D, TextureData S, TextureData N);
     ID::SubMeshID AddMesh(std::span<MeshData> SubmeshMeshlets);
+    ID::SubMeshID AddMesh2(MeshData2 SubmeshMeshlets);
     ID::SubMeshGroupID AddMultiSubmeshMeshMesh(std::span<std::span<MeshData>> Submeshes);
+    ID::SubMeshGroupID AddMultiSubmeshMeshMesh2(std::span<MeshData2> Submeshes);
     
     void Update();
     void Cleanup();

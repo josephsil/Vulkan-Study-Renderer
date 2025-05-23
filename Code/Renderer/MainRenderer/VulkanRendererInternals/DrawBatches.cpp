@@ -4,6 +4,7 @@
 #include "Renderer/gpu-data-structs.h"
 #include "Renderer/RendererInterface.h"
 #include "Renderer/MainRenderer/VulkanRenderer.h"
+#include "Renderer/MeshCreation/meshData.h"
 #include "Scene/AssetManager.h"
 #include "Scene/Scene.h"
 
@@ -89,7 +90,7 @@ RenderBatch::RenderBatch(const char* name, CommonRenderPassData* context, Render
             uint32_t pipelineIndex = (uint32_t)passCreationConfig.shadersSupportedByBatch[shaderGroupIndex].shader;
             batchedDrawBuckets[pipelineIndex].subMeshIndices.push_back( context->scenePtr->allSubmeshes[submeshIndex]);
             batchedDrawBuckets[pipelineIndex].firstDrawIndices.push_back(meshletIndex);
-            meshletIndex += (uint32_t)context->assetDataPtr->perSubmeshData[context->scenePtr->allSubmeshes[submeshIndex]].meshlets.size();
+            meshletIndex += (uint32_t)context->assetDataPtr->perSubmeshData[context->scenePtr->allSubmeshes[submeshIndex]].mesh->meshletsIndices.size();
             submeshIndex++;
         }
     }
@@ -110,7 +111,7 @@ RenderBatch::RenderBatch(const char* name, CommonRenderPassData* context, Render
         for (auto& submesh : bucketedBatch.subMeshIndices.getSpan())
         {
             //TODO JS MESHLETS
-            meshletDrawsInBatch += (uint32_t)context->assetDataPtr->perSubmeshData[submesh].meshlets.size();
+            meshletDrawsInBatch += (uint32_t)context->assetDataPtr->perSubmeshData[submesh].mesh->meshletsIndices.size();
         }
 
         drawCommandsPassOffset offset = {

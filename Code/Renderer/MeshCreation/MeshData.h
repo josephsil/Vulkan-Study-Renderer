@@ -28,11 +28,19 @@ struct temporaryloadingMesh
     bool tangentsLoaded = false;
 };
 
+struct MeshData2
+{
+    std::span<Vertex> vertices;
+    std::span<std::span<uint8_t>> meshletsIndices;
+    std::span<uint32_t> meshletVertexOffsets; //
+    std::span<std::span<glm::vec3>> meshletBounds;
+};
+
 struct MeshData
 {
     std::span<Vertex> vertices;
-    std::span<uint32_t> indices;
-    std::span<glm::vec3> boundsCorners;
+   std::span<uint32_t>indices;
+   std::span<glm::vec3> boundsCorners;
 };
 
 namespace MeshDataCreation
