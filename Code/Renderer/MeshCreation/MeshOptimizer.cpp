@@ -2,6 +2,7 @@
 
 #include "meshData.h"
 #include "General/Algorithms.h"
+#include "General/Array.h"
 #include "General/MemoryArena.h"
 #include "meshoptimizer/src/meshoptimizer.h"
 #include "Renderer/rendererGlobals.h"
@@ -38,6 +39,7 @@ MeshData MeshOptimizer::RunMeshOptimizer(ArenaAllocator arena, preMeshletMesh in
     auto outputIndices = MemoryArena::AllocSpan<uint8_t>(arena, meshlet_triangles.size());
     
     auto outputVertexOffsets  =  MemoryArena::AllocSpan<uint32_t>(arena, meshlets.size());
+    uint32_t indexCount = 0;
     for(size_t i = 0; i < meshlets.size(); i++)
     {
         //TODO WIP: For now meshlets (and all other submeshes) have uniue geometry
@@ -57,15 +59,29 @@ MeshData MeshOptimizer::RunMeshOptimizer(ArenaAllocator arena, preMeshletMesh in
         outputBoundsForMeshlets[i] = boundsCorners;
         outputIndicesForMeshlets[i] = outputMeshletIndices;
         outputVertexOffsets[i] = meshlet.vertex_offset;
+        indexCount += (uint32_t)outputMeshletIndices.size();
 
     }
     CopySpanRemappedSRC(input.vertices, outputVertices, std::span(meshlet_vertices.begin(), meshlet_vertices.size()));
+    Array _outputIndices = MemoryArena::AllocSpan<uint8_t>(arena, indexCount);
+    Array _outputIndexCounts = MemoryArena::AllocSpan<uint32_t>(arena, meshlets.size());
+    int idx = 0;
+    for (auto& meshlet : outputIndicesForMeshlets)
+    {
+        for(int i = 0 ; i < meshlet.size(); i++)
+        {
+            _outputIndices.push_back(meshlet[i]);
+        }
+        _outputIndexCounts.push_back((uint32_t)meshlet.size());
+        
+    }
     // outputVertices = input.vertices;
     // FillIndicesAsdencing(outputIndices);
     return
             MeshData{
         .vertices =outputVertices,
-            .meshletsIndices = outputIndicesForMeshlets,
+            .meshletsIndices = _outputIndices.getSpan(),
+                .indexCounts = _outputIndexCounts.getSpan(),
                 .meshletVertexOffsets = outputVertexOffsets,
             .meshletBounds = outputBoundsForMeshlets,
                 .meshletCount = (uint32_t)outputBoundsForMeshlets.size()

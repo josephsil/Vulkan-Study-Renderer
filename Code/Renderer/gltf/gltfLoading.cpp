@@ -514,11 +514,8 @@ GltfData GltfLoadMeshes(PerThreadRenderContext handles, const char* gltfpath)
             submeshes[j].meshletsIndices =  MemoryArena::copySpan(permanentArena,    submeshes[j].meshletsIndices);
             submeshes[j].vertices =   MemoryArena::copySpan(permanentArena,    submeshes[j].vertices);
             submeshes[j].meshletVertexOffsets =   MemoryArena::copySpan(permanentArena,    submeshes[j].meshletVertexOffsets);
+            submeshes[j].indexCounts =   MemoryArena::copySpan(permanentArena,    submeshes[j].indexCounts);
             
-        for(size_t k = 0; k < submeshes[j].meshletCount; k++)
-        {
-            submeshes[j].meshletsIndices[k] =  MemoryArena::copySpan(permanentArena,    submeshes[j].meshletsIndices[k]);
-        }
         }
        
         for(size_t j = 0; j < submeshes.size(); j++)

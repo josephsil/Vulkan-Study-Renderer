@@ -31,7 +31,8 @@ struct temporaryloadingMesh
 struct MeshData
 {
     std::span<Vertex> vertices;
-    std::span<std::span<uint8_t>> meshletsIndices;
+    std::span<uint8_t> meshletsIndices;
+    std::span<uint32_t> indexCounts;
     std::span<uint32_t> meshletVertexOffsets; //Redundant to PersubmeshData offset -- used to construct it, need to get rid of this
     std::span<std::span<glm::vec3>> meshletBounds; //Redundant to PersubmeshData bounds  -- used to construct it, need to get rid of this
     uint32_t meshletCount;

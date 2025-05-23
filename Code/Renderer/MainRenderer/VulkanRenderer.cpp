@@ -388,15 +388,11 @@ void VulkanRenderer::PopulateMeshBuffers()
     {
         auto& submesh = AssetDataAndMemory->perSubmeshData[i];
             auto& mesh =submesh.mesh;
-        for(uint32_t j = 0; j < mesh->meshletCount; j++)
+        for(uint32_t j = 0; j < mesh->meshletsIndices.size(); j++)
         {
-            auto& indices =  submesh.mesh->meshletsIndices[j];
-            for (int k = 0; k < indices.size(); k++)
-            {
-         
-                Indices[vert++]  = indices[k] ;
+   
+            Indices[vert++]  = static_cast<uint32_t>(submesh.mesh->meshletsIndices[j]) ;
 
-            }
         }
         for(int k =0; k < mesh->vertices.size(); k++)
         {
@@ -1413,10 +1409,10 @@ size_t UpdateDrawCommanddataDrawIndirectCommands(AssetManager* rendererData,
             targetDrawCommandSpan[drawCommandIndex++] = {
                 (uint32_t)firstDraw + j,
                 {
-                    .indexCount = (uint32_t)rendererData->perSubmeshData[subMeshIndex].mesh->meshletsIndices[j].size(),
+                    .indexCount = (uint32_t)rendererData->perSubmeshData[subMeshIndex].mesh->indexCounts[j],
                     .instanceCount = 1,
                     .firstIndex = (uint32_t)rendererData->perSubmeshData[subMeshIndex].meshletOffsets[j].meshletIndexOffset,
-                    .vertexOffset = (int32_t)rendererData->perSubmeshData[subMeshIndex].meshletOffsets[j].meshletVertexOffset + (int32_t)rendererData->perSubmeshData[subMeshIndex].MeshVertexOffset,
+                    .vertexOffset = (int32_t)rendererData->perSubmeshData[subMeshIndex].meshletOffsets[j].meshletVertexOffset ,
                     .firstInstance = firstDraw + j,
                 }
             };

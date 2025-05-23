@@ -66,16 +66,8 @@ uint32_t AssetManager::getOffsetFromMeshID(int submesh, int meshlet)
 
 uint32_t AssetManager::getIndexCount()
 {
-    uint32_t indexcount = 0;
-    for (uint32_t i = 0; i < submeshCount; i++)
-    {
-    for(size_t j = 0; j < perSubmeshData[i].mesh->meshletCount; j++)
-       {
-       
-        indexcount += static_cast<uint32_t>( perSubmeshData[i].mesh->meshletsIndices[j].size());
-    }
-    }
-    return indexcount;
+    return (uint32_t)indexCount;
+    
 }
 
 uint32_t AssetManager::getVertexCount()
@@ -116,8 +108,8 @@ ID::SubMeshID AssetManager::AddMesh2(MeshData SubmeshMeshlets)
         for(uint32_t j = 0; j <SubmeshMeshlets.meshletCount; j++)
         {
         boundingInfo.push_back(MeshDataCreation::boundingSphereFromMeshBounds(SubmeshMeshlets.meshletBounds[j]));
-        offsets.push_back({SubmeshMeshlets.meshletVertexOffsets[j], indexCount, meshletCount++});
-        indexCount +=  SubmeshMeshlets.meshletsIndices[j].size();
+        offsets.push_back({SubmeshMeshlets.meshletVertexOffsets[j] + vertexCount, indexCount, meshletCount++});
+        indexCount +=  SubmeshMeshlets.indexCounts[j];
       
         }
  
@@ -127,7 +119,6 @@ ID::SubMeshID AssetManager::AddMesh2(MeshData SubmeshMeshlets)
           .mesh = MemoryArena::AllocCopy(&allocator, SubmeshMeshlets),
           .meshletOffsets = offsets.getSpan(),
           .boundingInfo = boundingInfo.getSpan(),
-          .MeshVertexOffset =  (uint32_t)vertexCount
           };
     vertexCount +=SubmeshMeshlets.vertices.size();
     return submeshCount++;

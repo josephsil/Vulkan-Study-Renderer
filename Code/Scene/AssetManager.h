@@ -27,7 +27,7 @@ struct textureSetIDs
 //todo js to remove
 struct offsetData
 {
-    size_t meshletVertexOffset; //Offset for this meshlet within the mesh's vertex buffer
+    size_t meshletVertexOffset; //Offset for this meshlet's verts within the global vertex buffer
     size_t meshletIndexOffset;//Offset for this meshlet within the global index buffer
     size_t first_meshlet_mesh_index;//ID for the object
 };
@@ -37,7 +37,6 @@ struct PerSubmeshData
     MeshData* mesh;
     std::span<offsetData> meshletOffsets;
     std::span<positionRadius> boundingInfo; //
-    uint32_t MeshVertexOffset; //Offset for the start of this mesh's vertex buffer
 };
 
 //Objects have like, transformation info, ref to their mesh, ref to their material
