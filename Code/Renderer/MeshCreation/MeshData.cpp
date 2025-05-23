@@ -12,17 +12,17 @@
 int MESHID = 0;
 
 
-MeshData MeshDataCreation::MeshDataFromSpans(std::span<Vertex> vertices,
+preMeshletMesh MeshDataCreation::MeshDataFromSpans(std::span<Vertex> vertices,
                            std::span<uint32_t> indices)
 {
-    MeshData m = {};
+    preMeshletMesh m = {};
     m.vertices = vertices;
     m.indices = indices;
     return m;
 }
 
 //TODO JS: not sure what the interface should be like, but playing with this idea of a temporary/scratch mesh and then a final mesh
-MeshData MeshDataCreation::FinalizeMeshDataFromTempMesh(MemoryArena::memoryArena* outputArena, MemoryArena::memoryArena* tempArena,
+preMeshletMesh MeshDataCreation::FinalizeMeshDataFromTempMesh(MemoryArena::memoryArena* outputArena, MemoryArena::memoryArena* tempArena,
                                       temporaryloadingMesh tempMesh)
 {
     //Generate MikkT tangents
@@ -85,7 +85,7 @@ MeshData MeshDataCreation::FinalizeMeshDataFromTempMesh(MemoryArena::memoryArena
 
     //TODO: Dedupe verts
 
-    MeshData m = {};
+    preMeshletMesh m = {};
     //Copy data
     m.vertices = copySpan(outputArena, tempMesh.vertices);
     m.indices = copySpan(outputArena, tempMesh.indices);
@@ -181,13 +181,13 @@ temporaryloadingMesh geoFromObjPath(MemoryArena::memoryArena* tempArena, const c
     return {_vertices.getSpan(), _indices.getSpan(), false};
 }
 
-MeshData MeshDataCreation::MeshDataFromObjFile(PerThreadRenderContext rendererHandles, const char* path)
+preMeshletMesh MeshDataCreation::MeshDataFromObjFile(PerThreadRenderContext rendererHandles, const char* path)
 {
     setCursor(rendererHandles.tempArena);
     const char* ext = strrchr(path, '.');
     assert(strcmp(ext, ".obj") == 0);
     temporaryloadingMesh geo = geoFromObjPath(rendererHandles.tempArena, path);
-    MeshData mesh = FinalizeMeshDataFromTempMesh(rendererHandles.arena, rendererHandles.tempArena, geo);
+    preMeshletMesh mesh = FinalizeMeshDataFromTempMesh(rendererHandles.arena, rendererHandles.tempArena, geo);
     freeToCursor(rendererHandles.tempArena);
     return mesh;
 }

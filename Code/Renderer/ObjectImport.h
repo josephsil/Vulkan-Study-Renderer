@@ -7,13 +7,13 @@
 #include "MainRenderer/rendererStructs.h"
 
 
-struct MeshData2;
+struct MeshData;
 struct TextureData;
 class AssetManager;
 struct Scene;
 
 
-struct MeshData;
+struct preMeshletMesh;
 
 namespace ObjectImport
 {
@@ -56,7 +56,7 @@ namespace ObjectImport
     
     struct Mesh
     {
-        std::span<MeshData2> submeshes;
+        std::span<MeshData> submeshes;
         std::span<uint32_t> submeshMaterialIndices;
     };
 

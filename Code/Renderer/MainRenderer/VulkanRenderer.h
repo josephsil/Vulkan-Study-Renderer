@@ -21,7 +21,7 @@
 struct gpulight;
 struct gpuvertex;
 struct PerShadowData;
-struct MeshData; //Forward Declaration
+struct preMeshletMesh; //Forward Declaration
 struct Vertex; //Forward Declaration
 using VmaAllocator = struct VmaAllocator_T*;
 struct SDL_Window;

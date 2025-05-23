@@ -488,7 +488,7 @@ GltfData GltfLoadMeshes(PerThreadRenderContext handles, const char* gltfpath)
     {
         setCursor(tempArena);
         size_t submeshCt = model.meshes[i].primitives.size();
-        Array<MeshData2> submeshes = MemoryArena::AllocSpan<MeshData2>(permanentArena, submeshCt); 
+        Array<MeshData> submeshes = MemoryArena::AllocSpan<MeshData>(permanentArena, submeshCt); 
         Array<uint32_t> submeshMats = MemoryArena::AllocSpan<uint32_t>(tempArena, submeshCt); 
     
          meshletIndexInfos[i] = MemoryArena::AllocSpan<meshletIndexInfo>(permanentArena, submeshCt);
@@ -500,8 +500,8 @@ GltfData GltfLoadMeshes(PerThreadRenderContext handles, const char* gltfpath)
             auto tempMeshresult = MeshDataCreation::FinalizeMeshDataFromTempMesh(tempArena, tempArena, tempMesh);
             submeshMats.push_back(model.meshes[i].primitives[j].material);
 
-            MeshData2 meshOptimizedMesh = MeshOptimizer::RunMeshOptimizer(tempArena, tempMeshresult);
-            meshletIndexInfos[i][j] = {submeshes.ct, meshOptimizedMesh.meshletsIndices.size()}; 
+            MeshData meshOptimizedMesh = MeshOptimizer::RunMeshOptimizer(tempArena, tempMeshresult);
+            meshletIndexInfos[i][j] = {submeshes.ct, meshOptimizedMesh.meshletCount}; 
             
             submeshes.push_back(meshOptimizedMesh);
          
@@ -515,7 +515,7 @@ GltfData GltfLoadMeshes(PerThreadRenderContext handles, const char* gltfpath)
             submeshes[j].vertices =   MemoryArena::copySpan(permanentArena,    submeshes[j].vertices);
             submeshes[j].meshletVertexOffsets =   MemoryArena::copySpan(permanentArena,    submeshes[j].meshletVertexOffsets);
             
-        for(size_t k = 0; k < submeshes[j].meshletsIndices.size(); k++)
+        for(size_t k = 0; k < submeshes[j].meshletCount; k++)
         {
             submeshes[j].meshletsIndices[k] =  MemoryArena::copySpan(permanentArena,    submeshes[j].meshletsIndices[k]);
         }

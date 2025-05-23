@@ -7,9 +7,9 @@
 #include "Renderer/TextureCreation/TextureData.h"
 #include "Renderer/AssetManagerTypes.h"
 #include "Renderer/MainRenderer/rendererStructs.h"
-struct MeshData2;
-//
 struct MeshData;
+//
+struct preMeshletMesh;
 struct positionRadius;
 
 namespace MemoryArena
@@ -27,22 +27,23 @@ struct textureSetIDs
 //todo js to remove
 struct offsetData
 {
-    size_t vertex_start;//vertex buffer
-    size_t index_start;//index bufer
+    size_t meshletVertexOffset; //Offset for this meshlet within the mesh's vertex buffer
+    size_t meshletIndexOffset;//Offset for this meshlet within the global index buffer
     size_t first_meshlet_mesh_index;//ID for the object
 };
 struct PerSubmeshData
 {
    
-    MeshData2* mesh;
+    MeshData* mesh;
     std::span<offsetData> meshletOffsets;
-    std::span<positionRadius> boundingInfo;
+    std::span<positionRadius> boundingInfo; //
+    uint32_t MeshVertexOffset; //Offset for the start of this mesh's vertex buffer
 };
 
 //Objects have like, transformation info, ref to their mesh, ref to their material
 //Not sure on ref to material. Really I only have one shader right now
 struct TextureMetaData;
-struct MeshData;
+struct preMeshletMesh;
 struct VkDescriptorImageInfo;
 class AssetManager
 {
@@ -108,10 +109,10 @@ public:
     //TODO JS: these are temporary
     ID::TextureID AddTexture(TextureData T);
     textureSetIDs AddTextureSet(TextureData D, TextureData S, TextureData N);
-    ID::SubMeshID AddMesh(std::span<MeshData> SubmeshMeshlets);
-    ID::SubMeshID AddMesh2(MeshData2 SubmeshMeshlets);
-    ID::SubMeshGroupID AddMultiSubmeshMeshMesh(std::span<std::span<MeshData>> Submeshes);
-    ID::SubMeshGroupID AddMultiSubmeshMeshMesh2(std::span<MeshData2> Submeshes);
+    ID::SubMeshID AddMesh(std::span<preMeshletMesh> SubmeshMeshlets);
+    ID::SubMeshID AddMesh2(MeshData SubmeshMeshlets);
+    ID::SubMeshGroupID AddMultiSubmeshMeshMesh(std::span<std::span<preMeshletMesh>> Submeshes);
+    ID::SubMeshGroupID AddMultiSubmeshMeshMesh2(std::span<MeshData> Submeshes);
     
     void Update();
     void Cleanup();

@@ -388,13 +388,13 @@ void VulkanRenderer::PopulateMeshBuffers()
     {
         auto& submesh = AssetDataAndMemory->perSubmeshData[i];
             auto& mesh =submesh.mesh;
-        for(int j = 0; j < mesh->meshletsIndices.size(); j++)
+        for(uint32_t j = 0; j < mesh->meshletCount; j++)
         {
             auto& indices =  submesh.mesh->meshletsIndices[j];
             for (int k = 0; k < indices.size(); k++)
             {
          
-                Indices[vert++]  = indices[k] + meshoffset;
+                Indices[vert++]  = indices[k] ;
 
             }
         }
@@ -621,7 +621,7 @@ uint32_t VulkanRenderer::StaticCalculateTotalDrawCount(Scene* scene, std::span<P
     uint32_t meshletCt = 0;
     for (auto& submeshIndex : scene->allSubmeshes.getSpan())
     {
-        meshletCt += (uint32_t)submeshData[submeshIndex].mesh->meshletsIndices.size();
+        meshletCt += (uint32_t)submeshData[submeshIndex].mesh->meshletCount;
     }
     return meshletCt;
 }
@@ -756,7 +756,7 @@ void VulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<std::spa
             uint32_t submeshIndex =scene->objects.subMeshes[objectIndex][subMeshIndex];
             auto& submeshdata = AssetDataAndMemory->perSubmeshData[submeshIndex];
             Material material = AssetDataAndMemory->materials[scene->objects.subMeshMaterials[objectIndex][subMeshIndex]];
-            for(uint32_t meshletIndex = 0; meshletIndex <  submeshdata.mesh->meshletsIndices.size(); meshletIndex++)
+            for(uint32_t meshletIndex = 0; meshletIndex <  submeshdata.mesh->meshletCount; meshletIndex++)
             {
            
                 // int i = drawIndices[j];
@@ -1408,15 +1408,15 @@ size_t UpdateDrawCommanddataDrawIndirectCommands(AssetManager* rendererData,
     {
         auto subMeshIndex = submeshIndex[i];
         auto firstDraw = submeshFirstDrawIndex[i];
-        for(int j =0; j < rendererData->perSubmeshData[subMeshIndex].mesh->meshletsIndices.size(); j++)
+        for(uint32_t j =0; j < rendererData->perSubmeshData[subMeshIndex].mesh->meshletCount; j++)
         {
             targetDrawCommandSpan[drawCommandIndex++] = {
                 (uint32_t)firstDraw + j,
                 {
                     .indexCount = (uint32_t)rendererData->perSubmeshData[subMeshIndex].mesh->meshletsIndices[j].size(),
                     .instanceCount = 1,
-                    .firstIndex = (uint32_t)rendererData->perSubmeshData[subMeshIndex].meshletOffsets[j].index_start,
-                    .vertexOffset = (int32_t)rendererData->perSubmeshData[subMeshIndex].meshletOffsets[j].vertex_start,
+                    .firstIndex = (uint32_t)rendererData->perSubmeshData[subMeshIndex].meshletOffsets[j].meshletIndexOffset,
+                    .vertexOffset = (int32_t)rendererData->perSubmeshData[subMeshIndex].meshletOffsets[j].meshletVertexOffset + (int32_t)rendererData->perSubmeshData[subMeshIndex].MeshVertexOffset,
                     .firstInstance = firstDraw + j,
                 }
             };

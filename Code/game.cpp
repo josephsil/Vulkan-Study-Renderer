@@ -123,7 +123,7 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
     
     auto meshLetMonkey =  MeshOptimizer::RunMeshOptimizer(rendererContext.arena, monkeyMesh);
     auto meshletMonkeyMeshletInfo = MemoryArena::AllocSpan<meshletIndexInfo>(rendererContext.arena, 1);
-    meshletMonkeyMeshletInfo[0] = {0, meshLetMonkey.meshletsIndices.size()};
+    meshletMonkeyMeshletInfo[0] = {0, meshLetMonkey.meshletCount};
     randomMeshes.push_back(rendererData->AddMultiSubmeshMeshMesh2({&meshLetMonkey, 1}));
     auto _cube =GltfLoadMeshes(rendererContext, "Meshes/cube.glb");
     ID::SubMeshID cube = rendererData->AddMultiSubmeshMeshMesh2(_cube.meshes[0].submeshes);

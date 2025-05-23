@@ -7,7 +7,7 @@
 
 
 struct PerThreadRenderContext;
-struct MeshData;
+struct preMeshletMesh;
 struct TextureMetaData;
 
 

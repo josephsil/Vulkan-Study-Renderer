@@ -90,7 +90,7 @@ RenderBatch::RenderBatch(const char* name, CommonRenderPassData* context, Render
             uint32_t pipelineIndex = (uint32_t)passCreationConfig.shadersSupportedByBatch[shaderGroupIndex].shader;
             batchedDrawBuckets[pipelineIndex].subMeshIndices.push_back( context->scenePtr->allSubmeshes[submeshIndex]);
             batchedDrawBuckets[pipelineIndex].firstDrawIndices.push_back(meshletIndex);
-            meshletIndex += (uint32_t)context->assetDataPtr->perSubmeshData[context->scenePtr->allSubmeshes[submeshIndex]].mesh->meshletsIndices.size();
+            meshletIndex += (uint32_t)context->assetDataPtr->perSubmeshData[context->scenePtr->allSubmeshes[submeshIndex]].mesh->meshletCount;
             submeshIndex++;
         }
     }
@@ -111,7 +111,7 @@ RenderBatch::RenderBatch(const char* name, CommonRenderPassData* context, Render
         for (auto& submesh : bucketedBatch.subMeshIndices.getSpan())
         {
             //TODO JS MESHLETS
-            meshletDrawsInBatch += (uint32_t)context->assetDataPtr->perSubmeshData[submesh].mesh->meshletsIndices.size();
+            meshletDrawsInBatch += (uint32_t)context->assetDataPtr->perSubmeshData[submesh].mesh->meshletCount;
         }
 
         drawCommandsPassOffset offset = {

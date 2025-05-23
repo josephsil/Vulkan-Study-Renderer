@@ -61,7 +61,7 @@ void AssetManager::Update()
 uint32_t AssetManager::getOffsetFromMeshID(int submesh, int meshlet)
 {
     //TODO MESHLET: This function should be able to 
-    return (uint32_t)perSubmeshData[submesh].meshletOffsets[meshlet].index_start;
+    return (uint32_t)perSubmeshData[submesh].meshletOffsets[meshlet].meshletIndexOffset;
 }
 
 uint32_t AssetManager::getIndexCount()
@@ -69,7 +69,7 @@ uint32_t AssetManager::getIndexCount()
     uint32_t indexcount = 0;
     for (uint32_t i = 0; i < submeshCount; i++)
     {
-    for(size_t j = 0; j < perSubmeshData[i].mesh->meshletsIndices.size(); j++)
+    for(size_t j = 0; j < perSubmeshData[i].mesh->meshletCount; j++)
        {
        
         indexcount += static_cast<uint32_t>( perSubmeshData[i].mesh->meshletsIndices[j].size());
@@ -107,59 +107,33 @@ textureSetIDs AssetManager::AddTextureSet(TextureData D, TextureData S, TextureD
 }
 
 
-ID::SubMeshID AssetManager::AddMesh2(MeshData2 SubmeshMeshlets)
+ID::SubMeshID AssetManager::AddMesh2(MeshData SubmeshMeshlets)
 {
 
-    Array offsets = MemoryArena::AllocSpan<offsetData>(&allocator, SubmeshMeshlets.meshletsIndices.size());
-    Array boundingInfo = MemoryArena::AllocSpan<positionRadius>(&allocator, SubmeshMeshlets.meshletsIndices.size());
+    Array offsets = MemoryArena::AllocSpan<offsetData>(&allocator, SubmeshMeshlets.meshletCount);
+    Array boundingInfo = MemoryArena::AllocSpan<positionRadius>(&allocator, SubmeshMeshlets.meshletCount);
         
-        for(int j = 0; j <SubmeshMeshlets.meshletsIndices.size(); j++)
+        for(uint32_t j = 0; j <SubmeshMeshlets.meshletCount; j++)
         {
         boundingInfo.push_back(MeshDataCreation::boundingSphereFromMeshBounds(SubmeshMeshlets.meshletBounds[j]));
         offsets.push_back({SubmeshMeshlets.meshletVertexOffsets[j], indexCount, meshletCount++});
         indexCount +=  SubmeshMeshlets.meshletsIndices[j].size();
       
         }
-    vertexCount +=SubmeshMeshlets.vertices.size();
+ 
 
     perSubmeshData.push_back() =
       PerSubmeshData {
           .mesh = MemoryArena::AllocCopy(&allocator, SubmeshMeshlets),
           .meshletOffsets = offsets.getSpan(),
           .boundingInfo = boundingInfo.getSpan(),
+          .MeshVertexOffset =  (uint32_t)vertexCount
           };
-    
-    return submeshCount++;
-}
-ID::SubMeshID AssetManager::AddMesh(std::span<MeshData> SubmeshMeshlets)
-{
-
-    assert("!remove me");
-    // Array offsets = MemoryArena::AllocSpan<offsetData>(&allocator, SubmeshMeshlets.size());
-    // Array meshDatas = MemoryArena::AllocSpan<MeshData>(&allocator, SubmeshMeshlets.size());
-    // Array boundingInfo = MemoryArena::AllocSpan<positionRadius>(&allocator, SubmeshMeshlets.size());
-    //
-    // for(int i =0; i < SubmeshMeshlets.size(); i++)
-    // {
-    //     auto& M = SubmeshMeshlets[i];
-    //     meshDatas.push_back(M);
-    //     offsets.push_back({vertexCount, indexCount, meshletCount++});
-    //     boundingInfo.push_back(MeshDataCreation::boundingSphereFromMeshBounds(M.boundsCorners));
-    //     meshletCount++;
-    //     indexCount +=  M.indices.size();
-    //     vertexCount += M.vertices.size();
-    // }
-    //  perSubmeshData.push_back() =
-    //    PerSubmeshData {
-    //     .meshlets = meshDatas.getSpan(),
-    //     .meshletOffsets = offsets.getSpan(),
-    //     .boundingInfo = boundingInfo.getSpan(),
-    //     };
-    //
+    vertexCount +=SubmeshMeshlets.vertices.size();
     return submeshCount++;
 }
 
-ID::SubMeshGroupID AssetManager::AddMultiSubmeshMeshMesh2(std::span<MeshData2> Submeshes)
+ID::SubMeshGroupID AssetManager::AddMultiSubmeshMeshMesh2(std::span<MeshData> Submeshes)
 {
     auto& _span = subMeshGroups.push_back();
 
@@ -170,12 +144,6 @@ ID::SubMeshGroupID AssetManager::AddMultiSubmeshMeshMesh2(std::span<MeshData2> S
 
     }
     return (uint32_t)(subMeshGroups.ct -1);
-}
-
-ID::SubMeshGroupID AssetManager::AddMultiSubmeshMeshMesh(std::span<std::span<MeshData>> Submeshes)
-{
-    assert (!"Remove");
-    return 0;
 }
 
 

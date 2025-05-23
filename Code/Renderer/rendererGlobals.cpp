@@ -108,17 +108,23 @@ int PerformanceAPI_Load(const wchar_t* inPathToDLL, PerformanceAPI_Functions* ou
 }
 void registerSuperluminal()
 {
+#if _DEBUG
     assert(PerformanceAPI_Load(L"./dll/PerformanceAPI.dll",&SuperluminalFns));
+    #endif
     // PerformanceAPI_GetAPI_Func
     // PerformanceAPI_LoadFrom(L"./dll/PerformanceAPI.dll",SuperluminalFns);
 }
 
 void superLuminalEnd()
 {
+#if _DEBUG
     SuperluminalFns.EndEvent();
+    #endif
 }
 
 void superLuminalAdd(const char* inID)
 {
+#if _DEBUG
    SuperluminalFns.BeginEvent(inID, NULL, PERFORMANCEAPI_MAKE_COLOR(128, 128, 255 ));
+   #endif
 }
