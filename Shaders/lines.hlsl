@@ -1,3 +1,4 @@
+#include "structs.hlsl"
 struct VSInput
 {
     [[vk::location(0)]] float3 Position : POSITION0;
@@ -5,14 +6,7 @@ struct VSInput
     [[vk::location(2)]] float2 Texture_ST : TEXCOORD0;
 };
 
-struct ShaderGlobals
-{
-    float4x4 view;
-    float4x4 projection;
-    float4 viewPos;
-    float4 lightcount_mode_shadowct_padding;
-    float4 lutIDX_lutSamplerIDX_padding_padding;
-};
+
 
 cbuffer globals : register(b0, space1)
 {
@@ -20,16 +14,8 @@ cbuffer globals : register(b0, space1)
 }
 
 
-struct pconstant
-{
-    float4x4 m; // always identity
-    float4 pos1;
-    float4 pos2;
-    float4 color;
-};
-
 [[vk::push_constant]]
-pconstant pc;
+DebugLinePushConstants pc;
 
 
 struct FSOutput

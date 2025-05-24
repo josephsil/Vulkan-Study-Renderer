@@ -7,12 +7,13 @@
 #include "Renderer/TextureCreation/TextureData.h"
 #include "Renderer/AssetManagerTypes.h"
 #include "Renderer/MainRenderer/rendererStructs.h"
-struct boundingBox;
-struct gpuvertex;
+struct GPU_Bounds;
+struct GPU_Bounds;
+struct GPU_VertexData;
 struct ImportMeshData;
 //
 struct preMeshletMesh;
-struct positionRadius;
+struct GPU_BoundingSphere;
 
 namespace MemoryArena
 {
@@ -43,12 +44,12 @@ struct PerSubmeshData
 struct TextureMetaData;
 struct preMeshletMesh;
 struct VkDescriptorImageInfo;
-void SetVertexDataFromLoadingMeshVertex(Vertex& input, glm::vec4& outptuPos, gpuvertex& outputVert);
+void SetVertexDataFromLoadingMeshVertex(Vertex& input, glm::vec4& outptuPos, GPU_VertexData& outputVert);
 
 struct AllocatedMeshData
 {
     std::span<glm::vec4> vertPositions;
-    std::span<gpuvertex> vertData;
+    std::span<GPU_VertexData> vertData;
     std::span<uint8_t> vertIndices;
 };
 class AssetManager
@@ -70,13 +71,13 @@ public:
         // Geometry Data
                 //TODO JS PERF: Break vertices into separate positions/data like below
                 Array<glm::vec4> vertPositions; //glm::vec4
-                Array<gpuvertex> vertData; //gpuvertex
+                Array<GPU_VertexData> vertData; //GPU_VertexData
 
         // Objects/Meshlets
         Array<uint8_t> vertIndices;
         Array<MeshletData> meshletInfo;
-        Array<positionRadius> boundingSpheres;
-        Array<boundingBox> boundingBoxes; 
+        Array<GPU_BoundingSphere> boundingSpheres;
+        Array<GPU_Bounds> GPU_Boundses; 
         Array<PerSubmeshData> perSubmeshData;
     };
     

@@ -50,7 +50,7 @@ struct preMeshletMesh
 
 namespace MeshDataCreation
 {
-    positionRadius boundingSphereFromMeshBounds(std::span<glm::vec3> boundsCorners);
+    GPU_BoundingSphere boundingSphereFromMeshBounds(std::span<glm::vec3> boundsCorners);
     preMeshletMesh MeshDataFromSpans(std::span<Vertex> vertices,
                                std::span<uint32_t> indices);
     preMeshletMesh MeshDataFromObjFile(PerThreadRenderContext rendererHandles, const char* path);

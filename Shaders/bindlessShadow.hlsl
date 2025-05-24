@@ -14,15 +14,8 @@ struct FSOutput
     [[vk::location(0)]] float3 Color : SV_Target;
 };
 
-
-struct pconstant
-{
-    float unused;
-    float4x4 mat;
-};
-
 [[vk::push_constant]]
-pconstant pc;
+shadowPushConstant pc;
 
 struct VSOutput
 {
@@ -43,7 +36,7 @@ struct VSOutput
 VSOutput Vert(VSInput input, [[vk::builtin("BaseInstance")]] uint InstanceIndex : BaseInstance,
               uint VertexIndex : SV_VertexID)
 {
-    transformdata transformUBO =  GetTransform();
+    Transform transformUBO =  GetTransform();
     VSOutput output = (VSOutput)0;
     float4x4 viewProjection;
     ///

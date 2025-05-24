@@ -1,0 +1,8 @@
+hlsl, cpp
+float4x4, glm::mat4
+float3x3, glm::mat3 
+float4, glm::vec4 
+float3, glm::vec3
+float2, glm::vec2
+float, float
+uint, uint32_t

@@ -33,16 +33,16 @@ VSOutput Vert(VSInput input, [[vk::builtin("BaseInstance")]] uint InstanceIndex 
               uint VertexIndex : SV_VertexID)
 {
 #ifdef USE_RW
-    MyVertexStructure myVertex = BufferTable[VertexIndex];
+    VertexData myVertex = BufferTable[VertexIndex];
 #else
 	//Interesting buffer load perf numbers
 	// https://github.com/sebbbi/perfindexInfo
 	// https://github.com/microsoft/DirectXShaderCompiler/issues/2193 	
- 	MyVertexStructure myVertex = BufferTable.Load<MyVertexStructure>((VERTEXOFFSET + VertexIndex) * sizeof(MyVertexStructure));
+ 	VertexData myVertex = BufferTable.Load<VertexData>((VERTEXOFFSET + VertexIndex) * sizeof(VertexData));
 #endif
     float4 vertPos = positions[VertexIndex];
     vertPos.a = 1.0;
-    objectData ubo = perObjectData[InstanceIndex];
+    ObjectData ubo = perObjectData[InstanceIndex];
     VSOutput output = (VSOutput)0;
     float4x4 modelView = mul(globals.view,GetTransform().Model);
     float4x4 mvp = mul(globals.projection, modelView);
@@ -118,7 +118,7 @@ FSOutput Frag(VSOutput input)
     InstanceIndex = input.InstanceID;
     FSOutput output;
 
-    objectData ubo = perObjectData[InstanceIndex];
+    ObjectData ubo = perObjectData[InstanceIndex];
 
 
     float3 diff = saturate(

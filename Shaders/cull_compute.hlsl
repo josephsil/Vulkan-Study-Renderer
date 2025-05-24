@@ -1,14 +1,5 @@
 #include "structs.hlsl"
 
-struct cullComputeGLobals
-{
-    float4x4 view;
-    float4x4 proj;
-    uint offset;
-    uint frustumOffset;
-    uint objectCount;
-    //TODO JS: frustum should just go in here
-};
 
 struct drawCommandData_OLD
 {
@@ -37,7 +28,7 @@ Texture2D<float4> bindless_textures[];
 SamplerState bindless_samplers[];
 
 [[vk::push_constant]]
-cullComputeGLobals globals;
+CullPushConstants globals;
 
 [[vk::binding(12,0)]]
 RWStructuredBuffer<float4> frustumData;
@@ -48,44 +39,52 @@ RWStructuredBuffer<drawCommandData> drawData;
 // #endif
 // #ifdef SHADOWPASS
 [[vk::binding(14, 0)]]
-RWStructuredBuffer<objectData> _objectData;
+RWStructuredBuffer<ObjectData> _ObjectData;
 [[vk::binding(15, 0)]]
-RWStructuredBuffer<transformdata> _transformdata;
+RWStructuredBuffer<Transform> _Transform;
 // #endif
 
 
+
+Bounds GetScreenSpaceBounds(float4 center, float4 min, float4 max)
+{
+    Bounds b;
+    b.max = 0;
+    b.min =0;
+    return b;
+}
 [numthreads(64, 1, 1)]
 void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
 {
     if (GlobalInvocationID.x >= globals.objectCount) return;
     uint objIndex = drawData[globals.offset + GlobalInvocationID.x].objectIndex;
-    transformdata transform = _transformdata[_objectData[objIndex].indexInfo.a];
-    objectData mesh = _objectData[objIndex];
+    Transform transform = _Transform[_ObjectData[objIndex].props.indexInfo.a];
+    ObjectData mesh = _ObjectData[objIndex];
     float4x4 modelView = mul(globals.view, transform.Model);
 
     float4x4 viewProj = mul(globals.proj,
                                globals.view);
-    float4 centerNDCSpace = mul(viewProj, float4(mesh.objectSpaceboundsCenter.xyz, 1.0));
+    float4 centerNDCSpace = mul(viewProj, float4(mesh.boundsSphere.center.xyz, 1.0));
     float3 centerProjection = (centerNDCSpace.xyz / centerNDCSpace.w);
     float3 centerUV = centerProjection * 0.5 + 0.5;
 
     // center.z = center.z * -1;
-    float radius = mesh.objectSpaceboundsRadius * 1.5f;
+    float radius =mesh.boundsSphere.radius * 1.5f;
     int size = 1024;
     int uvlevel = 2;
     
     // TODO JS Culling doesn't work properly for low FOVs -- scale up to be conservative
     float hiZValue = bindless_textures[0].SampleLevel(bindless_samplers[0], centerUV.xy, 0);
     bool visible = true;
-
-    if (hiZValue <  centerProjection.z)
-    {
-        visible = false;
-    }
-    float4 centerClipSpaceForFrustum = mul(modelView, float4(0, 0, 0, 1) + mesh.objectSpaceboundsCenter);
+    //
+    // if (hiZValue <  centerProjection.z)
+    // {
+    //     visible = false;
+    // }
+    float4 centerClipSpaceForFrustum = mul(modelView, float4(0, 0, 0, 1) + mesh.boundsSphere.center);
     for (int i = 0; i < 6; i++)
     {
-        // visible = visible && dot(frustumData[i + globals.frustumOffset], float4(centerClipSpaceForFrustum.xyz, 1)) > -(radius);
+        visible = visible && dot(frustumData[i + globals.frustumOffset], float4(centerClipSpaceForFrustum.xyz, 1)) > -(radius);
     }
 
     // visible = 0;

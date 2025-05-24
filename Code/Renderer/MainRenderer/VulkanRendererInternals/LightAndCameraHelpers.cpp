@@ -94,7 +94,7 @@ std::span<glm::vec4> LightAndCameraHelpers::FillFrustumCornersForSpace(std::span
 
 
 
-std::span<PerShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryArena::memoryArena* allocator,
+std::span<GPU_perShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryArena::memoryArena* allocator,
                                                                      cameraData cam, glm::vec3 lightPos, glm::vec3 spotDir, float spotRadius, LightType type,
                                                                      DebugLineData* debugLinesManager)
 {
@@ -111,14 +111,14 @@ std::span<PerShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryArena
     glm::mat4 lightViewMatrix = {};
     glm::mat4 lightProjection = {};
     debugLinesManager->addDebugCross(lightPos, 2, {1,1,0});
-    std::span<PerShadowData> outputSpan;
+    std::span<GPU_perShadowData> outputSpan;
     switch (type)
     {
       
     case LIGHT_DIR:
         {
 
-            outputSpan = MemoryArena::AllocSpan<PerShadowData>(allocator, CASCADE_CT ); 
+            outputSpan = MemoryArena::AllocSpan<GPU_perShadowData>(allocator, CASCADE_CT ); 
 
             glm::mat4 invCam = glm::inverse(vp.proj * vp.view);
 
@@ -207,7 +207,7 @@ std::span<PerShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryArena
         }
     case LIGHT_SPOT:
         {
-            outputSpan = MemoryArena::AllocSpan<PerShadowData>(allocator, 1 ); 
+            outputSpan = MemoryArena::AllocSpan<GPU_perShadowData>(allocator, 1 ); 
             lightViewMatrix = glm::lookAt(lightPos, lightPos + dir, up);
             
             lightProjection = glm::perspective(glm::radians((float)spotRadius),
@@ -220,14 +220,14 @@ std::span<PerShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryArena
     case LIGHT_POINT:
 
         {
-            outputSpan = MemoryArena::AllocSpan<PerShadowData>(allocator, 6 ); 
+            outputSpan = MemoryArena::AllocSpan<GPU_perShadowData>(allocator, 6 ); 
             lightProjection = glm::perspective(glm::radians((float)90),
                                                1.0f, 0.001f,
                                                10.0f);} //TODO BETTER FAR
 
         for(int i = 0; i < outputSpan.size(); i++)
         {
-            outputSpan[i].cascadeDepth = 0;
+            outputSpan[i].depth = 0;
         }
         glm::mat4 translation = glm::translate(glm::mat4(1.0f), -lightPos);
         glm::mat4 rotMatrix = glm::mat4(1.0);

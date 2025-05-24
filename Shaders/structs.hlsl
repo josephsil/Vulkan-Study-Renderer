@@ -1,14 +1,24 @@
-struct transformdata
+struct Transform
 {
     float4x4 Model;
     float4x4 NormalMat;
     //objectProperties
     //Formerly push constants
 };
-
-struct objectData
+struct Bounds
 {
-    //objectProperties
+    float2 min;
+    float2 max;
+};
+
+struct BoundingSphere
+{
+    float4 center;
+    float radius;
+};
+
+struct objectProperties
+{
     float4 indexInfo;
     float4 textureIndexInfo;
     float roughness;
@@ -16,13 +26,20 @@ struct objectData
     float _f1;
     float _f2;
     float4 color;
+ 
+};
+
+struct ObjectData
+{
+    //objectProperties
+    objectProperties props;
 
     //Culling info
     //This data is really per model, not per object, but I'm lazy
-    float4 objectSpaceboundsCenter;
-    float objectSpaceboundsRadius;
+    BoundingSphere boundsSphere;
 
     //bounding box
+    Bounds bounds;
     float4 boundsmin;
     float4 boundsmax;
 
@@ -42,9 +59,9 @@ struct perShadowData
     float4x4 view;
     float4x4 proj;
     float depth;
-};
+};//
 
-struct MyVertexStructure
+struct VertexData
 {
     float4 uv0;
     float4 normal;
@@ -52,7 +69,7 @@ struct MyVertexStructure
     // uint color;
 };
 
-struct MyLightStructure
+struct LightData
 {
     float4 position_range;
     float4 color_intensity;
@@ -60,4 +77,31 @@ struct MyLightStructure
     float4 matrixIDX_matrixCt_padding; // currently only used by point
     // float4x4 _DELETED; //TODO JS: delete for real
     // uint color;
+};
+
+
+
+struct shadowPushConstant
+{
+    float unused;
+    float4x4 mat;
+};
+
+
+struct CullPushConstants
+{
+    float4x4 view;
+    float4x4 proj;
+    uint offset;
+    uint frustumOffset;
+    uint objectCount;
+    //TODO JS: frustum should just go in here
+};
+
+struct DebugLinePushConstants
+{
+    float4x4 m; // always identity
+    float4 pos1;
+    float4 pos2;
+    float4 color;
 };

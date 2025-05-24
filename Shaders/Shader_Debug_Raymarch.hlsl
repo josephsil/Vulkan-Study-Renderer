@@ -48,17 +48,17 @@ VSOutput Vert(VSInput input, [[vk::builtin("BaseInstance")]] uint InstanceIndex 
               uint VertexIndex : SV_VertexID)
 {
 #ifdef USE_RW
-    MyVertexStructure myVertex = BufferTable[VertexIndex];
+    VertexData myVertex = BufferTable[VertexIndex];
 #else
 	//Interesting buffer load perf numbers
 	// https://github.com/sebbbi/perfindexInfo
 	// https://github.com/microsoft/DirectXShaderCompiler/issues/2193 	
- 	MyVertexStructure myVertex = BufferTable.Load<MyVertexStructure>((VERTEXOFFSET + VertexIndex) * sizeof(MyVertexStructure));
+ 	VertexData myVertex = BufferTable.Load<VertexData>((VERTEXOFFSET + VertexIndex) * sizeof(VertexData));
 #endif
     float4 vertPos = float4(fullscreen_quad_positions[VertexIndex], 1, 1.0);
 
     //
-    objectData ubo = perObjectData[InstanceIndex];
+    ObjectData ubo = perObjectData[InstanceIndex];
     VSOutput output = (VSOutput)0;
     //
     float4x4 modelView = mul(globals.view, GetTransform().Model);
@@ -226,17 +226,17 @@ FSOutput Frag(VSOutput input)
     for (int j = start; j < start + 10; j++)
     {
         uint InstanceIndex = j;
-        objectData ubo = perObjectData[InstanceIndex];
+        ObjectData ubo = perObjectData[InstanceIndex];
         float4x4 modelView = mul(globals.view, GetTransform().Model);
         float4x4 mvp = mul(globals.projection, modelView);
         float d = 0.;
         for (int i = 0; i < MAX_STEPS; i++)
         {
             float3 _point = ray_origin + ray_dir * d;
-            float4 sphere = float4(perObjectData[InstanceIndex].objectSpaceboundsCenter.xyz, 1);
+            float4 sphere = float4(perObjectData[InstanceIndex].boundsSphere.center.xyz, 1);
             sphere = mul(modelView, sphere);
 
-            float radius = perObjectData[InstanceIndex].objectSpaceboundsRadius;
+            float radius = perObjectData[InstanceIndex].boundsSphere.radius;
             float ds = length(_point - sphere.xyz) - radius;
             d += ds;
             if (d > MAX_DIST || ds < EPS)
@@ -253,7 +253,7 @@ FSOutput Frag(VSOutput input)
 
     // for (int i =0; i < 600; i++)
     // {
-    //     float4 objectSpacePos = uboarr[i].objectSpaceboundsCenter; 
+    //     float4 objectSpacePos = uboarr[i].center; 
     //     float4 Pos = mul(mvp,objectSpacePos);
     //     float4 worldPos = mul(ubo.Model, objectSpacePos);
     // }

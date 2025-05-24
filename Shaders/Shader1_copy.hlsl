@@ -41,18 +41,18 @@ VSOutput Vert(VSInput input, [[vk::builtin("BaseInstance")]] uint InstanceIndex 
               uint VertexIndex : SV_VertexID)
 {
 #ifdef USE_RW
-    MyVertexStructure myVertex = BufferTable[VertexIndex];
+    VertexData myVertex = BufferTable[VertexIndex];
 #else
 	//Interesting buffer load perf numbers
 	// https://github.com/sebbbi/perfindexInfo
 	// https://github.com/microsoft/DirectXShaderCompiler/issues/2193 	
- 	MyVertexStructure myVertex = BufferTable.Load<MyVertexStructure>((VERTEXOFFSET + VertexIndex) * sizeof(MyVertexStructure));
+ 	VertexData myVertex = BufferTable.Load<VertexData>((VERTEXOFFSET + VertexIndex) * sizeof(VertexData));
 #endif
     float4 vertPos = positions[VertexIndex];
     vertPos.a = 1.0;
     // printf("My float is %d\n", InstanceIndex);
     //
-    transformdata transform = GetTransform();
+    Transform transform = GetTransform();
     VSOutput output = (VSOutput)0;
     //
     float4x4 modelView = mul(globals.view, GetTransform().Model);
@@ -194,7 +194,7 @@ FSOutput Frag(VSOutput input)
     //
     // output.Color = reflected;
     //
-    // MyLightStructure light = lights[0];
+    // LightData light = lights[0];
     // int lightIndex = getShadowMatrixIndex(light);
     // int cascadeLevel = findCascadeLevel(lightIndex, input.worldPos);
     // if (cascadeLevel == 0) output.Color *= float3(0, 0, 1);

@@ -18,5 +18,5 @@ struct DebugLineData
 
     void AddDebugFrustum(std::span<glm::vec4> frustum);
     void addDebugCross(glm::vec3 point, float size, glm::vec3 color);
-    debugLinePConstants getDebugLineForRendering(size_t i);
+    GPU_DebugLinePushConstants getDebugLineForRendering(size_t i);
 };

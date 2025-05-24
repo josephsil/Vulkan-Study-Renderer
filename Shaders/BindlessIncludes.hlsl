@@ -4,12 +4,12 @@
 #define LIGHT_POINT 1
 #define LIGHT_SPOT 2
 #define LIGHTCOUNT   globals.lightcount_mode_shadowct_padding.r
-#define VERTEXOFFSET perObjectData[InstanceIndex].indexInfo.g
-#define TEXTURESAMPLERINDEX  perObjectData[InstanceIndex].textureIndexInfo.g
-#define NORMALSAMPLERINDEX  perObjectData[InstanceIndex].textureIndexInfo.b //TODO JS: temporary!
-#define TRANSFORMINDEX  perObjectData[InstanceIndex].indexInfo.a
-#define GetTransform()  transforms[perObjectData[InstanceIndex].indexInfo.a]
-#define GetModelInfo() perObjectData[InstanceIndex]
+#define VERTEXOFFSET perObjectData[InstanceIndex].props.indexInfo.g
+#define TEXTURESAMPLERINDEX  perObjectData[InstanceIndex].props.textureIndexInfo.g
+#define NORMALSAMPLERINDEX  perObjectData[InstanceIndex].props.textureIndexInfo.b //TODO JS: temporary!
+#define TRANSFORMINDEX  perObjectData[InstanceIndex].props.indexInfo.a
+#define GetTransform()  transforms[perObjectData[InstanceIndex].props.indexInfo.a]
+#define GetModelInfo() perObjectData[InstanceIndex].props
 #define SKYBOXLUTINDEX globals.lutIDX_lutSamplerIDX_padding_padding.x
 #define SKYBOXLUTSAMPLERINDEX globals.lutIDX_lutSamplerIDX_padding_padding.y
 #define SHADOWCOUNT globals.lightcount_mode_shadowct_padding.z
@@ -38,7 +38,7 @@ SamplerState bindless_samplers[];
 SamplerState cubeSamplers[];
 [[vk::binding(4,0)]]
 #ifdef USE_RW
-RWStructuredBuffer<MyVertexStructure> BufferTable;
+RWStructuredBuffer<VertexData> BufferTable;
 #else
 ByteAddressBuffer BufferTable;
 #endif
@@ -53,36 +53,36 @@ TextureCube shadowmapCube[];
 [[vk::binding(2, 1)]]
 SamplerState shadowmapSampler[];
 [[vk::binding(3,1)]]
-RWStructuredBuffer<MyLightStructure> lights;
+RWStructuredBuffer<LightData> lights;
 [[vk::binding(4, 1)]]
-RWStructuredBuffer<objectData> perObjectData;
+RWStructuredBuffer<ObjectData> perObjectData;
 [[vk::binding(5, 1)]]
 RWStructuredBuffer<perShadowData> shadowMatrices;
 [[vk::binding(5, 0)]]
 RWStructuredBuffer<float4> positions;
 [[vk::binding(6, 1)]]
-RWStructuredBuffer<transformdata> transforms;
+RWStructuredBuffer<Transform> transforms;
 
-#define  DIFFUSE_INDEX  perObjectData[InstanceIndex].textureIndexInfo.r
-#define  SPECULAR_INDEX  perObjectData[InstanceIndex].textureIndexInfo.g
-#define  NORMAL_INDEX perObjectData[InstanceIndex].textureIndexInfo.b
+#define  DIFFUSE_INDEX  perObjectData[InstanceIndex].props.textureIndexInfo.r
+#define  SPECULAR_INDEX  perObjectData[InstanceIndex].props.textureIndexInfo.g
+#define  NORMAL_INDEX perObjectData[InstanceIndex].props.textureIndexInfo.b
 
-float3 GET_SPOT_LIGHT_DIR(MyLightStructure light)
+float3 GET_SPOT_LIGHT_DIR(LightData light)
 {
     return light.lighttype_lightDir.yzw;
 }
 
-int getLightType(MyLightStructure light)
+int getLightType(LightData light)
 {
     return light.lighttype_lightDir.x;
 }
 
-int getShadowMatrixIndex(MyLightStructure light)
+int getShadowMatrixIndex(LightData light)
 {
     return light.matrixIDX_matrixCt_padding.r;
 }
 
-int getShadowMatrixCount(MyLightStructure light)
+int getShadowMatrixCount(LightData light)
 {
     return light.matrixIDX_matrixCt_padding.g;
 }
@@ -186,7 +186,7 @@ int findCascadeLevel(int lightIndex, float3 worldPixel)
 
 float3 getShadow(int index, float3 fragPos)
 {
-    MyLightStructure light = lights[index];
+    LightData light = lights[index];
     if (getLightType(light) == LIGHT_POINT)
     {
         float3 fragToLight = fragPos - light.position_range.xyz;
@@ -270,7 +270,7 @@ float3 getLighting(float3 albedo, float3 inNormal, float3 FragPos, float3 F0, fl
     // metallic = 0.0;
     for (int i = 0; i < LIGHTCOUNT; i++)
     {
-        MyLightStructure light = lights[i];
+        LightData light = lights[i];
         float3 lightPos = light.position_range.xyz;
         float3 lightColor = light.color_intensity.xyz * light.color_intensity.a;
         float3 lightDir;

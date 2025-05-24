@@ -18,9 +18,9 @@
 
 #include "Scene/AssetManager.h"
 // My stuff 
-struct gpulight;
-struct gpuvertex;
-struct PerShadowData;
+struct GPU_LightData;
+struct GPU_VertexData;
+struct GPU_perShadowData;
 struct preMeshletMesh; //Forward Declaration
 struct Vertex; //Forward Declaration
 using VmaAllocator = struct VmaAllocator_T*;
@@ -94,7 +94,7 @@ private:
     int HEIGHT = (int)(720 * 1.5);
     struct SDL_Window* _window{nullptr};
     glm::mat4 freezeView = {};
-    std::span<std::span<PerShadowData>> perLightShadowData;
+    std::span<std::span<GPU_perShadowData>> perLightShadowData;
 
 #pragma region  descriptor sets
     VkDescriptorPool descriptorPool;
@@ -148,19 +148,19 @@ private:
         FrameSemaphores perFrameSemaphores;
        
         VkFence inFlightFence{};
-        HostDataBufferObject<ShaderGlobals> opaqueShaderGlobalsBuffer;
+        HostDataBufferObject<GPU_ShaderGlobals> opaqueShaderGlobalsBuffer;
         HostDataBufferObject<glm::vec4> hostVerts;
         dataBuffer deviceVerts;
         HostDataBufferObject<uint32_t> hostIndices;
         dataBuffer deviceIndices;
-        HostDataBufferObject<gpu_per_draw> perMeshbuffers;
-        HostDataBufferObject<gpu_transform> perObjectBuffers;
-        HostDataBufferObject<gpuvertex> hostMesh;
+        HostDataBufferObject<GPU_ObjectData> perMeshbuffers;
+        HostDataBufferObject<GPU_Transform> perObjectBuffers;
+        HostDataBufferObject<GPU_VertexData> hostMesh;
         dataBuffer deviceMesh;
 
         //Basic data about the light used in all passes 
-        HostDataBufferObject<gpulight> lightBuffers;
-        HostDataBufferObject<gpuPerShadowData> shadowDataBuffers;
+        HostDataBufferObject<GPU_LightData> lightBuffers;
+        HostDataBufferObject<GPU_perShadowData> shadowDataBuffers;
 
         //Draw indirect
         HostDataBufferObject<drawCommandData> drawBuffers;
