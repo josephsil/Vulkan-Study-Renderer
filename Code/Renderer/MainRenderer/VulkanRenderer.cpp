@@ -100,8 +100,12 @@ VulkanRenderer::VulkanRenderer()
     for (int i = 0; i < FramesInFlightData.size(); i++)
     {
         createSemaphore(rendererVulkanObjects.vkbdevice.device, &(FramesInFlightData[i].perFrameSemaphores.swapchainSemaphore), "Per Frame swapchain ready semaphore", deletionQueue.get());
+        createSemaphore(rendererVulkanObjects.vkbdevice.device, &(FramesInFlightData[i].perFrameSemaphores.prepassSemaphore), "Per Frame prepass finished semaphore", deletionQueue.get());
         createSemaphore(rendererVulkanObjects.vkbdevice.device, &(FramesInFlightData[i].perFrameSemaphores.presentSemaphore), "Per Frame ready to present semaphore", deletionQueue.get());
+        createSemaphore(rendererVulkanObjects.vkbdevice.device, &(FramesInFlightData[i].perFrameSemaphores.cullingSemaphore), "Per Frame finished culling semaphore", deletionQueue.get());
         static_createFence(rendererVulkanObjects.vkbdevice.device,  &FramesInFlightData[i].inFlightFence, "Per Frame finished rendering Fence", deletionQueue.get());
+        static_createFence(rendererVulkanObjects.vkbdevice.device,  &FramesInFlightData[i].perFrameSemaphores.cullingFence, "Per frame culling fence", deletionQueue.get() );
+        vkResetFences(rendererVulkanObjects.vkbdevice.device,  1, &FramesInFlightData[i].perFrameSemaphores.cullingFence);
        perFrameDeletionQueuse[i] = std::make_unique<RendererDeletionQueue>(rendererVulkanObjects.vkbdevice, rendererVulkanObjects.vmaAllocator); //todo js double create, oops
     }
     //Initialize sceneData
@@ -1066,7 +1070,7 @@ void RecordIndirectCommandBufferForPasses(Scene* scene, AssetManager* rendererDa
 }
 
 
-void RecordPrimaryRenderPasses( std::span<RenderBatch> Batches, VkBuffer indexBuffer, ActiveRenderStepData* renderStepContext, PipelineLayoutManager* pipelineLayoutManager, VkBuffer indirectCommandsBuffer,  int currentFrame)
+void SubmitRenderPassesForBatches( std::span<RenderBatch> Batches, VkBuffer indexBuffer, ActiveRenderStepData* renderStepContext, PipelineLayoutManager* pipelineLayoutManager, VkBuffer indirectCommandsBuffer,  int currentFrame)
 {
    
     for(int j = 0; j < Batches.size(); j++)
@@ -1128,10 +1132,10 @@ void SubmitCommandBuffer(ActiveRenderStepData* commandBufferContext)
     assert(!commandBufferContext->commandBufferActive);
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    VkPipelineStageFlags _waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+    VkPipelineStageFlags _waitStages= commandBufferContext->Queue == GET_QUEUES()->transferQueue ? VK_PIPELINE_STAGE_2_NONE : VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
     submitInfo.waitSemaphoreCount = commandBufferContext->waitSemaphoreCt;
     submitInfo.pWaitSemaphores = commandBufferContext->waitSemaphore;
-    submitInfo.pWaitDstStageMask =_waitStages;
+    submitInfo.pWaitDstStageMask =&_waitStages;
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &commandBufferContext->commandBuffer;
 
@@ -1205,11 +1209,7 @@ void VulkanRenderer::Update(Scene* scene)
     
   
     }
-    if (!checkFences)
-    {
-        haveInitializedFrame[currentFrame] = true;
-        
-    }
+  
     vkResetFences(rendererVulkanObjects.vkbdevice.device, 1, &FramesInFlightData[currentFrame].inFlightFence);
     uint64_t RenderLoop =SDL_GetPerformanceCounter();
     AssetDataAndMemory->Update();
@@ -1227,6 +1227,12 @@ void VulkanRenderer::Update(Scene* scene)
     auto difference =SDL_GetPerformanceCounter() - RenderLoop;
     float msec = ((1000.0f * difference) / SDL_GetPerformanceFrequency());
     // printf("end render loop %d, MS %ld \n", currentFrame, (long)msec);
+
+    if (!checkFences)
+    {
+        haveInitializedFrame[currentFrame] = true;
+        
+    }
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
     
     // vkDeviceWaitIdle(rendererVulkanObjects.vkbdevice.device);
@@ -1387,6 +1393,7 @@ size_t UpdateDrawCommanddataDrawIndirectCommands(AssetManager* rendererData,
                                                  )
 {
     size_t drawCommandIndex = 0;
+    
     for (size_t i = 0; i < submeshIndex.size(); i++)
     {
         auto subMeshIndex = submeshIndex[i];
@@ -1429,11 +1436,11 @@ uint32_t GetNextFirstIndex(RenderBatchQueue* q)
     return pass.offset.firstDrawIndex + pass.drawCount;
 }
 
-VkCommandBuffer AllocateAndBeginCommandBuffer(VkDevice device, CommandPoolManager* poolManager)
+VkCommandBuffer AllocateAndBeginCommandBuffer(VkDevice device, CommandPoolManager* poolManager, bool transfer = false)
 {
     VkCommandBufferAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.commandPool = poolManager->commandPool;
+    allocInfo.commandPool = transfer? poolManager->transferCommandPool : poolManager->commandPool;
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     allocInfo.commandBufferCount = 1;
     
@@ -1450,6 +1457,8 @@ VkCommandBuffer AllocateAndBeginCommandBuffer(VkDevice device, CommandPoolManage
 }
 void VulkanRenderer::RenderFrame(Scene* scene)
 {
+    vkResetFences(rendererVulkanObjects.vkbdevice.device, 1, &FramesInFlightData[currentFrame].perFrameSemaphores.cullingFence);
+    auto priorFrame = currentFrame  == 0? MAX_FRAMES_IN_FLIGHT-1 : currentFrame -1;
     superLuminalAdd("RenderFrame");
     if (debug_cull_override_index != internal_debug_cull_override_index)
     {
@@ -1505,9 +1514,9 @@ void VulkanRenderer::RenderFrame(Scene* scene)
         }
         ActiveRenderStepData* PushAndInitializeRenderStep(const char* cbufferDebugName, MemoryArena::memoryArena* arena, CommandPoolManager* poolManager,
             VkSemaphore* WaitSemaphore = nullptr, 
-             VkSemaphore* SignalSemaphore = nullptr, VkFence* CbufferSignalFence = nullptr) 
+             VkSemaphore* SignalSemaphore = nullptr, VkFence* CbufferSignalFence = nullptr, bool transferQueue = false) 
         {
-            auto commandBuffer = AllocateAndBeginCommandBuffer(device, poolManager);
+            auto commandBuffer = AllocateAndBeginCommandBuffer(device, poolManager, transferQueue);
             SetDebugObjectName(device,VK_OBJECT_TYPE_COMMAND_BUFFER, cbufferDebugName, (uint64_t)commandBuffer);
           
             auto boundDescriptorSets = MemoryArena::AllocSpan<VkDescriptorSet>(arena, 4);
@@ -1521,7 +1530,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
              .boundIndexBuffer = VK_NULL_HANDLE,
               .boundPipeline = VK_NULL_HANDLE,
                 .commandBuffer = commandBuffer,
-                 .Queue = GET_QUEUES()->graphicsQueue,
+                 .Queue = transferQueue? GET_QUEUES()->transferQueue : GET_QUEUES()->graphicsQueue,
                   .waitSemaphore = WaitSemaphore,
                   .waitSemaphoreCt = (uint32_t)(WaitSemaphore == nullptr ? 0 : 1),
                    .signalSempahore = SignalSemaphore,
@@ -1550,15 +1559,20 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     /////////<Set up command buffers
     //////////
     /////////
-    auto beforeSwapChainStep = renderCommandBufferObjects.PushAndInitializeRenderStep(
+    auto EarlyStep = renderCommandBufferObjects.PushAndInitializeRenderStep(
     "Early Cbuffer", &perFrameArenas[currentFrame],
     commandPoolmanager.get());
-
-    auto SwapChainTransitioninStep = renderCommandBufferObjects.PushAndInitializeRenderStep(
-        "Transition swap buffer Cbuffer", &perFrameArenas[currentFrame],
-        commandPoolmanager.get(), &thisFrameData->perFrameSemaphores.swapchainSemaphore);
     
-    auto opaqueRenderStepContext =renderCommandBufferObjects.PushAndInitializeRenderStep("Main/Rendering Cbuffer", &perFrameArenas[currentFrame],
+
+    auto BeforeCullingStep = renderCommandBufferObjects.PushAndInitializeRenderStep(
+        "Transition swap buffer Cbuffer", &perFrameArenas[currentFrame],
+        commandPoolmanager.get(), &thisFrameData->perFrameSemaphores.swapchainSemaphore, &thisFrameData->perFrameSemaphores.prepassSemaphore);
+
+    auto CullingStep = renderCommandBufferObjects.PushAndInitializeRenderStep(
+       "Compute Culling cbuffer", &perFrameArenas[currentFrame],
+       commandPoolmanager.get(), &thisFrameData->perFrameSemaphores.prepassSemaphore, nullptr,  &thisFrameData->perFrameSemaphores.cullingFence);
+
+    auto OpaqueStep =renderCommandBufferObjects.PushAndInitializeRenderStep("Main/Rendering Cbuffer", &perFrameArenas[currentFrame],
         commandPoolmanager.get(), nullptr, &thisFrameData->perFrameSemaphores.presentSemaphore,
         &FramesInFlightData[currentFrame].inFlightFence);
 
@@ -1574,17 +1588,17 @@ void VulkanRenderer::RenderFrame(Scene* scene)
        VK_REMAINING_ARRAY_LAYERS);
 
     
-    SetPipelineBarrier(SwapChainTransitioninStep->commandBuffer,0, 0, 0, 1, &swapChainTransitionInBarrier);
+    SetPipelineBarrier(BeforeCullingStep->commandBuffer,0, 0, 0, 1, &swapChainTransitionInBarrier);
 
     
 
     //Transferring cpu -> gpu data -- should improve
     AddBufferTrasnfer(thisFrameData->hostVerts.buffer.data, thisFrameData->deviceVerts.data,
-                      thisFrameData->deviceVerts.size, beforeSwapChainStep->commandBuffer);
+                      thisFrameData->deviceVerts.size, EarlyStep->commandBuffer);
     AddBufferTrasnfer(thisFrameData->hostMesh.buffer.data, thisFrameData->deviceMesh.data,
-                      thisFrameData->deviceMesh.size, beforeSwapChainStep->commandBuffer);
+                      thisFrameData->deviceMesh.size, EarlyStep->commandBuffer);
     AddBufferTrasnfer(thisFrameData->hostIndices.buffer.data, thisFrameData->deviceIndices.data,
-                      thisFrameData->deviceIndices.size, beforeSwapChainStep->commandBuffer);
+                      thisFrameData->deviceIndices.size, EarlyStep->commandBuffer);
 
     //Set up draws
   
@@ -1659,7 +1673,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
 
     //Indirect command buffer
     RecordIndirectCommandBufferForPasses(scene, AssetDataAndMemory, &perFrameArenas[currentFrame], thisFrameData->drawBuffers.getMappedSpan(), renderBatches.getSpan());
-    updateBindingsComputeCulling(*beforeSwapChainStep,  &perFrameArenas[currentFrame], currentFrame);
+    updateBindingsComputeCulling(*CullingStep,  &perFrameArenas[currentFrame], currentFrame);
     
  
     //Prototype depth passes code
@@ -1692,8 +1706,17 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     auto prepassBatches = renderBatches.getSpan().subspan(existingRenderBatches.size());
     prepassBatches = MemoryArena::copySpan<RenderBatch>(&perFrameArenas[currentFrame], prepassBatches);
 
-    //Submit the prepass draws
-    RecordPrimaryRenderPasses(prepassBatches, thisFrameData->deviceIndices.data, opaqueRenderStepContext, &pipelineLayoutManager, thisFrameData->drawBuffers.buffer.data, currentFrame);
+    if (haveInitializedFrame[currentFrame])
+    {
+        vkWaitForFences(rendererVulkanObjects.vkbdevice.device, 1, &FramesInFlightData[priorFrame].perFrameSemaphores.cullingFence, VK_TRUE, UINT64_MAX);
+        vkResetFences(rendererVulkanObjects.vkbdevice.device, 1, &FramesInFlightData[priorFrame].perFrameSemaphores.cullingFence);
+    }
+
+     
+
+    //Submit the early prepass draws
+    auto& lastFrameCommands =  FramesInFlightData[priorFrame].drawBuffers.buffer.data;
+    SubmitRenderPassesForBatches(prepassBatches, thisFrameData->deviceIndices.data, BeforeCullingStep, &pipelineLayoutManager, lastFrameCommands, currentFrame);
 
 
     VkImageMemoryBarrier2 depthtoCompute = GetImageBarrier(globalResources.depthBufferInfoPerFrame[currentFrame].image,
@@ -1706,8 +1729,10 @@ void VulkanRenderer::RenderFrame(Scene* scene)
            VK_IMAGE_ASPECT_DEPTH_BIT,
            0,
         VK_REMAINING_MIP_LEVELS);
-    SetPipelineBarrier(opaqueRenderStepContext->commandBuffer,0,0,0,1, &depthtoCompute );
-    RecordMipChainCompute(*opaqueRenderStepContext, &perFrameArenas[currentFrame],  globalResources.depthPyramidInfoPerFrame[currentFrame].image,
+    SetPipelineBarrier(OpaqueStep->commandBuffer,0,0,0,1, &depthtoCompute );
+
+    
+    RecordMipChainCompute(*BeforeCullingStep, &perFrameArenas[currentFrame],  globalResources.depthPyramidInfoPerFrame[currentFrame].image,
                       globalResources.depthBufferInfoPerFrame[currentFrame].view, globalResources.depthPyramidInfoPerFrame[currentFrame].viewsForMips, globalResources.depthMipSampler, currentFrame, globalResources.depthPyramidInfoPerFrame[currentFrame].depthSize.x,
                       globalResources.depthPyramidInfoPerFrame[currentFrame].depthSize.y);     
 
@@ -1737,17 +1762,17 @@ void VulkanRenderer::RenderFrame(Scene* scene)
        VK_IMAGE_ASPECT_DEPTH_BIT,
        0,
     VK_REMAINING_MIP_LEVELS);
-    SetPipelineBarrier(opaqueRenderStepContext->commandBuffer,0,0,0,MAX_SHADOWMAPS, shadowBarriers.data() );
-    SetPipelineBarrier(opaqueRenderStepContext->commandBuffer,0,0,0,1, &depthtoDrawing);
+    SetPipelineBarrier(OpaqueStep->commandBuffer,0,0,0,MAX_SHADOWMAPS, shadowBarriers.data() );
+    SetPipelineBarrier(OpaqueStep->commandBuffer,0,0,0,1, &depthtoDrawing);
 
     //Culling for shadows
     uint32_t cullPassIndex = 0;
     for(int j = 0; j < shadowBatches.size(); j++)
     {
-            RecordCullingCommands(&perFrameArenas[currentFrame],  pipelineLayoutManager.GetLayout(cullingLayoutIDX), *beforeSwapChainStep,cullPassIndex++, shadowPassData[j], thisFrameData->drawBuffers.buffer.data);
+            RecordCullingCommands(&perFrameArenas[currentFrame],  pipelineLayoutManager.GetLayout(cullingLayoutIDX), *CullingStep,cullPassIndex++, shadowPassData[j], thisFrameData->drawBuffers.buffer.data);
     }
     //shadows
-    RecordPrimaryRenderPasses(shadowBatches,thisFrameData->deviceIndices.data, opaqueRenderStepContext, &pipelineLayoutManager, thisFrameData->drawBuffers.buffer.data, currentFrame);
+    SubmitRenderPassesForBatches(shadowBatches,thisFrameData->deviceIndices.data, OpaqueStep, &pipelineLayoutManager, thisFrameData->drawBuffers.buffer.data, currentFrame);
 
     VkImageMemoryBarrier2 shadowToOpaqueBarrier = GetImageBarrier(shadowResources.shadowImages[currentFrame],
      VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 
@@ -1759,17 +1784,17 @@ void VulkanRenderer::RenderFrame(Scene* scene)
      VK_IMAGE_ASPECT_DEPTH_BIT,
      0,
      VK_REMAINING_MIP_LEVELS);
-    SetPipelineBarrier(opaqueRenderStepContext->commandBuffer,0,0,0,1, &shadowToOpaqueBarrier );
+    SetPipelineBarrier(OpaqueStep->commandBuffer,0,0,0,1, &shadowToOpaqueBarrier );
     
     //Culling for Opaque
     for(int j = 0; j < opaqueBatches.size(); j++)
     {
-        RecordCullingCommands(&perFrameArenas[currentFrame],  pipelineLayoutManager.GetLayout(cullingLayoutIDX), *beforeSwapChainStep,cullPassIndex++, opaquePassData, thisFrameData->drawBuffers.buffer.data);
+        RecordCullingCommands(&perFrameArenas[currentFrame],  pipelineLayoutManager.GetLayout(cullingLayoutIDX), *CullingStep,cullPassIndex++, opaquePassData, thisFrameData->drawBuffers.buffer.data);
     }
     //opaque
-    RecordPrimaryRenderPasses(opaqueBatches,thisFrameData->deviceIndices.data, opaqueRenderStepContext, &pipelineLayoutManager, thisFrameData->drawBuffers.buffer.data, currentFrame);
+    SubmitRenderPassesForBatches(opaqueBatches,thisFrameData->deviceIndices.data, OpaqueStep, &pipelineLayoutManager, thisFrameData->drawBuffers.buffer.data, currentFrame);
 
-    RecordUtilityPasses(opaqueRenderStepContext->commandBuffer, currentFrame);
+    RecordUtilityPasses(OpaqueStep->commandBuffer, currentFrame);
     //
 
     //After render steps
@@ -1788,12 +1813,15 @@ void VulkanRenderer::RenderFrame(Scene* scene)
          VK_REMAINING_MIP_LEVELS);
 
 
-    SetPipelineBarrier(opaqueRenderStepContext->commandBuffer,0,0,0,1, &swapchainToPresent );
+    SetPipelineBarrier(OpaqueStep->commandBuffer,0,0,0,1, &swapchainToPresent );
 
     auto indirectCommandsOutBarrier = bufferBarrier(thisFrameData->drawBuffers.buffer.data, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-        VK_ACCESS_MEMORY_WRITE_BIT,  VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT, VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT);
+        VK_ACCESS_MEMORY_WRITE_BIT,  VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT, VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT);
     
-    SetPipelineBarrier(beforeSwapChainStep->commandBuffer,0,1,&indirectCommandsOutBarrier,0, 0 );
+   
+    
+    SetPipelineBarrier(CullingStep->commandBuffer,0,1,&indirectCommandsOutBarrier,0, 0 );
+
 
 
     // //Submit commandbuffers
@@ -1802,7 +1830,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     VkPresentInfoKHR presentInfo{};
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
     presentInfo.waitSemaphoreCount =  1;
-    presentInfo.pWaitSemaphores = opaqueRenderStepContext->signalSempahore;
+    presentInfo.pWaitSemaphores = OpaqueStep->signalSempahore;
     presentInfo.swapchainCount = 1;
     presentInfo.pSwapchains = {&rendererVulkanObjects.swapchain.swapchain};
     presentInfo.pImageIndices = &FramesInFlightData[currentFrame].swapChainIndex;
@@ -1812,7 +1840,6 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     vkQueuePresentKHR(GET_QUEUES()->presentQueue, &presentInfo);
     
 
-   
     superLuminalEnd();
 }
 

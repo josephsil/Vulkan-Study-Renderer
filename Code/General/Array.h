@@ -116,10 +116,15 @@ struct Array
     size_t _min(size_t a, size_t b) {
         return (a < b) ? a : b;
     }
-    std::span<T> getSpan(size_t size = INT_MAX)
+    std::span<T> getSpan()
     {
-        return std::span<T>(data, _min(ct, size));
+        return std::span<T>(data, size());
     }
+    std::span<T> getSubSpan(size_t offset, size_t length = 0)
+    {
+        return std::span<T>(data + offset, length == 0 ? size() - offset :  length - offset);
+    }
+    
     
     std::span<T> getSubSpanToCapacity(size_t offset = 0)
     {

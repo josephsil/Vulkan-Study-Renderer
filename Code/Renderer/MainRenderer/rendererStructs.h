@@ -78,7 +78,10 @@ struct DepthPyramidInfo
 struct FrameSemaphores
 {
     VkSemaphore swapchainSemaphore{};
+    VkSemaphore prepassSemaphore{};
     VkSemaphore presentSemaphore{};
+    VkSemaphore cullingSemaphore{};
+    VkFence cullingFence{};
 };
 
 
