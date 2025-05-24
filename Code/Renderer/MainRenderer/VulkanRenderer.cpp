@@ -38,14 +38,7 @@
 #include "General/Algorithms.h"
 #include "General/LinearDictionary.h"
 #include "General/ThreadedTextureLoading.h"
-struct PassGlobalInfo
-{
-    uint32_t drawCount;
-    uint32_t drawOffset;
-    uint32_t subMeshcount;
-    glm::mat4 proj;
-    glm::mat4 view;
-};
+
 struct gpuPerShadowData;
 std::vector<unsigned int> pastTimes;
 unsigned int averageCbTime;
@@ -862,15 +855,38 @@ void VulkanRenderer::updateBindingsComputeCulling(ActiveRenderStepData commandBu
 #pragma endregion
 
 #pragma region draw
-void RecordCullingCommands(ActiveRenderStepData commandBufferContext, ComputeCullListInfo pass,  VkBuffer indirectCommandsBuffer)
+void RecordCullingCommands(ArenaAllocator allocator, VkPipelineLayout layout, ActiveRenderStepData commandBufferContext,uint32_t passIndex, RenderPassDrawData conf, VkBuffer indirectCommandsBuffer)
 {
+    
+    //Culling override code
+    uint32_t cullFrustumIndex = passIndex * 6; //this doesn't seem right!
+    if (debug_cull_override)
+    {
+        cullFrustumIndex =  debug_cull_override_index * 6;
+    }
+
+    cullPConstants* cullconstants = MemoryArena::Alloc<cullPConstants>(allocator);
+    *cullconstants = {
+        .view = conf.view,
+        .firstDraw = conf.drawOffset,
+        .frustumIndex = cullFrustumIndex,
+        .objectCount = conf.drawCount};
+
+    ComputeCullListInfo* cullingInfo = MemoryArena::Alloc<ComputeCullListInfo>(allocator);
+    *cullingInfo =  {
+        .firstDrawIndirectIndex = conf.drawOffset,
+        .drawCount =  conf.drawCount,
+        .viewMatrix = conf.view,
+        .projMatrix = conf.proj, 
+        .layout = layout, 
+       .pushConstantInfo =  {.ptr = cullconstants, .size =  sizeof(cullPConstants) }};
 
     assert(commandBufferContext.commandBufferActive);
 
-    auto& drawCount = pass.drawCount;
+    auto& drawCount = conf.drawCount;
 
-    vkCmdPushConstants(commandBufferContext.commandBuffer,  pass.layout, VK_SHADER_STAGE_COMPUTE_BIT, 0,
-                       pass.pushConstantInfo.size, pass.pushConstantInfo.ptr);
+    vkCmdPushConstants(commandBufferContext.commandBuffer,  layout, VK_SHADER_STAGE_COMPUTE_BIT, 0,
+                       sizeof(cullPConstants), cullconstants);
 
     const uint32_t dispatch_x = drawCount != 0
                                     ? 1 + static_cast<uint32_t>((drawCount - 1) / 16)
@@ -1241,49 +1257,6 @@ bool GetFlattenedShadowDataForIndex(int index, std::span<std::span<PerShadowData
 
 
 
-RenderBatchCreationConfig  CreateOpaquePassesConfig(uint32_t firstObject, std::span<FullShaderHandle> shaderGroup, CommonRenderPassData passData,
-                                     std::span<std::span<PerShadowData>> inputShadowdata,
-                                     PipelineLayoutHandle layoutGroup,
-                                     ActiveRenderStepData* opaqueRenderStepContext,
-                                     VkRenderingAttachmentInfoKHR* opaqueTarget,
-                                     VkRenderingAttachmentInfoKHR* depthTarget,
-                                     VkExtent2D targetExtent
-                                     )
-    
-{
-    uint32_t subMeshesPerPass = (uint32_t)passData.scenePtr->objects.subMeshesCount;
-    uint32_t totalDraws = VulkanRenderer::StaticCalculateTotalDrawCount(passData.scenePtr, passData.assetDataPtr->meshData.perSubmeshData.getSpan());
-    uint32_t nextFirstObject =firstObject;
-    viewProj viewProjMatricesForCulling = LightAndCameraHelpers::CalcViewProjFromCamera(passData.scenePtr->sceneCamera);
-    //Culling debug stuff
-    PerShadowData* data = MemoryArena::Alloc<PerShadowData>(passData.tempAllocator);
-
-    if ( debug_cull_override && GetFlattenedShadowDataForIndex(debug_cull_override_index,inputShadowdata, data))
-    {
-        viewProjMatricesForCulling = { data->view,  data->proj};
-        glm::vec4 frustumCornersWorldSpace[8] = {};
-        LightAndCameraHelpers::FillFrustumCornersForSpace(frustumCornersWorldSpace,glm::inverse(viewProjMatricesForCulling.proj * viewProjMatricesForCulling.view));
-        debugLinesManager.AddDebugFrustum(frustumCornersWorldSpace);
-    }
-    
-     RenderBatchCreationConfig c  = {
-        .name = const_cast<char*>("opaque"),
-        .attatchmentInfo =  {.colorDraw = opaqueTarget, .depthDraw = depthTarget,
-            .extents = targetExtent},
-        .shadersSupportedByBatch =shaderGroup,
-        .layoutGroup = layoutGroup,
-        .pushConstant = {.ptr = nullptr, .size = 0},
-        .cameraViewProjForCulling = viewProjMatricesForCulling,
-        .drawOffset = nextFirstObject,
-        .subMeshCount = subMeshesPerPass,
-        .drawCount = totalDraws,
-        .depthBiasConfig = {false, 0, 0}
-    };
-    return c;
-
-   
-
-}
 
 struct passIndexInfo
 {
@@ -1291,15 +1264,9 @@ struct passIndexInfo
     uint32_t drawCt;
     uint32_t firstDraw;
 };
-struct RenderPassConfig
-{
-    pointerSize PushConstants;
-    VkRenderingAttachmentInfoKHR* depthAttatchment;
-    VkRenderingAttachmentInfoKHR* colorAttatchment;
-    VkExtent2D extents;
-};
 
-RenderPassConfig creatOpaquePassConfig(ArenaAllocator arena, PassGlobalInfo passInfo,
+
+RenderPassConfig creatOpaquePassConfig(ArenaAllocator arena, RenderPassDrawData passInfo,
 VkRenderingAttachmentInfoKHR* opaqueTarget,
 VkRenderingAttachmentInfoKHR* depthTarget,
 VkExtent2D targetExtent)
@@ -1317,7 +1284,7 @@ VkExtent2D targetExtent)
 
 }
 
-std::span<RenderPassConfig> createShadowPassConfigs(ArenaAllocator arena, std::span<PassGlobalInfo> passInfo,
+std::span<RenderPassConfig> createShadowPassConfigs(ArenaAllocator arena, std::span<RenderPassDrawData> passInfo,
                                      std::span<VkImageView> shadowMapRenderingViews)
 {
     auto resultConfigs = MemoryArena::AllocSpan<RenderPassConfig>(arena, passInfo.size());
@@ -1337,15 +1304,16 @@ std::span<RenderPassConfig> createShadowPassConfigs(ArenaAllocator arena, std::s
     return resultConfigs.subspan(0, passInfo.size());
 
 }
-RenderBatchCreationConfig CreateConfigNew(RenderPassConfig config, PassGlobalInfo passInfo, uint32_t submeshct,
+RenderBatchCreationConfig CreateConfigNew(RenderPassConfig config, bool shadow, RenderPassDrawData passInfo,
                                      PipelineLayoutHandle pipelineGroup,
                                     std::span<FullShaderHandle> shaderIDs, const char* name)
 {
-    uint32_t subMeshesPerPass =submeshct;
+    uint32_t subMeshesPerPass =passInfo.subMeshcount;
     uint32_t drawsPerPass = passInfo.drawCount;
     uint32_t nextFirstDraw =passInfo.drawOffset;
     
 
+    auto depthBiasConfig =  (!shadow) ? depthBiasSettng{.use =false, .depthBias = 0, .slopeBias = 0} : depthBiasSettng{.use = true, .depthBias = 6.0, .slopeBias = 3.0};
     RenderBatchCreationConfig c = {
         .name = const_cast<char*>(name),
         .attatchmentInfo = {
@@ -1359,7 +1327,7 @@ RenderBatchCreationConfig CreateConfigNew(RenderPassConfig config, PassGlobalInf
         .drawOffset = nextFirstDraw,
         .subMeshCount = subMeshesPerPass,
         .drawCount =  drawsPerPass,
-        .depthBiasConfig = {.use = true, .depthBias = 6.0, .slopeBias = 3.0}
+        .depthBiasConfig = depthBiasConfig
     };
     return c;
 }
@@ -1625,7 +1593,6 @@ void VulkanRenderer::RenderFrame(Scene* scene)
      *mainRenderTargetAttatchment =  CreateRenderingAttatchmentStruct(globalResources.swapchainImageViews[thisFrameData->swapChainIndex], 0.0, true);
 
     //set up all our  draws
-    RenderBatchQueue renderBatches  = {.submeshCount = 0,  .batchConfigs =  {}};
     
 
     CommonRenderPassData renderPassContext =
@@ -1633,14 +1600,14 @@ void VulkanRenderer::RenderFrame(Scene* scene)
         .tempAllocator =  &perFrameArenas[currentFrame],
         .scenePtr = scene,
         .assetDataPtr =  AssetDataAndMemory,
-        .cullLayout =  pipelineLayoutManager.GetLayout(cullingLayoutIDX),
         };
 
 
     uint32_t drawOffset = 0;
     uint32_t submeshperPass =  (uint32_t)scene->objects.subMeshesCount;
     uint32_t drawPerPass = StaticCalculateTotalDrawCount(scene,AssetDataAndMemory->meshData.perSubmeshData.getSpan());
-    
+
+    //Create the shadow data that shadow render passes will read from. This could happen anywhere in the frame
     Array<PerShadowData> flatShadowData = MemoryArena::AllocSpan<PerShadowData>(&perFrameArenas[currentFrame], MAX_SHADOWMAPS);
     for(size_t i = 0; i < glm::min(scene->lightCount, MAX_SHADOWCASTERS); i ++)
     {
@@ -1653,17 +1620,18 @@ void VulkanRenderer::RenderFrame(Scene* scene)
             flatShadowData.push_back({.view = view, .proj = proj, .cascadeDepth = -1});
         }
     }
-    Array<PassGlobalInfo> shadowPassData = MemoryArena::AllocSpan<PassGlobalInfo>(&perFrameArenas[currentFrame], MAX_RENDER_PASSES);
+
+    //Create shadow info for passes
+    Array<RenderPassDrawData> shadowPassData = MemoryArena::AllocSpan<RenderPassDrawData>(&perFrameArenas[currentFrame], MAX_RENDER_PASSES);
     for (auto& shadowData : flatShadowData.getSpan())
     {
         shadowPassData.push_back({.drawCount = drawPerPass, .drawOffset = drawOffset,.subMeshcount = submeshperPass, .proj = shadowData.proj, .view = shadowData.view });
         drawOffset += drawPerPass;
     }
    
-    viewProj viewProjMatricesForCulling = LightAndCameraHelpers::CalcViewProjFromCamera(scene->sceneCamera);
     //Culling debug stuff
+    viewProj viewProjMatricesForCulling = LightAndCameraHelpers::CalcViewProjFromCamera(scene->sceneCamera);
     PerShadowData* data = MemoryArena::Alloc<PerShadowData>(&perFrameArenas[currentFrame]);
-
     if ( debug_cull_override && GetFlattenedShadowDataForIndex(debug_cull_override_index,perLightShadowData, data))
     {
         viewProjMatricesForCulling = { data->view,  data->proj};
@@ -1671,60 +1639,58 @@ void VulkanRenderer::RenderFrame(Scene* scene)
         LightAndCameraHelpers::FillFrustumCornersForSpace(frustumCornersWorldSpace,glm::inverse(viewProjMatricesForCulling.proj * viewProjMatricesForCulling.view));
         debugLinesManager.AddDebugFrustum(frustumCornersWorldSpace);
     }
-    PassGlobalInfo opaquePassData = {.drawCount = drawPerPass, .drawOffset = drawOffset, .subMeshcount = submeshperPass,.proj = viewProjMatricesForCulling.proj, .view = viewProjMatricesForCulling.view };
+    
+    RenderPassDrawData opaquePassData = {.drawCount = drawPerPass, .drawOffset = drawOffset, .subMeshcount = submeshperPass,.proj = viewProjMatricesForCulling.proj, .view = viewProjMatricesForCulling.view };
     
     
-    
+    Array<RenderBatch> renderBatches = MemoryArena::AllocSpan<RenderBatch>(&perFrameArenas[currentFrame], MAX_RENDER_PASSES);
     auto ShadowPassConfigs = createShadowPassConfigs(&perFrameArenas[currentFrame], shadowPassData.getSpan(), shadowResources.shadowMapRenderingImageViews[currentFrame]);
- 
     for (int i =0; i < ShadowPassConfigs.size(); i++)
     {
-        renderBatches.AddBatch( &renderPassContext,CreateConfigNew(ShadowPassConfigs[i],shadowPassData[i], submeshperPass, shadowLayoutIDX, opaqueObjectShaderSets.shadowShaders.getSpan(), "shadow"));
+        renderBatches.push_back(CreateRenderBatch( &renderPassContext, ShadowPassConfigs[i],  shadowPassData[i], true, shadowLayoutIDX, opaqueObjectShaderSets.shadowShaders.getSpan(), "shadow"));
     }
     
     //This "add batches" concept was an earlier misguided design choice. Right now it's still here, but I'm hackily getting subspans out of it so I cna submit them independantly in order, separated by barriers.
-    auto shadowBatches = std::span(renderBatches.batchConfigs.begin(), renderBatches.batchConfigs.begin() + ShadowPassConfigs.size()); 
-    shadowBatches = MemoryArena::copySpan<RenderBatch>(&perFrameArenas[currentFrame], shadowBatches);
+    auto shadowBatches = renderBatches.getSpan();
 
     auto opaqueconfig = creatOpaquePassConfig(&perFrameArenas[currentFrame],opaquePassData,mainRenderTargetAttatchment, depthDrawAttatchment,  rendererVulkanObjects.swapchain.extent);
-  
-    auto opaquebatches = 
-     renderBatches.AddBatch(
-         &renderPassContext,
-         CreateConfigNew(opaqueconfig,opaquePassData, submeshperPass, opaqueLayoutIDX, opaqueObjectShaderSets.opaqueShaders.getSpan(), "opaque"));
-        opaquebatches = MemoryArena::copySpan<RenderBatch>(&perFrameArenas[currentFrame], opaquebatches);
+    renderBatches.push_back(CreateRenderBatch(  &renderPassContext, opaqueconfig, opaquePassData,false,  opaqueLayoutIDX, opaqueObjectShaderSets.opaqueShaders.getSpan(), "opaque"));
+    auto opaqueBatches  = renderBatches.getSpan().subspan(renderBatches.size() -1, 1);
 
     //Indirect command buffer
-    RecordIndirectCommandBufferForPasses(scene, AssetDataAndMemory, &perFrameArenas[currentFrame], thisFrameData->drawBuffers.getMappedSpan(), renderBatches.batchConfigs);
+    RecordIndirectCommandBufferForPasses(scene, AssetDataAndMemory, &perFrameArenas[currentFrame], thisFrameData->drawBuffers.getMappedSpan(), renderBatches.getSpan());
     updateBindingsComputeCulling(*beforeSwapChainStep,  &perFrameArenas[currentFrame], currentFrame);
     
  
     //Prototype depth passes code
-    //Going to move creation of these into the add passes fns, and have the logic to look up the appropriate sahder passed thru there
-    //Need to think about how 
-    auto batches = renderBatches.batchConfigs;
-
-    auto TODO_KLUDGE_PREPASSIDX = renderBatches.batchConfigs.size();
-    for(size_t i = 0; i < batches.size(); i++)
+    //This is honestly good enough for now
+    //Should put in a function that takes in a span of batches
+    //Need to add a filter to it so I can do cull lists
+    //TODOS FOR CULLING:
+        //1- Fence for culling, wait next frame before copying buffer
+        //2- copy buffer for cull/uncull to current frame
+        //3- Depth prepass nonculled geometry, render culled geometry normally
+        //4- Do culling on prepass mip chain
+    auto existingRenderBatches = renderBatches.getSpan();
+    for(size_t i = 0; i < existingRenderBatches.size(); i++)
     {
-        auto oldBatch = batches[i];
-        auto newBatch =  batches[i];
+        auto newBatch =  renderBatches[i];
         newBatch.colorattatchment = VK_NULL_HANDLE;
-        std::span<simpleMeshPassInfo> oldPasses = batches[i].perPipelinePasses;
+        std::span<simpleMeshPassInfo> oldPasses = renderBatches[i].perPipelinePasses;
         std::span<simpleMeshPassInfo> newPasses = MemoryArena::copySpan<simpleMeshPassInfo>(&perFrameArenas[currentFrame], oldPasses);
         for(int j =0; j < newPasses.size(); j++)
         {
             newPasses[j].shader = PlaceholderDepthPassLookup.Find(oldPasses[j].shader); 
         }
-        newBatch.debugName = std::string("depth prepass");
+        newBatch.debugName = "depth prepass";
         newBatch.perPipelinePasses = newPasses;
-        newBatch.depthAttatchment = MemoryArena::AllocCopy<VkRenderingAttachmentInfoKHR>(&perFrameArenas[currentFrame], *batches[i].depthAttatchment);
-        renderBatches.batchConfigs.push_back(newBatch);
-        batches[i].depthAttatchment->loadOp = VK_ATTACHMENT_LOAD_OP_LOAD; 
+        newBatch.depthAttatchment = MemoryArena::AllocCopy<VkRenderingAttachmentInfoKHR>(&perFrameArenas[currentFrame], *renderBatches[i].depthAttatchment);
+        renderBatches.push_back(newBatch);
+        renderBatches[i].depthAttatchment->loadOp = VK_ATTACHMENT_LOAD_OP_LOAD; 
     }
-    auto prepassBatches = std::span(&renderBatches.batchConfigs[TODO_KLUDGE_PREPASSIDX], (renderBatches.batchConfigs.size()) -TODO_KLUDGE_PREPASSIDX);
+    
+    auto prepassBatches = renderBatches.getSpan().subspan(existingRenderBatches.size());
     prepassBatches = MemoryArena::copySpan<RenderBatch>(&perFrameArenas[currentFrame], prepassBatches);
-
 
     //Submit the prepass draws
     RecordPrimaryRenderPasses(prepassBatches, thisFrameData->deviceIndices.data, opaqueRenderStepContext, &pipelineLayoutManager, thisFrameData->drawBuffers.buffer.data, currentFrame);
@@ -1775,10 +1741,10 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     SetPipelineBarrier(opaqueRenderStepContext->commandBuffer,0,0,0,1, &depthtoDrawing);
 
     //Culling for shadows
+    uint32_t cullPassIndex = 0;
     for(int j = 0; j < shadowBatches.size(); j++)
     {
-        auto passInfo = shadowBatches[j];
-        RecordCullingCommands(*beforeSwapChainStep, *passInfo.computeCullingInfo,thisFrameData->drawBuffers.buffer.data);
+            RecordCullingCommands(&perFrameArenas[currentFrame],  pipelineLayoutManager.GetLayout(cullingLayoutIDX), *beforeSwapChainStep,cullPassIndex++, shadowPassData[j], thisFrameData->drawBuffers.buffer.data);
     }
     //shadows
     RecordPrimaryRenderPasses(shadowBatches,thisFrameData->deviceIndices.data, opaqueRenderStepContext, &pipelineLayoutManager, thisFrameData->drawBuffers.buffer.data, currentFrame);
@@ -1796,13 +1762,12 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     SetPipelineBarrier(opaqueRenderStepContext->commandBuffer,0,0,0,1, &shadowToOpaqueBarrier );
     
     //Culling for Opaque
-    for(int j = 0; j < opaquebatches.size(); j++)
+    for(int j = 0; j < opaqueBatches.size(); j++)
     {
-        auto passInfo = opaquebatches[j];
-        RecordCullingCommands(*beforeSwapChainStep, *passInfo.computeCullingInfo,thisFrameData->drawBuffers.buffer.data);
+        RecordCullingCommands(&perFrameArenas[currentFrame],  pipelineLayoutManager.GetLayout(cullingLayoutIDX), *beforeSwapChainStep,cullPassIndex++, opaquePassData, thisFrameData->drawBuffers.buffer.data);
     }
     //opaque
-    RecordPrimaryRenderPasses(opaquebatches,thisFrameData->deviceIndices.data, opaqueRenderStepContext, &pipelineLayoutManager, thisFrameData->drawBuffers.buffer.data, currentFrame);
+    RecordPrimaryRenderPasses(opaqueBatches,thisFrameData->deviceIndices.data, opaqueRenderStepContext, &pipelineLayoutManager, thisFrameData->drawBuffers.buffer.data, currentFrame);
 
     RecordUtilityPasses(opaqueRenderStepContext->commandBuffer, currentFrame);
     //

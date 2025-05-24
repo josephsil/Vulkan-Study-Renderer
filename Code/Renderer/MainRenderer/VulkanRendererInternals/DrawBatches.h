@@ -12,6 +12,22 @@ class AssetManager;
 struct Scene;
 struct RenderBatch;
  
+struct RenderPassDrawData
+{
+    uint32_t drawCount;
+    uint32_t drawOffset;
+    uint32_t subMeshcount;
+    glm::mat4 proj;
+    glm::mat4 view;
+};
+
+struct RenderPassConfig
+{
+    pointerSize PushConstants;
+    VkRenderingAttachmentInfoKHR* depthAttatchment;
+    VkRenderingAttachmentInfoKHR* colorAttatchment;
+    VkExtent2D extents;
+};
 
 struct CommonRenderPassData 
 {
@@ -19,7 +35,6 @@ struct CommonRenderPassData
     ArenaAllocator tempAllocator;
     Scene* scenePtr;
     AssetManager* assetDataPtr;
-    VkPipelineLayout cullLayout; //todo get from a lookup
 };
 struct RenderBatchCreationConfig
 {
@@ -37,19 +52,14 @@ struct RenderBatchCreationConfig
 };
 struct RenderBatchQueue
 {
-    size_t submeshCount;
-    size_t totalDrawCount;
     std::vector<RenderBatch> batchConfigs;
-    std::span<RenderBatch> AddBatch(CommonRenderPassData* context, RenderBatchCreationConfig passCreationConfig);
-    std::span<RenderBatch> AddBatches(CommonRenderPassData* context, std::span<RenderBatchCreationConfig> configs);
 };
 
 struct RenderBatch
 {
-    std::string debugName;
+    const char* debugName;
     PipelineLayoutHandle pipelineLayoutGroup; 
     std::span<simpleMeshPassInfo> perPipelinePasses;
-    ComputeCullListInfo* computeCullingInfo;
     VkRenderingAttachmentInfoKHR* depthAttatchment;
     VkRenderingAttachmentInfoKHR* colorattatchment; 
     VkExtent2D renderingAttatchmentExtent;
@@ -58,7 +68,9 @@ struct RenderBatch
     uint32_t pushConstantsSize;
     depthBiasSettng depthBiasSetting;
     
-    RenderBatch(const char* name,
-    CommonRenderPassData* context,
-    RenderBatchCreationConfig passCreationConfig);
+   
 };
+RenderBatch CreateRenderBatch( CommonRenderPassData* context,
+   RenderPassConfig config, RenderPassDrawData passInfo, bool shadow,
+                                    PipelineLayoutHandle pipelineGroup,
+                                   std::span<FullShaderHandle> shaderIDs, const char* name);
