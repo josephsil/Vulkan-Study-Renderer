@@ -75,7 +75,7 @@ uint32_t AssetManager::getIndexCount()
 uint32_t AssetManager::getVertexCount()
 {
 
-    return (uint32_t)vertexCount;
+    return (uint32_t)globalVertexCount;
 }
 
 size_t AssetManager::materialTextureCount()
@@ -100,48 +100,51 @@ textureSetIDs AssetManager::AddTextureSet(TextureData D, TextureData S, TextureD
     return {static_cast<uint32_t>(dI), static_cast<uint32_t>(sI), static_cast<uint32_t>(nI)};
 }
 
-
-//I'd kinda rather get rid of the whole "import mesh data has verts" concept
-//It would be nicer if the assetmanager provided asset importers memory to load their verts into, and all that got passed around was layout/config/offset data
-ID::SubMeshID AssetManager::UploadMesh(ImportMeshData importMesh)
+AllocatedMeshData AssetManager::RequestMeshMemory(uint32_t vertCt, uint32_t indexCt)
 {
+
+    return
+    {
+    .vertPositions = meshData.vertPositions.pushUninitializedSpan(vertCt),
+    .vertData = meshData.vertData.pushUninitializedSpan(vertCt),
+    .vertIndices = meshData.vertIndices.pushUninitializedSpan(indexCt)
+    };
+    
+}
+
+void SetVertexDataFromLoadingMeshVertex(Vertex& input, glm::vec4& outptuPos, gpuvertex& outputVert)
+{
+    outptuPos = input.pos;
+    outputVert =            {
+        .texCoord = input.texCoord,
+        .normal = input.normal,
+        .tangent = input.tangent};
+}
+
+//It would be nicer if the assetmanager provided asset importers memory to load their verts into, and all that got passed around was layout/config/offset data
+ID::SubMeshID AssetManager::AddMesh(ImportMeshData importMesh)
+{
+
     Array offsets = meshData.meshletInfo.pushUninitializedSpan(importMesh.meshletCount);
     Array boundingInfo = meshData.boundingInfo.pushUninitializedSpan(importMesh.meshletCount);
-    std::span<glm::vec4> vertPositions = meshData.vertPositions.pushUninitializedSpan(importMesh.vertices.size());
-    std::span<gpuvertex> vertData = meshData.vertData.pushUninitializedSpan(importMesh.vertices.size());
 
+    auto meshVertexOffset = globalVertexCount;
     for (uint32_t j = 0; j < importMesh.meshletCount; j++)
     {
         boundingInfo.push_back(MeshDataCreation::boundingSphereFromMeshBounds(importMesh.meshletBounds[j]));
         offsets.push_back({
-            importMesh.meshletVertexOffsets[j] + vertexCount, globalIndexCount, importMesh.indexCounts[j]
+            importMesh.meshletVertexOffsets[j] + meshVertexOffset, globalIndexCount, importMesh.indexCounts[j]
         });
         globalIndexCount += importMesh.indexCounts[j];
     }
-
-    for(uint32_t i = 0; i < importMesh.vertices.size(); i++)
-    {
-        vertPositions[i] = importMesh.vertices[i].pos;
-        
-        // glm::vec4 col = importMesh.vertices[i].color;
-        glm::vec4 uv = importMesh.vertices[i].texCoord;
-        glm::vec4 norm = importMesh.vertices[i].normal;
-        glm::vec4 tangent = importMesh.vertices[i].tangent;
-        vertData[i] =
-            {
-            .texCoord = importMesh.vertices[i].texCoord,
-            .normal = importMesh.vertices[i].normal,
-            .tangent = importMesh.vertices[i].tangent};
-    }
-    this->meshData.vertIndices.push_copy_span(importMesh.meshletsIndices);
 
      this->meshData.perSubmeshData.push_back() =
         PerSubmeshData{
             .meshletCt =  importMesh.meshletCount,
             .firstMeshletIndex = globalMeshletcount,
         };
-    vertexCount += importMesh.vertices.size();
     globalMeshletcount += importMesh.meshletCount;
+    globalVertexCount += importMesh.vertexct;
     return submeshCount++;
 }
 
@@ -152,7 +155,7 @@ ID::SubMeshGroupID AssetManager::AddMultiSubmeshMeshMesh2(std::span<ImportMeshDa
     int i = 0;
     for(auto& submesh: Submeshes)
     {
-        _span.push_back(UploadMesh(submesh));
+        _span.push_back(AddMesh(submesh));
 
     }
     return (uint32_t)(subMeshGroups.ct -1);

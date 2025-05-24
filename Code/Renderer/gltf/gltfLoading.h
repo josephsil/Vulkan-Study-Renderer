@@ -18,4 +18,4 @@ using GltfMesh = ObjectImport::Mesh ;
 
 using GltfData = ObjectImport::ImportedObjectData ;
 
-GltfData GltfLoadMeshes(PerThreadRenderContext handles, const char* gltfpath);
+GltfData GltfLoadMeshes(PerThreadRenderContext handles,   AssetManager& rendererData, const char* gltfpath);

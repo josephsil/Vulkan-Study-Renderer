@@ -28,10 +28,12 @@ struct temporaryloadingMesh
     bool tangentsLoaded = false;
 };
 
+//This is what we get out of the end of the mesh asset importers
+//Underlying vertices and indices should already have been allocated with RequestMeshMemory
+//Filling out and submitting this to AssetManager::AddMesh builds out submesh data and finalizes it.
 struct ImportMeshData
 {
-    std::span<Vertex> vertices;
-    std::span<uint8_t> meshletsIndices;
+    uint32_t vertexct;
     std::span<uint32_t> indexCounts;
     std::span<uint32_t> meshletVertexOffsets; //Redundant to PersubmeshData offset -- used to construct it, need to get rid of this
     std::span<std::span<glm::vec3>> meshletBounds; //Redundant to PersubmeshData bounds  -- used to construct it, need to get rid of this

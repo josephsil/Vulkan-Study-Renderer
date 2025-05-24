@@ -20,6 +20,7 @@
 #include "General/ThreadPool.h"
 #include "Renderer/rendererGlobals.h"
 #include "Renderer/MainRenderer/VulkanRendererInternals/RendererHelpers.h"
+#include "Scene/AssetManager.h"
 
 //Default tinyobj load image fn
 bool LoadImageData(tinygltf::Image* image, const int image_idx, std::string* err,
@@ -441,7 +442,7 @@ void GltfLoadTextures(size_t imageCt, std::span<TextureData> textures,  std::spa
 
 //TODO: Cameras? Probably not
 //TODO: More speed improvements: don't re-calculate tangents every load
-GltfData GltfLoadMeshes(PerThreadRenderContext handles, const char* gltfpath)
+GltfData GltfLoadMeshes(PerThreadRenderContext handles,  AssetManager& rendererData, const char* gltfpath)
 {
     bool gltfOutOfdate = FileCaching::assetOutOfDate(gltfpath);
     // gltfOutOfdate = true;
@@ -500,7 +501,8 @@ GltfData GltfLoadMeshes(PerThreadRenderContext handles, const char* gltfpath)
             auto tempMeshresult = MeshDataCreation::FinalizeMeshDataFromTempMesh(memoryArenaForLoading, ScratchMemory, tempMesh);
             submeshMats.push_back(model.meshes[i].primitives[j].material);
 
-            ImportMeshData meshOptimizedMesh = MeshOptimizer::RunMeshOptimizer(memoryArenaForLoading, tempMeshresult);
+            ImportMeshData meshOptimizedMesh = MeshOptimizer::RunMeshOptimizer(memoryArenaForLoading,rendererData,   tempMeshresult);
+
             meshletIndexInfos[i][j] = {submeshes.ct, meshOptimizedMesh.meshletCount}; 
             
             submeshes.push_back(meshOptimizedMesh);

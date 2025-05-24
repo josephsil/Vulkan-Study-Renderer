@@ -5,7 +5,8 @@
 
 struct ImportMeshData;
 struct preMeshletMesh;
+class AssetManager;
 namespace MeshOptimizer
 {
-    ImportMeshData RunMeshOptimizer(ArenaAllocator arena, preMeshletMesh input);
+    ImportMeshData RunMeshOptimizer(ArenaAllocator arena, AssetManager& rendererData, preMeshletMesh input);
 }

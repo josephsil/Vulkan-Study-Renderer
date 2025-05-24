@@ -25,17 +25,14 @@ struct textureSetIDs
     ID::TextureID normIndex;
 };
 
-//todo js to remove
 struct MeshletData
 {
     size_t meshletVertexOffset; //Offset for this meshlet's verts within the global vertex buffer
     size_t meshletIndexOffset;//Offset for this meshlet within the global index buffer
     size_t meshletIndexCount;//Index count for this meshlet
-    // size_t first_meshlet_mesh_index;//ID for the object
 };
 struct PerSubmeshData
 {
-   
     uint32_t meshletCt;
     size_t firstMeshletIndex; //For indexing into global arrays
 };
@@ -45,6 +42,14 @@ struct PerSubmeshData
 struct TextureMetaData;
 struct preMeshletMesh;
 struct VkDescriptorImageInfo;
+void SetVertexDataFromLoadingMeshVertex(Vertex& input, glm::vec4& outptuPos, gpuvertex& outputVert);
+
+struct AllocatedMeshData
+{
+    std::span<glm::vec4> vertPositions;
+    std::span<gpuvertex> vertData;
+    std::span<uint8_t> vertIndices;
+};
 class AssetManager
 {
 public:
@@ -58,38 +63,23 @@ public:
 
 #pragma region RendererData
 
-
-
-    //TODO JS: Next steps:
-    //Phased plan for meshlet -> mesh import revamp:
-    //Phase 1: separate "submesh" and "meshlet" concept
-        //Submesh indices point to parallel arrays of material and submesh data
-        //In phase 1, submesh data is span of spans of meshdata
-        //Plumb this through relevant rendering/buffer upload code. Maybe separated as functions to be easy to replace
-        //perdrawdata still needs to get set per submesh
-    //Phase2: 1 vertex buffer per submesh
-        //Basically same as phase 2, but don't duplicate verts onto submeshes. Update vertex buffer binding code and various plumbing appropriately
-        //Also need to update meshlet generation -- according to docs meshlet vertices are the correct thing to use as indices for the original buffer.
-    //Phase3, 4: Contiguous memory for meshes
-        //1. Move all vertex and index allocations onto RendererMeshData struct, update gpu upload code to loop over those buffers directly
-        //2. Move away from spans of spans to a size and stride approach for meshlets -- should be able to compactly represent meshlets as "start + count" for indices, and a reference to the vertex buffer
-        //3. Update assetmanager representation of vertices to match gpu representation in layout so I can just directly copy them
-        
         //vert positions/data 
     struct RendererMeshData
     {
-        // Array<Vertex> vertices;
+        // Geometry Data
                 //TODO JS PERF: Break vertices into separate positions/data like below
                 Array<glm::vec4> vertPositions; //glm::vec4
                 Array<gpuvertex> vertData; //gpuvertex
-        Array<uint8_t> vertIndices; //uint32_t
+
+        // Objects/Meshlets
+        Array<uint8_t> vertIndices;
         Array<MeshletData> meshletInfo;
         Array<positionRadius> boundingInfo;
         Array<PerSubmeshData> perSubmeshData;
     };
     
     uint32_t submeshCount = 0;
-    size_t vertexCount = 0;
+    size_t globalVertexCount = 0;
     size_t globalIndexCount = 0;
     size_t globalMeshletcount = 0;
     Array<Material> materials;
@@ -108,8 +98,10 @@ public:
     //TODO JS: these are temporary
     ID::TextureID AddTexture(TextureData T);
     textureSetIDs AddTextureSet(TextureData D, TextureData S, TextureData N);
+    AllocatedMeshData RequestMeshMemory(uint32_t vertCt, uint32_t indexCt);
+
     ID::SubMeshID AddMesh(std::span<preMeshletMesh> SubmeshMeshlets);
-    ID::SubMeshID UploadMesh(ImportMeshData importMesh);
+    ID::SubMeshID AddMesh(ImportMeshData importMesh);
     ID::SubMeshGroupID AddMultiSubmeshMeshMesh(std::span<std::span<preMeshletMesh>> Submeshes);
     ID::SubMeshGroupID AddMultiSubmeshMeshMesh2(std::span<ImportMeshData> Submeshes);
     
