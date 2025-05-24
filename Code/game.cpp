@@ -100,8 +100,6 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
 #endif
 #pragma endregion
     printf("objects count: %llu \n", scene->objects.objectsCount);
-    //Commenting out all this while I fix the meshlet path -- need to unify the way objects are uploaded to scene/backing data and uncomment
-    
     gltf = GltfLoadMeshes(rendererContext,*rendererData, "Meshes/pig.glb");
     
     

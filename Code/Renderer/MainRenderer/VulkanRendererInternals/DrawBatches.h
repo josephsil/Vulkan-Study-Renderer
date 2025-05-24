@@ -20,11 +20,6 @@ struct CommonRenderPassData
     Scene* scenePtr;
     AssetManager* assetDataPtr;
     VkPipelineLayout cullLayout; //todo get from a lookup
-    ActiveRenderStepData* computeRenderStepContext; //todo reduce these step contexts and sycnrhonzie manually
-
-    VkBuffer indexBuffer;
-
-
 };
 struct RenderBatchCreationConfig
 {
@@ -32,10 +27,8 @@ struct RenderBatchCreationConfig
     renderPassAttatchmentInfo attatchmentInfo;
     std::span<FullShaderHandle> shadersSupportedByBatch;
     PipelineLayoutHandle layoutGroup;
-    ActiveRenderStepData* StepContext;
     pointerSize pushConstant;
     viewProj cameraViewProjForCulling;
-    uint32_t frustumIndex;
     uint32_t drawOffset;
     uint32_t subMeshCount;
     uint32_t drawCount;
@@ -45,29 +38,23 @@ struct RenderBatchCreationConfig
 struct RenderBatchQueue
 {
     size_t submeshCount;
-    size_t drawCount;
+    size_t totalDrawCount;
     std::vector<RenderBatch> batchConfigs;
-    std::span<RenderBatch> AddBatch(
-        CommonRenderPassData* context,
-        RenderBatchCreationConfig passCreationConfig);
+    std::span<RenderBatch> AddBatch(CommonRenderPassData* context, RenderBatchCreationConfig passCreationConfig);
     std::span<RenderBatch> AddBatches(CommonRenderPassData* context, std::span<RenderBatchCreationConfig> configs);
 };
 
 struct RenderBatch
 {
     std::string debugName;
-    ActiveRenderStepData* drawRenderStepContext;
-    ActiveRenderStepData* computeRenderStepContext; 
     PipelineLayoutHandle pipelineLayoutGroup; 
-    VkBuffer indexBuffer; 
-    VkIndexType indexBufferType; // VK_INDEX_TYPE_UINT32
     std::span<simpleMeshPassInfo> perPipelinePasses;
     ComputeCullListInfo* computeCullingInfo;
     VkRenderingAttachmentInfoKHR* depthAttatchment;
-    VkRenderingAttachmentInfoKHR* colorattatchment; //nullptr
-    VkExtent2D renderingAttatchmentExtent; //SHADOW_MAP_SIZE
+    VkRenderingAttachmentInfoKHR* colorattatchment; 
+    VkExtent2D renderingAttatchmentExtent;
     viewProj matrices;
-    void* pushConstants; //shadowPushConstants constants;
+    void* pushConstants; 
     uint32_t pushConstantsSize;
     depthBiasSettng depthBiasSetting;
     

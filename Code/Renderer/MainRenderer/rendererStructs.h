@@ -29,8 +29,8 @@ struct simpleMeshPassInfo
     drawCommandsPassOffset offset;
     uint32_t drawCount;
     FullShaderHandle shader;
-        //Both of these are indexed into BY NUMBER OF SUBMESHES IN BATCH
     
+    //Both of these are indexed into BY NUMBER OF SUBMESHES IN BATCH
     std::span<uint32_t> sortedSubmeshes;
     std::span<uint32_t>  sortedfirstIndices; 
 };
