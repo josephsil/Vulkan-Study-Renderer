@@ -249,11 +249,13 @@ void VulkanRenderer::initializePipelines(size_t shadowCasterCount)
     }
    
    
-   VkDescriptorSetLayoutBinding cullLayoutBindings[4] = {};
-   cullLayoutBindings[0] = VkDescriptorSetLayoutBinding{12, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}; //frustum data
-   cullLayoutBindings[1] = VkDescriptorSetLayoutBinding{13, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}; //draws 
-   cullLayoutBindings[2] = VkDescriptorSetLayoutBinding{14, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}; //objectData
-    cullLayoutBindings[3] = VkDescriptorSetLayoutBinding{15, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}; //objectData
+   VkDescriptorSetLayoutBinding cullLayoutBindings[6] = {};
+    cullLayoutBindings[0] = VkDescriptorSetLayoutBinding{0, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, MAX_TEXTURES, VK_SHADER_STAGE_COMPUTE_BIT,  VK_NULL_HANDLE};// images 1 //per scene
+    cullLayoutBindings[1] = VkDescriptorSetLayoutBinding{2, VK_DESCRIPTOR_TYPE_SAMPLER, MAX_TEXTURES, VK_SHADER_STAGE_COMPUTE_BIT , VK_NULL_HANDLE} ;// iamges  4  // perscene
+   cullLayoutBindings[2] = VkDescriptorSetLayoutBinding{12, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}; //frustum data
+   cullLayoutBindings[3] = VkDescriptorSetLayoutBinding{13, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}; //draws 
+   cullLayoutBindings[4] = VkDescriptorSetLayoutBinding{14, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}; //objectData
+    cullLayoutBindings[5] = VkDescriptorSetLayoutBinding{15, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}; //objectData
   
   
     VkDescriptorSetLayout _cullingLayout = DescriptorSets::createVkDescriptorSetLayout(GetMainRendererContext(), cullLayoutBindings, "Culling Layout");
@@ -743,12 +745,13 @@ void VulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<std::spa
 
         
                 //Set position and radius for culling
-                positionRadius meshSpacePositionAndRadius =   AssetDataAndMemory->meshData.boundingInfo[meshletIndex];
+                positionRadius meshSpacePositionAndRadius =   AssetDataAndMemory->meshData.boundingSpheres[meshletIndex];
                 float meshRadius = meshSpacePositionAndRadius.radius;
                 float objectScale = scene->transforms.worldUniformScales[lookup.depth][lookup.index];
                 perDrawData[uboIndex].cullingInfo.pos = meshSpacePositionAndRadius.pos;
                 meshRadius *= objectScale;
                 perDrawData[uboIndex].cullingInfo.radius = meshRadius;
+                perDrawData[uboIndex].cullingInfo2 =  AssetDataAndMemory->meshData.boundingBoxes[meshletIndex];
                 uboIndex++;
             }
         }
@@ -826,6 +829,23 @@ void BeginRendering(VkRenderingAttachmentInfo* depthAttatchment, int colorAttatc
 void VulkanRenderer::updateBindingsComputeCulling(ActiveRenderStepData commandBufferContext, 
     MemoryArena::memoryArena* arena, uint32_t _currentFrame)
 {
+
+    std::span<VkDescriptorImageInfo> depthViews = MemoryArena::AllocSpan<VkDescriptorImageInfo>(arena, globalResources.depthPyramidInfoPerFrame[currentFrame].viewsForMips.size());
+    VkDescriptorImageInfo& depthSampler = MemoryArena::AllocSpan<VkDescriptorImageInfo>(arena, 1)[0];
+    for(int i =0; i < globalResources.depthPyramidInfoPerFrame[currentFrame].viewsForMips.size(); i++)
+    {
+        depthViews[i] = {
+            .imageView = globalResources.depthPyramidInfoPerFrame[currentFrame].viewsForMips[i], .imageLayout = VK_IMAGE_LAYOUT_GENERAL
+        };
+
+        depthSampler = {
+            .sampler  =globalResources.depthMipSampler, .imageLayout = VK_IMAGE_LAYOUT_GENERAL
+        };
+
+    
+    }
+ 
+
     assert(commandBufferContext.commandBufferActive);
     VkDescriptorBufferInfo* frustumData =  MemoryArena::Alloc<VkDescriptorBufferInfo>(&perFrameArenas[_currentFrame], 1);
     *frustumData = GetDescriptorBufferInfo(FramesInFlightData[_currentFrame].frustumsForCullBuffers);
@@ -839,12 +859,15 @@ void VulkanRenderer::updateBindingsComputeCulling(ActiveRenderStepData commandBu
     VkDescriptorBufferInfo* transformBufferInfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(&perFrameArenas[_currentFrame], 1); 
     *transformBufferInfo = GetDescriptorBufferInfo(FramesInFlightData[_currentFrame].perObjectBuffers);
     
-    std::span<descriptorUpdateData> descriptorUpdates = MemoryArena::AllocSpan<descriptorUpdateData>(arena, 4);
+    std::span<descriptorUpdateData> descriptorUpdates = MemoryArena::AllocSpan<descriptorUpdateData>(arena, 6);
 
-    descriptorUpdates[0] = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, frustumData};  //frustum data
-    descriptorUpdates[1] = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, computeDrawBuffer}; //draws 
-    descriptorUpdates[2] = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, objectBufferInfo}; //objectData  //
-    descriptorUpdates[3] = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, transformBufferInfo}; //objectData  //
+    descriptorUpdates[0] = {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, depthViews.data(), (uint32_t)depthViews.size() };  //frustum data
+    descriptorUpdates[1] = {VK_DESCRIPTOR_TYPE_SAMPLER, &depthSampler, 1}; //draws 
+
+    descriptorUpdates[2] = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, frustumData};  //frustum data
+    descriptorUpdates[3] = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, computeDrawBuffer}; //draws 
+    descriptorUpdates[4] = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, objectBufferInfo}; //objectData  //
+    descriptorUpdates[5] = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, transformBufferInfo}; //objectData  //
 
     DescriptorSets::_updateDescriptorSet_NEW(GetMainRendererContext(),pipelineLayoutManager.GetDescriptordata(cullingLayoutIDX, 0)->descriptorSetsCaches[currentFrame].getNextDescriptorSet(),
        pipelineLayoutManager.GetDescriptordata(cullingLayoutIDX, 0)->layoutBindings,  descriptorUpdates); //Update desciptor sets for the compute bindings 
@@ -872,6 +895,7 @@ void RecordCullingCommands(ArenaAllocator allocator, VkPipelineLayout layout, Ac
     cullPConstants* cullconstants = MemoryArena::Alloc<cullPConstants>(allocator);
     *cullconstants = {
         .view = conf.view,
+        .proj =  conf.proj,
         .firstDraw = conf.drawOffset,
         .frustumIndex = cullFrustumIndex,
         .objectCount = conf.drawCount};

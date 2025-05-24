@@ -27,6 +27,12 @@ struct objectProperties
     alignas(16) glm::vec4 materialprops; //roughness, metalness, padding, padding
     alignas(16) glm::vec4 color; //rgba
 };
+struct boundingBox
+{
+    alignas(16) glm::vec4 min;
+    alignas(16) glm::vec4 max;
+};
+
 
 struct positionRadius
 {
@@ -48,6 +54,7 @@ struct gpu_per_draw //todo: in the process of making this per mesh data
     //Culling info
     //This data is really per model, not per object, but I'm lazy
     positionRadius cullingInfo;
+    boundingBox cullingInfo2;
    
 };
 
@@ -102,6 +109,7 @@ struct debugLinePConstants
 struct cullPConstants
 {
     alignas(16) glm::mat4 view;
+    alignas(16) glm::mat4 proj;
     uint32_t firstDraw;
     uint32_t frustumIndex;
     uint32_t objectCount;

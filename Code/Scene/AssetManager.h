@@ -7,6 +7,7 @@
 #include "Renderer/TextureCreation/TextureData.h"
 #include "Renderer/AssetManagerTypes.h"
 #include "Renderer/MainRenderer/rendererStructs.h"
+struct boundingBox;
 struct gpuvertex;
 struct ImportMeshData;
 //
@@ -74,7 +75,8 @@ public:
         // Objects/Meshlets
         Array<uint8_t> vertIndices;
         Array<MeshletData> meshletInfo;
-        Array<positionRadius> boundingInfo;
+        Array<positionRadius> boundingSpheres;
+        Array<boundingBox> boundingBoxes; 
         Array<PerSubmeshData> perSubmeshData;
     };
     

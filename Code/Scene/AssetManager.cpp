@@ -20,7 +20,8 @@ AssetManager::AssetManager()
     this->meshData.vertData = MemoryArena::AllocSpan<gpuvertex>(&this->allocator,350000);     
     this->meshData.vertIndices = MemoryArena::AllocSpan<uint8_t>(&this->allocator, 950000);
     this->meshData.meshletInfo =  MemoryArena::AllocSpan<MeshletData>(&this->allocator, MESHLET_MAX_PER * ASSET_MAX);
-    this->meshData.boundingInfo =  MemoryArena::AllocSpan<positionRadius>(&this->allocator, MESHLET_MAX_PER * ASSET_MAX);
+    this->meshData.boundingSpheres =  MemoryArena::AllocSpan<positionRadius>(&this->allocator, MESHLET_MAX_PER * ASSET_MAX);
+    this->meshData.boundingBoxes =  MemoryArena::AllocSpan<boundingBox>(&this->allocator, MESHLET_MAX_PER * ASSET_MAX);
     this->meshData.perSubmeshData = Array(MemoryArena::AllocSpan<PerSubmeshData>(&this->allocator, MESHLET_MAX_PER * ASSET_MAX));
     this->texturesMetaData = Array(MemoryArena::AllocSpan<TextureMetaData>(&this->allocator, ASSET_MAX));
     this->textures = Array(MemoryArena::AllocSpan<VkDescriptorImageInfo>(&this->allocator, ASSET_MAX));
@@ -126,12 +127,15 @@ ID::SubMeshID AssetManager::AddMesh(ImportMeshData importMesh)
 {
 
     Array offsets = meshData.meshletInfo.pushUninitializedSpan(importMesh.meshletCount);
-    Array boundingInfo = meshData.boundingInfo.pushUninitializedSpan(importMesh.meshletCount);
+    Array spheres = meshData.boundingSpheres.pushUninitializedSpan(importMesh.meshletCount);
+    Array boundingBoxes = meshData.boundingBoxes.pushUninitializedSpan(importMesh.meshletCount);
 
     auto meshVertexOffset = globalVertexCount;
     for (uint32_t j = 0; j < importMesh.meshletCount; j++)
     {
-        boundingInfo.push_back(MeshDataCreation::boundingSphereFromMeshBounds(importMesh.meshletBounds[j]));
+        spheres.push_back(MeshDataCreation::boundingSphereFromMeshBounds(importMesh.meshletBounds[j]));
+        boundingBoxes.push_back({glm::vec4(importMesh.meshletBounds[j][0], -1), glm::vec4(importMesh.meshletBounds[j][1], -1)
+    });
         offsets.push_back({
             importMesh.meshletVertexOffsets[j] + meshVertexOffset, globalIndexCount, importMesh.indexCounts[j]
         });

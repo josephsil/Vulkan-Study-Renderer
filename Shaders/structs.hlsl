@@ -21,6 +21,11 @@ struct objectData
     //This data is really per model, not per object, but I'm lazy
     float4 objectSpaceboundsCenter;
     float objectSpaceboundsRadius;
+
+    //bounding box
+    float4 boundsmin;
+    float4 boundsmax;
+
 };
 
 struct ShaderGlobals
