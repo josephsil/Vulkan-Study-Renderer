@@ -222,8 +222,8 @@ std::span<GPU_perShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryA
         {
             outputSpan = MemoryArena::AllocSpan<GPU_perShadowData>(allocator, 6 ); 
             lightProjection = glm::perspective(glm::radians((float)90),
-                                               1.0f, 0.001f,
-                                               10.0f);} //TODO BETTER FAR
+                                               1.0f, POINT_LIGHT_NEAR_PLANE,
+                                               POINT_LIGHT_FAR_PLANE);} //TODO BETTER FAR
 
         for(int i = 0; i < outputSpan.size(); i++)
         {

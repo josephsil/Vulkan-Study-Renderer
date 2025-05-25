@@ -654,29 +654,28 @@ void VulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<std::spa
 
     //Lights
     auto lights = MemoryArena::AllocSpan<GPU_LightData>(tempArena, scene->lightCount);
-    Array<GPU_perShadowData> flattenedPerShadowData = Array(MemoryArena::AllocSpan<GPU_perShadowData>(&perFrameArenas[currentFrame],FramesInFlightData[currentFrame].shadowDataBuffers.count()));
+    std::span<GPU_perShadowData> flattenedPerShadowData = MemoryArena::AllocSpan<GPU_perShadowData>(&perFrameArenas[currentFrame],FramesInFlightData[currentFrame].shadowDataBuffers.count());
+    std::span<GPU_perShadowData> nextFlattenedShadowDataView = flattenedPerShadowData.subspan(0);
+    size_t shadowOffset = 0;
+    size_t spanOffset = 0;
     for (int i = 0; i < perLightShadowData.size(); i++)
     {
-        std::span<GPU_perShadowData> lightsShadowData  =  MemoryArena::AllocSpan<GPU_perShadowData>(tempArena, perLightShadowData[i].size());
-        for (int j = 0; j < perLightShadowData[i].size(); j++)
-        {
-            lightsShadowData[j] = { perLightShadowData[i][j].viewMatrix,perLightShadowData[i][j].projMatrix, perLightShadowData[i][j].depth};
-        }
+        size_t lightShadowMatrixCt = perLightShadowData[i].size();
         lights[i] = {
             scene->lightposandradius[i],
             scene->lightcolorAndIntensity[i],
             glm::vec4(scene->lightTypes[i], scene->lightDir[i].x, scene->lightDir[i].y, scene->lightDir[i].z),
-            glm::vec4(flattenedPerShadowData.ct, lightsShadowData.size(), -1, -1)
+            (uint32_t)shadowOffset,
+            (uint32_t)lightShadowMatrixCt
         };
 
-        for (int j = 0; j < lightsShadowData.size(); j++)
-        {
-            flattenedPerShadowData.push_back(lightsShadowData[j]);
-        }
+        std::copy(perLightShadowData[i].begin(), perLightShadowData[i].end(), nextFlattenedShadowDataView.begin());
+        nextFlattenedShadowDataView = nextFlattenedShadowDataView.subspan(perLightShadowData[i].size());
+        shadowOffset += lightShadowMatrixCt;
     }
     
     FramesInFlightData[currentFrame].lightBuffers.updateMappedMemory(std::span(lights.data(), lights.size()));
-    FramesInFlightData[currentFrame].shadowDataBuffers.updateMappedMemory(std::span(flattenedPerShadowData.data, flattenedPerShadowData.capacity));
+    FramesInFlightData[currentFrame].shadowDataBuffers.updateMappedMemory(flattenedPerShadowData);
 
     // frustums
     auto frustums = FramesInFlightData[currentFrame].frustumsForCullBuffers

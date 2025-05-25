@@ -83,30 +83,40 @@ RWStructuredBuffer<Transform> transforms;
 #define  SPECULAR_INDEX  perObjectData[InstanceIndex].props.textureIndexInfo.g
 #define  NORMAL_INDEX perObjectData[InstanceIndex].props.textureIndexInfo.b
 
-float3 GET_SPOT_LIGHT_DIR(LightData light)
+float3 GetSpotLightDir(LightData light)
 {
-    return light.lighttype_lightDir.yzw;
+    return light.lighttype_lightDir.yzw; //what!
 }
 
-int getLightType(LightData light)
+int GetLightType(LightData light)
 {
     return light.lighttype_lightDir.x;
 }
-float4x4 GetWorldToClipForLight(LightData light, uint offset)
+
+perShadowData GetShadowDataForLight(LightData light, uint shadowOffset)
 {
-    uint index = light.matrixIDX_matrixCt_padding.r + offset;
-    return  mul(shadowMatrices[index].projMatrix,
-                                 shadowMatrices[index].viewMatrix);
+    uint index = light.shadowOffset + shadowOffset;
+    return shadowMatrices[index];
+}
+
+float4x4 GetWorldToClipForShadow(perShadowData data)
+{
+    return  mul(data.projMatrix,data.viewMatrix);
 }
 int getShadowMatrixIndex(LightData light)
 {
-    return light.matrixIDX_matrixCt_padding.r;
+    return light.shadowOffset;
 }
 
 
 int getShadowMatrixCount(LightData light)
 {
-    return light.matrixIDX_matrixCt_padding.g;
+    return light.shadowCount;
+}
+
+float2 NDCToUV(float3 input)
+{
+   return input.xy * 0.5 + 0.5;
 }
 
 
@@ -174,13 +184,14 @@ float GeometrySmith(float3 N, float3 V, float3 L, float roughness)
 
 
 
-float VectorToDepthValue(float3 Vec)
+//I copied this from somewhere and don't totally understand it!
+float WorldSpacePositionToPointLightNDCDepth(float3 Vec)
 {
     float3 AbsVec = abs(Vec);
     float LocalZcomp = max(AbsVec.x, max(AbsVec.y, AbsVec.z));
 
-    const float FAR = 10.0;
-    const float NEAR = 0.001;
+    const float FAR = POINT_LIGHT_FAR_PLANE;
+    const float NEAR = POINT_LIGHT_NEAR_PLANE;
     float NormZComp = (FAR + NEAR) / (FAR - NEAR) - (2.0 * FAR * NEAR) / (FAR - NEAR) / LocalZcomp;
     return (NormZComp + 1.0) * 0.5;
 }
@@ -202,12 +213,11 @@ int findCascadeLevel(int lightIndex, float3 worldPixel)
     return cascadeLevel;
 }
 static const int POISSON_SAMPLECOUNT = 12;
-float SampleSoftShadow(Texture2DArray<float4> Texture, float depth, float3 shadowUV)
+float SampleSoftShadow(Texture2DArray<float4> Texture, float fragDepth, float3 shadowUV)
 {
-    float2 vTexelSize = float2(1.0 / SHADOW_MAP_SIZE, 1.0 / SHADOW_MAP_SIZE);
     //Poisson lookup
     //Version from https://web.engr.oregonstate.edu/~mjb/cs519/Projects/Papers/ShaderTricks.pdf -- placheolder
-   
+    float2 vTexelSize = float2(1.0 / SHADOW_MAP_SIZE, 1.0 / SHADOW_MAP_SIZE);
     float2 vTaps[POISSON_SAMPLECOUNT] = {
         float2(-0.326212, -0.40581), float2(-0.840144, -0.07358),
         float2(-0.695914, 0.457137), float2(-0.203345, 0.620716),
@@ -219,54 +229,49 @@ float SampleSoftShadow(Texture2DArray<float4> Texture, float depth, float3 shado
 
     float cSampleAccum = 0;
     // Take a sample at the disc’s center
-    cSampleAccum += Texture.Sample(shadowmapSampler[0], shadowUV.xyz) >depth;
+    cSampleAccum += Texture.Sample(shadowmapSampler[0], shadowUV.xyz) > fragDepth;
     // Take 12 samples in disc
     for (int nTapIndex = 0; nTapIndex < POISSON_SAMPLECOUNT; nTapIndex++)
     {
         float2 vTapCoord = vTexelSize * vTaps[nTapIndex] * 1.5;
-
+        float3 uvOffset = float3(vTapCoord, 0.0);
         // Accumulate samples
-        cSampleAccum += (Texture.Sample(shadowmapSampler[0],
-                                                 shadowUV.xyz + float3(vTapCoord.x, vTapCoord.y, 0)).r >
-           depth);
+        cSampleAccum += (Texture.Sample(shadowmapSampler[0], (shadowUV.xyz + uvOffset)).r > fragDepth);
     }
     return cSampleAccum;
 }
 
-float3 getShadow(int index, float3 fragPos)
+float3 getShadow(int index, float3 fragWorldPos)
 {
     LightData light = lights[index];
-    if (getLightType(light) == LIGHT_POINT)
+    if (GetLightType(light) == LIGHT_POINT)
     {
-        //Not obvious how this code works -- depends on near/far plane staying the same (see vectortodepthvalue)
-        float3 fragToLight = fragPos - light.position_range.xyz;
-        float distLightSpace = VectorToDepthValue(light.position_range.xyz - fragPos);
+        float3 fragToLight = fragWorldPos - light.position_range.xyz;
+        float distLightSpace = WorldSpacePositionToPointLightNDCDepth(light.position_range.xyz - fragWorldPos);
+        //ShadowMapCube is indexed by light index, rather than shadowmap index like the sampler the other light types use.
+        //There's high risk of a bug here with how I stride lights.
         float3 shadow = shadowmapCube[index].SampleLevel(cubeSamplers[0], fragToLight, 0.0).r;
-        return distLightSpace < (shadow.r); // float3(proj.z, shadow.r, 1.0);
+        return distLightSpace < (shadow.r);
     }
-    if (getLightType(light) == LIGHT_SPOT)
+    if (GetLightType(light) == LIGHT_SPOT)
     {
         int ARRAY_INDEX = 0;
-        float4x4 lightMat = GetWorldToClipForLight(light, ARRAY_INDEX);
-        float4 fragClipSpace = mul(lightMat, float4(fragPos, 1.0));
+        float4x4 lightMat = GetWorldToClipForShadow(GetShadowDataForLight(light, ARRAY_INDEX));
+        float4 fragClipSpace = mul(lightMat, float4(fragWorldPos, 1.0));
         float3 fragNDC = ClipToNDC(fragClipSpace);
-        float3 shadowUV = fragNDC * 0.5 + 0.5;
+        float2 shadowUV = NDCToUV(fragNDC);
 
-        return shadowmap[index].Sample(shadowmapSampler[0], float3(shadowUV.xy, ARRAY_INDEX)).r < fragNDC.z;
+        return shadowmap[light.shadowOffset].Sample(shadowmapSampler[0], float3(shadowUV, ARRAY_INDEX)).r < fragNDC.z;
     }
-    if (getLightType(light) == LIGHT_DIR)
+    if (GetLightType(light) == LIGHT_DIR)
     {
-        float _SHADOW_MAP_SIZE = (SHADOW_MAP_SIZE);
-        float2 vTexelSize = float2(1.0 / SHADOW_MAP_SIZE, 1.0 / SHADOW_MAP_SIZE);
         int lightIndex = getShadowMatrixIndex(light);
-        int cascadeLevel = findCascadeLevel(lightIndex, fragPos);
-        float4 fragClipSpace = mul(GetWorldToClipForLight(light, lightIndex + cascadeLevel), float4(fragPos, 1.0));
+        int cascadeLevel = findCascadeLevel(lightIndex, fragWorldPos);
+        float4 fragClipSpace = mul(GetWorldToClipForShadow(GetShadowDataForLight(light, lightIndex + cascadeLevel)), float4(fragWorldPos, 1.0));
         float3 fragNDC = ClipToNDC(fragClipSpace);
-        float3 shadowUV = fragNDC * 0.5 + 0.5;
-        shadowUV.z = cascadeLevel;
-
+        float2 shadowUV = NDCToUV(fragNDC);
  
-        float cSampleAccum = SampleSoftShadow(shadowmap[index],  fragNDC.z, shadowUV.xyz);
+        float cSampleAccum = SampleSoftShadow(shadowmap[light.shadowOffset],  fragNDC.z, float3(shadowUV.xy, cascadeLevel));
       
         return saturate((cSampleAccum) / (POISSON_SAMPLECOUNT + 1));
     }
@@ -287,7 +292,7 @@ float GetDirLightMaxRadius(LightData l)
 float3 GetLightDir(LightData light, float3 fragPos)
 {
 
-    if (getLightType(light) == LIGHT_DIR)
+    if (GetLightType(light) == LIGHT_DIR)
     {
         return GetDirLightDirection(light);
     }
@@ -299,11 +304,29 @@ float3 GetLightDir(LightData light, float3 fragPos)
 
 }
 
-float3 getLighting(float3 albedo, float3 inNormal, float3 FragPos, float3 F0, float3 roughness, float metallic)
+float3 lightContribution(float3 halfwayDir, float3 viewDir, float3 lightDir, float3 surfaceNormal, float3 lightRadiance, float3 albedo, float metallic, float roughness)
 {
+    float3 F0 = 0.04;
+    F0 = lerp(F0, albedo, metallic);
     float PI = 3.14159265359;
-    float3 viewDir = normalize(globals.eyePos - FragPos);
-    float3 lightContribution = float3(0, 0, 0);
+    float3 Fresnel = fresnelSchlick(max(dot(halfwayDir, viewDir), 0.0), F0);
+    float NDF = DistributionGGX(surfaceNormal, halfwayDir, roughness);
+    float G = GeometrySmith(surfaceNormal, viewDir, lightDir, roughness);
+    float3 numerator = NDF * G * Fresnel;
+    float denominator = 4.0 * max(dot(surfaceNormal, viewDir), 0.0) * max(dot(surfaceNormal, lightDir), 0.0) + 0.0001;
+    float3 specular = numerator / denominator;
+    float3 kS = Fresnel;
+    float3 kD = 3.0 - kS;
+
+    kD *= 1.0 - metallic;
+    float NdotL = max(dot(surfaceNormal, lightDir), 0.0);
+    float3 lightAdd = (kD * albedo / PI + specular) * lightRadiance * NdotL;
+    return lightAdd;
+}
+float3 getLighting(float3 albedo, float3 inNormal, float3 fragWorldPos, float3 F0, float3 roughness, float metallic)
+{
+    float3 viewDir = normalize(globals.eyePos - fragWorldPos);
+    float3 lightResult = 0;
     for (int i = 0; i < LIGHTCOUNT; i++)
     {
         LightData light = lights[i];
@@ -311,11 +334,11 @@ float3 getLighting(float3 albedo, float3 inNormal, float3 FragPos, float3 F0, fl
         float3 radiance = lightColor;
         
         float3 lightPos = GetLightPosition(light);
-        float3 lightDir = GetLightDir(light,  FragPos);
-        float lightDistance = pow(length(lightPos - FragPos), 2);
+        float3 lightDir = GetLightDir(light,  fragWorldPos);
+        float lightDistance = pow(length(lightPos - fragWorldPos), 2);
         float3 halfwayDir = normalize(lightDir + viewDir);
 
-        int lightType = getLightType(light);
+        int lightType = GetLightType(light);
         if (lightType == LIGHT_POINT || lightType == LIGHT_SPOT)
         {
             float attenuation = 1.0 / (lightDistance * lightDistance);
@@ -323,7 +346,7 @@ float3 getLighting(float3 albedo, float3 inNormal, float3 FragPos, float3 F0, fl
         }
         if (lightType == LIGHT_SPOT)
         {
-            float3 spotlightDir = GET_SPOT_LIGHT_DIR(light);
+            float3 spotlightDir = GetSpotLightDir(light);
             float theta = dot(normalize(lightDir), normalize(-spotlightDir));
 
             float cosCutoff = (1.0 - (GetDirLightMaxRadius(light)) / 180);
@@ -334,33 +357,17 @@ float3 getLighting(float3 albedo, float3 inNormal, float3 FragPos, float3 F0, fl
             radiance *= clamp((theta - cosCutoffOuter) / epsilon, 0.0, 1.0);
         }
 
-        float3 Fresnel = fresnelSchlick(max(dot(halfwayDir, viewDir), 0.0), F0);
-        float NDF = DistributionGGX(inNormal, halfwayDir, roughness);
-        float G = GeometrySmith(inNormal, viewDir, lightDir, roughness);
-        float3 numerator = NDF * G * Fresnel;
-        float denominator = 4.0 * max(dot(inNormal, viewDir), 0.0) * max(dot(inNormal, lightDir), 0.0) + 0.0001;
-        float3 specular = numerator / denominator;
-        float3 kS = Fresnel;
-        float3 kD = 3.0 - kS;
-
-        kD *= 1.0 - metallic;
-        float NdotL = max(dot(inNormal, lightDir), 0.0);
-        float3 lightAdd = (kD * albedo / PI + specular) * radiance * NdotL;
-
+        float3 lightAdd =  lightContribution(halfwayDir, viewDir, lightDir, inNormal, radiance, albedo, metallic, roughness);
         //Shadow:
-
         if (i < SHADOWCOUNT) //TODO JS: pass in max shadow casters?
         {
-            float shadowMapValue = getShadow(i, FragPos);
-            lightAdd *= shadowMapValue;
+            lightAdd *=  getShadow(i, fragWorldPos);
         }
-        //
-
-        lightContribution += lightAdd;
+        lightResult += lightAdd;
     }
 
 
-    return lightContribution;
+    return lightResult;
 }
 
 float3 very_approximate_srgb_to_linear(float3 input)

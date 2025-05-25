@@ -6,3 +6,4 @@ float3, glm::vec3
 float2, glm::vec2
 float, float
 uint, uint32_t
+static const, static constexpr

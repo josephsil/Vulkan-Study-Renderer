@@ -1,5 +1,6 @@
 static const uint SHADOW_MAP_SIZE = 1024;
-
+static const float POINT_LIGHT_FAR_PLANE = 10.0;
+static const float POINT_LIGHT_NEAR_PLANE = 0.01f;
 struct Transform
 {
     float4x4 Model;
@@ -76,9 +77,8 @@ struct LightData
     float4 position_range;
     float4 color_intensity;
     float4 lighttype_lightDir;
-    float4 matrixIDX_matrixCt_padding; // currently only used by point
-    // float4x4 _DELETED; //TODO JS: delete for real
-    // uint color;
+    uint shadowOffset;
+    uint shadowCount; 
 };
 
 

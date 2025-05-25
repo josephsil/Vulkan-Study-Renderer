@@ -29,10 +29,6 @@ struct VSOutput
     // [[vk::location(7)]] float3x3 TBN : TEXCOORD4;
 };
 
-#ifdef SHADOWPASS
-// #define MATRIXOFFSET pc.unused
-#endif
-
 VSOutput Vert(VSInput input, [[vk::builtin("BaseInstance")]] uint InstanceIndex : BaseInstance,
               uint VertexIndex : SV_VertexID)
 {
