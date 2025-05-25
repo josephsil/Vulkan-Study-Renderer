@@ -617,9 +617,9 @@ static void updateGlobals(cameraData camera, size_t lightCount, size_t cubeMapLu
 {
     GPU_ShaderGlobals globals{};
     viewProj vp = LightAndCameraHelpers::CalcViewProjFromCamera(camera);
-    globals.view = vp.view;
-    globals.projection = vp.proj;
-    globals.viewPos = glm::vec4(camera.eyePos.x, camera.eyePos.y, camera.eyePos.z, 1);
+    globals.viewMatrix = vp.view;
+    globals.projMatrix = vp.proj;
+    globals.eyePos = glm::vec4(camera.eyePos.x, camera.eyePos.y, camera.eyePos.z, 1);
     globals.lightcount_mode_shadowct_padding = glm::vec4(lightCount, debug_shader_bool_1, MAX_SHADOWCASTERS, 0);
     globals.lutIDX_lutSamplerIDX_padding_padding = glm::vec4(
         cubeMapLutIndex,
@@ -660,7 +660,7 @@ void VulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<std::spa
         std::span<GPU_perShadowData> lightsShadowData  =  MemoryArena::AllocSpan<GPU_perShadowData>(tempArena, perLightShadowData[i].size());
         for (int j = 0; j < perLightShadowData[i].size(); j++)
         {
-            lightsShadowData[j] = { perLightShadowData[i][j].view,perLightShadowData[i][j].proj, perLightShadowData[i][j].depth};
+            lightsShadowData[j] = { perLightShadowData[i][j].viewMatrix,perLightShadowData[i][j].projMatrix, perLightShadowData[i][j].depth};
         }
         lights[i] = {
             scene->lightposandradius[i],
@@ -689,7 +689,7 @@ void VulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<std::spa
         for (int j = 0; j < perLightShadowData[i].size(); j++)
         {
             viewProj vp = LightAndCameraHelpers::CalcViewProjFromCamera(scene->sceneCamera);
-            glm::mat4  projT =   transpose(perLightShadowData[i][j].proj)  ;
+            glm::mat4  projT =   transpose(perLightShadowData[i][j].projMatrix)  ;
             frustums[offset + 0] = projT[3] + projT[0];
             frustums[offset + 1] = projT[3] - projT[0];
             frustums[offset + 2] = projT[3] + projT[1];
@@ -895,8 +895,8 @@ void RecordCullingCommands(ArenaAllocator allocator, VkPipelineLayout layout, Ac
 
     GPU_CullPushConstants* cullconstants = MemoryArena::Alloc<GPU_CullPushConstants>(allocator);
     *cullconstants = {
-        .view = conf.view,
-        .proj =  conf.proj,
+        .viewMatrix = conf.view,
+        .projMatrix =  conf.proj,
         .offset = conf.drawOffset,
         .frustumOffset = cullFrustumIndex,
         .objectCount = conf.drawCount};
@@ -1381,8 +1381,8 @@ std::span<RenderBatchCreationConfig> CreateShadowPassConfigs(uint32_t firstIndex
         size_t lightSubpasses = shadowCountFromLightType(type);
         for (size_t j = 0; j < lightSubpasses; j++)
         {
-            auto view = inputShadowdata[i][j].view;
-            auto proj =  inputShadowdata[i][j].proj;
+            auto view = inputShadowdata[i][j].viewMatrix;
+            auto proj =  inputShadowdata[i][j].projMatrix;
             //todo js: wanna rethink this, since shadow rendering is like effectively dupe with depth prepass rendering 
             GPU_shadowPushConstant* shadowPushConstants = MemoryArena::Alloc<GPU_shadowPushConstant>(passData.tempAllocator);
             shadowPushConstants->mat =  proj * view;
@@ -1654,9 +1654,9 @@ void VulkanRenderer::RenderFrame(Scene* scene)
         size_t lightSubpasses = shadowCountFromLightType(type);
         for (size_t j = 0; j < lightSubpasses; j++)
         {
-            auto view = perLightShadowData[i][j].view;
-            auto proj =  perLightShadowData[i][j].proj;
-            flatShadowData.push_back({.view = view, .proj = proj, .depth = -1});
+            auto view = perLightShadowData[i][j].viewMatrix;
+            auto proj =  perLightShadowData[i][j].projMatrix;
+            flatShadowData.push_back({.viewMatrix = view, .projMatrix = proj, .depth = -1});
         }
     }
 
@@ -1664,7 +1664,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     Array<RenderPassDrawData> shadowPassData = MemoryArena::AllocSpan<RenderPassDrawData>(&perFrameArenas[currentFrame], MAX_RENDER_PASSES);
     for (auto& shadowData : flatShadowData.getSpan())
     {
-        shadowPassData.push_back({.drawCount = drawPerPass, .drawOffset = drawOffset,.subMeshcount = submeshperPass, .proj = shadowData.proj, .view = shadowData.view });
+        shadowPassData.push_back({.drawCount = drawPerPass, .drawOffset = drawOffset,.subMeshcount = submeshperPass, .proj = shadowData.projMatrix, .view = shadowData.viewMatrix });
         drawOffset += drawPerPass;
     }
    
@@ -1673,7 +1673,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     GPU_perShadowData* data = MemoryArena::Alloc<GPU_perShadowData>(&perFrameArenas[currentFrame]);
     if ( debug_cull_override && GetFlattenedShadowDataForIndex(debug_cull_override_index,perLightShadowData, data))
     {
-        viewProjMatricesForCulling = { data->view,  data->proj};
+        viewProjMatricesForCulling = { data->viewMatrix,  data->projMatrix};
         glm::vec4 frustumCornersWorldSpace[8] = {};
         LightAndCameraHelpers::FillFrustumCornersForSpace(frustumCornersWorldSpace,glm::inverse(viewProjMatricesForCulling.proj * viewProjMatricesForCulling.view));
         debugLinesManager.AddDebugFrustum(frustumCornersWorldSpace);

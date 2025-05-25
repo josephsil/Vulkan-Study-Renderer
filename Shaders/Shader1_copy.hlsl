@@ -55,8 +55,8 @@ VSOutput Vert(VSInput input, [[vk::builtin("BaseInstance")]] uint InstanceIndex 
     Transform transform = GetTransform();
     VSOutput output = (VSOutput)0;
     //
-    float4x4 modelView = mul(globals.view, GetTransform().Model);
-    float4x4 mvp = mul(globals.projection, modelView);
+    float4x4 modelView = mul(globals.viewMatrix, GetTransform().Model);
+    float4x4 mvp = mul(globals.projMatrix, modelView);
     output.Pos = mul(mvp, vertPos);
     output.Texture_ST = myVertex.uv0.xy;
     output.Color = myVertex.normal.xyz;
@@ -145,7 +145,7 @@ FSOutput Frag(VSOutput input)
 
     normalMap = normalize(mul(input.TBN, normalize(normalMap)));
 
-    float3 V = normalize(globals.viewPos - input.worldPos);
+    float3 V = normalize(globals.eyePos - input.worldPos);
     float3 reflected = reflect(V, normalMap);
 
     float3 F0 = 0.04;
@@ -186,22 +186,7 @@ FSOutput Frag(VSOutput input)
     //
     output.Color *= input.Color;
 
-    output.Color = output.Color / (output.Color + 1.0);
 
-    // output.Color = getLighting(model, diff, input.Normal, input.worldPos, F0, roughness, metallic) / 10;
-    //TODO: pcf
-    //TODO: cascade
-    //
-    // output.Color = reflected;
-    //
-    // LightData light = lights[0];
-    // int lightIndex = getShadowMatrixIndex(light);
-    // int cascadeLevel = findCascadeLevel(lightIndex, input.worldPos);
-    // if (cascadeLevel == 0) output.Color *= float3(0, 0, 1);
-    // if (cascadeLevel == 1) output.Color *= float3(1, 0, 0);
-    // if (cascadeLevel == 2) output.Color *= float3(0, 1, 0);
-    // if (cascadeLevel == 3) output.Color = float3(0.5, 0.5, 0);
-
-    output.Color *= float3(1.0f, 0.2f, 0.2f);
+    output.Color *= float3(1.0f, 0.5f, 0.5f);
     return output;
 }

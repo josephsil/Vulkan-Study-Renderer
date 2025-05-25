@@ -60,10 +60,10 @@ void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
     uint objIndex = drawData[globals.offset + GlobalInvocationID.x].objectIndex;
     Transform transform = _Transform[_ObjectData[objIndex].props.indexInfo.a];
     ObjectData mesh = _ObjectData[objIndex];
-    float4x4 modelView = mul(globals.view, transform.Model);
+    float4x4 modelView = mul(globals.viewMatrix, transform.Model);
 
-    float4x4 viewProj = mul(globals.proj,
-                               globals.view);
+    float4x4 viewProj = mul(globals.projMatrix,
+                               globals.viewMatrix);
     float4 centerNDCSpace = mul(viewProj, float4(mesh.boundsSphere.center.xyz, 1.0));
     float3 centerProjection = (centerNDCSpace.xyz / centerNDCSpace.w);
     float3 centerUV = centerProjection * 0.5 + 0.5;

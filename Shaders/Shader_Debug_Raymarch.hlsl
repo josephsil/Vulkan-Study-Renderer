@@ -61,8 +61,8 @@ VSOutput Vert(VSInput input, [[vk::builtin("BaseInstance")]] uint InstanceIndex 
     ObjectData ubo = perObjectData[InstanceIndex];
     VSOutput output = (VSOutput)0;
     //
-    float4x4 modelView = mul(globals.view, GetTransform().Model);
-    float4x4 mvp = mul(globals.projection, modelView);
+    float4x4 modelView = mul(globals.viewMatrix, GetTransform().Model);
+    float4x4 mvp = mul(globals.projMatrix, modelView);
     output.Pos = vertPos;
     // output.Texture_ST = myVertex.uv0.xy;
     output.Color = vertPos;
@@ -227,8 +227,8 @@ FSOutput Frag(VSOutput input)
     {
         uint InstanceIndex = j;
         ObjectData ubo = perObjectData[InstanceIndex];
-        float4x4 modelView = mul(globals.view, GetTransform().Model);
-        float4x4 mvp = mul(globals.projection, modelView);
+        float4x4 modelView = mul(globals.viewMatrix, GetTransform().Model);
+        float4x4 mvp = mul(globals.projMatrix, modelView);
         float d = 0.;
         for (int i = 0; i < MAX_STEPS; i++)
         {

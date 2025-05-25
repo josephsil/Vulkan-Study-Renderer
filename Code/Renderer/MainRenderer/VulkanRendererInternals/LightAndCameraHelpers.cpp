@@ -232,24 +232,24 @@ std::span<GPU_perShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryA
         glm::mat4 translation = glm::translate(glm::mat4(1.0f), -lightPos);
         glm::mat4 rotMatrix = glm::mat4(1.0);
     
-        outputSpan[0].view =  glm::rotate(rotMatrix, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-        outputSpan[0].view =  (glm::rotate(  outputSpan[0].view, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * translation);
+        outputSpan[0].viewMatrix =  glm::rotate(rotMatrix, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        outputSpan[0].viewMatrix =  (glm::rotate(  outputSpan[0].viewMatrix, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * translation);
         rotMatrix = glm::mat4(1.0);
-        outputSpan[1].view = glm::rotate(rotMatrix, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-        outputSpan[1].view =  (glm::rotate(outputSpan[1].view, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * translation);
+        outputSpan[1].viewMatrix = glm::rotate(rotMatrix, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        outputSpan[1].viewMatrix =  (glm::rotate(outputSpan[1].viewMatrix, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * translation);
         rotMatrix = glm::mat4(1.0);
-        outputSpan[2].view = (glm::rotate(rotMatrix, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * translation);
+        outputSpan[2].viewMatrix = (glm::rotate(rotMatrix, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * translation);
         rotMatrix = glm::mat4(1.0);
-        outputSpan[3].view = (glm::rotate(rotMatrix, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * translation);
+        outputSpan[3].viewMatrix = (glm::rotate(rotMatrix, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * translation);
         rotMatrix = glm::mat4(1.0);
-        outputSpan[4].view = (glm::rotate(rotMatrix, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * translation);
+        outputSpan[4].viewMatrix = (glm::rotate(rotMatrix, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * translation);
         rotMatrix = glm::mat4(1.0);
-        outputSpan[5].view = (glm::rotate(rotMatrix, glm::radians(180.0f), glm::vec3(0.0f, 0.0f, 1.0f)) * translation);
+        outputSpan[5].viewMatrix = (glm::rotate(rotMatrix, glm::radians(180.0f), glm::vec3(0.0f, 0.0f, 1.0f)) * translation);
         rotMatrix = glm::mat4(1.0);
 
         for(int i =0; i < 6; i++)
         {
-            outputSpan[i].proj = lightProjection;
+            outputSpan[i].projMatrix = lightProjection;
         }
         return  outputSpan;
     }

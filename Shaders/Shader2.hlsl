@@ -44,8 +44,8 @@ VSOutput Vert(VSInput input, [[vk::builtin("BaseInstance")]] uint InstanceIndex 
     vertPos.a = 1.0;
     ObjectData ubo = perObjectData[InstanceIndex];
     VSOutput output = (VSOutput)0;
-    float4x4 modelView = mul(globals.view,GetTransform().Model);
-    float4x4 mvp = mul(globals.projection, modelView);
+    float4x4 modelView = mul(globals.viewMatrix,GetTransform().Model);
+    float4x4 mvp = mul(globals.projMatrix, modelView);
 
     output.Pos = mul(mvp, vertPos);
     output.Texture_ST = myVertex.uv0.xy;
@@ -135,7 +135,7 @@ FSOutput Frag(VSOutput input)
 
 
     normalMap = normalize(mul(input.TBN, ((2.0 * normalMap) - 1.0)));
-    float3 V = normalize(globals.viewPos - input.worldPos);
+    float3 V = normalize(globals.eyePos - input.worldPos);
     float3 reflected = reflect(V, normalMap);
 
     float3 F0 = 0.04;
@@ -171,7 +171,6 @@ FSOutput Frag(VSOutput input)
     }
     //
 
-    output.Color = output.Color / (output.Color + 1.0);
     //	output.Color = pow(output.Color, 1.0/2.2); 
     // output.Color = reflected;
     return output;

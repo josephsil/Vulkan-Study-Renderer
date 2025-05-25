@@ -34,7 +34,35 @@ struct VSOutput
 // float2(-0.5, 0.5)
 // };
 
+VSOutput FillVertexData(VSOutput input, VertexData inputVertex)
+{
+    VSOutput output = input; //copy input
+    output.Texture_ST = inputVertex.uv0.xy;
+    output.Color = inputVertex.normal.xyz;
+    output.Normal = inputVertex.normal.xyz;
+    return output;
 
+
+}
+VSOutput FillNormalData(VSOutput input, VertexData inputVertex, float4x4 NormalMatrix, float4x4 modelMatrix)
+{
+    VSOutput output = input; //copy input
+    
+    float3x3 normalMatrix = NormalMatrix; // ?????
+    float3 worldNormal = normalize(mul(normalMatrix, float4(output.Normal.x, output.Normal.y, output.Normal.z, 0.0)));
+    float3 worldTangent = normalize(
+        mul(modelMatrix, float4(inputVertex.Tangent.x, inputVertex.Tangent.y, inputVertex.Tangent.z, 1.0)));
+    worldTangent = (worldTangent - dot(worldNormal, worldTangent) * worldNormal);
+    float3 worldBinormal = (cross((worldNormal), (worldTangent))) * (inputVertex.Tangent.w);
+
+    output.Tangent = worldTangent;
+    output.Normal = worldNormal.xyz;
+    output.BiTangent = worldBinormal;
+
+
+    output.TBN = transpose(float3x3((worldTangent), (worldBinormal), (output.Normal)));
+    return output;
+}
 // -spirv -T vs_6_5 -E Vert .\Shader1.hlsl -Fo .\triangle.vert.spv
 
 VSOutput Vert(VSInput input, [[vk::builtin("BaseInstance")]] uint InstanceIndex : BaseInstance,
@@ -51,42 +79,15 @@ VSOutput Vert(VSInput input, [[vk::builtin("BaseInstance")]] uint InstanceIndex 
     float4 vertPos = positions[VertexIndex];
     vertPos.a = 1.0;
 
-
-    //
     Transform transform = GetTransform();
     VSOutput output = (VSOutput)0;
-    //
-    float4x4 modelView = mul(globals.view, transform.Model);
-    float4x4 mvp = mul(globals.projection, modelView);
-    output.Pos = mul(mvp, vertPos);
-    output.Texture_ST = myVertex.uv0.xy;
-    output.Color = myVertex.normal.xyz;
-    output.Normal = myVertex.normal.xyz;
-    output.worldPos = mul(transform.Model, vertPos);
+    output.worldPos = ObjectToWorld(vertPos);
+    output.Pos =      WorldToClip(output.worldPos);
 
-    float3x3 normalMatrix = transform.NormalMat; // ?????
-    //bitangent = fSign * cross(vN, tangent);
-    //Not sure if the mul here is correct? would need something baked
-    float3 worldNormal = normalize(mul(normalMatrix, float4(output.Normal.x, output.Normal.y, output.Normal.z, 0.0)));
-    float3 worldTangent = normalize(
-        mul(transform.Model, float4(myVertex.Tangent.x, myVertex.Tangent.y, myVertex.Tangent.z, 1.0)));
-    worldTangent = (worldTangent - dot(worldNormal, worldTangent) * worldNormal);
-    float3 worldBinormal = (cross((worldNormal), (worldTangent))) * (myVertex.Tangent.w);
-
-    output.Tangent = worldTangent;
-    output.Normal = worldNormal.xyz;
-    output.BiTangent = worldBinormal;
-
-
-    output.TBN = transpose(float3x3((worldTangent), (worldBinormal), (output.Normal)));
-
-    //   float3 normalW = normalize(float3(u_NormalMatrix * vec4(a_Normal.xyz, 0.0)));
-    //   float3 tangentW = normalize(float3(u_ModelMatrix * vec4(a_Tangent.xyz, 0.0)));
-    //   float3 bitangentW = cross(normalW, tangentW) * a_Tangent.w;
-    //   v_TBN = mat3(tangentW, bitangentW, normalW);
+    output = FillVertexData(output, myVertex);
+    output = FillNormalData(output, myVertex, transform.NormalMat, MODEL_MATRIX);
 
     output.InstanceID = InstanceIndex;
-
 
     output.Color = GetModelInfo().color;
     return output;
@@ -110,43 +111,26 @@ struct FSInput
     [[vk::location(7)]] float3x3 TBN : TEXCOORD4;
 };
 
-
-//
-float3x3 calculateNormal(FSInput input)
+float3 Unpack_Normals(float3 normal, float3x3 TBN)
 {
-    // float3 tangentNormal = normalMapTexture.Sample(normalMapSampler, input.UV).xyz * 2.0 - 1.0;
-
-    float3 N = normalize(input.Normal);
-    float3 T = normalize(input.Tangent);
-    float3 B = normalize(cross(N, T));
-    float3x3 TBN = transpose(float3x3(T, B, N));
-
-    return TBN;
+    float3 normalMap = normal;
+    normalMap = normalize((2.0 * normalMap) - 1.0);
+    normalMap = normalize(mul(TBN, normalize(normalMap)));
+    return normalMap;
 }
-
-//
-// -spirv -T ps_6_5 -E Frag .\Shader1.hlsl -Fo .\triangle.frag.spv
-
 FSOutput Frag(VSOutput input)
 {
     uint InstanceIndex = 0;
     InstanceIndex = input.InstanceID;
     FSOutput output; //
-    float3 diff = saturate(
-        bindless_textures[DIFFUSE_INDEX].Sample(bindless_samplers[TEXTURESAMPLERINDEX], input.Texture_ST));
+    float3 diff = saturate(bindless_textures[DIFFUSE_INDEX].Sample(bindless_samplers[TEXTURESAMPLERINDEX], input.Texture_ST));
     float3 albedo = pow(diff, 2.2);
-    float3 normalMap = (bindless_textures[NORMAL_INDEX].
-        Sample(bindless_samplers[NORMALSAMPLERINDEX], input.Texture_ST));
+    float3 normalMap = Unpack_Normals((bindless_textures[NORMAL_INDEX].Sample(bindless_samplers[NORMALSAMPLERINDEX], input.Texture_ST)), input.TBN);
 
     float4 specMap = bindless_textures[SPECULAR_INDEX].Sample(bindless_samplers[TEXTURESAMPLERINDEX], input.Texture_ST);
     float metallic = specMap.a;
-    // albedo = 0.33;
 
-    normalMap = normalize((2.0 * normalMap) - 1.0);
-
-    normalMap = normalize(mul(input.TBN, normalize(normalMap)));
-
-    float3 V = normalize(globals.viewPos - input.worldPos);
+    float3 V = normalize(globals.eyePos - input.worldPos);
     float3 reflected = reflect(V, normalMap);
 
     float3 F0 = 0.04;
@@ -184,24 +168,8 @@ FSOutput Frag(VSOutput input)
     }
 
 
-    //
     output.Color *= input.Color;
 
-    output.Color = output.Color / (output.Color + 1.0);
-
-    // output.Color = getLighting(model, diff, input.Normal, input.worldPos, F0, roughness, metallic) / 10;
-    //TODO: pcf
-    //TODO: cascade
-    //
-    // output.Color = reflected;
-    //
-    // LightData light = lights[0];
-    // int lightIndex = getShadowMatrixIndex(light);
-    // int cascadeLevel = findCascadeLevel(lightIndex, input.worldPos);
-    // if (cascadeLevel == 0) output.Color *= float3(0, 0, 1);
-    // if (cascadeLevel == 1) output.Color *= float3(1, 0, 0);
-    // if (cascadeLevel == 2) output.Color *= float3(0, 1, 0);
-    // if (cascadeLevel == 3) output.Color = float3(0.5, 0.5, 0);
 
 
     return output;

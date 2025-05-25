@@ -85,7 +85,7 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
     //point lights    
     // scene->AddPointLight(glm::vec3(1, 1, 0), glm::vec3(1, 1, 1), 55);
     // scene->AddDirLight(glm::vec3(0,0,1), glm::vec3(1,1,1), 3);
-    scene->AddDirLight(glm::vec3(0.00, 1, 0), glm::vec3(1, 1, 1), 33);
+    scene->AddDirLight(glm::vec3(0.00, 0.9, 0.1), glm::vec3(1, 1, 1), 33);
     // scene->AddPointLight(glm::vec3(-2, 2, 0), glm::vec3(1, 0, 0), 4422 / 2);
     // scene->AddPointLight(glm::vec3(0, 0, 0), glm::vec3(1, 1, 0), 999 / 2);
 

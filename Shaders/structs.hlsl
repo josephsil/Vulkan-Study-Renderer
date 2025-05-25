@@ -1,10 +1,12 @@
+static const uint SHADOW_MAP_SIZE = 1024;
+
 struct Transform
 {
     float4x4 Model;
     float4x4 NormalMat;
     //objectProperties
     //Formerly push constants
-};
+};  
 struct Bounds
 {
     float2 min;
@@ -47,17 +49,17 @@ struct ObjectData
 
 struct ShaderGlobals
 {
-    float4x4 view;
-    float4x4 projection;
-    float4 viewPos;
+    float4x4 viewMatrix;
+    float4x4 projMatrix;
+    float4 eyePos;
     float4 lightcount_mode_shadowct_padding;
     float4 lutIDX_lutSamplerIDX_padding_padding;
 };
 
 struct perShadowData
 {
-    float4x4 view;
-    float4x4 proj;
+    float4x4 viewMatrix;
+    float4x4 projMatrix;
     float depth;
 };//
 
@@ -90,8 +92,8 @@ struct shadowPushConstant
 
 struct CullPushConstants
 {
-    float4x4 view;
-    float4x4 proj;
+    float4x4 viewMatrix;
+    float4x4 projMatrix;
     uint offset;
     uint frustumOffset;
     uint objectCount;

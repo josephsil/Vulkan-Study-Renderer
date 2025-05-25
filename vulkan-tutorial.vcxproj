@@ -308,6 +308,7 @@
     <ClInclude Include="Code\Renderer\VulkanBuffers\bufferCreation.h" />
     <ClInclude Include="Code\Renderer\VulkanBuffers\HostDataBuffer.h" />
     <ClInclude Include="Code\Renderer\VulkanIncludes\forward-declarations-renderer.h" />
+    <ClInclude Include="Code\Renderer\VulkanIncludes\structs_hlsl.h" />
     <ClInclude Include="Code\Renderer\VulkanIncludes\vmaImplementation.h" />
     <ClInclude Include="Code\Renderer\VulkanIncludes\VulkanMemory.h" />
     <ClInclude Include="Code\Renderer\VulkanIncludes\Vulkan_Includes.h" />

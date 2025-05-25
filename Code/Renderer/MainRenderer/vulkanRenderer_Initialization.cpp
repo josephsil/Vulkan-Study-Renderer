@@ -231,8 +231,13 @@ rendererObjects initializeVulkanObjects(SDL_Window* _window, int WIDTH, int HEIG
     //Swapchain
     vkb::SwapchainBuilder swapchain_builder{vkb_device};
 
+   auto sawpchainfmt = VkSurfaceFormatKHR
+    {
+        .format = VK_FORMAT_B8G8R8A8_SRGB,
+        .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR
+    };
     auto vkb_swapchain = swapchain_builder
-                         .use_default_format_selection()
+                         .set_desired_format(sawpchainfmt)
                          .set_desired_present_mode(VK_PRESENT_MODE_MAILBOX_KHR)
                          .set_desired_extent(WIDTH, HEIGHT)
                          .build()
