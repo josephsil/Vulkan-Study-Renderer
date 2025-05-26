@@ -134,9 +134,11 @@ ID::SubMeshID AssetManager::AddMesh(ImportMeshData importMesh)
     auto meshVertexOffset = globalVertexCount;
     for (uint32_t j = 0; j < importMesh.meshletCount; j++)
     {
-        spheres.push_back(MeshDataCreation::boundingSphereFromMeshBounds(importMesh.meshletBounds[j]));
-        GPU_Boundses.push_back({glm::vec4(importMesh.meshletBounds[j][0], -1), glm::vec4(importMesh.meshletBounds[j][1], -1)
-    });
+        spheres.push_back(importMesh.meshletBounds[j]);
+        auto& vecCenter = importMesh.meshletBounds[j].center;
+         GPU_Boundses.push_back({ vecCenter+ (glm::vec4(-1) * ( importMesh.meshletBounds[j].radius)),
+        vecCenter+ (glm::vec4(1) * ( importMesh.meshletBounds[j].radius))
+             });
         offsets.push_back({
             importMesh.meshletVertexOffsets[j] + meshVertexOffset, globalIndexCount, importMesh.indexCounts[j]
         });

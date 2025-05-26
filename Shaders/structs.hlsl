@@ -1,4 +1,5 @@
 static const uint SHADOW_MAP_SIZE = 1024;
+static const uint DEPTH_PYRAMID_SIZE = SHADOW_MAP_SIZE;
 static const float POINT_LIGHT_FAR_PLANE = 10.0;
 static const float POINT_LIGHT_NEAR_PLANE = 0.01f;
 struct Transform
@@ -10,8 +11,8 @@ struct Transform
 };  
 struct Bounds
 {
-    float2 min;
-    float2 max;
+    float4 min;
+    float4 max;
 };
 
 struct BoundingSphere
@@ -43,8 +44,6 @@ struct ObjectData
 
     //bounding box
     Bounds bounds;
-    float4 boundsmin;
-    float4 boundsmax;
 
 };
 
@@ -97,6 +96,7 @@ struct CullPushConstants
     uint offset;
     uint frustumOffset;
     uint objectCount;
+    uint LATE_CULL;
     //TODO JS: frustum should just go in here
 };
 

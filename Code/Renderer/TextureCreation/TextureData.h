@@ -59,7 +59,7 @@ namespace TextureCreation
     static VkImageView CreateTextureImageView(PerThreadRenderContext rendererContext, TextureMetaData data, VkImageViewType type);
     void CreateTextureSampler(VkSampler* textureSampler, PerThreadRenderContext rendererContext, VkSamplerAddressMode mode,
                               float bias, uint32_t maxMip, bool shadow = false);
-    void CreateDepthPyramidSampler(VkSampler* textureSampler, PerThreadRenderContext rendererContext, uint32_t maxMip);
+    void CreateDepthPyramidSampler(VkSampler* textureSampler, VkSamplerReductionMode mode, PerThreadRenderContext rendererContext, uint32_t maxMip);
 
     enum class TextureImportMode
     {

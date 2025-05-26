@@ -459,7 +459,7 @@ TextureCreation::TextureImportProcessTemporaryTexture GetOrLoadTextureFromPath(P
 
 }
 
-void TextureCreation::CreateDepthPyramidSampler(VkSampler* textureSampler, PerThreadRenderContext rendererContext, uint32_t maxMip)
+void TextureCreation::CreateDepthPyramidSampler(VkSampler* textureSampler, VkSamplerReductionMode mode, PerThreadRenderContext rendererContext, uint32_t maxMip)
 {
     VkPhysicalDeviceProperties properties{};
     vkGetPhysicalDeviceProperties(rendererContext.physicalDevice, &properties);
@@ -471,8 +471,8 @@ void TextureCreation::CreateDepthPyramidSampler(VkSampler* textureSampler, PerTh
     samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
-    samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+    samplerInfo.maxAnisotropy = 0;
+    samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_WHITE;
     samplerInfo.unnormalizedCoordinates = VK_FALSE;
     samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
     samplerInfo.minLod = 0; // Optional
@@ -482,7 +482,7 @@ void TextureCreation::CreateDepthPyramidSampler(VkSampler* textureSampler, PerTh
     VkSamplerReductionModeCreateInfoEXT createInfoReduction = {};
 
     createInfoReduction.sType = VK_STRUCTURE_TYPE_SAMPLER_REDUCTION_MODE_CREATE_INFO_EXT;
-    createInfoReduction.reductionMode = VK_SAMPLER_REDUCTION_MODE_MIN;
+    createInfoReduction.reductionMode = mode;
     samplerInfo.pNext = &createInfoReduction;
     VK_CHECK(vkCreateSampler(rendererContext.device, &samplerInfo, nullptr, textureSampler));
     rendererContext.threadDeletionQueue->push_backVk(deletionType::Sampler, uint64_t(*textureSampler));

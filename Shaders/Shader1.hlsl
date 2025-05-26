@@ -95,7 +95,7 @@ VSOutput Vert(VSInput input, [[vk::builtin("BaseInstance")]] uint InstanceIndex 
 
 bool getMode()
 {
-    return globals.lightcount_mode_shadowct_padding.g;
+    return ShaderGlobals.lightcount_mode_shadowct_padding.g;
 }
 
 struct FSInput
@@ -130,7 +130,7 @@ FSOutput Frag(VSOutput input)
     float4 specMap = bindless_textures[SPECULAR_INDEX].Sample(bindless_samplers[TEXTURESAMPLERINDEX], input.Texture_ST);
     float metallic = specMap.a;
 
-    float3 V = normalize(globals.eyePos - input.worldPos);
+    float3 V = normalize(ShaderGlobals.eyePos - input.worldPos);
     float3 reflected = reflect(V, normalMap);
 
     float3 F0 = 0.04;

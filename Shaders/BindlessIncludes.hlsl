@@ -1,47 +1,11 @@
 #define USE_RW
 #include "structs.hlsl"
+#include "GeneralIncludes.hlsl"
+#include "ObjectDataMacros.hlsl"
 #define LIGHT_DIR 0
 #define LIGHT_POINT 1
 #define LIGHT_SPOT 2
-#define LIGHTCOUNT   globals.lightcount_mode_shadowct_padding.r
-#define VERTEXOFFSET perObjectData[InstanceIndex].props.indexInfo.g
-#define TEXTURESAMPLERINDEX  perObjectData[InstanceIndex].props.textureIndexInfo.g
-#define NORMALSAMPLERINDEX  perObjectData[InstanceIndex].props.textureIndexInfo.b //TODO JS: temporary!
-#define TRANSFORMINDEX  perObjectData[InstanceIndex].props.indexInfo.a
-#define GetTransform()  transforms[perObjectData[InstanceIndex].props.indexInfo.a]
-#define GetModelInfo() perObjectData[InstanceIndex].props
-#define SKYBOXLUTINDEX globals.lutIDX_lutSamplerIDX_padding_padding.x
-#define SKYBOXLUTSAMPLERINDEX globals.lutIDX_lutSamplerIDX_padding_padding.y
-#define SHADOWCOUNT globals.lightcount_mode_shadowct_padding.z
 
-
-#define MODEL_MATRIX GetTransform().Model
-#define VIEW_MATRIX globals.viewMatrix
-#define MODEL_VIEW_MATRIX mul(VIEW_MATRIX, MODEL_MATRIX)
-#define PROJ_MATRIX globals.projMatrix
-#define VIEW_PROJ_MATRIX mul(PROJ_MATRIX, VIEW_MATRIX)
-#define MVP_MATRIX mul(PROJ_MATRIX, MODEL_VIEW_MATRIX)
-
-#define WorldToClip(worldSPaceObject)  mul(PROJ_MATRIX, mul(VIEW_MATRIX, float4(worldSPaceObject.xyz, 1)))
-#define WorldToView(worldSPaceObject)   mul(VIEW_MATRIX, float4(worldSPaceObject.xyz, 1))
-#define ObjectToWorld(object)  mul(MODEL_MATRIX,object)
-#define ObjectToView(object)  mul(MODEL_VIEW_MATRIX,object)
-#define ObjectToClip(object)  mul(MVP_MATRIX, object)
-#define ClipToNDC(object) object.xyz / object.w
-
-//
-
-//
-//
-
-
-// ShaderGlobals globals;
-// uniformDescriptorSets
-// storageDescriptorSets
-// imageDescriptorSets
-// samplerDescriptorSets
-// [[vk::binding(0,0)]]
-// [[vk::binding(0, 0)]]
 
 
 [[vk::binding(0, 0)]]
@@ -61,7 +25,7 @@ ByteAddressBuffer BufferTable;
 
 
 //[[vk::binding(0, 1)]]
-cbuffer globals : register(b0, space1) { ShaderGlobals globals; }
+cbuffer ShaderGlobals : register(b0, space1) { ShaderGlobals ShaderGlobals; }
 [[vk::binding(1, 1)]]
 Texture2DArray<float4> shadowmap[];
 [[vk::binding(1, 1)]]
@@ -71,17 +35,17 @@ SamplerState shadowmapSampler[];
 [[vk::binding(3,1)]]
 RWStructuredBuffer<LightData> lights;
 [[vk::binding(4, 1)]]
-RWStructuredBuffer<ObjectData> perObjectData;
+RWStructuredBuffer<ObjectData> PerObjectData;
 [[vk::binding(5, 1)]]
 RWStructuredBuffer<perShadowData> shadowMatrices;
 [[vk::binding(5, 0)]]
 RWStructuredBuffer<float4> positions;
 [[vk::binding(6, 1)]]
-RWStructuredBuffer<Transform> transforms;
+RWStructuredBuffer<Transform> Transforms;
 
-#define  DIFFUSE_INDEX  perObjectData[InstanceIndex].props.textureIndexInfo.r
-#define  SPECULAR_INDEX  perObjectData[InstanceIndex].props.textureIndexInfo.g
-#define  NORMAL_INDEX perObjectData[InstanceIndex].props.textureIndexInfo.b
+#define  DIFFUSE_INDEX  PerObjectData[InstanceIndex].props.textureIndexInfo.r
+#define  SPECULAR_INDEX  PerObjectData[InstanceIndex].props.textureIndexInfo.g
+#define  NORMAL_INDEX PerObjectData[InstanceIndex].props.textureIndexInfo.b
 
 float3 GetSpotLightDir(LightData light)
 {
@@ -108,17 +72,10 @@ int getShadowMatrixIndex(LightData light)
     return light.shadowOffset;
 }
 
-
 int getShadowMatrixCount(LightData light)
 {
     return light.shadowCount;
 }
-
-float2 NDCToUV(float3 input)
-{
-   return input.xy * 0.5 + 0.5;
-}
-
 
 float3 FresnelSchlickRoughness(float cosTheta, float3 F0, float roughness)
 {
@@ -198,7 +155,7 @@ float WorldSpacePositionToPointLightNDCDepth(float3 Vec)
 
 int findCascadeLevel(int lightIndex, float3 worldPixel)
 {
-    float4 fragPosViewSpace = mul(mul(globals.projMatrix, globals.viewMatrix), float4(worldPixel, 1.0));
+    float4 fragPosViewSpace = mul(mul(ShaderGlobals.projMatrix, ShaderGlobals.viewMatrix), float4(worldPixel, 1.0));
     float depthValue = fragPosViewSpace.z;
     int cascadeLevel = 0;
     for (int i = 0; i < 6; i++) //6 == cascade count
@@ -325,7 +282,7 @@ float3 lightContribution(float3 halfwayDir, float3 viewDir, float3 lightDir, flo
 }
 float3 getLighting(float3 albedo, float3 inNormal, float3 fragWorldPos, float3 F0, float3 roughness, float metallic)
 {
-    float3 viewDir = normalize(globals.eyePos - fragWorldPos);
+    float3 viewDir = normalize(ShaderGlobals.eyePos - fragWorldPos);
     float3 lightResult = 0;
     for (int i = 0; i < LIGHTCOUNT; i++)
     {

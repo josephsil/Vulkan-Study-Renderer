@@ -1,6 +1,6 @@
 #define USE_RW
 
-#define LIGHTCOUNT   globals.lightcount_padding_padding_padding.r
+#define LIGHTCOUNT   ShaderGlobals.lightcount_padding_padding_padding.r
 #define VERTEXOFFSET pc.indexInfo.g
 #define TEXTURESAMPLERINDEX pc.indexInfo.b
 #define NORMALSAMPLERINDEX TEXTURESAMPLERINDEX +2 //TODO JS: temporary!
@@ -62,12 +62,12 @@ struct FSOutput
     [[vk::location(0)]] float3 Color : SV_Target;
 };
 
-cbuffer globals : register(b0)
+cbuffer ShaderGlobals : register(b0)
 {
-    globals;
+    ShaderGlobals;
 }
 
-// ShaderGlobals globals;
+// ShaderGlobals ShaderGlobals;
 
 [[vk::binding(1)]]
 TextureCube bindless_textures;
@@ -121,7 +121,7 @@ VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
     output.Texture_ST = Pos;
     // Convert cubemap coordinates into Vulkan coordinate space
     output.Texture_ST.xy *= -1.0;
-    output.Pos = mul(globals.projection, mul(ubo.Model, float4(Pos.xyz, 1.0)));
+    output.Pos = mul(ShaderGlobals.projection, mul(ubo.Model, float4(Pos.xyz, 1.0)));
     return output;
 }
 

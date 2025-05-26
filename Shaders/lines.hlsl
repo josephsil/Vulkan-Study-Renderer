@@ -8,9 +8,9 @@ struct VSInput
 
 
 
-cbuffer globals : register(b0, space1)
+cbuffer ShaderGlobals : register(b0, space1)
 {
-    ShaderGlobals globals;
+    ShaderGlobals ShaderGlobals;
 }
 
 
@@ -36,8 +36,8 @@ VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
 
 
     float4 vertex = VertexIndex == 0 ? pc.pos1 : pc.pos2;
-    float4x4 modelView = mul(globals.viewMatrix, pc.m);
-    float4x4 mvp = mul(globals.projMatrix, modelView);
+    float4x4 modelView = mul(ShaderGlobals.viewMatrix, pc.m);
+    float4x4 mvp = mul(ShaderGlobals.projMatrix, modelView);
     output.Pos = mul(mvp, half4(vertex.xyz, 1.0));
     return output;
 }

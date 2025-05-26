@@ -55,8 +55,8 @@ VSOutput Vert(VSInput input, [[vk::builtin("BaseInstance")]] uint InstanceIndex 
     Transform transform = GetTransform();
     VSOutput output = (VSOutput)0;
     //
-    float4x4 modelView = mul(globals.viewMatrix, GetTransform().Model);
-    float4x4 mvp = mul(globals.projMatrix, modelView);
+    float4x4 modelView = mul(ShaderGlobals.viewMatrix, GetTransform().Model);
+    float4x4 mvp = mul(ShaderGlobals.projMatrix, modelView);
     output.Pos = mul(mvp, vertPos);
     output.Texture_ST = myVertex.uv0.xy;
     output.Color = myVertex.normal.xyz;
@@ -93,7 +93,7 @@ VSOutput Vert(VSInput input, [[vk::builtin("BaseInstance")]] uint InstanceIndex 
 
 bool getMode()
 {
-    return globals.lightcount_mode_shadowct_padding.g;
+    return ShaderGlobals.lightcount_mode_shadowct_padding.g;
 }
 
 struct FSInput
@@ -145,7 +145,7 @@ FSOutput Frag(VSOutput input)
 
     normalMap = normalize(mul(input.TBN, normalize(normalMap)));
 
-    float3 V = normalize(globals.eyePos - input.worldPos);
+    float3 V = normalize(ShaderGlobals.eyePos - input.worldPos);
     float3 reflected = reflect(V, normalMap);
 
     float3 F0 = 0.04;

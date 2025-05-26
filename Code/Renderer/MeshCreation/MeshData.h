@@ -36,7 +36,7 @@ struct ImportMeshData
     uint32_t vertexct;
     std::span<uint32_t> indexCounts;
     std::span<uint32_t> meshletVertexOffsets; //Redundant to PersubmeshData offset -- used to construct it, need to get rid of this
-    std::span<std::span<glm::vec3>> meshletBounds; //Redundant to PersubmeshData bounds  -- used to construct it, need to get rid of this
+    std::span<GPU_BoundingSphere> meshletBounds; //Redundant to PersubmeshData bounds  -- used to construct it, need to get rid of this
     uint32_t meshletCount;
 };
 

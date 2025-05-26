@@ -58,11 +58,11 @@ VSOutput Vert(VSInput input, [[vk::builtin("BaseInstance")]] uint InstanceIndex 
     float4 vertPos = float4(fullscreen_quad_positions[VertexIndex], 1, 1.0);
 
     //
-    ObjectData ubo = perObjectData[InstanceIndex];
+    ObjectData ubo = PerObjectData[InstanceIndex];
     VSOutput output = (VSOutput)0;
     //
-    float4x4 modelView = mul(globals.viewMatrix, GetTransform().Model);
-    float4x4 mvp = mul(globals.projMatrix, modelView);
+    float4x4 modelView = mul(ShaderGlobals.viewMatrix, GetTransform().Model);
+    float4x4 mvp = mul(ShaderGlobals.projMatrix, modelView);
     output.Pos = vertPos;
     // output.Texture_ST = myVertex.uv0.xy;
     output.Color = vertPos;
@@ -131,8 +131,8 @@ float3x3 calculateNormal(FSInput input)
 // -spirv -T ps_6_5 -E Frag .\Shader1.hlsl -Fo .\triangle.frag.spv
 //TODO JS: copied and pasted, could diverge
 
-const float WIDTH = 1280.0;
-const float HEIGHT = 720.0;
+// const float WIDTH = 1280.0;
+// const float HEIGHT = 720.0;
 
 float4x4 inverse(float4x4 m)
 {
@@ -226,17 +226,17 @@ FSOutput Frag(VSOutput input)
     for (int j = start; j < start + 10; j++)
     {
         uint InstanceIndex = j;
-        ObjectData ubo = perObjectData[InstanceIndex];
-        float4x4 modelView = mul(globals.viewMatrix, GetTransform().Model);
-        float4x4 mvp = mul(globals.projMatrix, modelView);
+        ObjectData ubo = PerObjectData[InstanceIndex];
+        float4x4 modelView = mul(ShaderGlobals.viewMatrix, GetTransform().Model);
+        float4x4 mvp = mul(ShaderGlobals.projMatrix, modelView);
         float d = 0.;
         for (int i = 0; i < MAX_STEPS; i++)
         {
             float3 _point = ray_origin + ray_dir * d;
-            float4 sphere = float4(perObjectData[InstanceIndex].boundsSphere.center.xyz, 1);
+            float4 sphere = float4(PerObjectData[InstanceIndex].boundsSphere.center.xyz, 1);
             sphere = mul(modelView, sphere);
 
-            float radius = perObjectData[InstanceIndex].boundsSphere.radius;
+            float radius = PerObjectData[InstanceIndex].boundsSphere.radius;
             float ds = length(_point - sphere.xyz) - radius;
             d += ds;
             if (d > MAX_DIST || ds < EPS)

@@ -353,8 +353,8 @@ void VulkanRenderer::InitializeRendererForScene(sceneCountData sceneCountData) /
         UpdateShadowImageViews(i, sceneCountData);
     }
 
-    TextureCreation::CreateDepthPyramidSampler(&globalResources.depthMipSampler, GetMainRendererContext(), HIZDEPTH);
-
+    TextureCreation::CreateDepthPyramidSampler(&globalResources.writeDepthMipSampler, VK_SAMPLER_REDUCTION_MODE_WEIGHTED_AVERAGE, GetMainRendererContext(), HIZDEPTH);
+    TextureCreation::CreateDepthPyramidSampler(&globalResources.readDepthMipSampler, VK_SAMPLER_REDUCTION_MODE_MAX, GetMainRendererContext(), HIZDEPTH);
     TextureCreation::TextureImportRequest args[3] = {
     TextureCreation::MakeCreationArgsFromFilepathArgs("textures/outputLUT.png", &perFrameArenas[currentFrame], TextureType::LINEAR_DATA, VK_IMAGE_VIEW_TYPE_2D),
     TextureCreation::MakeTextureCreationArgsFromCachedKTX("textures/output_cubemap2_diff8.ktx2",VK_SAMPLER_ADDRESS_MODE_REPEAT, true),
@@ -839,7 +839,7 @@ void VulkanRenderer::updateBindingsComputeCulling(ActiveRenderStepData commandBu
         };
 
         depthSampler = {
-            .sampler  =globalResources.depthMipSampler, .imageLayout = VK_IMAGE_LAYOUT_GENERAL
+            .sampler  =globalResources.readDepthMipSampler, .imageLayout = VK_IMAGE_LAYOUT_GENERAL
         };
 
     
@@ -898,16 +898,9 @@ void RecordCullingCommands(ArenaAllocator allocator, VkPipelineLayout layout, Ac
         .projMatrix =  conf.proj,
         .offset = conf.drawOffset,
         .frustumOffset = cullFrustumIndex,
-        .objectCount = conf.drawCount};
+        .objectCount = conf.drawCount,
+        .LATE_CULL = 0};
 
-    ComputeCullListInfo* cullingInfo = MemoryArena::Alloc<ComputeCullListInfo>(allocator);
-    *cullingInfo =  {
-        .firstDrawIndirectIndex = conf.drawOffset,
-        .drawCount =  conf.drawCount,
-        .viewMatrix = conf.view,
-        .projMatrix = conf.proj, 
-        .layout = layout, 
-       .pushConstantInfo =  {.ptr = cullconstants, .size =  sizeof(GPU_CullPushConstants) }};
 
     assert(commandBufferContext.commandBufferActive);
 
@@ -976,7 +969,7 @@ void VulkanRenderer::RecordMipChainCompute(ActiveRenderStepData commandBufferCon
 
         VkDescriptorImageInfo* shadowSamplerInfo =  MemoryArena::Alloc<VkDescriptorImageInfo>(arena);
         *shadowSamplerInfo = {
-            .sampler  =sampler, .imageLayout = VK_IMAGE_LAYOUT_GENERAL
+            .sampler  =globalResources.writeDepthMipSampler, .imageLayout = VK_IMAGE_LAYOUT_GENERAL
         };
   
         std::span<descriptorUpdateData> descriptorUpdates = MemoryArena::AllocSpan<descriptorUpdateData>(arena, 3);
@@ -1334,81 +1327,7 @@ std::span<RenderPassConfig> createShadowPassConfigs(ArenaAllocator arena, std::s
     return resultConfigs.subspan(0, passInfo.size());
 
 }
-RenderBatchCreationConfig CreateConfigNew(RenderPassConfig config, bool shadow, RenderPassDrawData passInfo,
-                                     PipelineLayoutHandle pipelineGroup,
-                                    std::span<FullShaderHandle> shaderIDs, const char* name)
-{
-    uint32_t subMeshesPerPass =passInfo.subMeshcount;
-    uint32_t drawsPerPass = passInfo.drawCount;
-    uint32_t nextFirstDraw =passInfo.drawOffset;
-    
 
-    auto depthBiasConfig =  (!shadow) ? depthBiasSettng{.use =false, .depthBias = 0, .slopeBias = 0} : depthBiasSettng{.use = true, .depthBias = 6.0, .slopeBias = 3.0};
-    RenderBatchCreationConfig c = {
-        .name = const_cast<char*>(name),
-        .attatchmentInfo = {
-            .colorDraw = config.colorAttatchment, .depthDraw = config.depthAttatchment,
-            .extents = config.extents
-        },
-        .shadersSupportedByBatch =shaderIDs,
-        .layoutGroup = pipelineGroup,
-        .pushConstant =  config.PushConstants,
-        .cameraViewProjForCulling = {passInfo.view, passInfo.proj},
-        .drawOffset = nextFirstDraw,
-        .subMeshCount = subMeshesPerPass,
-        .drawCount =  drawsPerPass,
-        .depthBiasConfig = depthBiasConfig
-    };
-    return c;
-}
-std::span<RenderBatchCreationConfig> CreateShadowPassConfigs(uint32_t firstIndex, CommonRenderPassData passData,
-                                     std::span<std::span<GPU_perShadowData>> inputShadowdata,
-                                     PipelineLayoutHandle pipelineGroup,
-                                    std::span<FullShaderHandle> shaderIDs,
-                                     ActiveRenderStepData* opaqueRenderStepContext,
-                                     std::span<VkImageView> shadowMapRenderingViews)
-{
-    uint32_t subMeshesPerPass = (uint32_t)passData.scenePtr->objects.subMeshesCount;
-    uint32_t drawsPerPass = VulkanRenderer::StaticCalculateTotalDrawCount(passData.scenePtr, passData.assetDataPtr->meshData.perSubmeshData.getSpan());
-    uint32_t nextFirstDraw =firstIndex;
-
-    auto shadowCasterCt =  glm::min(passData.scenePtr->lightCount, MAX_SHADOWCASTERS); 
-    Array resultConfigs = MemoryArena::AllocSpan<RenderBatchCreationConfig>(passData.tempAllocator, shadowCasterCt * 6);
-    for(size_t i = 0; i < glm::min(passData.scenePtr->lightCount, MAX_SHADOWCASTERS); i ++)
-    {
-        LightType type = (LightType)passData.scenePtr->lightTypes[i];
-        size_t lightSubpasses = shadowCountFromLightType(type);
-        for (size_t j = 0; j < lightSubpasses; j++)
-        {
-            auto view = inputShadowdata[i][j].viewMatrix;
-            auto proj =  inputShadowdata[i][j].projMatrix;
-            //todo js: wanna rethink this, since shadow rendering is like effectively dupe with depth prepass rendering 
-            GPU_shadowPushConstant* shadowPushConstants = MemoryArena::Alloc<GPU_shadowPushConstant>(passData.tempAllocator);
-            shadowPushConstants->mat =  proj * view;
-            
-            VkRenderingAttachmentInfoKHR* depthDrawAttatchment = MemoryArena::Alloc<VkRenderingAttachmentInfoKHR>(passData.tempAllocator);
-            *depthDrawAttatchment =  CreateRenderingAttatchmentStruct(shadowMapRenderingViews[resultConfigs.size()], 1.0, true);
-
-            RenderBatchCreationConfig c = {
-                .name = const_cast<char*>("shadow"),
-                .attatchmentInfo = {.colorDraw = VK_NULL_HANDLE, .depthDraw = depthDrawAttatchment,
-                    .extents = {SHADOW_MAP_SIZE, SHADOW_MAP_SIZE}},
-                .shadersSupportedByBatch =shaderIDs,
-                .layoutGroup = pipelineGroup,
-                .pushConstant = {.ptr = shadowPushConstants, .size = 256},
-                .cameraViewProjForCulling = {.view = view, .proj =proj },
-                .drawOffset = nextFirstDraw,
-                .subMeshCount = subMeshesPerPass,
-                .drawCount =  drawsPerPass,
-                .depthBiasConfig = {.use = true, .depthBias = 6.0, .slopeBias = 3.0}
-            };
-            nextFirstDraw += drawsPerPass;
-            resultConfigs.push_back(c);
-        }
-    }
-
-    return resultConfigs.getSpan();
-}
 
 size_t UpdateDrawCommanddataDrawIndirectCommands(AssetManager* rendererData,
                                                  std::span<drawCommandData> targetDrawCommandSpan,
@@ -1757,7 +1676,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
 
     
     RecordMipChainCompute(*BeforeCullingStep, &perFrameArenas[currentFrame],  globalResources.depthPyramidInfoPerFrame[currentFrame].image,
-                      globalResources.depthBufferInfoPerFrame[currentFrame].view, globalResources.depthPyramidInfoPerFrame[currentFrame].viewsForMips, globalResources.depthMipSampler, currentFrame, globalResources.depthPyramidInfoPerFrame[currentFrame].depthSize.x,
+                      globalResources.depthBufferInfoPerFrame[currentFrame].view, globalResources.depthPyramidInfoPerFrame[currentFrame].viewsForMips, globalResources.writeDepthMipSampler, currentFrame, globalResources.depthPyramidInfoPerFrame[currentFrame].depthSize.x,
                       globalResources.depthPyramidInfoPerFrame[currentFrame].depthSize.y);     
 
 

@@ -46,7 +46,8 @@ struct GlobalRendererResources //Buffers, images, etc, used in core rendering --
     std::unique_ptr<ShaderLoader> shaderLoader;
     std::vector<VkImage> swapchainImages;
     std::vector<VkImageView> swapchainImageViews;
-    VkSampler depthMipSampler;
+    VkSampler writeDepthMipSampler;
+    VkSampler readDepthMipSampler;
      std::vector<DepthBufferInfo> depthBufferInfoPerFrame;
      std::vector<DepthPyramidInfo> depthPyramidInfoPerFrame;
 };
@@ -90,7 +91,7 @@ private:
     MemoryArena::memoryArena rendererArena{};
     MemoryArena::memoryArena perFrameArenas[MAX_FRAMES_IN_FLIGHT];
 
-    int WIDTH = (int)(1280 * 1.5);
+    int WIDTH = (int)(720 * 1.5);
     int HEIGHT = (int)(720 * 1.5);
     struct SDL_Window* _window{nullptr};
     glm::mat4 freezeView = {};
