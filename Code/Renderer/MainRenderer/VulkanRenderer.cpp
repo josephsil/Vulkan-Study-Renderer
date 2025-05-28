@@ -671,7 +671,7 @@ void VulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<std::spa
 
         std::copy(perLightShadowData[i].begin(), perLightShadowData[i].end(), nextFlattenedShadowDataView.begin());
         nextFlattenedShadowDataView = nextFlattenedShadowDataView.subspan(perLightShadowData[i].size());
-        shadowOffset += lightShadowMatrixCt;
+        shadowOffset += lightShadowMatrixCt ;
     }
     
     FramesInFlightData[currentFrame].lightBuffers.updateMappedMemory(std::span(lights.data(), lights.size()));

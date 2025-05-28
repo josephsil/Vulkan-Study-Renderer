@@ -79,12 +79,12 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
 
     //spot light
     //rendererContext JS: paramaterize better -- hard to set power and radius currently
-    scene->AddSpotLight(glm::vec3(2.5, 2, 3.3), glm::vec3(0, 0, -1), glm::vec3(0.5, 0.5, 1), 45, 140);
+    scene->AddSpotLight(glm::vec3(2.5, 2, 3.3), glm::vec3(0, 0, -1), glm::vec3(0.5, 0.5, 1), 45, 260);
 
 
     //point lights    
     // scene->AddPointLight(glm::vec3(1, 1, 0), glm::vec3(0.3, 0.8, 1), 2);
-    scene->AddDirLight(glm::vec3(0.00, 0.9, 0.1), glm::vec3(1, 1, 1), 15);
+    scene->AddDirLight(glm::vec3(0.00, 0.9, 0.1), glm::vec3(1, 1, 1), 1);
     // scene->AddPointLight(glm::vec3(-2, 2, 0), glm::vec3(1, 0, 0), 999 / 2);
     // scene->AddPointLight(glm::vec3(0, 0, 0), glm::vec3(0, 1, 1), 999 / 2);
 

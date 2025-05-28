@@ -98,7 +98,7 @@ void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
         float4 centerViewSpace = ObjectToView(objectCenter);
         for (int i = 0; i < 6; i++)
         {
-            visible = visible && dot(frustumData[i + cullPC.frustumOffset], float4(centerViewSpace.xyz, 1)) > -(radius);
+            // visible = visible && dot(frustumData[i + cullPC.frustumOffset], float4(centerViewSpace.xyz, 1)) > -(radius);
         }
     }
     //Occlusion

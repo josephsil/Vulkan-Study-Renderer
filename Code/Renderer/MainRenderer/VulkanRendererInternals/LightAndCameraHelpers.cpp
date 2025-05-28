@@ -33,8 +33,7 @@ glm::mat4  perspective_original(float vertical_fov, float aspect_ratio, float n,
 
     return projection;
 }
-
-glm::mat4 perspective(float vertical_fov, float aspect_ratio, float n, float f, glm::mat4 *inverse)
+glm::mat4 perspective_finite_z(float vertical_fov, float aspect_ratio, float n, float f, glm::mat4 *inverse)
 {
     float fov_rad = vertical_fov * 2.0f * 3.141592653589f / 360.0f;
     // float focal_length = 1.0f / std::tan(fov_rad / 2.0f);
@@ -65,6 +64,31 @@ glm::mat4 perspective(float vertical_fov, float aspect_ratio, float n, float f, 
 
     return (projection);
 }
+glm::mat4 perspective(float vertical_fov, float aspect_ratio, float n, float f, glm::mat4 *inverse)
+{
+    float fov_rad = vertical_fov * 2.0f * 3.141592653589f / 360.0f;
+    // float focal_length = 1.0f / std::tan(fov_rad / 2.0f);
+    float focal_length = 1.0f / std::tan(fov_rad / 2.0f);
+
+    float x  =  focal_length / aspect_ratio;
+    float y  = -focal_length;
+    float A  =0.001f;
+    float B  = n;
+
+    glm::mat4 projection({
+        x,    0.0f,  0.0f, 0.0f,
+        0.0f,    y,  0.0f, 0.0f,
+        0.0f, 0.0f,     A,   -1.0f,
+        0.0f, 0.0f,  B, 0.0f,
+    });
+
+    if (inverse)
+    {
+       assert("!unimplemented");
+    }
+
+    return (projection);
+}
 
 viewProj LightAndCameraHelpers::CalcViewProjFromCamera(cameraData camera)
 {
@@ -75,7 +99,7 @@ viewProj LightAndCameraHelpers::CalcViewProjFromCamera(cameraData camera)
     glm::mat4 _proj =perspective(camera.fov,
                                       camera.extent.width / static_cast<float>(camera.extent.height),
                                      
-                                 camera.nearPlane,     camera.farPlane,  &projInv); //Inverse Z
+                                 camera.nearPlane,     camera.farPlane, nullptr); //Inverse Z
     
     glm::mat4 proj = glm::perspective(glm::radians(camera.fov),
                                     camera.extent.width / static_cast<float>(camera.extent.height),
@@ -198,7 +222,7 @@ std::span<GPU_perShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryA
             debugLinesManager->AddDebugFrustum(frustumCornersWorldSpace);
 
             float min_cascade = cam.nearPlane;
-            float maxZ =  (cam.farPlane ) - min_cascade;
+            float maxZ =  (1.f ) - min_cascade;
             float minZ =  min_cascade;
             float clipRange = (maxZ - min_cascade);
 
@@ -249,7 +273,7 @@ std::span<GPU_perShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryA
 
                 debugLinesManager->addDebugCross(debugPos, 2, {0,static_cast<float>(i) /  static_cast<float>(CASCADE_CT),0});
                
-                float distanceOffset = 4.0;
+                float distanceOffset = 1.0;
 
 
                 //Texel clamping
@@ -276,10 +300,10 @@ std::span<GPU_perShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryA
     case LIGHT_SPOT:
         {
             outputSpan = MemoryArena::AllocSpan<GPU_perShadowData>(allocator, 1 ); 
-            lightViewMatrix = glm::lookAt(lightPos, lightPos + dir, up);
-            
-            lightProjection = glm::perspective(glm::radians((float)spotRadius),
-                                               1.0f, 50.0f, 0.1f
+            lightViewMatrix = glm::lookAt(lightPos, (lightPos + dir), up);
+            glm::mat4 
+            lightProjection = perspective_finite_z(spotRadius,
+                                               1.0f,  0.01f, 25.f, nullptr
                                                ); //TODO BETTER FAR 
             outputSpan[0] = {lightViewMatrix, lightProjection,  0};
                                   

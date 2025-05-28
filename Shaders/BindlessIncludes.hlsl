@@ -27,7 +27,7 @@ ByteAddressBuffer BufferTable;
 //[[vk::binding(0, 1)]]
 cbuffer ShaderGlobals : register(b0, space1) { ShaderGlobals ShaderGlobals; }
 [[vk::binding(1, 1)]]
-Texture2DArray<float4> shadowmap[];
+Texture2DArray<float> shadowmap[];
 [[vk::binding(1, 1)]]
 TextureCube shadowmapCube[];
 [[vk::binding(2, 1)]]
@@ -171,7 +171,7 @@ float WorldSpacePositionToPointLightNDCDepth(float3 Vec)
      return cascadeLevel;
  }
 static const int POISSON_SAMPLECOUNT = 12;
-float SampleSoftShadow(Texture2DArray<float4> Texture, float fragDepth, float3 shadowUV)
+float SampleSoftShadow(Texture2DArray<float> Texture, float fragDepth, float3 shadowUV)
 {
     //Poisson lookup
     //Version from https://web.engr.oregonstate.edu/~mjb/cs519/Projects/Papers/ShaderTricks.pdf -- placheolder
@@ -214,12 +214,12 @@ float3 getShadow(int index, float3 fragWorldPos)
     if (GetLightType(light) == LIGHT_SPOT)
     {
         int ARRAY_INDEX = 0;
-        float4x4 lightMat = GetWorldToClipForShadow(GetShadowDataForLight(light, ARRAY_INDEX));
+        float4x4 lightMat = GetWorldToClipForShadow(GetShadowDataForLight(light, 0));
         float4 fragClipSpace = mul(lightMat, float4(fragWorldPos, 1.0));
         float3 fragNDC = ClipToNDC(fragClipSpace);
         float2 shadowUV = NDCToUV(fragNDC);
 
-        return shadowmap[light.shadowOffset].Sample(shadowmapSampler[0], float3(shadowUV, ARRAY_INDEX)).r <= fragNDC.z;
+        return shadowmap[light.shadowOffset].Sample(shadowmapSampler[0], float3(shadowUV, 0)).r <= fragNDC.z;
     }
     if (GetLightType(light) == LIGHT_DIR)
     {
@@ -319,7 +319,7 @@ float3 getLighting(float3 albedo, float3 inNormal, float3 fragWorldPos, float3 F
         //Shadow:
         if (i < SHADOWCOUNT) //TODO JS: pass in max shadow casters?
         {
-            lightAdd *=  getShadow(i, fragWorldPos);
+            lightAdd *=  getShadow(i, fragWorldPos) * 10;
         }
         lightResult += lightAdd;
     }
