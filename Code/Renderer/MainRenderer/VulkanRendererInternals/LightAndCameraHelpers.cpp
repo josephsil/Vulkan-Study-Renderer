@@ -3,18 +3,87 @@
 
 #include "Renderer/gpu-data-structs.h"
 
+//want to use this
+glm::mat4  perspective_original(float vertical_fov, float aspect_ratio, float n, float f, glm::mat4  *inverse)
+{
+    float fov_rad = vertical_fov * 2.0f *  3.141592653589f  / 360.0f;
+    float focal_length = 1.0f / std::tan(fov_rad / 2.0f);
+
+    float x  =  focal_length / aspect_ratio;
+    float y  = -focal_length;
+    float A  = n / (f - n);
+    float B  = f * A;
+
+    glm::mat4  projection({
+        x,    0.0f,  0.0f, 0.0f,
+        0.0f,    y,  0.0f, 0.0f,
+        0.0f, 0.0f,     A,    B,
+        0.0f, 0.0f, -1.0f, 0.0f,
+    });
+
+    if (inverse)
+    {
+        *inverse = glm::mat4 ({
+            1/x,  0.0f, 0.0f,  0.0f,
+            0.0f,  1/y, 0.0f,  0.0f,
+            0.0f, 0.0f, 0.0f, -1.0f,
+            0.0f, 0.0f,  1/B,   A/B,
+        });
+    }
+
+    return projection;
+}
+
+glm::mat4 perspective(float vertical_fov, float aspect_ratio, float n, float f, glm::mat4 *inverse)
+{
+    float fov_rad = vertical_fov * 2.0f * 3.141592653589f / 360.0f;
+    // float focal_length = 1.0f / std::tan(fov_rad / 2.0f);
+    float focal_length = 1.0f / std::tan(fov_rad / 2.0f);
+
+    float x  =  focal_length / aspect_ratio;
+    float y  = -focal_length;
+    float A  = n / (f - n);
+    float B  = f * A;
+
+    glm::mat4 projection({
+        x,    0.0f,  0.0f, 0.0f,
+        0.0f,    y,  0.0f, 0.0f,
+        0.0f, 0.0f,     A,   -1.0f,
+        0.0f, 0.0f,  B, 0.0f,
+    });
+
+    if (inverse)
+    {
+        *inverse = glm::mat4({
+            //switched some stuff around to closer resemble my existing matrix
+            -1.f/x,  0.0f, 0.0f,  0.0f,
+            0.0f,  -1.f/y, 0.0f,  0.0f,
+            0.0f, 0.0f, 0.0f, 1.0f,
+            0.0f, 0.0f,  1.f/B,   A/B,
+        });
+    }
+
+    return (projection);
+}
+
 viewProj LightAndCameraHelpers::CalcViewProjFromCamera(cameraData camera)
 {
     Transform cameraTform = getCameraTransform(camera);
     glm::mat4 view = cameraTform.rot * cameraTform.translation;
 
-    glm::mat4 proj = glm::perspective(glm::radians(camera.fov),
+    glm::mat4 projInv = {};
+    glm::mat4 _proj =perspective(camera.fov,
                                       camera.extent.width / static_cast<float>(camera.extent.height),
-                                      camera.nearPlane,
-                                      camera.farPlane);
-    proj[1][1] *= -1;
+                                     
+                                 camera.nearPlane,     camera.farPlane,  &projInv); //Inverse Z
+    
+    glm::mat4 proj = glm::perspective(glm::radians(camera.fov),
+                                    camera.extent.width / static_cast<float>(camera.extent.height),
+                                     
+                                     camera.nearPlane, camera.farPlane); //Inverse Z 
+    // _proj[1][1] *= -1;
 
-    return {view, proj};
+    return {view, _proj};
 }
 
 Transform LightAndCameraHelpers::getCameraTransform(cameraData camera)
@@ -93,7 +162,6 @@ std::span<glm::vec4> LightAndCameraHelpers::FillFrustumCornersForSpace(std::span
 }
 
 
-
 std::span<GPU_perShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryArena::memoryArena* allocator,
                                                                      cameraData cam, glm::vec3 lightPos, glm::vec3 spotDir, float spotRadius, LightType type,
                                                                      DebugLineData* debugLinesManager)
@@ -129,9 +197,9 @@ std::span<GPU_perShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryA
         
             debugLinesManager->AddDebugFrustum(frustumCornersWorldSpace);
 
-            float clipRange = (cam.farPlane - cam.nearPlane);
+            float maxZ =  cam.farPlane - cam.nearPlane;
             float minZ =  cam.nearPlane;
-            float maxZ =  cam.nearPlane + clipRange;
+            float clipRange = (maxZ - cam.nearPlane);
 
             float range = maxZ - minZ;
             float ratio = maxZ / minZ;
@@ -143,7 +211,7 @@ std::span<GPU_perShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryA
                 float log = minZ * std::pow(ratio, p);
                 float uniform = minZ + range * p;
                 float d = 0.96f * (log - uniform) + uniform;
-                cascadeSplits[i] = (d - cam.nearPlane) / clipRange;
+                cascadeSplits[i] = (d - cam.farPlane) / clipRange;
             }
 
 
@@ -198,7 +266,7 @@ std::span<GPU_perShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryA
                 transformedCenter = texelInverse * transformedCenter ;
                 //Compute output matrices
                 lightViewMatrix = glm::lookAt(glm::vec3(transformedCenter)  + ((dir * maxExtents) * distanceOffset), glm::vec3(transformedCenter), up);
-                glm::mat4 lightOrthoMatrix = glm::ortho(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, 0.0f, (maxExtents.z - minExtents.z) * distanceOffset);
+                glm::mat4 lightOrthoMatrix = glm::ortho(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, (maxExtents.z - minExtents.z) * distanceOffset, 0.0f) ;
 
                 lightProjection =  lightOrthoMatrix;
                 outputSpan[i] = {lightViewMatrix, lightProjection,  ((cam.nearPlane + splitDist * clipRange) ) * -1.0f};
@@ -211,8 +279,8 @@ std::span<GPU_perShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryA
             lightViewMatrix = glm::lookAt(lightPos, lightPos + dir, up);
             
             lightProjection = glm::perspective(glm::radians((float)spotRadius),
-                                               1.0f, 0.1f,
-                                               50.0f); //TODO BETTER FAR 
+                                               1.0f, 50.0f, 0.1f
+                                               ); //TODO BETTER FAR 
             outputSpan[0] = {lightViewMatrix, lightProjection,  0};
                                   
             return  outputSpan;
@@ -222,8 +290,8 @@ std::span<GPU_perShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryA
         {
             outputSpan = MemoryArena::AllocSpan<GPU_perShadowData>(allocator, 6 ); 
             lightProjection = glm::perspective(glm::radians((float)90),
-                                               1.0f, POINT_LIGHT_NEAR_PLANE,
-                                               POINT_LIGHT_FAR_PLANE);} //TODO BETTER FAR
+                                               1.0f, POINT_LIGHT_FAR_PLANE,
+                                               POINT_LIGHT_NEAR_PLANE);} //TODO BETTER FAR
 
         for(int i = 0; i < outputSpan.size(); i++)
         {

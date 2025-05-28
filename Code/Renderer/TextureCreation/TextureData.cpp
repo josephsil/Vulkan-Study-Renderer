@@ -505,7 +505,7 @@ void TextureCreation::CreateTextureSampler(VkSampler* textureSampler, PerThreadR
     samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
     samplerInfo.unnormalizedCoordinates = VK_FALSE;
     samplerInfo.compareEnable = shadow ? VK_TRUE : VK_FALSE;
-    samplerInfo.compareOp = shadow ? VK_COMPARE_OP_LESS : VK_COMPARE_OP_ALWAYS;
+    samplerInfo.compareOp = shadow ? VK_COMPARE_OP_GREATER : VK_COMPARE_OP_ALWAYS; //todo js: unknown if this lss is right
     samplerInfo.anisotropyEnable = VK_FALSE;
     samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
     samplerInfo.minLod = .0; // Optional

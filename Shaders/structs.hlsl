@@ -25,6 +25,7 @@ struct objectProperties
 {
     float4 indexInfo;
     float4 textureIndexInfo;
+ 
     float roughness;
     float metallic;
     float _f1;
@@ -37,7 +38,7 @@ struct ObjectData
 {
     //objectProperties
     objectProperties props;
-
+    float objectScale;
     //Culling info
     //This data is really per model, not per object, but I'm lazy
     BoundingSphere boundsSphere;

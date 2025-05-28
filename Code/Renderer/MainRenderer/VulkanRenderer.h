@@ -91,8 +91,7 @@ private:
     MemoryArena::memoryArena rendererArena{};
     MemoryArena::memoryArena perFrameArenas[MAX_FRAMES_IN_FLIGHT];
 
-    int WIDTH = (int)(720 * 1.5);
-    int HEIGHT = (int)(720 * 1.5);
+ 
     struct SDL_Window* _window{nullptr};
     glm::mat4 freezeView = {};
     std::span<std::span<GPU_perShadowData>> perLightShadowData;

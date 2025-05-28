@@ -56,7 +56,7 @@ struct GraphicsPipelineSettings
 {
     std::span<VkFormat> colorFormats;
     VkFormat depthFormat;
-    VkCullModeFlags cullMode = VK_CULL_MODE_BACK_BIT;
+    VkCullModeFlags cullMode = VK_CULL_MODE_BACK_BIT; //todo js debuggig
     VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     VkBool32 depthClampEnable = VK_FALSE;
     VkBool32 depthWriteEnable = VK_TRUE;

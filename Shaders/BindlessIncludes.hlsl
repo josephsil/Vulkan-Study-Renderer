@@ -91,7 +91,7 @@ float3 fresnelSchlick(float cosTheta, float3 F0)
 
 float DistributionGGX(float3 N, float3 H, float roughness)
 {
-    float PI = 3.14159265359;
+    // float PI = 3.14159265359;
 
     float a = roughness * roughness;
     float a2 = a * a;
@@ -186,14 +186,14 @@ float SampleSoftShadow(Texture2DArray<float4> Texture, float fragDepth, float3 s
 
     float cSampleAccum = 0;
     // Take a sample at the disc’s center
-    cSampleAccum += Texture.Sample(shadowmapSampler[0], shadowUV.xyz) > fragDepth;
+    cSampleAccum += Texture.Sample(shadowmapSampler[0], shadowUV.xyz) < fragDepth;
     // Take 12 samples in disc
     for (int nTapIndex = 0; nTapIndex < POISSON_SAMPLECOUNT; nTapIndex++)
     {
         float2 vTapCoord = vTexelSize * vTaps[nTapIndex] * 1.5;
         float3 uvOffset = float3(vTapCoord, 0.0);
         // Accumulate samples
-        cSampleAccum += (Texture.Sample(shadowmapSampler[0], (shadowUV.xyz + uvOffset)).r > fragDepth);
+        cSampleAccum += (Texture.Sample(shadowmapSampler[0], (shadowUV.xyz + uvOffset)).r < fragDepth);
     }
     return cSampleAccum;
 }
@@ -208,7 +208,7 @@ float3 getShadow(int index, float3 fragWorldPos)
         //ShadowMapCube is indexed by light index, rather than shadowmap index like the sampler the other light types use.
         //There's high risk of a bug here with how I stride lights.
         float3 shadow = shadowmapCube[index].SampleLevel(cubeSamplers[0], fragToLight, 0.0).r;
-        return distLightSpace < (shadow.r);
+        return distLightSpace > (shadow.r);
     }
     if (GetLightType(light) == LIGHT_SPOT)
     {
@@ -218,7 +218,7 @@ float3 getShadow(int index, float3 fragWorldPos)
         float3 fragNDC = ClipToNDC(fragClipSpace);
         float2 shadowUV = NDCToUV(fragNDC);
 
-        return shadowmap[light.shadowOffset].Sample(shadowmapSampler[0], float3(shadowUV, ARRAY_INDEX)).r < fragNDC.z;
+        return shadowmap[light.shadowOffset].Sample(shadowmapSampler[0], float3(shadowUV, ARRAY_INDEX)).r > fragNDC.z;
     }
     if (GetLightType(light) == LIGHT_DIR)
     {
@@ -265,7 +265,7 @@ float3 lightContribution(float3 halfwayDir, float3 viewDir, float3 lightDir, flo
 {
     float3 F0 = 0.04;
     F0 = lerp(F0, albedo, metallic);
-    float PI = 3.14159265359;
+    // float PI = 3.14159265359;
     float3 Fresnel = fresnelSchlick(max(dot(halfwayDir, viewDir), 0.0), F0);
     float NDF = DistributionGGX(surfaceNormal, halfwayDir, roughness);
     float G = GeometrySmith(surfaceNormal, viewDir, lightDir, roughness);

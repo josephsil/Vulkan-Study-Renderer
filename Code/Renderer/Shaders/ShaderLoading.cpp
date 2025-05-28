@@ -423,6 +423,10 @@ void ShaderLoader::shaderCompile(std::wstring shaderFilename, shaderType stagety
         L"-I", L"./Shaders/Includes",
         // Compile to SPIRV
         L"-spirv",
+#if _DEBUG
+        L"-D",
+        L"_DEBUG", //todo js: make sure to recompile shaders when this changes 
+#endif 
         L"-fvk-support-nonzero-base-instance",
         L"-Zi",
         L"-fspv-debug=vulkan-with-source"

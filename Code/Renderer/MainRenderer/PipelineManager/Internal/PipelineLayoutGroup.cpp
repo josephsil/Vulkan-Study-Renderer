@@ -197,6 +197,7 @@ void PipelineLayoutGroup::createGraphicsPipeline(std::span<VkPipelineShaderStage
     rasterizer.cullMode = settings.cullMode;
     rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     rasterizer.depthBiasEnable = settings.depthBias;
+    
     // rasterizer.depthBiasConstantFactor = shadow ? 6 : 0;
     // rasterizer.depthBiasSlopeFactor = shadow ? 3 : 0;
     // rasterizer.depth
@@ -213,9 +214,9 @@ void PipelineLayoutGroup::createGraphicsPipeline(std::span<VkPipelineShaderStage
 
     VkPipelineDepthStencilStateCreateInfo depthStencil{};
     depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    depthStencil.depthTestEnable = VK_TRUE;
+    depthStencil.depthTestEnable = VK_TRUE; //todo debugging
     depthStencil.depthWriteEnable = settings.depthWriteEnable;
-    depthStencil.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+    depthStencil.depthCompareOp = VK_COMPARE_OP_GREATER_OR_EQUAL;
     depthStencil.depthBoundsTestEnable = VK_FALSE;
     depthStencil.stencilTestEnable = VK_FALSE;
 

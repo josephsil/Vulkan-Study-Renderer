@@ -354,7 +354,7 @@ void VulkanRenderer::InitializeRendererForScene(sceneCountData sceneCountData) /
     }
 
     TextureCreation::CreateDepthPyramidSampler(&globalResources.writeDepthMipSampler, VK_SAMPLER_REDUCTION_MODE_WEIGHTED_AVERAGE, GetMainRendererContext(), HIZDEPTH);
-    TextureCreation::CreateDepthPyramidSampler(&globalResources.readDepthMipSampler, VK_SAMPLER_REDUCTION_MODE_MAX, GetMainRendererContext(), HIZDEPTH);
+    TextureCreation::CreateDepthPyramidSampler(&globalResources.readDepthMipSampler, VK_SAMPLER_REDUCTION_MODE_MIN, GetMainRendererContext(), HIZDEPTH);
     TextureCreation::TextureImportRequest args[3] = {
     TextureCreation::MakeCreationArgsFromFilepathArgs("textures/outputLUT.png", &perFrameArenas[currentFrame], TextureType::LINEAR_DATA, VK_IMAGE_VIEW_TYPE_2D),
     TextureCreation::MakeTextureCreationArgsFromCachedKTX("textures/output_cubemap2_diff8.ktx2",VK_SAMPLER_ADDRESS_MODE_REPEAT, true),
@@ -749,7 +749,8 @@ void VulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<std::spa
                 float meshRadius = meshSpacePositionAndRadius.radius;
                 float objectScale = scene->transforms.worldUniformScales[lookup.depth][lookup.index];
                 perDrawData[uboIndex].boundsSphere.center = meshSpacePositionAndRadius.center;
-                meshRadius *= objectScale;
+                perDrawData[uboIndex].objectScale = objectScale;
+                // perDrawData[uboIndex].eyepos = glm::vec4(scene->sceneCamera.eyePos, 1);
                 perDrawData[uboIndex].boundsSphere.radius = meshRadius;
                 perDrawData[uboIndex].bounds =  AssetDataAndMemory->meshData.GPU_Boundses[meshletIndex];
                 uboIndex++;
@@ -1316,7 +1317,7 @@ std::span<RenderPassConfig> createShadowPassConfigs(ArenaAllocator arena, std::s
             GPU_shadowPushConstant* shadowPushConstants = MemoryArena::Alloc<GPU_shadowPushConstant>(arena);
             shadowPushConstants->mat =   passInfo[i].proj * passInfo[i].view;
             VkRenderingAttachmentInfoKHR* depthDrawAttatchment =  MemoryArena::Alloc<VkRenderingAttachmentInfoKHR>(arena);
-            *depthDrawAttatchment = CreateRenderingAttatchmentStruct(shadowMapRenderingViews[ i], 1.0, true);
+            *depthDrawAttatchment = CreateRenderingAttatchmentStruct(shadowMapRenderingViews[ i], 0.0, true);
             auto& config = resultConfigs[i];
             config.PushConstants = {(void*)shadowPushConstants, 256};
             config.depthAttatchment =depthDrawAttatchment;
@@ -1415,7 +1416,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     per_frame_data* thisFrameData = &FramesInFlightData[currentFrame];
         
     VkRenderingAttachmentInfoKHR* depthDrawAttatchment = MemoryArena::Alloc<VkRenderingAttachmentInfoKHR>(&perFrameArenas[currentFrame]);
-    *depthDrawAttatchment = CreateRenderingAttatchmentStruct( globalResources.depthBufferInfoPerFrame[currentFrame].view, 1.0, true);
+    *depthDrawAttatchment = CreateRenderingAttatchmentStruct( globalResources.depthBufferInfoPerFrame[currentFrame].view, 0.0, true);
     
     vkAcquireNextImageKHR(rendererVulkanObjects.vkbdevice.device, rendererVulkanObjects.swapchain,
         60000,thisFrameData->perFrameSemaphores.swapchainSemaphore, VK_NULL_HANDLE,&thisFrameData->swapChainIndex);
@@ -1886,6 +1887,7 @@ void VulkanRenderer::initializeDearIMGUI()
     init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
     init_info.UseDynamicRendering = true;
     //dynamic rendering parameters for imgui to use
+    
     init_info.PipelineRenderingCreateInfo = {.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO};
     init_info.PipelineRenderingCreateInfo.colorAttachmentCount = 1;
     init_info.PipelineRenderingCreateInfo.pColorAttachmentFormats = &rendererVulkanObjects.swapchain.image_format;

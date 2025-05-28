@@ -92,8 +92,8 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
 #define SPONZA
 #ifdef SPONZA
     //rendererContext: gltf load fn that gets back struct, then append its contents to scene 
-    // gltf = GltfLoadMeshes(rendererContext,*rendererData, "Meshes/sponza.glb");
-    // ObjectImport::CreateObjectAssets(loadingArena, *scene, *rendererData, gltf, {defaultTexture, defaultSPec,defaultNormal});
+    gltf = GltfLoadMeshes(rendererContext,*rendererData, "Meshes/sponza.glb");
+    ObjectImport::CreateObjectAssets(loadingArena, *scene, *rendererData, gltf, {defaultTexture, defaultSPec,defaultNormal});
 #pragma region gltf adding stuff --- todo move to fn
    
 #endif
