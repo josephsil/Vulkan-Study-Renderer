@@ -140,14 +140,14 @@ std::span<glm::vec4> LightAndCameraHelpers::FillFrustumCornersForSpace(std::span
                                                                        glm::mat4 matrix)
 {
     const glm::vec3 frustumCorners[8] = {
-        glm::vec3( 1.0f, -1.0f, 0.0f), // bot right
-        glm::vec3(-1.0f, -1.0f, 0.0f), //bot left
-        glm::vec3(-1.0f,  1.0f, 0.0f), //top rgiht 
-        glm::vec3( 1.0f,  1.0f, 0.0f), // top left
-        glm::vec3( 1.0f, -1.0f,  1.0f), //bot r8ghyt  (far)
-        glm::vec3(-1.0f, -1.0f,  1.0f), //bot left (far)
-        glm::vec3(-1.0f,  1.0f,  1.0f), //top left (far)
-        glm::vec3( 1.0f,  1.0f,  1.0f), //top right (far)
+        glm::vec3( 1.0f, -1.0f, 1.0f), // bot right
+        glm::vec3(-1.0f, -1.0f, 1.0f), //bot left
+        glm::vec3(-1.0f,  1.0f, 1.0f), //top rgiht 
+        glm::vec3( 1.0f,  1.0f, 1.0f), // top left
+        glm::vec3( 1.0f, -1.0f,  0.0f), //bot r8ghyt  (far)
+        glm::vec3(-1.0f, -1.0f,  0.0f), //bot left (far)
+        glm::vec3(-1.0f,  1.0f,  0.0f), //top left (far)
+        glm::vec3( 1.0f,  1.0f,  0.0f), //top right (far)
     };
 
     assert (output_span.size() == 8);
@@ -197,9 +197,10 @@ std::span<GPU_perShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryA
         
             debugLinesManager->AddDebugFrustum(frustumCornersWorldSpace);
 
-            float maxZ =  cam.farPlane - cam.nearPlane;
-            float minZ =  cam.nearPlane;
-            float clipRange = (maxZ - cam.nearPlane);
+            float min_cascade = cam.nearPlane;
+            float maxZ =  (cam.farPlane ) - min_cascade;
+            float minZ =  min_cascade;
+            float clipRange = (maxZ - min_cascade);
 
             float range = maxZ - minZ;
             float ratio = maxZ / minZ;
@@ -211,9 +212,8 @@ std::span<GPU_perShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryA
                 float log = minZ * std::pow(ratio, p);
                 float uniform = minZ + range * p;
                 float d = 0.96f * (log - uniform) + uniform;
-                cascadeSplits[i] = (d - cam.farPlane) / clipRange;
+                cascadeSplits[i] = (d - min_cascade) / clipRange;
             }
-
 
             for (int i = 0; i < CASCADE_CT; i++)
             {
@@ -228,9 +228,9 @@ std::span<GPU_perShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryA
                 }
                 for(int j = 0; j < 4; j++)
                 { //Dont think this is right, think my frustum is oriented differently
-                    glm::vec3 dist = frustumCornersWorldSpacev3[j + 4] - frustumCornersWorldSpacev3[j];
-                    frustumCornersWorldSpacev3[j + 4] = frustumCornersWorldSpacev3[j] + (dist * splitDist);
-                    frustumCornersWorldSpacev3[j] = frustumCornersWorldSpacev3[j] + (dist * lastSplitDist);
+                    glm::vec3 dist = (frustumCornersWorldSpacev3[j + 4] - frustumCornersWorldSpacev3[j] );
+                    frustumCornersWorldSpacev3[j + 4] = frustumCornersWorldSpacev3[j] - (dist * splitDist);
+                    frustumCornersWorldSpacev3[j] = frustumCornersWorldSpacev3[j] - (dist * lastSplitDist);
                 }
 
                 glm::vec3 frustumCenter = glm::vec3(0.0f);
@@ -249,7 +249,7 @@ std::span<GPU_perShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryA
 
                 debugLinesManager->addDebugCross(debugPos, 2, {0,static_cast<float>(i) /  static_cast<float>(CASCADE_CT),0});
                
-                float distanceOffset = 9.0;
+                float distanceOffset = 4.0;
 
 
                 //Texel clamping
@@ -257,7 +257,7 @@ std::span<GPU_perShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryA
                 texelScalar = glm::scale(texelScalar, glm::vec3((float)SHADOW_MAP_SIZE / (radius * 2.0f)));
                 glm::vec3 maxExtents = glm::vec3(radius);
                 glm::vec3 minExtents = -maxExtents;
-                glm::mat4 baseLightvew = glm::lookAt(normalize(-dir), glm::vec3(0),  up);
+                glm::mat4 baseLightvew = glm::lookAt(normalize(dir), glm::vec3(0),  up);
                 glm::mat4 texelLightview = texelScalar * baseLightvew ;
                 glm::mat4 texelInverse = (inverse(texelLightview));
                 glm::vec4 transformedCenter = texelLightview * glm::vec4(frustumCenter, 1.0);
@@ -269,7 +269,7 @@ std::span<GPU_perShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryA
                 glm::mat4 lightOrthoMatrix = glm::ortho(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, (maxExtents.z - minExtents.z) * distanceOffset, 0.0f) ;
 
                 lightProjection =  lightOrthoMatrix;
-                outputSpan[i] = {lightViewMatrix, lightProjection,  ((cam.nearPlane + splitDist * clipRange) ) * -1.0f};
+                outputSpan[i] = {lightViewMatrix, lightProjection,  ((min_cascade + splitDist * clipRange) * -1.0f )};
             }
             return  outputSpan.subspan(0,CASCADE_CT);
         }

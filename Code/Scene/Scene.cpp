@@ -13,6 +13,7 @@
 #include "General/InputHandling.h"
 #include "General/MemoryArena.h"
 #include "Renderer/AssetManagerTypes.h"
+#include "Renderer/VulkanIncludes/structs_hlsl.h"
 
 void InitializeScene(MemoryArena::memoryArena* arena, Scene* scene)
 {

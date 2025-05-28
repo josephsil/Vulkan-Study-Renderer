@@ -2,6 +2,7 @@ static const uint SHADOW_MAP_SIZE = 1024;
 static const uint DEPTH_PYRAMID_SIZE = SHADOW_MAP_SIZE;
 static const float POINT_LIGHT_FAR_PLANE = 10.0;
 static const float POINT_LIGHT_NEAR_PLANE = 0.01f;
+static const uint CASCADE_CT = 6;
 struct Transform
 {
     float4x4 Model;

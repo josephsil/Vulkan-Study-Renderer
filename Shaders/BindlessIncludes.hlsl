@@ -153,22 +153,23 @@ float WorldSpacePositionToPointLightNDCDepth(float3 Vec)
     return (NormZComp + 1.0) * 0.5;
 }
 
-int findCascadeLevel(int lightIndex, float3 worldPixel)
-{
-    float4 fragPosViewSpace = mul(mul(ShaderGlobals.projMatrix, ShaderGlobals.viewMatrix), float4(worldPixel, 1.0));
-    float depthValue = fragPosViewSpace.z;
-    int cascadeLevel = 0;
-    for (int i = 0; i < 6; i++) //6 == cascade count
-    {
-        if (depthValue < -shadowMatrices[lightIndex + i].depth)
-        {
-            cascadeLevel = i;
-            break;
-        }
-    }
 
-    return cascadeLevel;
-}
+ int findCascadeLevel(int lightIndex, float3 worldPixel)
+ {
+     float4 fragPosViewSpace = mul(ShaderGlobals.viewMatrix, float4(worldPixel, 1.0));
+     float depthValue = fragPosViewSpace.z;
+     int cascadeLevel = 0;
+     for (int i = 0; i < CASCADE_CT; i++) //6 == cascade count
+     {
+         if (depthValue > shadowMatrices[lightIndex + i].depth)
+         {
+             cascadeLevel = i;
+             break;
+         }
+     }
+
+     return cascadeLevel;
+ }
 static const int POISSON_SAMPLECOUNT = 12;
 float SampleSoftShadow(Texture2DArray<float4> Texture, float fragDepth, float3 shadowUV)
 {
@@ -186,14 +187,14 @@ float SampleSoftShadow(Texture2DArray<float4> Texture, float fragDepth, float3 s
 
     float cSampleAccum = 0;
     // Take a sample at the disc’s center
-    cSampleAccum += Texture.Sample(shadowmapSampler[0], shadowUV.xyz) < fragDepth;
+    cSampleAccum += Texture.Sample(shadowmapSampler[0], shadowUV.xyz) <= fragDepth;
     // Take 12 samples in disc
     for (int nTapIndex = 0; nTapIndex < POISSON_SAMPLECOUNT; nTapIndex++)
     {
         float2 vTapCoord = vTexelSize * vTaps[nTapIndex] * 1.5;
         float3 uvOffset = float3(vTapCoord, 0.0);
         // Accumulate samples
-        cSampleAccum += (Texture.Sample(shadowmapSampler[0], (shadowUV.xyz + uvOffset)).r < fragDepth);
+        cSampleAccum += (Texture.Sample(shadowmapSampler[0], (shadowUV.xyz + uvOffset)).r <= fragDepth);
     }
     return cSampleAccum;
 }
@@ -218,7 +219,7 @@ float3 getShadow(int index, float3 fragWorldPos)
         float3 fragNDC = ClipToNDC(fragClipSpace);
         float2 shadowUV = NDCToUV(fragNDC);
 
-        return shadowmap[light.shadowOffset].Sample(shadowmapSampler[0], float3(shadowUV, ARRAY_INDEX)).r > fragNDC.z;
+        return shadowmap[light.shadowOffset].Sample(shadowmapSampler[0], float3(shadowUV, ARRAY_INDEX)).r <= fragNDC.z;
     }
     if (GetLightType(light) == LIGHT_DIR)
     {

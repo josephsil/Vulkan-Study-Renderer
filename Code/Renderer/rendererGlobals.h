@@ -6,7 +6,7 @@
 static constexpr int WIDTH = (int)(1280 * 1.5);
 static constexpr int HEIGHT = (int)(720 * 1.5);
 static constexpr size_t MAX_SHADOWCASTERS = 8;
-static constexpr int CASCADE_CT = 6;
+
 #define MAX_SHADOWMAPS (MAX_SHADOWCASTERS * 8)
 static constexpr int MAX_CAMERAS = 1;
 static constexpr int HIZDEPTH = 9;

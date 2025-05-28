@@ -167,8 +167,20 @@ FSOutput Frag(VSOutput input)
         output.Color = ambient + getLighting(diff, normalMap, input.worldPos, F0, roughness, metallic);
     }
 
-
-    output.Color *= input.Color;
+    int cascadelevel = findCascadeLevel(0, input.worldPos);
+    if (cascadelevel == 0)
+    {
+        output.Color += float3(1,0,0);
+    }
+    if (cascadelevel ==1)
+    {
+        output.Color += float3(0,1,0);
+    }
+    if (cascadelevel == 2)
+    {
+        output.Color += float3(0,0,1);
+    }
+    // output.Color *= input.Color;
 
 
 
