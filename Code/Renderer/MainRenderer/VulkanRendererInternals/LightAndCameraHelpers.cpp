@@ -164,14 +164,14 @@ std::span<glm::vec4> LightAndCameraHelpers::FillFrustumCornersForSpace(std::span
                                                                        glm::mat4 matrix)
 {
     const glm::vec3 frustumCorners[8] = {
-        glm::vec3( 1.0f, -1.0f, 1.0f), // bot right
-        glm::vec3(-1.0f, -1.0f, 1.0f), //bot left
-        glm::vec3(-1.0f,  1.0f, 1.0f), //top rgiht 
-        glm::vec3( 1.0f,  1.0f, 1.0f), // top left
-        glm::vec3( 1.0f, -1.0f,  0.0f), //bot r8ghyt  (far)
-        glm::vec3(-1.0f, -1.0f,  0.0f), //bot left (far)
-        glm::vec3(-1.0f,  1.0f,  0.0f), //top left (far)
-        glm::vec3( 1.0f,  1.0f,  0.0f), //top right (far)
+        glm::vec3( 1.0f, -1.0f, 1.0f - 0.0001f), // bot right (far) -- offset due to infinite far plane
+        glm::vec3(-1.0f, -1.0f, 1.0f - 0.0001f), //bot left (far) -- offset due to infinite far plane
+        glm::vec3(-1.0f,  1.0f, 1.0f - 0.0001f), //top rgiht  (far) -- offset due to infinite far plane
+        glm::vec3( 1.0f,  1.0f, 1.0f - 0.0001f), // top left (far) -- offset due to infinite far plane
+        glm::vec3( 1.0f, -1.0f,  0.0f), //bot r8ghyt  (near)
+        glm::vec3(-1.0f, -1.0f,  0.0f), //bot left (near)
+        glm::vec3(-1.0f,  1.0f,  0.0f), //top left (near)
+        glm::vec3( 1.0f,  1.0f,  0.0f), //top right (near)
     };
 
     assert (output_span.size() == 8);
@@ -252,9 +252,9 @@ std::span<GPU_perShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryA
                 }
                 for(int j = 0; j < 4; j++)
                 { //Dont think this is right, think my frustum is oriented differently
-                    glm::vec3 dist = (frustumCornersWorldSpacev3[j + 4] - frustumCornersWorldSpacev3[j] );
-                    frustumCornersWorldSpacev3[j + 4] = frustumCornersWorldSpacev3[j] - (dist * splitDist);
-                    frustumCornersWorldSpacev3[j] = frustumCornersWorldSpacev3[j] - (dist * lastSplitDist);
+                    glm::vec3 dist = abs(frustumCornersWorldSpacev3[j + 4] - frustumCornersWorldSpacev3[j] );
+                    frustumCornersWorldSpacev3[j + 4] = frustumCornersWorldSpacev3[j] + (dist * splitDist);
+                    frustumCornersWorldSpacev3[j] = frustumCornersWorldSpacev3[j] + (dist * lastSplitDist);
                 }
 
                 glm::vec3 frustumCenter = glm::vec3(0.0f);
@@ -273,7 +273,7 @@ std::span<GPU_perShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryA
 
                 debugLinesManager->addDebugCross(debugPos, 2, {0,static_cast<float>(i) /  static_cast<float>(CASCADE_CT),0});
                
-                float distanceOffset = 1.0;
+                float distanceOffset = 4.0;
 
 
                 //Texel clamping
@@ -302,7 +302,7 @@ std::span<GPU_perShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryA
             outputSpan = MemoryArena::AllocSpan<GPU_perShadowData>(allocator, 1 ); 
             lightViewMatrix = glm::lookAt(lightPos, (lightPos + dir), up);
             glm::mat4 
-            lightProjection = perspective_finite_z(spotRadius,
+            lightProjection = perspective(spotRadius *2.f, //not sure what's wrong with my math to require this *2!
                                                1.0f,  0.01f, 25.f, nullptr
                                                ); //TODO BETTER FAR 
             outputSpan[0] = {lightViewMatrix, lightProjection,  0};

@@ -219,7 +219,7 @@ float3 getShadow(int index, float3 fragWorldPos)
         float3 fragNDC = ClipToNDC(fragClipSpace);
         float2 shadowUV = NDCToUV(fragNDC);
 
-        return shadowmap[light.shadowOffset].Sample(shadowmapSampler[0], float3(shadowUV, 0)).r <= fragNDC.z;
+        return shadowmap[index].Sample(shadowmapSampler[0], float3(shadowUV, light.shadowOffset + ARRAY_INDEX)).r <= fragNDC.z;
     }
     if (GetLightType(light) == LIGHT_DIR)
     {
@@ -229,7 +229,7 @@ float3 getShadow(int index, float3 fragWorldPos)
         float3 fragNDC = ClipToNDC(fragClipSpace);
         float2 shadowUV = NDCToUV(fragNDC);
  
-        float cSampleAccum = SampleSoftShadow(shadowmap[light.shadowOffset],  fragNDC.z, float3(shadowUV.xy, cascadeLevel));
+        float cSampleAccum = SampleSoftShadow(shadowmap[index],  fragNDC.z, float3(shadowUV.xy, cascadeLevel));
       
         return saturate((cSampleAccum) / (POISSON_SAMPLECOUNT + 1));
     }

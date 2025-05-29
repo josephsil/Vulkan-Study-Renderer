@@ -170,7 +170,7 @@ void VulkanRenderer::UpdateShadowImageViews(int frame, sceneCountData lightData)
            
             shadowResources.shadowMapSamplingImageViews[i][j] = TextureUtilities::createImageViewCustomMip(
                 getPartialRendererContext(), shadowResources.shadowImages[i], shadowFormat,
-                VK_IMAGE_ASPECT_DEPTH_BIT,
+                VK_IMAGE_ASPECT_COLOR_BIT,
                 (VkImageViewType)  type,
                 ct, 
                 (uint32_t)Scene::getShadowDataIndex(j, lightData.lightTypes), 1, 0);
@@ -347,7 +347,7 @@ void VulkanRenderer::InitializeRendererForScene(sceneCountData sceneCountData) /
     {
         TextureUtilities::createImage(getPartialRendererContext(),SHADOW_MAP_SIZE, SHADOW_MAP_SIZE,shadowFormat,VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
                VK_IMAGE_USAGE_SAMPLED_BIT,0,shadowResources.shadowImages[i],shadowResources.shadowMemory[i],1, MAX_SHADOWMAPS, true);
-        TextureCreation::CreateTextureSampler(&shadowResources.shadowSamplers[i], GetMainRendererContext(), VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, 0, 1, true);
+        TextureCreation::CreateTextureSampler(&shadowResources.shadowSamplers[i], GetMainRendererContext(), VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER, 0, 1, true);
         SetDebugObjectName(rendererVulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_IMAGE, "SHADOW IMAGE", (uint64_t)(shadowResources.shadowImages[i]));
         SetDebugObjectName(rendererVulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_SAMPLER, "SHADOW IMAGE SAMPLER", (uint64_t)(shadowResources.shadowSamplers[i]));
         UpdateShadowImageViews(i, sceneCountData);
@@ -526,13 +526,13 @@ std::span<descriptorUpdateData> VulkanRenderer::CreatePerFrameDescriptorUpdates(
     for(int i = 0; i < MAX_SHADOWMAPS; i++)
     {
         VkImageView view {};
-        if (i < shadowCasterCount)
+        if (i < shadowCasterCount) 
         {
             view =  shadowResources.shadowMapSamplingImageViews[frame][i] ;
         }
         else
         {
-            view = shadowResources.shadowMapRenderingImageViews[frame][0];
+            view = shadowResources.shadowMapSamplingImageViews[frame][0];
         }
         
         assert( &view != VK_NULL_HANDLE);
@@ -968,8 +968,8 @@ void VulkanRenderer::RecordMipChainCompute(ActiveRenderStepData commandBufferCon
             .imageView = pyramidviews[i], .imageLayout = VK_IMAGE_LAYOUT_GENERAL
         };
 
-        VkDescriptorImageInfo* shadowSamplerInfo =  MemoryArena::Alloc<VkDescriptorImageInfo>(arena);
-        *shadowSamplerInfo = {
+        VkDescriptorImageInfo* spyramidSamplerInfo =  MemoryArena::Alloc<VkDescriptorImageInfo>(arena);
+        *spyramidSamplerInfo = {
             .sampler  =globalResources.writeDepthMipSampler, .imageLayout = VK_IMAGE_LAYOUT_GENERAL
         };
   
@@ -977,7 +977,7 @@ void VulkanRenderer::RecordMipChainCompute(ActiveRenderStepData commandBufferCon
 
         descriptorUpdates[0] = {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, sourceInfo};  //src view
         descriptorUpdates[1] = {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, destinationInfo};  //dst view
-        descriptorUpdates[2] = {VK_DESCRIPTOR_TYPE_SAMPLER, shadowSamplerInfo}; //draws 
+        descriptorUpdates[2] = {VK_DESCRIPTOR_TYPE_SAMPLER, spyramidSamplerInfo}; //draws 
 
         //Memory barrier for compute access
         //Probably not ideal perf

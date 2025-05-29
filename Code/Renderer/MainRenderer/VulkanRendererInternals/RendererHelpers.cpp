@@ -70,7 +70,7 @@ DepthPyramidInfo static_createDepthPyramidResources(rendererObjects initializedr
     uint32_t depthWidth = previousPow2(initializedrenderer.swapchain.extent.width);
     uint32_t depthHeight = previousPow2(initializedrenderer.swapchain.extent.height);
     DepthPyramidInfo bufferInfo = {
-        depthFormat, VK_NULL_HANDLE, viewsForMips, VmaAllocation{}, {depthWidth, depthHeight}
+        VK_FORMAT_R32_SFLOAT, VK_NULL_HANDLE, viewsForMips, VmaAllocation{}, {depthWidth, depthHeight}
     };
 
 

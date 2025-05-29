@@ -15,7 +15,7 @@ struct drawCommandData
 };
 
 [[vk::binding(0, 0)]]
-Texture2D<float4> bindless_textures[];
+Texture2D<float> bindless_textures[];
 [[vk::binding(2, 0)]]
 SamplerState bindless_samplers[];
 
@@ -98,7 +98,7 @@ void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
         float4 centerViewSpace = ObjectToView(objectCenter);
         for (int i = 0; i < 6; i++)
         {
-            // visible = visible && dot(frustumData[i + cullPC.frustumOffset], float4(centerViewSpace.xyz, 1)) > -(radius);
+            visible = visible && dot(frustumData[i + cullPC.frustumOffset], float4(centerViewSpace.xyz, 1)) > -(radius);
         }
     }
     //Occlusion
