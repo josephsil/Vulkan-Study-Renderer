@@ -1,9 +1,9 @@
 #include "structs.hlsl"
 
 [[vk::binding(12, 0)]]
-Texture2D<float4> srcTexture; //could be read only
+Texture2D<float> srcTexture; //could be read only
 [[vk::binding(13, 0)]]
-RWTexture2D<float4> dstTexture; //could be write  only
+RWTexture2D<float> dstTexture; //could be write  only
 [[vk::binding(14, 0)]]
 SamplerState samplers;
 

@@ -313,10 +313,10 @@ std::span<GPU_perShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryA
 
         {
             outputSpan = MemoryArena::AllocSpan<GPU_perShadowData>(allocator, 6 ); 
-            lightProjection = glm::perspective(glm::radians((float)90),
-                                               1.0f, POINT_LIGHT_FAR_PLANE,
-                                               POINT_LIGHT_NEAR_PLANE);} //TODO BETTER FAR
-
+            lightProjection = perspective_finite_z(90,
+                                               1.0f, POINT_LIGHT_NEAR_PLANE,
+                                               POINT_LIGHT_FAR_PLANE, nullptr);} 
+        lightProjection[1][1] *= -1; //TODO JS hack -- these are rendering upside down for some reason, fix should probably be elsewhere
         for(int i = 0; i < outputSpan.size(); i++)
         {
             outputSpan[i].depth = 0;

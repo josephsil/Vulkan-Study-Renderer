@@ -142,15 +142,11 @@ float GeometrySmith(float3 N, float3 V, float3 L, float roughness)
 
 
 //I copied this from somewhere and don't totally understand it!
-float WorldSpacePositionToPointLightNDCDepth(float3 Vec)
+
+float VectorToPointLightDistance(float3 Vec)
 {
     float3 AbsVec = abs(Vec);
-    float LocalZcomp = max(AbsVec.x, max(AbsVec.y, AbsVec.z));
-
-    const float FAR = POINT_LIGHT_FAR_PLANE;
-    const float NEAR = POINT_LIGHT_NEAR_PLANE;
-    float NormZComp = (FAR + NEAR) / (FAR - NEAR) - (2.0 * FAR * NEAR) / (FAR - NEAR) / LocalZcomp;
-    return (NormZComp + 1.0) * 0.5;
+    return  max(AbsVec.x, max(AbsVec.y, AbsVec.z));
 }
 
 
@@ -205,11 +201,12 @@ float3 getShadow(int index, float3 fragWorldPos)
     if (GetLightType(light) == LIGHT_POINT)
     {
         float3 fragToLight = fragWorldPos - light.position_range.xyz;
-        float distLightSpace = WorldSpacePositionToPointLightNDCDepth(light.position_range.xyz - fragWorldPos);
+        float fragDistWorldSpace = VectorToPointLightDistance(light.position_range.xyz - fragWorldPos);
         //ShadowMapCube is indexed by light index, rather than shadowmap index like the sampler the other light types use.
         //There's high risk of a bug here with how I stride lights.
-        float3 shadow = shadowmapCube[index].SampleLevel(cubeSamplers[0], fragToLight, 0.0).r;
-        return distLightSpace > (shadow.r);
+        float shadow = shadowmapCube[index].SampleLevel(cubeSamplers[0], fragToLight, 0.0).r;
+        float shadowDistanceWorldSPace = POINT_LIGHT_NEAR_PLANE + (POINT_LIGHT_NEAR_PLANE / shadow); //Note: Lacking understanding of the math here. I thought this division would only work with infinite Z 
+        return (fragDistWorldSpace) <= ( shadowDistanceWorldSPace);  
     }
     if (GetLightType(light) == LIGHT_SPOT)
     {
