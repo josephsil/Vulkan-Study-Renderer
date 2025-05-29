@@ -187,31 +187,33 @@ FSOutput Frag(VSOutput input)
     output.Color *= input.Color;
 
 
-    output.Color *= float3(1.0f, 0.5f, 0.5f);
+    // output.Color *= float3(1.0f, 0.5f, 0.5f);
     // int cascadelevel = findCascadeLevel(0, input.worldPos);
     // if (cascadelevel == 0)
     // {
-    //     output.Color += (float3(1,0,0) *0.1f*0.5);
+    //     output.Color += (float3(1,0,0) *0.05f*0.5);
     // }
     // else if (cascadelevel == 1)
     // {
-    //     output.Color += (float3(1,0,0) *0.1f*0.3);
+    //     output.Color += (float3(1,0,0) *0.05f*0.3);
     // }
     // else if (cascadelevel ==2)
     // {
-    //     output.Color += (float3(0,1,0) *0.1f*0.5);
+    //     output.Color += (float3(0,1,0) *0.05f*0.5);
     // }
     // else if (cascadelevel == 3)
     // {
-    //     output.Color += (float3(0,0,1) *0.1f*0.3);
+    //     output.Color += (float3(0,0,1) *0.05f*0.3);
     // }
     // else if (cascadelevel == 4)
     // {
-    //     output.Color += (float3(0,0,1) *0.1f*0.5);
+    //     output.Color += (float3(0,0,1) *0.05f*0.5);
     // }
     // else if (cascadelevel == 5)
     // {
-    //     output.Color += (float3(0,0,1) *0.1f*0.3);
+    //     output.Color += (float3(0,0,1) *0.05f*0.3);
     // }
+
+
     return output;
 }

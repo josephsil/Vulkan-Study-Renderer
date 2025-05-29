@@ -72,7 +72,7 @@ glm::mat4 perspective(float vertical_fov, float aspect_ratio, float n, float f, 
 
     float x  =  focal_length / aspect_ratio;
     float y  = -focal_length;
-    float A  =0.001f;
+    float A  = 0.f;
     float B  = n;
 
     glm::mat4 projection({
@@ -164,14 +164,14 @@ std::span<glm::vec4> LightAndCameraHelpers::FillFrustumCornersForSpace(std::span
                                                                        glm::mat4 matrix)
 {
     const glm::vec3 frustumCorners[8] = {
-        glm::vec3( 1.0f, -1.0f, 1.0f - 0.0001f), // bot right (far) -- offset due to infinite far plane
-        glm::vec3(-1.0f, -1.0f, 1.0f - 0.0001f), //bot left (far) -- offset due to infinite far plane
-        glm::vec3(-1.0f,  1.0f, 1.0f - 0.0001f), //top rgiht  (far) -- offset due to infinite far plane
-        glm::vec3( 1.0f,  1.0f, 1.0f - 0.0001f), // top left (far) -- offset due to infinite far plane
-        glm::vec3( 1.0f, -1.0f,  0.0f), //bot r8ghyt  (near)
-        glm::vec3(-1.0f, -1.0f,  0.0f), //bot left (near)
-        glm::vec3(-1.0f,  1.0f,  0.0f), //top left (near)
-        glm::vec3( 1.0f,  1.0f,  0.0f), //top right (near)
+        glm::vec3( 1.0f, -1.0f, 1.0f), // bot right (far) 
+        glm::vec3(-1.0f, -1.0f, 1.0f), //bot left (far) 
+        glm::vec3(-1.0f,  1.0f, 1.0f), //top rgiht  (far) 
+        glm::vec3( 1.0f,  1.0f, 1.0f), // top left (far) 
+        glm::vec3( 1.0f, -1.0f,  0.0f + 0.0001f), //bot r8ghyt  (near)-- offset due to infinite far plane
+        glm::vec3(-1.0f, -1.0f,  0.0f + 0.0001f), //bot left (near)-- offset due to infinite far plane
+        glm::vec3(-1.0f,  1.0f,  0.0f + 0.0001f), //top left (near)-- offset due to infinite far plane
+        glm::vec3( 1.0f,  1.0f,  0.0f + 0.0001f), //top right (near)-- offset due to infinite far plane
     };
 
     assert (output_span.size() == 8);
@@ -221,8 +221,8 @@ std::span<GPU_perShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryA
         
             debugLinesManager->AddDebugFrustum(frustumCornersWorldSpace);
 
-            float min_cascade = cam.nearPlane;
-            float maxZ =  (1.f ) - min_cascade;
+            float min_cascade = cam.nearPlane + 0.1f;
+            float maxZ =  (50.f ) - min_cascade;
             float minZ =  min_cascade;
             float clipRange = (maxZ - min_cascade);
 
@@ -235,7 +235,7 @@ std::span<GPU_perShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryA
                 float p = (i + 1) / static_cast<float>(CASCADE_CT);
                 float log = minZ * std::pow(ratio, p);
                 float uniform = minZ + range * p;
-                float d = 0.96f * (log - uniform) + uniform;
+                float d = 0.92f * (log - uniform) + uniform;
                 cascadeSplits[i] = (d - min_cascade) / clipRange;
             }
 
@@ -252,7 +252,7 @@ std::span<GPU_perShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryA
                 }
                 for(int j = 0; j < 4; j++)
                 { //Dont think this is right, think my frustum is oriented differently
-                    glm::vec3 dist = abs(frustumCornersWorldSpacev3[j + 4] - frustumCornersWorldSpacev3[j] );
+                    glm::vec3 dist = (frustumCornersWorldSpacev3[j + 4] - frustumCornersWorldSpacev3[j] );
                     frustumCornersWorldSpacev3[j + 4] = frustumCornersWorldSpacev3[j] + (dist * splitDist);
                     frustumCornersWorldSpacev3[j] = frustumCornersWorldSpacev3[j] + (dist * lastSplitDist);
                 }
@@ -273,7 +273,7 @@ std::span<GPU_perShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryA
 
                 debugLinesManager->addDebugCross(debugPos, 2, {0,static_cast<float>(i) /  static_cast<float>(CASCADE_CT),0});
                
-                float distanceOffset = 4.0;
+                float distanceOffset =12.0f;
 
 
                 //Texel clamping
@@ -290,10 +290,10 @@ std::span<GPU_perShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryA
                 transformedCenter = texelInverse * transformedCenter ;
                 //Compute output matrices
                 lightViewMatrix = glm::lookAt(glm::vec3(transformedCenter)  + ((dir * maxExtents) * distanceOffset), glm::vec3(transformedCenter), up);
-                glm::mat4 lightOrthoMatrix = glm::ortho(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, (maxExtents.z - minExtents.z) * distanceOffset, 0.0f) ;
+                glm::mat4 lightOrthoMatrix = glm::ortho(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, (min_cascade + (maxExtents.z - minExtents.z) * distanceOffset), 0.f) ;
 
                 lightProjection =  lightOrthoMatrix;
-                outputSpan[i] = {lightViewMatrix, lightProjection,  ((min_cascade + splitDist * clipRange) * -1.0f )};
+                outputSpan[i] = {lightViewMatrix, lightProjection,  (min_cascade + ((maxExtents.z - minExtents.z) /2.f)  )};
             }
             return  outputSpan.subspan(0,CASCADE_CT);
         }

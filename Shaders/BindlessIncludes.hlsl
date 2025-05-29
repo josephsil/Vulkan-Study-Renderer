@@ -161,7 +161,7 @@ float WorldSpacePositionToPointLightNDCDepth(float3 Vec)
      int cascadeLevel = 0;
      for (int i = 0; i < CASCADE_CT; i++) //6 == cascade count
      {
-         if (depthValue > shadowMatrices[lightIndex + i].depth)
+         if (depthValue > -shadowMatrices[lightIndex + i].depth)
          {
              cascadeLevel = i;
              break;
@@ -319,7 +319,7 @@ float3 getLighting(float3 albedo, float3 inNormal, float3 fragWorldPos, float3 F
         //Shadow:
         if (i < SHADOWCOUNT) //TODO JS: pass in max shadow casters?
         {
-            lightAdd *=  getShadow(i, fragWorldPos) * 10;
+            lightAdd *=  getShadow(i, fragWorldPos);
         }
         lightResult += lightAdd;
     }
