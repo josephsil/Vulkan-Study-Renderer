@@ -167,6 +167,11 @@ private:
 
         //Compute culling for draw indirect 
         HostDataBufferObject<glm::vec4> frustumsForCullBuffers;
+
+
+        std::span<GPU_ObjectData> ObjectDataForFrame;
+        std::span<GPU_Transform> ObjectTransformsForFrame;
+ 
     };
 
 

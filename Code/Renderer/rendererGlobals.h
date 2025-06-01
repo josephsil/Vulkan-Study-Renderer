@@ -20,6 +20,7 @@ constexpr VkFormat shadowFormat = VK_FORMAT_D32_SFLOAT;
 static constexpr size_t MESHLET_VERTICES = 64;
 static constexpr size_t MESHLET_TRIS = 124;
 static constexpr size_t MESHLET_INDICES =MESHLET_TRIS * 3;
+
 template <typename T>
 std::span<T > CreatePerFrameCollection(MemoryArena::memoryArena* arena)
 {

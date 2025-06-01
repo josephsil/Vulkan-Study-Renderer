@@ -60,7 +60,6 @@ void Scene::UpdateCamera(inputData input)
         sceneCamera.eyeRotation.y = 89.0f;
     if (sceneCamera.eyeRotation.y < -89.0f)
         sceneCamera.eyeRotation.y = -89.0f;
-
     glm::quat Orientation = OrientationFromYawPitch(sceneCamera.eyeRotation);
 
     glm::quat forwardQuat = Orientation * glm::quat(0, 0, 0, -1) * conjugate(Orientation);

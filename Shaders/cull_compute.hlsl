@@ -4,8 +4,9 @@
 struct drawCommandData
 {
 
-    // float4 debug1;
-    // float4 debug2;
+    float4 debug1;
+    float4 debug2;
+    float4 debug3;
     uint objectIndex;
     uint indexCount;
     uint instanceCount;
@@ -15,7 +16,7 @@ struct drawCommandData
 };
 
 [[vk::binding(0, 0)]]
-Texture2D<float> bindless_textures[];
+Texture2D<float4> bindless_textures[];
 [[vk::binding(2, 0)]]
 SamplerState bindless_samplers[];
 
@@ -38,22 +39,23 @@ RWStructuredBuffer<Transform> Transforms;
 // 2D Polyhedral Bounds of a Clipped, Perspective-Projected 3D Sphere. Michael Mara, Morgan McGuire. 2013
 bool projectSphere(float3 c, float r, float znear, float P00, float P11, out float4 aabb)
 {
-    if (c.z < r + znear)
+    float positive_z = c.z * -1; 
+    if (positive_z -znear < r )
         return false;
 
     float3 cr = c * r;
-    float czr2 = c.z * c.z - r * r;
+    float czr2 = positive_z * positive_z - r * r;
 
     float vx = sqrt(c.x * c.x + czr2);
-    float minx = (vx * c.x - cr.z) / (vx * c.z + cr.x);
-    float maxx = (vx * c.x + cr.z) / (vx * c.z - cr.x);
+    float minx = (vx * c.x - cr.z) / (vx * positive_z + cr.x);
+    float maxx = (vx * c.x + cr.z) / (vx * positive_z - cr.x);
 
     float vy = sqrt(c.y * c.y + czr2);
-    float miny = (vy * c.y - cr.z) / (vy * c.z + cr.y);
-    float maxy = (vy * c.y + cr.z) / (vy * c.z - cr.y);
+    float miny = (vy * c.y - cr.z) / (vy * positive_z + cr.y);
+    float maxy = (vy * c.y + cr.z) / (vy * positive_z - cr.y);
 
     aabb = float4(minx * P00, miny * P11, maxx * P00, maxy * P11);
-    aabb = aabb.xwzy * float4(0.5f, -0.5f, 0.5f, -0.5f) + float4(0.5f,0.5f,0.5f,0.5f); // clip space -> uv space
+    aabb = aabb.xwzy * float4(0.5f, 0.5f, 0.5f, 0.5f) + float4(0.5f,0.5f,0.5f,0.5f); // clip space -> uv space
 
     return true;
 }
@@ -81,6 +83,7 @@ void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
     Transform transform = GetTransform();
     ObjectData mesh = PerObjectData[objIndex];
     float4 objectCenter = mesh.boundsSphere.center;
+    float4 worldCenter = ObjectToWorld(objectCenter);
     float4 ViewCenter = ObjectToView(objectCenter);
     float4 centerClipSpace = ObjectToClip(objectCenter);
     float3 centerNDC = ClipToNDC(centerClipSpace);
@@ -101,17 +104,45 @@ void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
             visible = visible && dot(frustumData[i + cullPC.frustumOffset], float4(centerViewSpace.xyz, 1)) > -(radius);
         }
     }
+    
     //Occlusion
-    // if (test && visible)
-    // {
-    //         float2 hiZSamplePoint =  (aabb.xy + aabb.zw) * 0.5;
-    //         float hiZValue = bindless_textures[0].SampleLevel(bindless_samplers[0], hiZSamplePoint, level);
+    if (test && visible)
+    {
+        float scaledRadius = (mesh.boundsSphere.radius) * mesh.objectScale;
         //
-        // if (hiZValue <  centerDepth)
-        // {
-        //     visible = false;
-        // }
-    // }
+        //
+        //
+        float4 aabb;
+        if (projectSphere(ViewCenter, scaledRadius, 0.001f,  ShaderGlobals.projMatrix[0][0], ShaderGlobals.projMatrix[1][1], aabb))
+        {
+            float width = (aabb.x - aabb.z) *DEPTH_PYRAMID_SIZE;
+            float height = (aabb.y - aabb.w) * DEPTH_PYRAMID_SIZE;
+
+            uint level = floor(log2(max(width, height)));
+            float2 hiZSamplePoint =  (aabb.xy + aabb.zw) * 0.5;
+
+            float positive_z = ViewCenter.z * -1;
+            float hiZValue = bindless_textures[0].SampleLevel(bindless_samplers[0], hiZSamplePoint, level).r;
+            float depthSphere = (0.001f / positive_z) +  ( 0.001f / (scaledRadius));
+
+            drawData[ShaderGlobals.offset + GlobalInvocationID.x].debug1.xy = aabb.xy;
+            drawData[ShaderGlobals.offset + GlobalInvocationID.x].debug1.zw = aabb.zw;
+            drawData[ShaderGlobals.offset + GlobalInvocationID.x].debug2.x =   (0.001f / (positive_z + scaledRadius));
+            drawData[ShaderGlobals.offset + GlobalInvocationID.x].debug2.y =   (0.001f / positive_z) +  ( 0.001f / (scaledRadius));
+            drawData[ShaderGlobals.offset + GlobalInvocationID.x].debug2.z = positive_z;
+            drawData[ShaderGlobals.offset + GlobalInvocationID.x].debug2.w = scaledRadius;
+
+            drawData[ShaderGlobals.offset + GlobalInvocationID.x].debug3.xy = hiZSamplePoint;
+            drawData[ShaderGlobals.offset + GlobalInvocationID.x].debug3.z = level;
+            drawData[ShaderGlobals.offset + GlobalInvocationID.x].debug3.w = hiZValue;
+            if (hiZValue >  depthSphere && !cullPC.disable)
+            {
+                
+                drawData[ShaderGlobals.offset + GlobalInvocationID.x].instanceCount = visible ? 0 : 0;
+                return;
+            }
+        }
+    }
 
 
     drawData[ShaderGlobals.offset + GlobalInvocationID.x].instanceCount = visible ? 1 : 0;

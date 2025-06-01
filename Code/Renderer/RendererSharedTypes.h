@@ -104,8 +104,8 @@ struct cameraData
 {
     glm::vec3 eyePos = glm::vec3(-4.0f, 0.4f, 1.0f);
     glm::vec2 eyeRotation = glm::vec2(55.0f, -22.0f); //yaw, pitch
-    float nearPlane = 0.01f;
-    float farPlane = 35.0f;
+    float nearPlane = 0.001f;
+    float farPlane = 350.0f;
 
     extent extent = {WIDTH, HEIGHT};
     float fov = 70;

@@ -13,7 +13,7 @@ uint32_t T;
 uint32_t k_timeout;
 uint32_t l_timeout;
 uint32_t arrow_timeout = 0;
-
+uint32_t z_timeout;
 void InputHandler_Update(bool disableMouse)
 {
     SDL_Event e;
@@ -42,7 +42,6 @@ void InputHandler_Update(bool disableMouse)
         INPUT_translate_x = 0 - KeyboardState[SDL_SCANCODE_A] + KeyboardState[SDL_SCANCODE_D];
         INPUT_translate_y = 0 + KeyboardState[SDL_SCANCODE_W] - KeyboardState[SDL_SCANCODE_S];
         int x, y;
-
         if (!disableMouse)
         {
             const uint32_t MouseButtonState = SDL_GetRelativeMouseState(&x, &y);
@@ -98,7 +97,8 @@ void InputHandler_Update(bool disableMouse)
         {
             if (e.key.keysym.sym == SDLK_z)
             {
-                debug_shader_bool_1 = debug_shader_bool_1 ? 0 : 1; //debug toggle float we can bool off of on shader
+                // debug_shader_bool_1 = debug_shader_bool_1 ? 0 : 1; //debug toggle float we can bool off of on shader
+                debug_shader_bool_2 = debug_shader_bool_2 ? 0 : 1; //debug toggle culling
             }
         }
     }

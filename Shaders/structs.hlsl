@@ -99,6 +99,7 @@ struct CullPushConstants
     uint frustumOffset;
     uint objectCount;
     uint LATE_CULL;
+    uint disable;
     //TODO JS: frustum should just go in here
 };
 

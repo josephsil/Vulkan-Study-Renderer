@@ -35,6 +35,7 @@
 #include <Renderer/MainRenderer/VulkanRendererInternals/LightAndCameraHelpers.h>
 #include <Renderer/MainRenderer/VulkanRendererInternals/RendererHelpers.h>
 
+#include "engineGlobals.h"
 #include "General/Algorithms.h"
 #include "General/LinearDictionary.h"
 #include "General/ThreadedTextureLoading.h"
@@ -296,11 +297,11 @@ void VulkanRenderer::initializePipelines(size_t shadowCasterCount)
     const GraphicsPipelineSettings shadowPipelineSettings =  {std::span(&swapchainFormat, 0), shadowFormat, VK_CULL_MODE_NONE, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_TRUE, VK_FALSE, VK_TRUE, true };
     auto shadow = pipelineLayoutManager.createPipeline(shadowLayoutIDX, globalResources.shaderLoader->compiledShaders["shadow"],  "shadow", shadowPipelineSettings);
     const GraphicsPipelineSettings shadowDepthPipelineSettings =
-        {std::span(&swapchainFormat, 0), shadowFormat, VK_CULL_MODE_NONE, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+        {std::span(&swapchainFormat, 0), shadowFormat, VK_CULL_MODE_BACK_BIT, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
         VK_FALSE, VK_TRUE, VK_TRUE, true };
 
     const GraphicsPipelineSettings opaqueDepthPipelineSettings =
-    {std::span(&swapchainFormat, 0), shadowFormat, VK_CULL_MODE_NONE, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+    {std::span(&swapchainFormat, 0), shadowFormat, VK_CULL_MODE_BACK_BIT, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
     VK_FALSE, VK_TRUE, VK_FALSE, false };
 
     SHADOW_PREPASS_SHADER_INDEX = pipelineLayoutManager.createPipeline(shadowLayoutIDX, globalResources.shaderLoader->compiledShaders["shadow"],  "shadowDepthPrepass",  shadowDepthPipelineSettings);
@@ -353,7 +354,7 @@ void VulkanRenderer::InitializeRendererForScene(sceneCountData sceneCountData) /
         UpdateShadowImageViews(i, sceneCountData);
     }
 
-    TextureCreation::CreateDepthPyramidSampler(&globalResources.writeDepthMipSampler, VK_SAMPLER_REDUCTION_MODE_WEIGHTED_AVERAGE, GetMainRendererContext(), HIZDEPTH);
+    TextureCreation::CreateDepthPyramidSampler(&globalResources.writeDepthMipSampler, VK_SAMPLER_REDUCTION_MODE_MAX_ENUM, GetMainRendererContext(), HIZDEPTH);
     TextureCreation::CreateDepthPyramidSampler(&globalResources.readDepthMipSampler, VK_SAMPLER_REDUCTION_MODE_MIN, GetMainRendererContext(), HIZDEPTH);
     TextureCreation::TextureImportRequest args[3] = {
     TextureCreation::MakeCreationArgsFromFilepathArgs("textures/outputLUT.png", &perFrameArenas[currentFrame], TextureType::LINEAR_DATA, VK_IMAGE_VIEW_TYPE_2D),
@@ -713,6 +714,9 @@ void VulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<std::spa
     auto perDrawData = MemoryArena::AllocSpan<GPU_ObjectData>(tempArena,drawCount);
     auto transforms = MemoryArena::AllocSpan<GPU_Transform>(tempArena,scene->ObjectsCount());
 
+FramesInFlightData[currentFrame].ObjectDataForFrame = perDrawData;
+    FramesInFlightData[currentFrame].ObjectTransformsForFrame = transforms;
+ 
     uint32_t uboIndex = 0;
     for (uint32_t objectIndex = 0; objectIndex <scene->objects.objectsCount; objectIndex++)
     {
@@ -900,7 +904,8 @@ void RecordCullingCommands(ArenaAllocator allocator, VkPipelineLayout layout, Ac
         .offset = conf.drawOffset,
         .frustumOffset = cullFrustumIndex,
         .objectCount = conf.drawCount,
-        .LATE_CULL = 0};
+        .LATE_CULL = 0,
+        .disable = (uint32_t)debug_shader_bool_2};
 
 
     assert(commandBufferContext.commandBufferActive);
@@ -1143,26 +1148,32 @@ void SubmitRenderPassesForBatches( std::span<RenderBatch> Batches, VkBuffer inde
     }
 }
 
+void EndCommandBufferForStep(ActiveRenderStepData* stepData)
+{
+    assert(stepData->commandBufferActive);
+    stepData->commandBufferActive = false;
+    VK_CHECK(vkEndCommandBuffer(stepData->commandBuffer));
+}
 
-void SubmitCommandBuffer(ActiveRenderStepData* commandBufferContext)
+void SubmitCommandBuffer(ActiveRenderStepData* stepData)
 {
 
-    assert(!commandBufferContext->commandBufferActive);
+    assert(!stepData->commandBufferActive);
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    VkPipelineStageFlags _waitStages= commandBufferContext->Queue == GET_QUEUES()->transferQueue ? VK_PIPELINE_STAGE_2_NONE : VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    submitInfo.waitSemaphoreCount = commandBufferContext->waitSemaphoreCt;
-    submitInfo.pWaitSemaphores = commandBufferContext->waitSemaphore;
+    VkPipelineStageFlags _waitStages= stepData->Queue == GET_QUEUES()->transferQueue ? VK_PIPELINE_STAGE_2_NONE : VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    submitInfo.waitSemaphoreCount = stepData->waitSemaphoreCt;
+    submitInfo.pWaitSemaphores = stepData->waitSemaphore;
     submitInfo.pWaitDstStageMask =&_waitStages;
     submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &commandBufferContext->commandBuffer;
+    submitInfo.pCommandBuffers = &stepData->commandBuffer;
 
-    submitInfo.signalSemaphoreCount = commandBufferContext->signalSemaphoreCt;
-    submitInfo.pSignalSemaphores = commandBufferContext->signalSempahore;
+    submitInfo.signalSemaphoreCount = stepData->signalSemaphoreCt;
+    submitInfo.pSignalSemaphores = stepData->signalSempahore;
     
     //Submit pass 
-    VK_CHECK(vkQueueSubmit(commandBufferContext->Queue, 1,
-        &submitInfo, commandBufferContext->fence != nullptr? *commandBufferContext->fence : VK_NULL_HANDLE));
+    VK_CHECK(vkQueueSubmit(stepData->Queue, 1,
+        &submitInfo, stepData->fence != nullptr? *stepData->fence : VK_NULL_HANDLE));
 }
 
 
@@ -1346,6 +1357,7 @@ size_t UpdateDrawCommanddataDrawIndirectCommands(AssetManager* rendererData,
         {
             auto meshletIndex = rendererData->meshData.perSubmeshData[subMeshIndex].firstMeshletIndex + j;
             targetDrawCommandSpan[drawCommandIndex++] = {
+                {},{}, {},
                 (uint32_t)firstDraw + j,
                 {
                     .indexCount = (uint32_t)rendererData->meshData.meshletInfo[meshletIndex].meshletIndexCount,
@@ -1436,26 +1448,6 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     {
         VkDevice device;
         Array<ActiveRenderStepData> renderstepDatas;
-
-        void EndCommandBuffer(ActiveRenderStepData* data)
-        {
-            assert(data->commandBufferActive);
-            data->commandBufferActive = false;
-            VK_CHECK(vkEndCommandBuffer(data->commandBuffer));
-        }
-        void _SubmitCommandBuffer(ActiveRenderStepData* ctx)
-        {
-            SubmitCommandBuffer(ctx);
-        }
-
-        void SubmitSteps()
-        {
-            for (auto& past_time : renderstepDatas.getSpan())
-            {
-                EndCommandBuffer(&past_time);
-                _SubmitCommandBuffer(&past_time);
-            }
-        }
         ActiveRenderStepData* PushAndInitializeRenderStep(const char* cbufferDebugName, MemoryArena::memoryArena* arena, CommandPoolManager* poolManager,
             VkSemaphore* WaitSemaphore = nullptr, 
              VkSemaphore* SignalSemaphore = nullptr, VkFence* CbufferSignalFence = nullptr, bool transferQueue = false) 
@@ -1489,7 +1481,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
         
     };
 
-    OrderedCommandBufferSteps renderCommandBufferObjects =
+    OrderedCommandBufferSteps renderSteps =
         {
         .device =   rendererVulkanObjects.vkbdevice.device,
         .renderstepDatas =  MemoryArena::AllocSpan<ActiveRenderStepData>(&perFrameArenas[currentFrame], 20),
@@ -1503,20 +1495,19 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     /////////<Set up command buffers
     //////////
     /////////
-    auto EarlyStep = renderCommandBufferObjects.PushAndInitializeRenderStep(
+    auto EarlyStep = renderSteps.PushAndInitializeRenderStep(
     "Early Cbuffer", &perFrameArenas[currentFrame],
     commandPoolmanager.get());
     
-
-    auto BeforeCullingStep = renderCommandBufferObjects.PushAndInitializeRenderStep(
+    auto BeforeCullingStep = renderSteps.PushAndInitializeRenderStep(
         "Transition swap buffer Cbuffer", &perFrameArenas[currentFrame],
         commandPoolmanager.get(), &thisFrameData->perFrameSemaphores.swapchainSemaphore, &thisFrameData->perFrameSemaphores.prepassSemaphore);
-
-    auto CullingStep = renderCommandBufferObjects.PushAndInitializeRenderStep(
+    
+    auto CullingStep = renderSteps.PushAndInitializeRenderStep(
        "Compute Culling cbuffer", &perFrameArenas[currentFrame],
        commandPoolmanager.get(), &thisFrameData->perFrameSemaphores.prepassSemaphore, nullptr,  &thisFrameData->perFrameSemaphores.cullingFence);
 
-    auto OpaqueStep =renderCommandBufferObjects.PushAndInitializeRenderStep("Main/Rendering Cbuffer", &perFrameArenas[currentFrame],
+    auto OpaqueStep =renderSteps.PushAndInitializeRenderStep("Main/Rendering Cbuffer", &perFrameArenas[currentFrame],
         commandPoolmanager.get(), nullptr, &thisFrameData->perFrameSemaphores.presentSemaphore,
         &FramesInFlightData[currentFrame].inFlightFence);
 
@@ -1765,11 +1756,65 @@ void VulkanRenderer::RenderFrame(Scene* scene)
    
     
     SetPipelineBarrier(CullingStep->commandBuffer,0,1,&indirectCommandsOutBarrier,0, 0 );
-
-
-
     // //Submit commandbuffers
-    renderCommandBufferObjects.SubmitSteps();
+    EndCommandBufferForStep(EarlyStep);
+    SubmitCommandBuffer(EarlyStep);
+    EndCommandBufferForStep(BeforeCullingStep);
+    SubmitCommandBuffer(BeforeCullingStep);
+    EndCommandBufferForStep(CullingStep);
+    SubmitCommandBuffer(CullingStep);
+
+    struct temp
+    {
+        // 2D Polyhedral Bounds of a Clipped, Perspective-Projected 3D Sphere. Michael Mara, Morgan McGuire. 2013
+        static bool projectSphere(glm::vec3 c, float r, float znear, float P00, float P11,glm::vec4& aabb)
+        {
+            auto positiveZ = c.z * -1;
+            if (positiveZ < r + znear)
+                return false;
+
+            glm::vec3 cr = c * r;
+            float czr2 = positiveZ * positiveZ - r * r;
+
+            float vx = sqrt(c.x * c.x + czr2);
+            float minx = (vx * c.x - cr.z) / (vx * positiveZ + cr.x);
+            float maxx = (vx * c.x + cr.z) / (vx * positiveZ - cr.x);
+
+            float vy = sqrt(c.y * c.y + czr2);
+            float miny = (vy * c.y - cr.z) / (vy * positiveZ + cr.y);
+            float maxy = (vy * c.y + cr.z) / (vy * positiveZ - cr.y);
+
+            aabb = glm::vec4(minx * P00, miny * P11, maxx * P00, maxy * P11);
+            aabb.x = aabb.x * (0.5f) + (0.5f); // clip space -> uv space
+            aabb.w = aabb.w * (-0.5f) + (0.5f); // clip space -> uv space
+            aabb.z = aabb.z * (0.5f) + (0.5f); // clip space -> uv space
+            aabb.y = aabb.y * (-0.5f) + (0.5f); // clip space -> uv space
+
+            return true;
+        }
+
+        static bool prototypeTestCull(std::span<GPU_ObjectData> data,std::span<GPU_Transform> transforms, uint32_t objIndex, glm::mat4 view, glm::mat4 proj)
+        {
+            auto center = data[objIndex].boundsSphere.center;
+            auto radius = data[objIndex].boundsSphere.radius;
+            uint32_t idx = (uint32_t)data[objIndex].props.indexInfo.a;
+            auto model = transforms[idx].Model;
+            auto scaledRadius = data[objIndex].objectScale * radius;
+
+            auto viewspaceCenter =view * model * center; //possibly reversed
+            glm::vec4 aabb = {};
+            bool clipped = projectSphere(viewspaceCenter, scaledRadius, 0.01f, proj[0][0] * 2.0f, proj[1][1], aabb);
+            printf("...%f ...%f\n", aabb.x, aabb.y);
+            printf(">...%f ...%f\n", aabb.z, aabb.w);
+            return clipped;
+        }
+    };
+    auto firstDraw = /*opaquePassData.drawOffset +*/ 0;
+    auto secondDraw = /*opaquePassData.drawOffset +*/ 1;
+
+    bool cull = temp::prototypeTestCull(FramesInFlightData[currentFrame].ObjectDataForFrame,FramesInFlightData[currentFrame].ObjectTransformsForFrame,  firstDraw, opaquePassData.view, opaquePassData.proj);
+    EndCommandBufferForStep(OpaqueStep);
+    SubmitCommandBuffer(OpaqueStep);
 
     VkPresentInfoKHR presentInfo{};
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;

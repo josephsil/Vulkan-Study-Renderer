@@ -55,10 +55,10 @@ glm::mat4 perspective_finite_z(float vertical_fov, float aspect_ratio, float n, 
     {
         *inverse = glm::mat4({
             //switched some stuff around to closer resemble my existing matrix
-            -1.f/x,  0.0f, 0.0f,  0.0f,
-            0.0f,  -1.f/y, 0.0f,  0.0f,
-            0.0f, 0.0f, 0.0f, 1.0f,
-            0.0f, 0.0f,  1.f/B,   A/B,
+            // -1.f/x,  0.0f, 0.0f,  0.0f,
+            // 0.0f,  -1.f/y, 0.0f,  0.0f,
+            // 0.0f, 0.0f, 0.0f, 1.0f,
+            // 0.0f, 0.0f,  1.f/B,   A/B,
         });
     }
 

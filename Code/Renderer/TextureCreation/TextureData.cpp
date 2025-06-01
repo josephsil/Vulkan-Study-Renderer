@@ -474,17 +474,20 @@ void TextureCreation::CreateDepthPyramidSampler(VkSampler* textureSampler, VkSam
     samplerInfo.maxAnisotropy = 0;
     samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_WHITE;
     samplerInfo.unnormalizedCoordinates = VK_FALSE;
-    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
     samplerInfo.minLod = 0; // Optional
     samplerInfo.maxLod = static_cast<float>(maxMip);
 
     //add a extension struct to enable Min mode
-    VkSamplerReductionModeCreateInfoEXT createInfoReduction = {};
+    if (mode != VK_SAMPLER_REDUCTION_MODE_MAX_ENUM)
+    {
+        VkSamplerReductionModeCreateInfoEXT createInfoReduction = {};
 
-    createInfoReduction.sType = VK_STRUCTURE_TYPE_SAMPLER_REDUCTION_MODE_CREATE_INFO_EXT;
-    createInfoReduction.reductionMode = mode;
-    samplerInfo.pNext = &createInfoReduction;
-    VK_CHECK(vkCreateSampler(rendererContext.device, &samplerInfo, nullptr, textureSampler));
+        createInfoReduction.sType = VK_STRUCTURE_TYPE_SAMPLER_REDUCTION_MODE_CREATE_INFO_EXT;
+        createInfoReduction.reductionMode = mode;
+        samplerInfo.pNext = &createInfoReduction;
+    }
+        VK_CHECK(vkCreateSampler(rendererContext.device, &samplerInfo, nullptr, textureSampler));
     rendererContext.threadDeletionQueue->push_backVk(deletionType::Sampler, uint64_t(*textureSampler));
 }
 
