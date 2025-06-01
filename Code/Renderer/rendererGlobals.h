@@ -9,7 +9,7 @@ static constexpr size_t MAX_SHADOWCASTERS = 8;
 
 #define MAX_SHADOWMAPS (MAX_SHADOWCASTERS * 8)
 static constexpr int MAX_CAMERAS = 1;
-static constexpr int HIZDEPTH = 9;
+static constexpr int HIZDEPTH = 10;
 static constexpr int MAX_FRAMES_IN_FLIGHT = 3;
 static constexpr int SWAPCHAIN_SIZE = 2;
 static constexpr int MAX_DRAWINDIRECT_COMMANDS = 1000000; //Draw commands per frmae

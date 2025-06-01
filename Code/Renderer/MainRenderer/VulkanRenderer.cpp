@@ -39,6 +39,7 @@
 #include "General/Algorithms.h"
 #include "General/LinearDictionary.h"
 #include "General/ThreadedTextureLoading.h"
+#include "Renderer/gltf/gltf_impl.h"
 
 struct GPU_perShadowData;
 std::vector<unsigned int> pastTimes;
@@ -354,7 +355,7 @@ void VulkanRenderer::InitializeRendererForScene(sceneCountData sceneCountData) /
         UpdateShadowImageViews(i, sceneCountData);
     }
 
-    TextureCreation::CreateDepthPyramidSampler(&globalResources.writeDepthMipSampler, VK_SAMPLER_REDUCTION_MODE_MAX_ENUM, GetMainRendererContext(), HIZDEPTH);
+    TextureCreation::CreateDepthPyramidSampler(&globalResources.writeDepthMipSampler, VK_SAMPLER_REDUCTION_MODE_MIN, GetMainRendererContext(), HIZDEPTH);
     TextureCreation::CreateDepthPyramidSampler(&globalResources.readDepthMipSampler, VK_SAMPLER_REDUCTION_MODE_MIN, GetMainRendererContext(), HIZDEPTH);
     TextureCreation::TextureImportRequest args[3] = {
     TextureCreation::MakeCreationArgsFromFilepathArgs("textures/outputLUT.png", &perFrameArenas[currentFrame], TextureType::LINEAR_DATA, VK_IMAGE_VIEW_TYPE_2D),
@@ -1703,8 +1704,8 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     //Culling for shadows
     uint32_t cullPassIndex = 0;
     for(int j = 0; j < shadowBatches.size(); j++)
-    {
-            RecordCullingCommands(&perFrameArenas[currentFrame],  pipelineLayoutManager.GetLayout(cullingLayoutIDX), *CullingStep,cullPassIndex++, shadowPassData[j], thisFrameData->drawBuffers.buffer.data);
+    {cullPassIndex++;
+            // RecordCullingCommands(&perFrameArenas[currentFrame],  pipelineLayoutManager.GetLayout(cullingLayoutIDX), *CullingStep,cullPassIndex++, shadowPassData[j], thisFrameData->drawBuffers.buffer.data);
     }
     //shadows
     SubmitRenderPassesForBatches(shadowBatches,thisFrameData->deviceIndices.data, OpaqueStep, &pipelineLayoutManager, thisFrameData->drawBuffers.buffer.data, currentFrame);
@@ -1729,7 +1730,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     //opaque
     SubmitRenderPassesForBatches(opaqueBatches,thisFrameData->deviceIndices.data, OpaqueStep, &pipelineLayoutManager, thisFrameData->drawBuffers.buffer.data, currentFrame);
 
-    RecordUtilityPasses(OpaqueStep->commandBuffer, currentFrame);
+
     //
 
     //After render steps
@@ -1766,34 +1767,123 @@ void VulkanRenderer::RenderFrame(Scene* scene)
 
     struct temp
     {
+        static glm::vec3 project(const glm::mat4& P, const glm::vec3& Q) {
+            const glm::vec4& v = P * glm::vec4(Q, 1.0f);
+            return glm::vec3(v) / v.w;
+        }
+        static float square(float s)
+        {
+            return s * s;
+            
+        }
+        // a: Bounding axis (camera space)
+        // C: Sphere center (camera space)
+        // r: Sphere radius
+        // nearZ: Near clipping plane (negative)
+        // L: Tangent point (camera space)
+        // U: Tangent point (camera space)
+        static void getBoundsForAxis (const glm::vec3 & a, const glm::vec3 & C, float r, glm::vec3 projectedCenter, float nearZ, glm::vec3 & L, glm::vec3 & U) {
+        const glm::vec2  c(dot(a, C), C.z);        // C in the a-z frame
+        glm::vec2  bounds[2];       // In the a-z reference frame
+        
+        const float tSquared = dot(c, c) - (r); 
+        // const bool cameraInsideSphere = (tSquared <= 0); 
+        // (cos, sin) of angle theta between c and a tangent vector
+         glm::vec2  v = /*cameraInsideSphere ?
+        glm::vec2 (0.0f, 0.0f) :*/
+        glm::vec2 (sqrt(tSquared), r) / glm::length(c);
+        // Does the near plane intersect the sphere?
+        const bool clipSphere = (c.y + r >= nearZ);
+        // Square root of the discriminant; NaN (and unused)
+        // if the camera is in the sphere
+        float k = sqrt(square(r) - square(nearZ - c.y));
+        for (int i = 0; i < 2; ++i) {
+        // if (! cameraInsideSphere)
+         bounds[i] = glm::mat2(v.x, -v.y,
+        v.y, v.x) * c * v.x;
+        const bool clipBound = /*cameraInsideSphere ||*/ (bounds[i].y > nearZ);
+        if (clipSphere && clipBound)
+        bounds[i] = glm::vec2(projectedCenter.x + k, nearZ);
+        // Set up for the lower bound
+        v.y = -v.y; k = -k;
+        }
+        // Transform back to camera space
+        L = bounds[1].x * a; L.z = bounds[1].y;
+        U = bounds[0].x * a; U.z = bounds[0].y;
+        }
+
+        static glm::vec4 getAxisAlignedBoundingBox
+        (const glm::vec3& C, // camera-space sphere center
+        float r, // sphere radius
+        float nearZ, // near clipping plane position (negative)
+        const glm::mat4& P) { // camera to screen space
+        // Points on edges
+        glm::vec3 right, left, top, bottom;
+        getBoundsForAxis(glm::vec3(1,0,0), C, r,project(P, C), nearZ, left, right);
+        getBoundsForAxis(glm::vec3(0,1,0), C, r,project(P, C), nearZ, bottom, top);
+        return glm::vec4(project(P, left).x, project(P, bottom).y,
+        project(P, right).x, project(P, top).y);
+        }
+
+
         // 2D Polyhedral Bounds of a Clipped, Perspective-Projected 3D Sphere. Michael Mara, Morgan McGuire. 2013
         static bool projectSphere(glm::vec3 c, float r, float znear, float P00, float P11,glm::vec4& aabb)
         {
-            auto positiveZ = c.z * -1;
-            if (positiveZ < r + znear)
+            //TODO JS: I think I made a mistake converting this re: cr.z -- since I only replace c.z with positive_z, the rest is wrong. This may explain the other issues.
+            c.z *= -1;
+            if (c.z -znear < r )
                 return false;
 
             glm::vec3 cr = c * r;
-            float czr2 = positiveZ * positiveZ - r * r;
+            float czr2 = c.z * c.z - r * r;
 
             float vx = sqrt(c.x * c.x + czr2);
-            float minx = (vx * c.x - cr.z) / (vx * positiveZ + cr.x);
-            float maxx = (vx * c.x + cr.z) / (vx * positiveZ - cr.x);
+            float minx = (vx * c.x - cr.z) / (vx * c.z + cr.x);
+            float maxx = (vx * c.x + cr.z) / (vx * c.z - cr.x);
 
             float vy = sqrt(c.y * c.y + czr2);
-            float miny = (vy * c.y - cr.z) / (vy * positiveZ + cr.y);
-            float maxy = (vy * c.y + cr.z) / (vy * positiveZ - cr.y);
+            float miny = (vy * c.y - cr.z) / (vy * c.z + cr.y);
+            float maxy = (vy * c.y + cr.z) / (vy * c.z - cr.y);
 
             aabb = glm::vec4(minx * P00, miny * P11, maxx * P00, maxy * P11);
-            aabb.x = aabb.x * (0.5f) + (0.5f); // clip space -> uv space
-            aabb.w = aabb.w * (-0.5f) + (0.5f); // clip space -> uv space
-            aabb.z = aabb.z * (0.5f) + (0.5f); // clip space -> uv space
-            aabb.y = aabb.y * (-0.5f) + (0.5f); // clip space -> uv space
-
+            aabb = glm::vec4(aabb.z, aabb.w, aabb.x, aabb.y); //reverse X values
+            // aabb = glm::vec4(aabb.x, aabb.w, aabb.z, aabb.y); //reverse Y values
             return true;
         }
+        static glm::vec4 clipAABBtoUvAABB(glm::vec4 aabb)
+        {
+            auto aabb2 = aabb;
+            aabb2.x = aabb.x * (0.5f) + (0.5f); // clip space -> uv space
+            aabb2.y = 1.0f - (aabb.y * (/*-*/-0.5f) + (0.5f)); // clip space -> uv space
+            aabb2.z = aabb.z * (0.5f) + (0.5f); // clip space -> uv space
+            aabb2.w = 1.0f - (aabb.w * (/*-*/-0.5f) + (0.5f)); // clip space -> uv space
+            return aabb2;
+        }
 
-        static bool prototypeTestCull(std::span<GPU_ObjectData> data,std::span<GPU_Transform> transforms, uint32_t objIndex, glm::mat4 view, glm::mat4 proj)
+        static void debugVisualizeAABB(glm::vec4 aabb, const char* print, glm::mat4 view, glm::mat4 proj)
+        {
+            glm::vec2 aab_min = glm::vec2(aabb.x, aabb.y);
+            glm::vec2 aab_max = glm::vec2(aabb.z, aabb.w);
+            glm::vec2 uv =( aab_min + aab_max ) * 0.5f;
+            float nearPlane = 0.001f ;
+            glm::vec3 worldspaceuvpos = glm::inverse(view) * glm::inverse(proj) *  glm::vec4((aab_min.x -0.5) * 2.f ,(aab_min.y -0.5) * 2.f ,
+                nearPlane ,1);
+            auto reprojectedToWorldSpaceScale = nearPlane / glm::distance(aab_min, aab_max);
+            debugLinesManager.addDebugCross(worldspaceuvpos,  reprojectedToWorldSpaceScale, glm::vec3(0,1,1));
+            glm::vec3 worldspaceuvpos2 = glm::inverse(view) * glm::inverse(proj) *  glm::vec4((aab_max.x -0.5) * 2.f ,(aab_max.y -0.5) * 2.f ,
+            nearPlane ,1);
+            debugLinesManager.addDebugCross(worldspaceuvpos,  0.1f, glm::vec3(0,1,1));
+            debugLinesManager.addDebugCross(worldspaceuvpos2,  0.1f, glm::vec3(0,1,1));
+            float width = (aabb.x - aabb.z) *  1024;
+            float height = (aabb.y - aabb.w ) *  1024;
+
+            uint32_t level = (uint32_t)ceil(log2(glm::max(width, height)));
+            printf("===%s===\n", print);
+            printf("....%f ...%f\n", aabb.x, aabb.y);
+            printf(">...%f ...%f\n", aabb.z, aabb.w);
+            printf(">LEVEL%u\n", level);
+        }
+        static bool prototypeTestCull(glm::vec3 cameraPos, std::span<GPU_ObjectData> data,std::span<GPU_Transform> transforms, uint32_t objIndex, glm::mat4 view, glm::mat4 proj)
         {
             auto center = data[objIndex].boundsSphere.center;
             auto radius = data[objIndex].boundsSphere.radius;
@@ -1802,17 +1892,31 @@ void VulkanRenderer::RenderFrame(Scene* scene)
             auto scaledRadius = data[objIndex].objectScale * radius;
 
             auto viewspaceCenter =view * model * center; //possibly reversed
-            glm::vec4 aabb = {};
-            bool clipped = projectSphere(viewspaceCenter, scaledRadius, 0.01f, proj[0][0] * 2.0f, proj[1][1], aabb);
-            printf("...%f ...%f\n", aabb.x, aabb.y);
-            printf(">...%f ...%f\n", aabb.z, aabb.w);
+            auto reprojected_to_worldViewSpaceCenter = glm::inverse(view) * ( viewspaceCenter);
+            glm::vec4 _aabb = {};
+            bool clipped = projectSphere(viewspaceCenter, scaledRadius, 0.001f, proj[0][0], proj[1][1], _aabb);
+            auto aabb = clipAABBtoUvAABB(_aabb);
+            // debugLinesManager.addDebugCross(( reprojected_to_worldViewSpaceCenter),  data[objIndex].objectScale * radius, glm::vec3(1,0,1));
+
+
+            auto mmg_aabb = getAxisAlignedBoundingBox(viewspaceCenter, scaledRadius, 0.001f, proj);
+            auto mmgaabb = clipAABBtoUvAABB(mmg_aabb);
+            debugVisualizeAABB(aabb, "ZEUX", view , proj);
+            debugVisualizeAABB(mmgaabb, "MMG", view, proj );
+            // assert(projectSphere2 == _aabb); //These are not the same -- the x coords are flipped, and also slightly different!
+           
             return clipped;
         }
     };
-    auto firstDraw = /*opaquePassData.drawOffset +*/ 0;
+    auto firstDraw = /*opaquePassData.drawOffset +*/ 178     + firstDrawOffset;
     auto secondDraw = /*opaquePassData.drawOffset +*/ 1;
 
-    bool cull = temp::prototypeTestCull(FramesInFlightData[currentFrame].ObjectDataForFrame,FramesInFlightData[currentFrame].ObjectTransformsForFrame,  firstDraw, opaquePassData.view, opaquePassData.proj);
+    std::this_thread::sleep_for(std::chrono::milliseconds(10)); //TODO JS: so my gpu doesnt crash lol
+            printf("%d \n", firstDraw);
+    bool cull = temp::prototypeTestCull(scene->sceneCamera.eyePos, FramesInFlightData[currentFrame].ObjectDataForFrame,FramesInFlightData[currentFrame].ObjectTransformsForFrame,
+        firstDraw, opaquePassData.view, opaquePassData.proj);
+
+    RecordUtilityPasses(OpaqueStep->commandBuffer, currentFrame);
     EndCommandBufferForStep(OpaqueStep);
     SubmitCommandBuffer(OpaqueStep);
 

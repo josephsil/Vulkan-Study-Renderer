@@ -20,7 +20,7 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
     rendererContext.tempArena = &sceneLoading;
     ArenaAllocator loadingArena = &sceneLoading;
     LinearDictionary<char*, TextureData> textureLookup = {};
-    scene->sceneCamera.extent = {16, 10}; // ????
+    scene->sceneCamera.extent = {WIDTH, HEIGHT}; // ????
     std::vector<ID::SubMeshGroupID> randomMeshes;
     std::vector<ID::MaterialID> randomMaterials;
     std::vector<TextureData> completedTextures;
@@ -84,16 +84,16 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
 
     //point lights    
     // scene->AddPointLight(glm::vec3(1, 1, 0), glm::vec3(0.3, 0.8, 1), 2);
-    scene->AddDirLight(glm::vec3(0.00, 0.9, 0.1), glm::vec3(1, 1, 1), 1);
-    scene->AddPointLight(glm::vec3(-2, 2, 0), glm::vec3(1, 0, 0), 999 / 2);
+    // scene->AddDirLight(glm::vec3(0.00, 0.9, 0.1), glm::vec3(1, 1, 1), 1);
+    // scene->AddPointLight(glm::vec3(-2, 2, 0), glm::vec3(1, 0, 0), 999 / 2);
     // scene->AddPointLight(glm::vec3(0, 0, 0), glm::vec3(0, 1, 1), 999 / 2);
 
     GltfData gltf;
 #define SPONZA
 #ifdef SPONZA
     //rendererContext: gltf load fn that gets back struct, then append its contents to scene 
-    gltf = GltfLoadMeshes(rendererContext,*rendererData, "Meshes/sponza.glb");
-    ObjectImport::CreateObjectAssets(loadingArena, *scene, *rendererData, gltf, {defaultTexture, defaultSPec,defaultNormal});
+    // gltf = GltfLoadMeshes(rendererContext,*rendererData, "Meshes/sponza.glb");
+    // ObjectImport::CreateObjectAssets(loadingArena, *scene, *rendererData, gltf, {defaultTexture, defaultSPec,defaultNormal});
 #pragma region gltf adding stuff --- todo move to fn
    
 #endif
@@ -143,7 +143,7 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
        glm::vec3(3));
     
     localTransform* tform = &scene->transforms.transformNodes[root];
-    for (int i = 0; i < 50; i++)
+    for (int i = 0; i < 10; i++)
     {
         for (int j = i == 0 ? 1 : 0; j < 10; j++)
         {
