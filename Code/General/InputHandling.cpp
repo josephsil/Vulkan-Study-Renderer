@@ -82,16 +82,24 @@ void InputHandler_Update(bool disableMouse)
         }
         if (KeyboardState[SDL_SCANCODE_DOWN] || KeyboardState[SDL_SCANCODE_UP])
         {
-            if (debug_cull_override)
+            if (T > arrow_timeout)
             {
-                if (T > arrow_timeout)
+                if (debug_cull_override)
                 {
+               
                     debug_cull_override_index = (debug_cull_override_index - static_cast<int>(KeyboardState[
                             SDL_SCANCODE_DOWN]) +
                         static_cast<int>(KeyboardState[SDL_SCANCODE_UP]));
                     arrow_timeout = T + 100;
                 }
+                else
+                {
+                    firstDrawOffset =  firstDrawOffset - static_cast<int>(KeyboardState[
+                                SDL_SCANCODE_DOWN]) +
+                            static_cast<int>(KeyboardState[SDL_SCANCODE_UP]);
+                }
             }
+
         }
         if (e.type == SDL_KEYDOWN)
         {

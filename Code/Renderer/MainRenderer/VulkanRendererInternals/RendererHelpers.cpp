@@ -67,10 +67,11 @@ DepthPyramidInfo static_createDepthPyramidResources(rendererObjects initializedr
                                                          VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT);
     //The two null context will get overwritten by the create  calls below
     std::span<VkImageView> viewsForMips = MemoryArena::AllocSpan<VkImageView>(allocationArena, HIZDEPTH);
+
     uint32_t depthWidth = previousPow2(initializedrenderer.swapchain.extent.width);
     uint32_t depthHeight = previousPow2(initializedrenderer.swapchain.extent.height);
     DepthPyramidInfo bufferInfo = {
-        VK_FORMAT_R32_SFLOAT, VK_NULL_HANDLE, viewsForMips, VmaAllocation{}, {depthWidth, depthHeight}
+        VK_FORMAT_R32_SFLOAT, VK_NULL_HANDLE, {}, viewsForMips, VmaAllocation{}, {depthWidth, depthHeight}
     };
 
 
@@ -94,8 +95,12 @@ DepthPyramidInfo static_createDepthPyramidResources(rendererObjects initializedr
             TextureUtilities::createImageViewCustomMip(context, (bufferInfo.image), bufferInfo.format,
                                                        VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_VIEW_TYPE_2D, 1, 0, 1, i);
         SetDebugObjectName(initializedrenderer.vkbdevice.device, VK_OBJECT_TYPE_IMAGE, "depthPyramic image", (uint64_t)bufferInfo.image);
-        SetDebugObjectName(initializedrenderer.vkbdevice.device, VK_OBJECT_TYPE_IMAGE_VIEW, "depthPyramid imageview", (uint64_t)bufferInfo.viewsForMips[i]);
+        SetDebugObjectName(initializedrenderer.vkbdevice.device, VK_OBJECT_TYPE_IMAGE_VIEW, "depthPyramid imageview for mip", (uint64_t)bufferInfo.viewsForMips[i]);
     }
+    bufferInfo.view =
+        TextureUtilities::createImageViewCustomMip(context, (bufferInfo.image), bufferInfo.format,
+                                                   VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_VIEW_TYPE_2D, 1, 0, VK_REMAINING_MIP_LEVELS, 0);
+    SetDebugObjectName(initializedrenderer.vkbdevice.device, VK_OBJECT_TYPE_IMAGE_VIEW, "depthPyramid imageview", (uint64_t)bufferInfo.view);
 
     auto tempBufferAndPool = commandPoolmanager->beginSingleTimeCommands(false);
     VkImageMemoryBarrier2 barrier11 = GetImageBarrier(bufferInfo.image,

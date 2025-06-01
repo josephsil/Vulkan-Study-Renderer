@@ -70,6 +70,7 @@ struct DepthPyramidInfo
 {
     VkFormat format;
     VkImage image;
+    VkImageView view;
     std::span<VkImageView> viewsForMips;
     VmaAllocation vmaAllocation;
     imageSize depthSize;

@@ -474,7 +474,7 @@ void TextureCreation::CreateDepthPyramidSampler(VkSampler* textureSampler, VkSam
     samplerInfo.maxAnisotropy = 0;
     samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_WHITE;
     samplerInfo.unnormalizedCoordinates = VK_FALSE;
-    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
     samplerInfo.minLod = 0; // Optional
     samplerInfo.maxLod = static_cast<float>(maxMip);
 

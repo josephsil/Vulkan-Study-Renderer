@@ -16,9 +16,9 @@ struct drawCommandData
 };
 
 [[vk::binding(0, 0)]]
-Texture2D<float4> bindless_textures[];
+Texture2D<float> bindless_textures;
 [[vk::binding(2, 0)]]
-SamplerState bindless_samplers[];
+SamplerState bindless_samplers;
 
 [[vk::push_constant]]
 CullPushConstants cullPC;
@@ -56,7 +56,7 @@ bool projectSphere(float3 c, float r, float znear, float P00, float P11, out flo
     float maxy = (vy * c.y + cr.z) / (vy * c.z  - cr.y);
 
     aabb = float4(minx * P00, miny * P11, maxx * P00, maxy * P11);
-    aabb = aabb.zyxw * float4(0.5f, 0.5f, 0.5f, 0.5f) + float4(0.5f,0.5f,0.5f,0.5f); // clip space -> uv space
+    aabb = aabb.zwxy * float4(0.5f, 0.5f, 0.5f, 0.5f) + float4(0.5f,0.5f,0.5f,0.5f); // clip space -> uv space
 
     return true;
 }
@@ -110,24 +110,27 @@ void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
     if (test && visible)
     {
         //todo js test 
-        float scaledRadius = (mesh.boundsSphere.radius * 2.f) * mesh.objectScale;
+        float scaledRadius = (mesh.boundsSphere.radius) * mesh.objectScale;
+        scaledRadius *= 0.5; // temp debugging
         //
         //
         //
         float4 aabb;
         if (projectSphere(ViewCenter, scaledRadius, 0.001f,  ShaderGlobals.projMatrix[0][0], ShaderGlobals.projMatrix[1][1], aabb))
         {
-            float width = ((aabb.x - aabb.z) ) *  1024;
-            float height = ((aabb.y - aabb.w )) *  1024;
+            float width = ((aabb.x - aabb.z) ) *  1024.0;
+            float height = ((aabb.w - aabb.y )) *  1024.0;
 
-            uint level = ceil(log2(max(width, height)));
+            int level = ceil(log2(max(width, height)));
             float2 hiZSamplePoint1 =  (aabb.xy);
             float2 hiZSamplePoint2 =  (aabb.zw);
             float2 hiZSamplePoint3 =  (aabb.xw);
             float2 hiZSamplePoint4 =  (aabb.zy); 
 
+            float2 uv =  (aabb.xy + aabb.zw) / 2.f;
             float positive_z = ViewCenter.z * -1;
-            float hiZValue = bindless_textures[0].SampleLevel(bindless_samplers[0], (aabb.xy + aabb.zw) / 2.f, level).r;
+
+            float hiZValue = bindless_textures.SampleLevel(bindless_samplers, float3(uv.x, uv.y,(int)0), level);
             
             float depthSphere =  (0.001f /( positive_z - scaledRadius));
 
@@ -135,11 +138,10 @@ void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
             drawData[ShaderGlobals.offset + GlobalInvocationID.x].debug1.zw = aabb.xy;
             drawData[ShaderGlobals.offset + GlobalInvocationID.x].debug2.xy =  aabb.zw;
             drawData[ShaderGlobals.offset + GlobalInvocationID.x].debug2.z = hiZValue;
-            drawData[ShaderGlobals.offset + GlobalInvocationID.x].debug2.w = depthSphere;
+            drawData[ShaderGlobals.offset + GlobalInvocationID.x].debug2.w = depthSphere; //
 
-            drawData[ShaderGlobals.offset + GlobalInvocationID.x].debug3.xy = float2(-1,-1);
-            drawData[ShaderGlobals.offset + GlobalInvocationID.x].debug3.z = level;
-            drawData[ShaderGlobals.offset + GlobalInvocationID.x].debug3.w = hiZValue >  (depthSphere);
+            drawData[ShaderGlobals.offset + GlobalInvocationID.x].debug3.x = level;
+            drawData[ShaderGlobals.offset + GlobalInvocationID.x].debug3.y = hiZValue >  (depthSphere);
             if (hiZValue >  (depthSphere) && !cullPC.disable)
             {
                 

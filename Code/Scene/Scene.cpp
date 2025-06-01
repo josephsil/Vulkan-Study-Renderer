@@ -85,7 +85,7 @@ void Scene::UpdateRotations()
 
     for (int i = 0; i < ObjectsCount(); i++)
     {
-        objects.rotations[i] *= MyQuaternion;
+     //todo js   // objects.rotations[i] *= MyQuaternion;
     }
 }
 

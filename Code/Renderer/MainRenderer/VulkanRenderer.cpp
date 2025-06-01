@@ -252,8 +252,8 @@ void VulkanRenderer::initializePipelines(size_t shadowCasterCount)
    
    
    VkDescriptorSetLayoutBinding cullLayoutBindings[6] = {};
-    cullLayoutBindings[0] = VkDescriptorSetLayoutBinding{0, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, MAX_TEXTURES, VK_SHADER_STAGE_COMPUTE_BIT,  VK_NULL_HANDLE};// images 1 //per scene
-    cullLayoutBindings[1] = VkDescriptorSetLayoutBinding{2, VK_DESCRIPTOR_TYPE_SAMPLER, MAX_TEXTURES, VK_SHADER_STAGE_COMPUTE_BIT , VK_NULL_HANDLE} ;// iamges  4  // perscene
+    cullLayoutBindings[0] = VkDescriptorSetLayoutBinding{0, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT,  VK_NULL_HANDLE};// images 1 //per scene
+    cullLayoutBindings[1] = VkDescriptorSetLayoutBinding{2, VK_DESCRIPTOR_TYPE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT , VK_NULL_HANDLE} ;// iamges  4  // perscene
    cullLayoutBindings[2] = VkDescriptorSetLayoutBinding{12, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}; //frustum data
    cullLayoutBindings[3] = VkDescriptorSetLayoutBinding{13, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}; //draws 
    cullLayoutBindings[4] = VkDescriptorSetLayoutBinding{14, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}; //ObjectData
@@ -836,12 +836,12 @@ void VulkanRenderer::updateBindingsComputeCulling(ActiveRenderStepData commandBu
     MemoryArena::memoryArena* arena, uint32_t _currentFrame)
 {
 
-    std::span<VkDescriptorImageInfo> depthViews = MemoryArena::AllocSpan<VkDescriptorImageInfo>(arena, globalResources.depthPyramidInfoPerFrame[currentFrame].viewsForMips.size());
+    VkDescriptorImageInfo& depthViews = MemoryArena::AllocSpan<VkDescriptorImageInfo>(arena, 1)[0];
     VkDescriptorImageInfo& depthSampler = MemoryArena::AllocSpan<VkDescriptorImageInfo>(arena, 1)[0];
     for(int i =0; i < globalResources.depthPyramidInfoPerFrame[currentFrame].viewsForMips.size(); i++)
     {
-        depthViews[i] = {
-            .imageView = globalResources.depthPyramidInfoPerFrame[currentFrame].viewsForMips[i], .imageLayout = VK_IMAGE_LAYOUT_GENERAL
+        depthViews = {
+            .imageView = globalResources.depthPyramidInfoPerFrame[currentFrame].view, .imageLayout = VK_IMAGE_LAYOUT_GENERAL
         };
 
         depthSampler = {
@@ -867,7 +867,7 @@ void VulkanRenderer::updateBindingsComputeCulling(ActiveRenderStepData commandBu
     
     std::span<descriptorUpdateData> descriptorUpdates = MemoryArena::AllocSpan<descriptorUpdateData>(arena, 6);
 
-    descriptorUpdates[0] = {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, depthViews.data(), (uint32_t)depthViews.size() };  //frustum data
+    descriptorUpdates[0] = {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, &depthViews,1 }; 
     descriptorUpdates[1] = {VK_DESCRIPTOR_TYPE_SAMPLER, &depthSampler, 1}; //draws 
 
     descriptorUpdates[2] = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, frustumData};  //frustum data
@@ -1874,8 +1874,8 @@ void VulkanRenderer::RenderFrame(Scene* scene)
             nearPlane ,1);
             debugLinesManager.addDebugCross(worldspaceuvpos,  0.1f, glm::vec3(0,1,1));
             debugLinesManager.addDebugCross(worldspaceuvpos2,  0.1f, glm::vec3(0,1,1));
-            float width = (aabb.x - aabb.z) *  1024;
-            float height = (aabb.y - aabb.w ) *  1024;
+            float width = (aabb.x - aabb.z) *  1024.0f;
+            float height = (aabb.w - aabb.y ) *  1024.0f;
 
             uint32_t level = (uint32_t)ceil(log2(glm::max(width, height)));
             printf("===%s===\n", print);
@@ -1903,6 +1903,8 @@ void VulkanRenderer::RenderFrame(Scene* scene)
             auto mmgaabb = clipAABBtoUvAABB(mmg_aabb);
             debugVisualizeAABB(aabb, "ZEUX", view , proj);
             debugVisualizeAABB(mmgaabb, "MMG", view, proj );
+            printf("p00p11\n");
+            printf("%f%f\n", proj[0][0], proj[1][1]);
             // assert(projectSphere2 == _aabb); //These are not the same -- the x coords are flipped, and also slightly different!
            
             return clipped;
