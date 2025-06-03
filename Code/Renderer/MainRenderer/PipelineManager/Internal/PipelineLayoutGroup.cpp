@@ -32,27 +32,6 @@ VkDescriptorSet PreAllocatedDescriptorSetPool::peekNextDescriptorSet()
 }
 
 
-DescriptorDataForPipeline constructDescriptorDataObject(MemoryArena::memoryArena* arena,
-                                                        std::span<VkDescriptorSetLayoutBinding> layoutBindings,
-                                                        uint32_t descriptorSetPoolSize, bool isPerFrame)
-{
-    int SetsForFrameCt = isPerFrame ? MAX_FRAMES_IN_FLIGHT : 1;
-    PreAllocatedDescriptorSetPool* _DescriptorSets = MemoryArena::AllocSpan<PreAllocatedDescriptorSetPool>(
-        arena, SetsForFrameCt).data();
-
-    for (int i = 0; i < SetsForFrameCt; i++)
-    {
-        (_DescriptorSets[i]) = PreAllocatedDescriptorSetPool(arena, descriptorSetPoolSize);
-    }
-
-    auto _BindlessLayoutBindings = MemoryArena::copySpan<VkDescriptorSetLayoutBinding>(arena, layoutBindings);
-    return {
-        .isPerFrame = isPerFrame, .descriptorSetsCaches = _DescriptorSets, .layoutBindings = _BindlessLayoutBindings
-    };
-}
-
-
-
 PipelineLayoutGroup::PipelineLayoutGroup(PerThreadRenderContext handles, VkDescriptorPool pool,
                                          std::span<DescriptorDataForPipeline> descriptorInfo,
                                          std::span<VkDescriptorSetLayout> layouts, uint32_t pconstantsize, bool compute,

@@ -271,7 +271,7 @@ void VulkanRenderer::initializePipelines(size_t shadowCasterCount)
   
    
     VkDescriptorSetLayout _mipchainLayout = DescriptorSets::createVkDescriptorSetLayout(GetMainRendererContext(), pyramidLayoutBindings, "MipChain Layout");
-    DescriptorDataForPipeline mipChainDescriptorData = DescriptorSets::CreateDescriptorDataForPipeline(GetMainRendererContext(), _mipchainLayout, true, pyramidLayoutBindings, "MipChain Set", descriptorPool, HIZDEPTH);
+    DescriptorDataForPipeline mipChainDescriptorData = DescriptorSets::CreateDescriptorDataForPipeline(GetMainRendererContext(), _mipchainLayout, true, pyramidLayoutBindings, "MipChain Set", descriptorPool, HIZDEPTH * MAX_SHADOWMAPS + 16);
   
 
     mipChainLayoutIDX = pipelineLayoutManager.CreateNewGroup(GetMainRendererContext(), descriptorPool, {&mipChainDescriptorData, 1}, {&_mipchainLayout, 1},  sizeof(glm::vec2), true, "mip chain layout");
@@ -451,13 +451,13 @@ void VulkanRenderer::createDescriptorSetPool(PerThreadRenderContext context, VkD
     
     std::vector<VkDescriptorPoolSize> sizes =
     {
-        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 320 },
-        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 320 },
-        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 320 },
-        { VK_DESCRIPTOR_TYPE_SAMPLER, 320 },
-        { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 320 },
-        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 320 },
-        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 320 }
+        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 16 },
+        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 16 },
+        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 16 },
+        { VK_DESCRIPTOR_TYPE_SAMPLER, 2048 },
+        { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 2048 },
+        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2048 },
+        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 2048 }
     };
 
     VkDescriptorPoolCreateInfo pool_info = {};
@@ -466,7 +466,7 @@ void VulkanRenderer::createDescriptorSetPool(PerThreadRenderContext context, VkD
     pool_info.poolSizeCount = (uint32_t)sizes.size();
     pool_info.pPoolSizes = sizes.data();
     
-    pool_info.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * 20 * 20;
+    pool_info.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * 1024;
     VK_CHECK( vkCreateDescriptorPool(context.device, &pool_info, nullptr, pool));
     context.threadDeletionQueue->push_backVk(deletionType::descriptorPool,uint64_t(*pool));
     
@@ -1664,7 +1664,18 @@ void VulkanRenderer::RenderFrame(Scene* scene)
 
     DepthPyramidInfo& depthBufferPyramidData =   globalResources.depthPyramidInfoPerFrame[currentFrame];
     RecordMipChainCompute(*BeforeCullingStep, &perFrameArenas[currentFrame], depthBufferPyramidData,
-                          globalResources.depthBufferInfoPerFrame[currentFrame].view);     
+                             globalResources.depthBufferInfoPerFrame[currentFrame].view);
+    uint32_t shadowmapIndex = 0;
+    for(int i =0; i < scene->lightCount; i++)
+    {
+        for(int j = 0; j < shadowCountFromLightType(scene->lightTypes[i]); j++)
+        {
+            //TODO JS: Shadow samplers dont seme set up right -- or else I have severe synchronization issues 
+            auto& shadowPyramidData = shadowResources.WIP_shadowDepthPyramidInfos[currentFrame][shadowmapIndex++];
+            RecordMipChainCompute(*BeforeCullingStep, &perFrameArenas[currentFrame], shadowPyramidData,
+                                  shadowResources.shadowMapSamplingImageViews[currentFrame][i]);
+            }
+    }
 
 
     auto shadowBarriers = MemoryArena::AllocSpan<VkImageMemoryBarrier2>(&perFrameArenas[currentFrame], MAX_SHADOWMAPS);
