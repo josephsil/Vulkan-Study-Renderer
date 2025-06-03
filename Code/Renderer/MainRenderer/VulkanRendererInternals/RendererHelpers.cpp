@@ -61,7 +61,7 @@ DepthPyramidInfo static_createDepthPyramidResources(rendererObjects initializedr
                                                     CommandPoolManager* commandPoolmanager)
 {
     auto depthFormat = Capabilities::findSupportedFormat(initializedrenderer.vkbPhysicalDevice.physical_device,
-                                                         {VK_FORMAT_D32_SFLOAT},
+                                                         {VK_FORMAT_D32_SFLOAT, VK_FORMAT_R32_SFLOAT, VK_FORMAT_D16_UNORM},
                                                          VK_IMAGE_TILING_OPTIMAL,
                                                          VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT |
                                                          VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT);

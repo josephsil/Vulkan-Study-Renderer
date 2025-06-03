@@ -290,7 +290,6 @@ void ShaderLoader::AddShader(const char* name, std::wstring shaderPath, bool com
     //TODO JS: get all includes recursively 
     shaderPaths shaderPaths = {.path = shaderPath, .includePaths = findShaderIncludes(&scratch, shaderPath)};
     bool needsCompiled = ShaderNeedsReciompiled(shaderPaths);
-    needsCompiled = true;
     //TODO JS: if no, load a cached version
 
     switch (compute)

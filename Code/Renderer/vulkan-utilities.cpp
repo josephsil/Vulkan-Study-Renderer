@@ -34,7 +34,7 @@ VkFormat Capabilities::findSupportedFormat(VkPhysicalDevice physicalDevice, cons
         }
     }
 
-    printf("failed to find supported format!");
+    assert(!"failed to find supported format!");
     exit(1);
 }
 
