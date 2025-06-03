@@ -84,8 +84,8 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
 
     //point lights    
     // scene->AddPointLight(glm::vec3(1, 1, 0), glm::vec3(0.3, 0.8, 1), 2);
-    // scene->AddDirLight(glm::vec3(0.00, 0.9, 0.1), glm::vec3(1, 1, 1), 1);
-    // scene->AddPointLight(glm::vec3(-2, 2, 0), glm::vec3(1, 0, 0), 999 / 2);
+    scene->AddDirLight(glm::vec3(0.00, 0.9, 0.1), glm::vec3(1, 1, 1), 1);
+    scene->AddPointLight(glm::vec3(-2, 2, 0), glm::vec3(1, 0, 0), 999 / 2);
     // scene->AddPointLight(glm::vec3(0, 0, 0), glm::vec3(0, 1, 1), 999 / 2);
 
     GltfData gltf;
@@ -133,19 +133,14 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
     auto MyQuaternion = glm::quat(EulerAngles);
     
     auto root = scene->AddObject(
-        rendererData->subMeshGroups[1].getSpan(), MemoryArena::AllocSpanEmplaceInitialize<uint32_t>(rendererContext.arena, 1, (uint32_t) (uint32_t)randomMaterials[1]), glm::vec4(0, 0, 0, 0) * 1.2f, MyQuaternion,
+        rendererData->subMeshGroups[randomMeshes[rand() % randomMeshes.size()]].getSpan(), MemoryArena::AllocSpanEmplaceInitialize<uint32_t>(rendererContext.arena, 1, (uint32_t) (uint32_t)randomMaterials[1]), glm::vec4(0, 0, 0, 0) * 1.2f, MyQuaternion,
         glm::vec3(0.5));
 
-    scene->AddObject(
-       rendererData->subMeshGroups[1].getSpan(),
-       MemoryArena::AllocSpanEmplaceInitialize<uint32_t>(rendererContext.arena,
-           1, (uint32_t) (uint32_t)randomMaterials[1]), glm::vec4(-1, -1, -1, 0), MyQuaternion,
-       glm::vec3(3));
     
     localTransform* tform = &scene->transforms.transformNodes[root];
-    for (int i = 0; i < 10; i++)
+    for (int i = 0; i < 30; i++)
     {
-        for (int j = i == 0 ? 1 : 0; j < 10; j++)
+        for (int j = i == 0 ? 1 : 0; j < 30; j++)
         {
             float rowRoughness = static_cast<float>(glm::clamp(static_cast<float>(i) / 8.0, 0.0, 1.0));
             bool rowmetlalic = i % 3 == 0;
@@ -158,7 +153,7 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
             sourceMaterial.roughness, sourceMaterial.metallic, randColorLinear, {sourceMaterial.diffuseIndex, sourceMaterial.specIndex, sourceMaterial.normalIndex}, sourceMaterial.shaderGroupIndex);
     
             scene->AddObject(
-                rendererData->subMeshGroups[1].getSpan(), 
+                rendererData->subMeshGroups[randomMeshes[rand() % randomMeshes.size()]].getSpan(), 
                MemoryArena::AllocSpanEmplaceInitialize<uint32_t>(rendererContext.arena, 1, (uint32_t)newRandomColorMaterial), glm::vec4((j), (i / 10) * 1.0, -(i % 10), 1) * 1.2f, MyQuaternion,
                 glm::vec3(0.5));
             matIDX = rand() % randomMaterials.size();
