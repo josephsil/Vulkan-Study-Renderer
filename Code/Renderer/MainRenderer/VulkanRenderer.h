@@ -80,7 +80,7 @@ public:
     static uint32_t StaticCalculateTotalDrawCount(Scene* scene, std::span<PerSubmeshData> submeshData);
 private:
     std::unordered_map<VkImageView, VkDescriptorSet> imguiRegisteredTextures;
-    struct per_frame_data;
+    struct FrameData;
     rendererObjects rendererVulkanObjects;
     GlobalRendererResources globalResources;
     PerSceneShadowResources shadowResources;
@@ -114,7 +114,9 @@ private:
     std::span<descriptorUpdateData> computeUpdates[MAX_FRAMES_IN_FLIGHT] = {};
 
     
-    std::span<per_frame_data> FramesInFlightData;
+    std::span<FrameData> perFrameData;
+    FrameData& GetFrameData(size_t frame);
+    FrameData& GetFrameData();
     bool haveInitializedFrame[MAX_FRAMES_IN_FLIGHT];
     bool isFirstFrame = true;
     size_t cubemaplut_utilitytexture_index;
@@ -141,7 +143,7 @@ private:
 
 
     std::span<std::unique_ptr<RendererDeletionQueue>> perFrameDeletionQueuse;
-    struct per_frame_data
+    struct FrameData
     {
         uint32_t swapChainIndex;
         std::span<uint32_t> boundCommandBuffers;
@@ -185,11 +187,8 @@ private:
 
 
     void RecordMipChainCompute(ActiveRenderStepData commandBufferContext, MemoryArena::memoryArena* arena,
-                               VkImage dstImage, VkImageView srcView, std::span<VkImageView> pyramidviews,
-                               VkSampler sampler, uint32_t _currentFrame, uint32_t
-                               pyramidWidth, uint32_t pyramidHeight);
-    void updateBindingsComputeCulling(ActiveRenderStepData commandBufferContext, MemoryArena::memoryArena* arena,
-                                      uint32_t _currentFrame);
+                               DepthPyramidInfo& pyramidInfo, VkImageView srcView);
+    void updateBindingsComputeCulling(ActiveRenderStepData commandBufferContext, MemoryArena::memoryArena* arena);
 
 
     void RecordUtilityPasses(VkCommandBuffer commandBuffer, size_t imageIndex);
@@ -201,6 +200,7 @@ private:
     void RenderFrame(Scene* scene);
 
 };
+
 
 
 

@@ -95,19 +95,19 @@ VulkanRenderer::VulkanRenderer()
     shadowResources = init_allocate_shadow_memory(rendererVulkanObjects, &rendererArena);
 
 
-    FramesInFlightData = MemoryArena::AllocSpan<per_frame_data>(&rendererArena, MAX_FRAMES_IN_FLIGHT);
+    perFrameData = MemoryArena::AllocSpan<FrameData>(&rendererArena, MAX_FRAMES_IN_FLIGHT);
     perFrameDeletionQueuse = MemoryArena::AllocSpanDefaultInitialize<std::unique_ptr<RendererDeletionQueue>>(&rendererArena, MAX_FRAMES_IN_FLIGHT); //todo js double create, oops
     //Command buffer stuff
     //semaphores
-    for (int i = 0; i < FramesInFlightData.size(); i++)
+    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        createSemaphore(rendererVulkanObjects.vkbdevice.device, &(FramesInFlightData[i].perFrameSemaphores.swapchainSemaphore), "Per Frame swapchain ready semaphore", deletionQueue.get());
-        createSemaphore(rendererVulkanObjects.vkbdevice.device, &(FramesInFlightData[i].perFrameSemaphores.prepassSemaphore), "Per Frame prepass finished semaphore", deletionQueue.get());
-        createSemaphore(rendererVulkanObjects.vkbdevice.device, &(FramesInFlightData[i].perFrameSemaphores.presentSemaphore), "Per Frame ready to present semaphore", deletionQueue.get());
-        createSemaphore(rendererVulkanObjects.vkbdevice.device, &(FramesInFlightData[i].perFrameSemaphores.cullingSemaphore), "Per Frame finished culling semaphore", deletionQueue.get());
-        static_createFence(rendererVulkanObjects.vkbdevice.device,  &FramesInFlightData[i].inFlightFence, "Per Frame finished rendering Fence", deletionQueue.get());
-        static_createFence(rendererVulkanObjects.vkbdevice.device,  &FramesInFlightData[i].perFrameSemaphores.cullingFence, "Per frame culling fence", deletionQueue.get() );
-        vkResetFences(rendererVulkanObjects.vkbdevice.device,  1, &FramesInFlightData[i].perFrameSemaphores.cullingFence);
+        createSemaphore(rendererVulkanObjects.vkbdevice.device, &(perFrameData[i].perFrameSemaphores.swapchainSemaphore), "Per Frame swapchain ready semaphore", deletionQueue.get());
+        createSemaphore(rendererVulkanObjects.vkbdevice.device, &(perFrameData[i].perFrameSemaphores.prepassSemaphore), "Per Frame prepass finished semaphore", deletionQueue.get());
+        createSemaphore(rendererVulkanObjects.vkbdevice.device, &(perFrameData[i].perFrameSemaphores.presentSemaphore), "Per Frame ready to present semaphore", deletionQueue.get());
+        createSemaphore(rendererVulkanObjects.vkbdevice.device, &(perFrameData[i].perFrameSemaphores.cullingSemaphore), "Per Frame finished culling semaphore", deletionQueue.get());
+        static_createFence(rendererVulkanObjects.vkbdevice.device,  &perFrameData[i].inFlightFence, "Per Frame finished rendering Fence", deletionQueue.get());
+        static_createFence(rendererVulkanObjects.vkbdevice.device,  &perFrameData[i].perFrameSemaphores.cullingFence, "Per frame culling fence", deletionQueue.get() );
+        vkResetFences(rendererVulkanObjects.vkbdevice.device,  1, &perFrameData[i].perFrameSemaphores.cullingFence);
        perFrameDeletionQueuse[i] = std::make_unique<RendererDeletionQueue>(rendererVulkanObjects.vkbdevice, rendererVulkanObjects.vmaAllocator); //todo js double create, oops
     }
     //Initialize sceneData
@@ -391,65 +391,55 @@ void VulkanRenderer::PopulateMeshBuffers()
      
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        FramesInFlightData[i].hostMesh.updateMappedMemory(AssetDataAndMemory->meshData.vertData.getSpan());
-        FramesInFlightData[i].hostVerts.updateMappedMemory(AssetDataAndMemory->meshData.vertPositions.getSpan());
-        FramesInFlightData[i].hostIndices.updateMappedMemory({Indices.data(),indexCt});
+        GetFrameData(i).hostMesh.updateMappedMemory(AssetDataAndMemory->meshData.vertData.getSpan());
+        GetFrameData(i).hostVerts.updateMappedMemory(AssetDataAndMemory->meshData.vertPositions.getSpan());
+        GetFrameData(i).hostIndices.updateMappedMemory({Indices.data(),indexCt});
     }
 }
 
 //TODO JS: https://gpuopen-librariesandsdks.github.io/VulkanMemoryAllocator/html/usage_patterns.html advanced
 void VulkanRenderer::CreateUniformBuffers( size_t drawCount, size_t objectsCount,size_t lightCount)
 {
-    VkDeviceSize globalsSize = sizeof(GPU_ShaderGlobals);
-    VkDeviceSize ubosSize = sizeof(GPU_ObjectData) * drawCount;
-    VkDeviceSize vertsSize = sizeof(GPU_VertexData) * AssetDataAndMemory->getIndexCount();
-    VkDeviceSize lightdataSize = sizeof(GPU_LightData) *lightCount;
-    VkDeviceSize shadowDataSize = sizeof(GPU_perShadowData) *lightCount * 10; //times six is plenty right?
-
     PerThreadRenderContext context = GetMainRendererContext();
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
+        GetFrameData(i).opaqueShaderGlobalsBuffer = createDataBuffer<GPU_ShaderGlobals>(&context, 1, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
+        GetFrameData(i).perMeshbuffers = createDataBuffer<GPU_ObjectData>(&context, drawCount, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT); //
+        GetFrameData(i).perObjectBuffers = createDataBuffer<GPU_Transform>(&context, objectsCount, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT); //
+        GetFrameData(i).hostMesh = createDataBuffer<GPU_VertexData>(&context,AssetDataAndMemory->getVertexCount(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
+        GetFrameData(i).hostVerts = createDataBuffer<glm::vec4>(&context,AssetDataAndMemory->getVertexCount(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT); //TODO JS: use index buffer, get vertex count
 
-       
-
-        
-        FramesInFlightData[i].opaqueShaderGlobalsBuffer = createDataBuffer<GPU_ShaderGlobals>(&context, 1, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
-        FramesInFlightData[i].perMeshbuffers = createDataBuffer<GPU_ObjectData>(&context, drawCount, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT); //
-        FramesInFlightData[i].perObjectBuffers = createDataBuffer<GPU_Transform>(&context, objectsCount, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT); //
-        FramesInFlightData[i].hostMesh = createDataBuffer<GPU_VertexData>(&context,AssetDataAndMemory->getVertexCount(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
-        FramesInFlightData[i].hostVerts = createDataBuffer<glm::vec4>(&context,AssetDataAndMemory->getVertexCount(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT); //TODO JS: use index buffer, get vertex count
-
-        FramesInFlightData[i].deviceVerts = {.data = VK_NULL_HANDLE, .size = AssetDataAndMemory->getVertexCount() * sizeof(glm::vec4), .mapped = nullptr};
+        GetFrameData(i).deviceVerts = {.data = VK_NULL_HANDLE, .size = AssetDataAndMemory->getVertexCount() * sizeof(glm::vec4), .mapped = nullptr};
         VmaAllocation alloc = {};
         BufferUtilities::createDeviceBuffer(context.allocator,
-                                            FramesInFlightData[i].deviceVerts.size,
+                                            GetFrameData(i).deviceVerts.size,
                                             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,context.device,&alloc,
-                                            &FramesInFlightData[i].deviceVerts.data);
+                                            &GetFrameData(i).deviceVerts.data);
 
-        FramesInFlightData[i].deviceMesh = {.data = VK_NULL_HANDLE, .size = AssetDataAndMemory->getVertexCount() * sizeof(GPU_VertexData), .mapped = nullptr};
+        GetFrameData(i).deviceMesh = {.data = VK_NULL_HANDLE, .size = AssetDataAndMemory->getVertexCount() * sizeof(GPU_VertexData), .mapped = nullptr};
         VmaAllocation alloc2 = {};
         BufferUtilities::createDeviceBuffer(context.allocator,
-                                            FramesInFlightData[i].deviceMesh.size,
+                                            GetFrameData(i).deviceMesh.size,
                                             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,context.device,&alloc2,
-                                            &FramesInFlightData[i].deviceMesh.data);
+                                            &GetFrameData(i).deviceMesh.data);
         
-        FramesInFlightData[i].hostIndices = createDataBuffer<uint32_t>(&context,AssetDataAndMemory->getIndexCount(), VK_BUFFER_USAGE_INDEX_BUFFER_BIT| VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
-        FramesInFlightData[i].deviceIndices = {.data = VK_NULL_HANDLE, .size = AssetDataAndMemory->getIndexCount() * sizeof(uint32_t), .mapped = nullptr};
+        GetFrameData(i).hostIndices = createDataBuffer<uint32_t>(&context,AssetDataAndMemory->getIndexCount(), VK_BUFFER_USAGE_INDEX_BUFFER_BIT| VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
+        GetFrameData(i).deviceIndices = {.data = VK_NULL_HANDLE, .size = AssetDataAndMemory->getIndexCount() * sizeof(uint32_t), .mapped = nullptr};
         VmaAllocation alloc3 = {};
         BufferUtilities::createDeviceBuffer(context.allocator,
-                                            FramesInFlightData[i].deviceIndices.size,
+                                            GetFrameData(i).deviceIndices.size,
                                             VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,context.device,&alloc2,
-                                            &FramesInFlightData[i].deviceIndices.data);
+                                            &GetFrameData(i).deviceIndices.data);
 
 
-        FramesInFlightData[i].lightBuffers = createDataBuffer<GPU_LightData>(&context,lightCount, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-        FramesInFlightData[i].shadowDataBuffers = createDataBuffer<GPU_perShadowData>(&context,lightCount * 10, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+        GetFrameData(i).lightBuffers = createDataBuffer<GPU_LightData>(&context,lightCount, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+        GetFrameData(i).shadowDataBuffers = createDataBuffer<GPU_perShadowData>(&context,lightCount * 10, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
       
         
-        FramesInFlightData[i].drawBuffers = createDataBuffer<drawCommandData>(&context, MAX_DRAWINDIRECT_COMMANDS, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
-        SetDebugObjectName(context.device, VK_OBJECT_TYPE_BUFFER, "draw indirect buffer", (uint64_t)FramesInFlightData[i].drawBuffers.buffer.data);
-        FramesInFlightData[i].frustumsForCullBuffers = createDataBuffer<glm::vec4>(&context, (MAX_SHADOWMAPS + MAX_CAMERAS) * 6, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+        GetFrameData(i).drawBuffers = createDataBuffer<drawCommandData>(&context, MAX_DRAWINDIRECT_COMMANDS, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
+        SetDebugObjectName(context.device, VK_OBJECT_TYPE_BUFFER, "draw indirect buffer", (uint64_t)GetFrameData(i).drawBuffers.buffer.data);
+        GetFrameData(i).frustumsForCullBuffers = createDataBuffer<glm::vec4>(&context, (MAX_SHADOWMAPS + MAX_CAMERAS) * 6, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 
     }
 }
@@ -493,11 +483,11 @@ std::span<descriptorUpdateData> VulkanRenderer::CreatePerSceneDescriptorUpdates(
     cubeImageInfos[0] = cube_irradiance.vkImageInfo;
     cubeImageInfos[1] = cube_specular.vkImageInfo;
   
-    // *meshBufferinfo = FramesInFlightData[frame].meshBuffers.buffer.getBufferInfo();
+    // *meshBufferinfo =GetFrameData(frame).meshBuffers.buffer.getBufferInfo();
     VkDescriptorBufferInfo* vertBufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
-    *vertBufferinfo = FramesInFlightData[frame].deviceVerts.getBufferInfo();
+    *vertBufferinfo =GetFrameData(frame).deviceVerts.getBufferInfo();
     VkDescriptorBufferInfo* meshBufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
-    *meshBufferinfo = FramesInFlightData[frame].deviceMesh.getBufferInfo();
+    *meshBufferinfo =GetFrameData(frame).deviceMesh.getBufferInfo();
 
 
     Array<descriptorUpdateData> descriptorUpdates = MemoryArena::AllocSpan<descriptorUpdateData>(arena, layoutBindings.size());
@@ -550,20 +540,20 @@ std::span<descriptorUpdateData> VulkanRenderer::CreatePerFrameDescriptorUpdates(
     
     //frame
     VkDescriptorBufferInfo* perMeshBufferInfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
-    *perMeshBufferInfo = FramesInFlightData[frame].perMeshbuffers.buffer.getBufferInfo();
+    *perMeshBufferInfo =GetFrameData(frame).perMeshbuffers.buffer.getBufferInfo();
     VkDescriptorBufferInfo* transformBufferInfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
-    *transformBufferInfo = FramesInFlightData[frame].perObjectBuffers.buffer.getBufferInfo();
+    *transformBufferInfo =GetFrameData(frame).perObjectBuffers.buffer.getBufferInfo();
     VkDescriptorBufferInfo* shaderglobalsinfo =  MemoryArena::Alloc<VkDescriptorBufferInfo>(arena);
-    *shaderglobalsinfo = FramesInFlightData[frame].opaqueShaderGlobalsBuffer.buffer.getBufferInfo();
+    *shaderglobalsinfo =GetFrameData(frame).opaqueShaderGlobalsBuffer.buffer.getBufferInfo();
     VkDescriptorBufferInfo* shadowBuffersInfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
-    *shadowBuffersInfo = FramesInFlightData[frame].shadowDataBuffers.buffer.getBufferInfo();
+    *shadowBuffersInfo =GetFrameData(frame).shadowDataBuffers.buffer.getBufferInfo();
 
 
-    // *meshBufferinfo = FramesInFlightData[frame].meshBuffers.buffer.getBufferInfo();
+    // *meshBufferinfo =GetFrameData(frame).meshBuffers.buffer.getBufferInfo();
     VkDescriptorBufferInfo* lightbufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
-    *lightbufferinfo = FramesInFlightData[frame].lightBuffers.buffer.getBufferInfo();
+    *lightbufferinfo =GetFrameData(frame).lightBuffers.buffer.getBufferInfo();
     VkDescriptorBufferInfo* meshBufferinfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
-    *meshBufferinfo = FramesInFlightData[frame].deviceMesh.getBufferInfo();
+    *meshBufferinfo =GetFrameData(frame).deviceMesh.getBufferInfo();
 
 
     Array descriptorUpdates = MemoryArena::AllocSpan<descriptorUpdateData>(arena, layoutBindings.size());
@@ -651,12 +641,12 @@ void VulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<std::spa
     //TODO JS: to ring buffer?
     auto tempArena = GetMainRendererContext().tempArena;
 
-    updateGlobals(scene->sceneCamera, scene->lightCount, cubemaplut_utilitytexture_index, FramesInFlightData[currentFrame].opaqueShaderGlobalsBuffer);
+    updateGlobals(scene->sceneCamera, scene->lightCount, cubemaplut_utilitytexture_index, GetFrameData().opaqueShaderGlobalsBuffer);
     
 
     //Lights
     auto lights = MemoryArena::AllocSpan<GPU_LightData>(tempArena, scene->lightCount);
-    std::span<GPU_perShadowData> flattenedPerShadowData = MemoryArena::AllocSpan<GPU_perShadowData>(&perFrameArenas[currentFrame],FramesInFlightData[currentFrame].shadowDataBuffers.count());
+    std::span<GPU_perShadowData> flattenedPerShadowData = MemoryArena::AllocSpan<GPU_perShadowData>(&perFrameArenas[currentFrame],GetFrameData().shadowDataBuffers.count());
     std::span<GPU_perShadowData> nextFlattenedShadowDataView = flattenedPerShadowData.subspan(0);
     size_t shadowOffset = 0;
     size_t spanOffset = 0;
@@ -676,11 +666,11 @@ void VulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<std::spa
         shadowOffset += lightShadowMatrixCt ;
     }
     
-    FramesInFlightData[currentFrame].lightBuffers.updateMappedMemory(std::span(lights.data(), lights.size()));
-    FramesInFlightData[currentFrame].shadowDataBuffers.updateMappedMemory(flattenedPerShadowData);
+   GetFrameData().lightBuffers.updateMappedMemory(std::span(lights.data(), lights.size()));
+   GetFrameData().shadowDataBuffers.updateMappedMemory(flattenedPerShadowData);
 
     // frustums
-    auto frustums = FramesInFlightData[currentFrame].frustumsForCullBuffers
+    auto frustums =GetFrameData().frustumsForCullBuffers
         .getMappedSpan();
 
     int offset = 0;
@@ -715,8 +705,8 @@ void VulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<std::spa
     auto perDrawData = MemoryArena::AllocSpan<GPU_ObjectData>(tempArena,drawCount);
     auto transforms = MemoryArena::AllocSpan<GPU_Transform>(tempArena,scene->ObjectsCount());
 
-FramesInFlightData[currentFrame].ObjectDataForFrame = perDrawData;
-    FramesInFlightData[currentFrame].ObjectTransformsForFrame = transforms;
+GetFrameData().ObjectDataForFrame = perDrawData;
+    GetFrameData().ObjectTransformsForFrame = transforms;
  
     uint32_t uboIndex = 0;
     for (uint32_t objectIndex = 0; objectIndex <scene->objects.objectsCount; objectIndex++)
@@ -742,7 +732,8 @@ FramesInFlightData[currentFrame].ObjectDataForFrame = perDrawData;
                                                (999),
                                               objectIndex);
 
-                perDrawData[uboIndex].props.textureIndexInfo = glm::vec4(material.diffuseIndex, material.specIndex, material.normalIndex, -1.0);
+                perDrawData[uboIndex].props.textureIndexInfo = glm::vec4(material.diffuseIndex,
+                    material.specIndex, material.normalIndex, -1.0);
                 perDrawData[uboIndex].props.metallic = 0.0;
                 perDrawData[uboIndex].props.roughness = material.roughness; 
                 perDrawData[uboIndex].props.color = glm::vec4(material.color,1.0f);
@@ -750,7 +741,8 @@ FramesInFlightData[currentFrame].ObjectDataForFrame = perDrawData;
 
         
                 //Set position and radius for culling
-                GPU_BoundingSphere meshSpacePositionAndRadius =   AssetDataAndMemory->meshData.boundingSpheres[meshletIndex];
+                GPU_BoundingSphere meshSpacePositionAndRadius =
+                    AssetDataAndMemory->meshData.boundingSpheres[meshletIndex];
                 float meshRadius = meshSpacePositionAndRadius.radius;
                 float objectScale = scene->transforms.worldUniformScales[lookup.depth][lookup.index];
                 perDrawData[uboIndex].boundsSphere.center = meshSpacePositionAndRadius.center;
@@ -763,8 +755,8 @@ FramesInFlightData[currentFrame].ObjectDataForFrame = perDrawData;
         }
     }
 
-    FramesInFlightData[currentFrame].perMeshbuffers.updateMappedMemory({perDrawData.data(), (size_t)drawCount});
-    FramesInFlightData[currentFrame].perObjectBuffers.updateMappedMemory({transforms.data(), transforms.size()});
+    GetFrameData().perMeshbuffers.updateMappedMemory({perDrawData.data(), (size_t)drawCount});
+    GetFrameData().perObjectBuffers.updateMappedMemory({transforms.data(), transforms.size()});
 
 
 
@@ -833,7 +825,7 @@ void BeginRendering(VkRenderingAttachmentInfo* depthAttatchment, int colorAttatc
 //Needs a better name -- these are the higher level render passes, and then meshpasses are pipelines and object lists
 //This is everything we need to submit commands
 void VulkanRenderer::updateBindingsComputeCulling(ActiveRenderStepData commandBufferContext, 
-    MemoryArena::memoryArena* arena, uint32_t _currentFrame)
+    ArenaAllocator arena)
 {
 
     VkDescriptorImageInfo& depthViews = MemoryArena::AllocSpan<VkDescriptorImageInfo>(arena, 1)[0];
@@ -853,17 +845,17 @@ void VulkanRenderer::updateBindingsComputeCulling(ActiveRenderStepData commandBu
  
 
     assert(commandBufferContext.commandBufferActive);
-    VkDescriptorBufferInfo* frustumData =  MemoryArena::Alloc<VkDescriptorBufferInfo>(&perFrameArenas[_currentFrame], 1);
-    *frustumData = GetDescriptorBufferInfo(FramesInFlightData[_currentFrame].frustumsForCullBuffers);
+    VkDescriptorBufferInfo* frustumData =  MemoryArena::Alloc<VkDescriptorBufferInfo>(arena, 1);
+    *frustumData = GetDescriptorBufferInfo(GetFrameData().frustumsForCullBuffers);
     
-    VkDescriptorBufferInfo* computeDrawBuffer = MemoryArena::Alloc<VkDescriptorBufferInfo>(&perFrameArenas[_currentFrame], 1); 
-    *computeDrawBuffer = GetDescriptorBufferInfo(FramesInFlightData[_currentFrame].drawBuffers);
+    VkDescriptorBufferInfo* computeDrawBuffer = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena, 1); 
+    *computeDrawBuffer = GetDescriptorBufferInfo(GetFrameData().drawBuffers);
 
-    VkDescriptorBufferInfo* objectBufferInfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(&perFrameArenas[_currentFrame], 1); 
-    *objectBufferInfo = GetDescriptorBufferInfo(FramesInFlightData[_currentFrame].perMeshbuffers);
+    VkDescriptorBufferInfo* objectBufferInfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena, 1); 
+    *objectBufferInfo = GetDescriptorBufferInfo(GetFrameData().perMeshbuffers);
 
-    VkDescriptorBufferInfo* transformBufferInfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(&perFrameArenas[_currentFrame], 1); 
-    *transformBufferInfo = GetDescriptorBufferInfo(FramesInFlightData[_currentFrame].perObjectBuffers);
+    VkDescriptorBufferInfo* transformBufferInfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena, 1); 
+    *transformBufferInfo = GetDescriptorBufferInfo(GetFrameData().perObjectBuffers);
     
     std::span<descriptorUpdateData> descriptorUpdates = MemoryArena::AllocSpan<descriptorUpdateData>(arena, 6);
 
@@ -875,10 +867,14 @@ void VulkanRenderer::updateBindingsComputeCulling(ActiveRenderStepData commandBu
     descriptorUpdates[4] = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, objectBufferInfo}; //ObjectData  //
     descriptorUpdates[5] = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, transformBufferInfo}; //ObjectData  //
 
-    DescriptorSets::_updateDescriptorSet_NEW(GetMainRendererContext(),pipelineLayoutManager.GetDescriptordata(cullingLayoutIDX, 0)->descriptorSetsCaches[currentFrame].getNextDescriptorSet(),
-       pipelineLayoutManager.GetDescriptordata(cullingLayoutIDX, 0)->layoutBindings,  descriptorUpdates); //Update desciptor sets for the compute bindings 
+    auto cullingDescriptorData = pipelineLayoutManager.
+        GetDescriptordata(cullingLayoutIDX, 0);
+    auto& cullingLayoutSets = cullingDescriptorData->descriptorSetsCaches[currentFrame];
+    DescriptorSets::_updateDescriptorSet_NEW(GetMainRendererContext(),cullingLayoutSets.getNextDescriptorSet(),
+     cullingDescriptorData->layoutBindings,
+       descriptorUpdates); //Update desciptor sets for the compute bindings 
 
-    pipelineLayoutManager.BindRequiredSetsToCommandBuffer(cullingLayoutIDX, commandBufferContext.commandBuffer, commandBufferContext.boundDescriptorSets, _currentFrame, VK_PIPELINE_BIND_POINT_COMPUTE);
+    pipelineLayoutManager.BindRequiredSetsToCommandBuffer(cullingLayoutIDX, commandBufferContext.commandBuffer, commandBufferContext.boundDescriptorSets, currentFrame, VK_PIPELINE_BIND_POINT_COMPUTE);
 
     vkCmdBindPipeline(commandBufferContext.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,   pipelineLayoutManager.GetPipeline(cullingLayoutIDX, 0));
 }
@@ -931,17 +927,21 @@ void RecordCullingCommands(ArenaAllocator allocator, VkPipelineLayout layout, Ac
     SetPipelineBarrier(commandBufferContext.commandBuffer,0, 1, &barrier, 0, 0);
 
 }
-void VulkanRenderer::RecordMipChainCompute(ActiveRenderStepData commandBufferContext, ArenaAllocator arena, VkImage dstImage,
-    VkImageView srcView, std::span<VkImageView> pyramidviews, VkSampler sampler, uint32_t _currentFrame, uint32_t pyramidWidth, uint32_t pyramidHeight)
+void VulkanRenderer::RecordMipChainCompute(ActiveRenderStepData commandBufferContext,
+    ArenaAllocator arena, DepthPyramidInfo& pyramidInfo,
+    VkImageView srcView
+    )
 {
     assert(commandBufferContext.commandBufferActive);
-    auto descriptorData = pipelineLayoutManager.GetDescriptordata(mipChainLayoutIDX, 0);
-   
-    vkCmdBindPipeline(commandBufferContext.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayoutManager.GetPipeline(mipChainLayoutIDX, 0));
+    vkCmdBindPipeline(commandBufferContext.commandBuffer,
+        VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayoutManager.GetPipeline(mipChainLayoutIDX, 0));
 
     int i = 0;
-   
- 
+   auto dstImage = pyramidInfo.image;
+    auto pyramidviews = pyramidInfo.viewsForMips;
+    auto pyramidWidth = pyramidInfo.depthSize.x;
+    auto pyramidHeight = pyramidInfo.depthSize.y;
+    
     //For each texture, for each mip level, we want to work on, dispatch X/Y texture resolution and set a barrier (for the next phase)
     //Compute shader will read in texture and write back out to it
     VkImageMemoryBarrier2 barrier12 = GetImageBarrier(dstImage,
@@ -963,7 +963,6 @@ void VulkanRenderer::RecordMipChainCompute(ActiveRenderStepData commandBufferCon
     auto mipChainDescriptorCache = &mipChainDescriptorConfig->descriptorSetsCaches[currentFrame];
     for(int i =0; i < HIZDEPTH; i++)
     {
-        
         VkDescriptorImageInfo* sourceInfo =  MemoryArena::Alloc<VkDescriptorImageInfo>(arena);
         *sourceInfo = {
             .imageView = i == 0 ? srcView : pyramidviews[i-1], .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
@@ -995,7 +994,7 @@ void VulkanRenderer::RecordMipChainCompute(ActiveRenderStepData commandBufferCon
               );
         
         DescriptorSets::_updateDescriptorSet_NEW(GetMainRendererContext(),mipChainDescriptorCache->getNextDescriptorSet(), mipChainDescriptorConfig->layoutBindings,  descriptorUpdates); //Update desciptor sets for the compute bindings
-        pipelineLayoutManager.BindRequiredSetsToCommandBuffer(mipChainLayoutIDX,commandBufferContext.commandBuffer, commandBufferContext.boundDescriptorSets, _currentFrame, VK_PIPELINE_BIND_POINT_COMPUTE);
+        pipelineLayoutManager.BindRequiredSetsToCommandBuffer(mipChainLayoutIDX,commandBufferContext.commandBuffer, commandBufferContext.boundDescriptorSets, currentFrame, VK_PIPELINE_BIND_POINT_COMPUTE);
         
 
         int outputWidth= pyramidWidth >> i;
@@ -1220,7 +1219,7 @@ void VulkanRenderer::Update(Scene* scene)
 
         // printf("begin wait for fence %d \n", currentFrame);
         clock_t before = clock();
-        vkWaitForFences(rendererVulkanObjects.vkbdevice.device, 1, &FramesInFlightData[currentFrame].inFlightFence, VK_TRUE, UINT64_MAX);
+        vkWaitForFences(rendererVulkanObjects.vkbdevice.device, 1, &GetFrameData().inFlightFence, VK_TRUE, UINT64_MAX);
         //Render
 
       
@@ -1240,7 +1239,7 @@ void VulkanRenderer::Update(Scene* scene)
   
     }
   
-    vkResetFences(rendererVulkanObjects.vkbdevice.device, 1, &FramesInFlightData[currentFrame].inFlightFence);
+    vkResetFences(rendererVulkanObjects.vkbdevice.device, 1, &GetFrameData().inFlightFence);
     uint64_t RenderLoop =SDL_GetPerformanceCounter();
     AssetDataAndMemory->Update();
 
@@ -1414,7 +1413,7 @@ VkCommandBuffer AllocateAndBeginCommandBuffer(VkDevice device, CommandPoolManage
 }
 void VulkanRenderer::RenderFrame(Scene* scene)
 {
-    vkResetFences(rendererVulkanObjects.vkbdevice.device, 1, &FramesInFlightData[currentFrame].perFrameSemaphores.cullingFence);
+    vkResetFences(rendererVulkanObjects.vkbdevice.device, 1, &GetFrameData().perFrameSemaphores.cullingFence);
     auto priorFrame = currentFrame  == 0? MAX_FRAMES_IN_FLIGHT-1 : currentFrame -1;
     superLuminalAdd("RenderFrame");
     if (debug_cull_override_index != internal_debug_cull_override_index)
@@ -1426,7 +1425,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     //Update per frame data
 
     //Prepare for pass
-    per_frame_data* thisFrameData = &FramesInFlightData[currentFrame];
+    FrameData* thisFrameData = &GetFrameData();
         
     VkRenderingAttachmentInfoKHR* depthDrawAttatchment = MemoryArena::Alloc<VkRenderingAttachmentInfoKHR>(&perFrameArenas[currentFrame]);
     *depthDrawAttatchment = CreateRenderingAttatchmentStruct( globalResources.depthBufferInfoPerFrame[currentFrame].view, 0.0, true);
@@ -1510,7 +1509,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
 
     auto OpaqueStep =renderSteps.PushAndInitializeRenderStep("Main/Rendering Cbuffer", &perFrameArenas[currentFrame],
         commandPoolmanager.get(), nullptr, &thisFrameData->perFrameSemaphores.presentSemaphore,
-        &FramesInFlightData[currentFrame].inFlightFence);
+        &GetFrameData().inFlightFence);
 
     VkImageMemoryBarrier2 swapChainTransitionInBarrier = GetImageBarrier(globalResources.swapchainImages[thisFrameData->swapChainIndex],
        VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT, 
@@ -1609,18 +1608,13 @@ void VulkanRenderer::RenderFrame(Scene* scene)
 
     //Indirect command buffer
     RecordIndirectCommandBufferForPasses(scene, AssetDataAndMemory, &perFrameArenas[currentFrame], thisFrameData->drawBuffers.getMappedSpan(), renderBatches.getSpan());
-    updateBindingsComputeCulling(*CullingStep,  &perFrameArenas[currentFrame], currentFrame);
+    updateBindingsComputeCulling(*CullingStep,  &perFrameArenas[currentFrame]);
     
  
     //Prototype depth passes code
     //This is honestly good enough for now
     //Should put in a function that takes in a span of batches
     //Need to add a filter to it so I can do cull lists
-    //TODOS FOR CULLING:
-        //1- Fence for culling, wait next frame before copying buffer
-        //2- copy buffer for cull/uncull to current frame
-        //3- Depth prepass nonculled geometry, render culled geometry normally
-        //4- Do culling on prepass mip chain
     auto existingRenderBatches = renderBatches.getSpan();
     for(size_t i = 0; i < existingRenderBatches.size(); i++)
     {
@@ -1644,14 +1638,14 @@ void VulkanRenderer::RenderFrame(Scene* scene)
 
     if (haveInitializedFrame[currentFrame])
     {
-        vkWaitForFences(rendererVulkanObjects.vkbdevice.device, 1, &FramesInFlightData[priorFrame].perFrameSemaphores.cullingFence, VK_TRUE, UINT64_MAX);
-        vkResetFences(rendererVulkanObjects.vkbdevice.device, 1, &FramesInFlightData[priorFrame].perFrameSemaphores.cullingFence);
+        vkWaitForFences(rendererVulkanObjects.vkbdevice.device, 1, &GetFrameData(priorFrame).perFrameSemaphores.cullingFence, VK_TRUE, UINT64_MAX);
+        vkResetFences(rendererVulkanObjects.vkbdevice.device, 1, &GetFrameData(priorFrame).perFrameSemaphores.cullingFence);
     }
 
      
 
     //Submit the early prepass draws
-    auto& lastFrameCommands =  FramesInFlightData[priorFrame].drawBuffers.buffer.data;
+    auto& lastFrameCommands =  GetFrameData(priorFrame).drawBuffers.buffer.data;
     SubmitRenderPassesForBatches(prepassBatches, thisFrameData->deviceIndices.data, BeforeCullingStep, &pipelineLayoutManager, lastFrameCommands, currentFrame);
 
 
@@ -1665,12 +1659,12 @@ void VulkanRenderer::RenderFrame(Scene* scene)
            VK_IMAGE_ASPECT_DEPTH_BIT,
            0,
         VK_REMAINING_MIP_LEVELS);
+    //Does this work? Different commandbuffer than mipchain compute 
     SetPipelineBarrier(OpaqueStep->commandBuffer,0,0,0,1, &depthtoCompute );
 
-    
-    RecordMipChainCompute(*BeforeCullingStep, &perFrameArenas[currentFrame],  globalResources.depthPyramidInfoPerFrame[currentFrame].image,
-                      globalResources.depthBufferInfoPerFrame[currentFrame].view, globalResources.depthPyramidInfoPerFrame[currentFrame].viewsForMips, globalResources.writeDepthMipSampler, currentFrame, globalResources.depthPyramidInfoPerFrame[currentFrame].depthSize.x,
-                      globalResources.depthPyramidInfoPerFrame[currentFrame].depthSize.y);     
+    DepthPyramidInfo& depthBufferPyramidData =   globalResources.depthPyramidInfoPerFrame[currentFrame];
+    RecordMipChainCompute(*BeforeCullingStep, &perFrameArenas[currentFrame], depthBufferPyramidData,
+                          globalResources.depthBufferInfoPerFrame[currentFrame].view);     
 
 
     auto shadowBarriers = MemoryArena::AllocSpan<VkImageMemoryBarrier2>(&perFrameArenas[currentFrame], MAX_SHADOWMAPS);
@@ -1774,7 +1768,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     presentInfo.pWaitSemaphores = OpaqueStep->signalSempahore;
     presentInfo.swapchainCount = 1;
     presentInfo.pSwapchains = {&rendererVulkanObjects.swapchain.swapchain};
-    presentInfo.pImageIndices = &FramesInFlightData[currentFrame].swapChainIndex;
+    presentInfo.pImageIndices = &GetFrameData().swapChainIndex;
     presentInfo.pResults = nullptr; // Optional
 
     //Present e
@@ -1788,7 +1782,7 @@ void VulkanRenderer::Cleanup()
 {
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        vkWaitForFences(rendererVulkanObjects.vkbdevice.device, 1, &FramesInFlightData[i].inFlightFence, VK_TRUE,
+        vkWaitForFences(rendererVulkanObjects.vkbdevice.device, 1, &GetFrameData().inFlightFence, VK_TRUE,
                         UINT64_MAX);
     }
 
@@ -1899,3 +1893,16 @@ void VulkanRenderer::initializeDearIMGUI()
     //ImGui_ImplVulkan_DestroyFontUploadObjects(); //TODO JS: destroy queue
 }
 
+VulkanRenderer::FrameData& VulkanRenderer::GetFrameData(size_t frame)
+{
+
+    return perFrameData[frame];
+    
+}
+
+VulkanRenderer::FrameData& VulkanRenderer::GetFrameData()
+{
+
+    return perFrameData[currentFrame];
+    
+}
