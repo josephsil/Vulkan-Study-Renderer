@@ -117,7 +117,7 @@ void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
         //
         //
         float4 aabb;
-        if (projectSphere(ViewCenter, scaledRadius, 0.001f,  ShaderGlobals.projMatrix[0][0], ShaderGlobals.projMatrix[1][1], aabb))
+        if (projectSphere(ViewCenter, scaledRadius, ShaderGlobals.nearPlane,  ShaderGlobals.projMatrix[0][0], ShaderGlobals.projMatrix[1][1], aabb))
         {
             float width = ((aabb.x - aabb.z) ) *  1024.0;
             float height = ((aabb.w - aabb.y )) *  1024.0;
@@ -133,7 +133,7 @@ void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
 
 			float hiZValue = bindless_textures[passIndex].SampleLevel(bindless_samplers[passIndex], float3(uv.x, uv.y,(int)0), level);
             
-            float depthSphere =  (0.001f /( positive_z - scaledRadius));
+            float depthSphere =  (ShaderGlobals.nearPlane /( positive_z - scaledRadius));
 
             drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].debug1.xy = (aabb.xy + aabb.zw) / 2.f; 
             drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].debug1.zw = aabb.xy;
@@ -146,15 +146,14 @@ void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
             if (hiZValue >  (depthSphere) && !cullPC.disable)
             {
                 
-                drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].instanceCount = visible ? 0 : 0;
-                // return;
+                drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].instanceCount = 0;
+                return;
             }
         }
     }
 
 
     drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].instanceCount = visible ? 1 : 0;
-    drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].instanceCount = 1;
     // drawData[GlobalInvocationID.x].debugData = center;
     // drawData[cullPC.offset + GlobalInvocationID.x].instanceCount = 0;
     // BufferTable[2].position = mul(float4(1,1,1,0), cullPC.projection) + d.indexCount;

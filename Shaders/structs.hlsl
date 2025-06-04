@@ -2,6 +2,7 @@ static const uint SHADOW_MAP_SIZE = 1024;
 static const uint DEPTH_PYRAMID_SIZE = SHADOW_MAP_SIZE;
 static const float POINT_LIGHT_FAR_PLANE = 10.0;
 static const float POINT_LIGHT_NEAR_PLANE = 0.01f;
+static const float CAMERA_NEAR_PLANE = 0.01f;
 static const uint CASCADE_CT = 6;
 struct Transform
 {
@@ -62,6 +63,7 @@ struct perShadowData
 {
     float4x4 viewMatrix;
     float4x4 projMatrix;
+    float nearPlane;
     float depth;
 };//
 
@@ -101,6 +103,7 @@ struct CullPushConstants
     uint objectCount;
     uint LATE_CULL;
     uint disable;
+    float nearPlane;
     //TODO JS: frustum should just go in here
 };
 

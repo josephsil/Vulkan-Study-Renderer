@@ -309,7 +309,7 @@ std::span<GPU_perShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryA
                 glm::mat4 lightOrthoMatrix = glm::ortho(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, (min_cascade + (maxExtents.z - minExtents.z) * distanceOffset), 0.f) ;
 
                 lightProjection =  lightOrthoMatrix;
-                outputSpan[i] = {lightViewMatrix, lightProjection,  (min_cascade + ((maxExtents.z - minExtents.z) /2.f)  )};
+                outputSpan[i] = {lightViewMatrix, lightProjection,  -1000.f/*todo*/,(min_cascade + ((maxExtents.z - minExtents.z) /2.f)  )};
             }
             return  outputSpan.subspan(0,CASCADE_CT);
         }
@@ -321,7 +321,7 @@ std::span<GPU_perShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryA
             lightProjection = perspective(spotRadius *2.f, //not sure what's wrong with my math to require this *2!
                                                1.0f,  0.001f, 2500.f, nullptr
                                                ); //TODO BETTER FAR 
-            outputSpan[0] = {lightViewMatrix, lightProjection,  0};
+            outputSpan[0] = {lightViewMatrix, lightProjection, 0.001f, 0};
                                   
             return  outputSpan;
         }
@@ -335,6 +335,7 @@ std::span<GPU_perShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryA
         lightProjection[1][1] *= -1; //TODO JS hack -- these are rendering upside down for some reason, fix should probably be elsewhere
         for(int i = 0; i < outputSpan.size(); i++)
         {
+            outputSpan[i].nearPlane = POINT_LIGHT_NEAR_PLANE;
             outputSpan[i].depth = 0;
         }
         glm::mat4 translation = glm::translate(glm::mat4(1.0f), -lightPos);
@@ -358,6 +359,7 @@ std::span<GPU_perShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryA
         for(int i =0; i < 6; i++)
         {
             outputSpan[i].projMatrix = lightProjection;
+          
         }
         return  outputSpan;
     }

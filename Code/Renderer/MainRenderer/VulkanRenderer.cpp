@@ -54,7 +54,7 @@ FullShaderHandle SHADOW_PREPASS_SHADER_INDEX = {SIZE_MAX,SIZE_MAX};
 FullShaderHandle DEBUG_LINE_SHADER_INDEX = {SIZE_MAX,SIZE_MAX};
 FullShaderHandle  DEBUG_RAYMARCH_SHADER_INDEX ={SIZE_MAX,SIZE_MAX};
 //Slowly making this less of a giant class that owns lots of things and moving to these static FNS -- will eventually migrate thewm
-
+RenderPassDrawData DebugCullingData[100];
 LinearDictionary<FullShaderHandle, FullShaderHandle> PlaceholderDepthPassLookup = {};
 
 PerSceneShadowResources init_allocate_shadow_memory(rendererObjects initializedrenderer,
@@ -913,10 +913,13 @@ void RecordCullingCommands(ArenaAllocator allocator, VkPipelineLayout layout, Ac
     
     //Culling override code
     uint32_t cullFrustumIndex = passIndex * 6; //this doesn't seem right!
+    float nearPlane = conf.nearPlane;
     if (debug_cull_override)
     {
         cullFrustumIndex =  debug_cull_override_index * 6;
         passIndex =  debug_cull_override_index;
+        nearPlane = DebugCullingData[passIndex].nearPlane;
+        
     }
 
     GPU_CullPushConstants* cullconstants = MemoryArena::Alloc<GPU_CullPushConstants>(allocator);
@@ -928,8 +931,9 @@ void RecordCullingCommands(ArenaAllocator allocator, VkPipelineLayout layout, Ac
         .frustumOffset = cullFrustumIndex,
         .objectCount = conf.drawCount,
         .LATE_CULL = 0,
-        .disable = (uint32_t)debug_shader_bool_2};
-
+        .disable = (uint32_t)debug_shader_bool_2,
+        .nearPlane = nearPlane
+        };
 
     assert(commandBufferContext.commandBufferActive);
 
@@ -1592,15 +1596,17 @@ void VulkanRenderer::RenderFrame(Scene* scene)
         {
             auto view = perLightShadowData[i][j].viewMatrix;
             auto proj =  perLightShadowData[i][j].projMatrix;
-            flatShadowData.push_back({.viewMatrix = view, .projMatrix = proj, .depth = -1});
+            flatShadowData.push_back({.viewMatrix = view, .projMatrix = proj, .nearPlane = perLightShadowData[i][j].nearPlane,.depth = perLightShadowData[i][j].depth });
         }
     }
 
     //Create shadow info for passes
     Array<RenderPassDrawData> shadowPassData = MemoryArena::AllocSpan<RenderPassDrawData>(&perFrameArenas[currentFrame], MAX_RENDER_PASSES);
+    uint32_t batchIndex =0;
     for (auto& shadowData : flatShadowData.getSpan())
     {
-        shadowPassData.push_back({.drawCount = drawPerPass, .drawOffset = drawOffset,.subMeshcount = submeshperPass, .proj = shadowData.projMatrix, .view = shadowData.viewMatrix });
+        shadowPassData.push_back({.drawCount = drawPerPass, .drawOffset = drawOffset,.subMeshcount = submeshperPass, .proj = shadowData.projMatrix, .view = shadowData.viewMatrix, .nearPlane = shadowData.nearPlane});
+        DebugCullingData[batchIndex++] = (shadowPassData.back());
         drawOffset += drawPerPass;
     }
    
@@ -1615,14 +1621,15 @@ void VulkanRenderer::RenderFrame(Scene* scene)
         debugLinesManager.AddDebugFrustum(frustumCornersWorldSpace);
     }
     
-    RenderPassDrawData opaquePassData = {.drawCount = drawPerPass, .drawOffset = drawOffset, .subMeshcount = submeshperPass,.proj = viewProjMatricesForCulling.proj, .view = viewProjMatricesForCulling.view };
-    
+    RenderPassDrawData opaquePassData = {.drawCount = drawPerPass, .drawOffset = drawOffset, .subMeshcount = submeshperPass,.proj = viewProjMatricesForCulling.proj, .view = viewProjMatricesForCulling.view, .nearPlane =  CAMERA_NEAR_PLANE };
+    DebugCullingData[batchIndex++] = (opaquePassData);
     
     Array<RenderBatch> renderBatches = MemoryArena::AllocSpan<RenderBatch>(&perFrameArenas[currentFrame], MAX_RENDER_PASSES);
     auto ShadowPassConfigs = createShadowPassConfigs(&perFrameArenas[currentFrame], shadowPassData.getSpan(), shadowResources.shadowMapSingleLayerViews[currentFrame]);
     for (int i =0; i < ShadowPassConfigs.size(); i++)
     {
         renderBatches.push_back(CreateRenderBatch( &renderPassContext, ShadowPassConfigs[i],  shadowPassData[i], true, shadowLayoutIDX, opaqueObjectShaderSets.shadowShaders.getSpan(), "shadow"));
+      
     }
     
     //This "add batches" concept was an earlier misguided design choice. Right now it's still here, but I'm hackily getting subspans out of it so I cna submit them independantly in order, separated by barriers.
