@@ -40,7 +40,8 @@
 #include "General/LinearDictionary.h"
 #include "General/ThreadedTextureLoading.h"
 #include "Renderer/gltf/gltf_impl.h"
-
+//Should move somewhere
+#include <fmtInclude.h>
 struct GPU_perShadowData;
 std::vector<unsigned int> pastTimes;
 unsigned int averageCbTime;
@@ -145,6 +146,7 @@ void VulkanRenderer::UpdateShadowImageViews(int frame, sceneCountData lightData)
        
     shadowResources.shadowMapSingleLayerViews[frame] =  MemoryArena::AllocSpan<VkImageView>(&rendererArena, MAX_SHADOWMAPS);
     shadowResources.WIP_shadowDepthPyramidInfos[frame] = MemoryArena::AllocSpan<DepthPyramidInfo>(&rendererArena, MAX_SHADOWMAPS);
+    auto scratchMemory = GetScratchMemory();
     for (int j = 0; j < MAX_SHADOWMAPS; j++)
     {
         shadowResources.shadowMapSingleLayerViews[frame][j] = TextureUtilities::createImageViewCustomMip(
@@ -153,10 +155,16 @@ void VulkanRenderer::UpdateShadowImageViews(int frame, sceneCountData lightData)
             (VkImageViewType)  VK_IMAGE_TYPE_2D,
             1, 
             j,1, 0);
-
+        fmt::format_to_n(scratchMemory.begin(), scratchMemory.size(), "ShadowMap{}\0", j);
+        SetDebugObjectName(vulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_IMAGE_VIEW,scratchMemory.data(), (uint64_t)shadowResources.shadowMapSingleLayerViews[frame][j]);
+     
+    }
+    for (int j = 0; j < MAX_SHADOWMAPS_WITH_CULLING; j++)
+    {
+        fmt::format_to_n(scratchMemory.begin(), scratchMemory.size(), "ShadowMapPyramid{}\0", j);
         shadowResources.WIP_shadowDepthPyramidInfos[frame][j] = 
-			static_createDepthPyramidResources(vulkanObjects, &rendererArena, deletionQueue.get(), 
-											  commandPoolmanager.get());
+            static_createDepthPyramidResources(vulkanObjects, &rendererArena, scratchMemory.data(), deletionQueue.get(), 
+                                              commandPoolmanager.get());
     }
 
     shadowResources.shadowMapTextureArrayViews[frame] =  MemoryArena::AllocSpan<VkImageView>(&rendererArena, MAX_SHADOWCASTERS);
@@ -173,7 +181,7 @@ void VulkanRenderer::UpdateShadowImageViews(int frame, sceneCountData lightData)
            
             shadowResources.shadowMapTextureArrayViews[frame][j] = TextureUtilities::createImageViewCustomMip(
                 getPartialRendererContext(), shadowResources.shadowImages[frame], shadowFormat,
-                VK_IMAGE_ASPECT_COLOR_BIT,
+                VK_IMAGE_ASPECT_DEPTH_BIT,
                 (VkImageViewType)  type,
                 ct, 
                 (uint32_t)Scene::getShadowDataIndex(j, lightData.lightTypes), 1, 0);
@@ -343,14 +351,16 @@ void VulkanRenderer::InitializeRendererForScene(sceneCountData sceneCountData) /
 {
     //shadows
     perLightShadowData = MemoryArena::AllocSpan<std::span<GPU_perShadowData>>(&rendererArena, sceneCountData.lightCount);
-    
+    auto scratchMemory = GetScratchMemory();
     for(int i = 0; i < MAX_FRAMES_IN_FLIGHT ; i++)
     {
         TextureUtilities::createImage(getPartialRendererContext(),SHADOW_MAP_SIZE, SHADOW_MAP_SIZE,shadowFormat,VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
                                       VK_IMAGE_USAGE_SAMPLED_BIT,0,shadowResources.shadowImages[i],shadowResources.shadowMemory[i],1, MAX_SHADOWMAPS, true);
         TextureCreation::CreateTextureSampler(&shadowResources.shadowSamplers[i], GetMainRendererContext(), VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER, 0, 1, true);
-        SetDebugObjectName(vulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_IMAGE, "SHADOW IMAGE", (uint64_t)(shadowResources.shadowImages[i]));
-        SetDebugObjectName(vulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_SAMPLER, "SHADOW IMAGE SAMPLER", (uint64_t)(shadowResources.shadowSamplers[i]));
+        fmt::format_to_n(scratchMemory.begin(),  scratchMemory.size(), "SHADOW IMAGE FRAME{}\0",i);
+        SetDebugObjectName(vulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_IMAGE, scratchMemory.subspan(0).data(), (uint64_t)(shadowResources.shadowImages[i]));
+        fmt::format_to_n(scratchMemory.begin(),  scratchMemory.size(), "SHADOW SAMPLER FRAME{}\0",i);
+        SetDebugObjectName(vulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_SAMPLER, scratchMemory.subspan(0).data(), (uint64_t)(shadowResources.shadowSamplers[i]));
         UpdateShadowImageViews(i, sceneCountData);
     }
 
@@ -437,7 +447,7 @@ void VulkanRenderer::CreateUniformBuffers( size_t drawCount, size_t objectsCount
       
         
         GetFrameData(i).drawBuffers = createDataBuffer<drawCommandData>(&context, MAX_DRAWINDIRECT_COMMANDS, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
-        SetDebugObjectName(context.device, VK_OBJECT_TYPE_BUFFER, "draw indirect buffer", (uint64_t)GetFrameData(i).drawBuffers.buffer.data);
+        SetDebugObjectNameS(context.device, VK_OBJECT_TYPE_BUFFER, "draw indirect buffer", (uint64_t)GetFrameData(i).drawBuffers.buffer.data);
         GetFrameData(i).frustumsForCullBuffers = createDataBuffer<glm::vec4>(&context, (MAX_SHADOWMAPS + MAX_CAMERAS) * 6, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 
     }
@@ -851,7 +861,6 @@ void VulkanRenderer::updateBindingsComputeCulling(ActiveRenderStepData commandBu
 	depthViews[cullingIndex] = {
 		.imageView = globalResources.depthPyramidInfoPerFrame[currentFrame].view, .imageLayout = VK_IMAGE_LAYOUT_GENERAL
 	};
-
 	depthSampler[cullingIndex] = {
 		.sampler  =globalResources.readDepthMipSampler, .imageLayout = VK_IMAGE_LAYOUT_GENERAL
 	};
@@ -914,11 +923,15 @@ void RecordCullingCommands(ArenaAllocator allocator, VkPipelineLayout layout, Ac
     //Culling override code
     uint32_t cullFrustumIndex = passIndex * 6; //this doesn't seem right!
     float nearPlane = conf.nearPlane;
+    glm::mat4& proj = conf.proj;
+    glm::mat4& view = conf.view;
     if (debug_cull_override)
     {
         cullFrustumIndex =  debug_cull_override_index * 6;
         passIndex =  debug_cull_override_index;
         nearPlane = DebugCullingData[passIndex].nearPlane;
+        proj = DebugCullingData[passIndex].proj;
+        proj = DebugCullingData[passIndex].proj;
         
     }
 
@@ -1007,6 +1020,8 @@ void VulkanRenderer::RecordMipChainCompute(ActiveRenderStepData commandBufferCon
         *spyramidSamplerInfo = {
             .sampler  =globalResources.writeDepthMipSampler, .imageLayout = VK_IMAGE_LAYOUT_GENERAL
         };
+
+        
   
         std::span<descriptorUpdateData> descriptorUpdates = MemoryArena::AllocSpan<descriptorUpdateData>(arena, 3);
 
@@ -1039,7 +1054,6 @@ void VulkanRenderer::RecordMipChainCompute(ActiveRenderStepData commandBufferCon
         //Dispatch for all the pixels?
         vkCmdDispatch(commandBufferContext.commandBuffer, outputWidth, outputHeight, 1);
 
-//todo js
         VkImageMemoryBarrier2 barrier = GetImageBarrier(dstImage,
             VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
             VK_ACCESS_MEMORY_WRITE_BIT,
@@ -1483,7 +1497,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
              VkSemaphore* SignalSemaphore = nullptr, VkFence* CbufferSignalFence = nullptr, bool transferQueue = false) 
         {
             auto commandBuffer = AllocateAndBeginCommandBuffer(device, poolManager, transferQueue);
-            SetDebugObjectName(device,VK_OBJECT_TYPE_COMMAND_BUFFER, cbufferDebugName, (uint64_t)commandBuffer);
+            SetDebugObjectNameS(device,VK_OBJECT_TYPE_COMMAND_BUFFER, cbufferDebugName, (uint64_t)commandBuffer);
           
             auto boundDescriptorSets = MemoryArena::AllocSpan<VkDescriptorSet>(arena, 4);
             for (int i = 0; i <boundDescriptorSets.size(); i++)
@@ -1693,13 +1707,25 @@ void VulkanRenderer::RenderFrame(Scene* scene)
            0,
         VK_REMAINING_MIP_LEVELS);
     //Does this work? Different commandbuffer than mipchain compute 
-    SetPipelineBarrier(OpaqueStep->commandBuffer,0,0,0,1, &depthtoCompute );
+    SetPipelineBarrier(BeforeCullingStep->commandBuffer,0,0,0,1, &depthtoCompute );
 
-
+    //barrier for shadows to compute
+    VkImageMemoryBarrier2 shadowToCompute = GetImageBarrier(shadowResources.shadowImages[currentFrame],
+    VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT, 
+       VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+       VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+       VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT ,
+       VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_MEMORY_READ_BIT,
+       VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+       VK_IMAGE_ASPECT_DEPTH_BIT,
+       0,
+    VK_REMAINING_MIP_LEVELS);
+    SetPipelineBarrier(BeforeCullingStep->commandBuffer,0,0,0,1, &shadowToCompute );
     uint32_t shadowmapIndex = 0;
 	//TODO: Use a more bindless structure for mipchain compute, bind resources once and index in to textures
     for(int i =0; i < scene->lightCount; i++)
     {
+
 		for (int j = 0; j < shadowCountFromLightType(scene->lightTypes[i]); j++)
 		{
 		auto& shadowPyramidData = shadowResources.WIP_shadowDepthPyramidInfos[currentFrame][shadowmapIndex];
@@ -1742,7 +1768,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
 
     //Culling for shadows
     uint32_t cullPassIndex = 0;
-    for(int j = 0; j < shadowBatches.size(); j++)
+    for(int j = 0; j < (shadowBatches.size() < MAX_SHADOWMAPS_WITH_CULLING ? shadowBatches.size() : MAX_SHADOWMAPS_WITH_CULLING); j++)
     {
             RecordCullingCommands(&perFrameArenas[currentFrame],  pipelineLayoutManager.GetLayout(cullingLayoutIDX), *CullingStep,cullPassIndex++, shadowPassData[j], thisFrameData->drawBuffers.buffer.data);
     }
@@ -1775,7 +1801,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     //After render steps
     //
     //
-
+    RecordUtilityPasses(OpaqueStep->commandBuffer, currentFrame);
     VkImageMemoryBarrier2 swapchainToPresent = GetImageBarrier(globalResources.swapchainImages[thisFrameData->swapChainIndex],
          VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, 
          VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
@@ -1803,7 +1829,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     SubmitCommandBuffer(BeforeCullingStep);
     EndCommandBufferForStep(CullingStep);
     SubmitCommandBuffer(CullingStep);
-    RecordUtilityPasses(OpaqueStep->commandBuffer, currentFrame);
+ 
     EndCommandBufferForStep(OpaqueStep);
     SubmitCommandBuffer(OpaqueStep);
 

@@ -306,10 +306,10 @@ std::span<GPU_perShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryA
                 transformedCenter = texelInverse * transformedCenter ;
                 //Compute output matrices
                 lightViewMatrix = glm::lookAt(glm::vec3(transformedCenter)  + ((dir * maxExtents) * distanceOffset), glm::vec3(transformedCenter), up);
-                glm::mat4 lightOrthoMatrix = glm::ortho(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, (min_cascade + (maxExtents.z - minExtents.z) * distanceOffset), 0.f) ;
+                glm::mat4 lightOrthoMatrix = glm::ortho(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, (min_cascade + (maxExtents.z - minExtents.z) * distanceOffset), 0.001f) ;
 
                 lightProjection =  lightOrthoMatrix;
-                outputSpan[i] = {lightViewMatrix, lightProjection,  -1000.f/*todo*/,(min_cascade + ((maxExtents.z - minExtents.z) /2.f)  )};
+                outputSpan[i] = {lightViewMatrix, lightProjection,  0.001f/*todo*/,(min_cascade + ((maxExtents.z - minExtents.z) /2.f)  )};
             }
             return  outputSpan.subspan(0,CASCADE_CT);
         }

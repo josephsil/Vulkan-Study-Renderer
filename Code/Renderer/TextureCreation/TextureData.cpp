@@ -651,11 +651,11 @@ static TextureCreation::stagingTextureData CreateTextureImage(PerThreadRenderCon
                                       fullMipPyramid, workingTextureBuffer); //TODO JS: centralize mip levels
 
 
-    SetDebugObjectName(rendererContext.device, VK_OBJECT_TYPE_IMAGE, "temporary texture info image",
+    SetDebugObjectNameS(rendererContext.device, VK_OBJECT_TYPE_IMAGE, "temporary texture info image",
                        (uint64_t)_textureImage);
-    SetDebugObjectName(rendererContext.device, VK_OBJECT_TYPE_BUFFER, "temporary texture info buffer",
+    SetDebugObjectNameS(rendererContext.device, VK_OBJECT_TYPE_BUFFER, "temporary texture info buffer",
                        (uint64_t)stagingBuffer);
-    SetDebugObjectName(rendererContext.device, VK_OBJECT_TYPE_BUFFER, "temporary texture info buffer",
+    SetDebugObjectNameS(rendererContext.device, VK_OBJECT_TYPE_BUFFER, "temporary texture info buffer",
                        (uint64_t)stagingBuffer);
 
    
@@ -717,7 +717,7 @@ TextureMetaData TextureCreation::CreateImageFromCachedKTX(PerThreadRenderContext
 
     GET_QUEUES()->graphicsQueueMutex.unlock(); //todo js
 
-    SetDebugObjectName(rendererContext.device, VK_OBJECT_TYPE_IMAGE, path, (uint64_t)texture.image);
+    SetDebugObjectNameS(rendererContext.device, VK_OBJECT_TYPE_IMAGE, path, (uint64_t)texture.image);
 
     rendererContext.threadDeletionQueue->push_backVk(deletionType::KTXDestroyTexture, (uint64_t)kTexture);
 

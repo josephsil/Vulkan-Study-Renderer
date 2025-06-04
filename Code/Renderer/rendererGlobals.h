@@ -8,6 +8,7 @@ static constexpr int HEIGHT = (int)(720 * 1.5);
 static constexpr size_t MAX_SHADOWCASTERS = 8;
 
 #define MAX_SHADOWMAPS (MAX_SHADOWCASTERS * 8)
+#define MAX_SHADOWMAPS_WITH_CULLING (8)
 static constexpr int MAX_CAMERAS = 1;
 static constexpr int HIZDEPTH = 10;
 static constexpr int MAX_FRAMES_IN_FLIGHT = 3;
@@ -27,10 +28,12 @@ std::span<T > CreatePerFrameCollection(MemoryArena::memoryArena* arena)
     return MemoryArena::AllocSpan<T >(arena, MAX_FRAMES_IN_FLIGHT);
 }
 
+std::span<char> GetScratchMemory();
 void registerDebugUtilsFn(PFN_vkSetDebugUtilsObjectNameEXT ptr);
 void registerTransitionImagefn(PFN_vkTransitionImageLayoutEXT ptr);
 void registerCopyImageToMemoryFn(PFN_vkCopyImageToMemoryEXT ptr);
-void SetDebugObjectName(VkDevice device, VkObjectType type, std::string name, uint64_t handle);
+void SetDebugObjectName(VkDevice device, VkObjectType type, char* name, uint64_t handle);
+void SetDebugObjectNameS(VkDevice device, VkObjectType type, std::string name, uint64_t handle);
 const char* GetDebugObjectName(uint64_t handle);
 void vkTransitionImageLayout(
     VkDevice                                    device,

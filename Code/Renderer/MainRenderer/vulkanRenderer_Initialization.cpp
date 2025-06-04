@@ -145,9 +145,9 @@ GlobalRendererResources static_initializeResources(rendererObjects initializedre
     std::vector<VkImageView> swapchainImageViews = initializedrenderer.swapchain.get_image_views().value();
     for (int i = 0; i < swapchainImageViews.size(); i++)
     {
-        SetDebugObjectName(initializedrenderer.vkbdevice.device, VK_OBJECT_TYPE_IMAGE, "Swapchain image",
+        SetDebugObjectNameS(initializedrenderer.vkbdevice.device, VK_OBJECT_TYPE_IMAGE, "Swapchain image",
                            uint64_t(swapchainImages[i]));
-        SetDebugObjectName(initializedrenderer.vkbdevice.device, VK_OBJECT_TYPE_IMAGE_VIEW, "Swapchain image view",
+        SetDebugObjectNameS(initializedrenderer.vkbdevice.device, VK_OBJECT_TYPE_IMAGE_VIEW, "Swapchain image view",
                            uint64_t(swapchainImageViews[i]));
     }
 
@@ -172,7 +172,7 @@ GlobalRendererResources static_initializeResources(rendererObjects initializedre
     {
         depthBufferPerFrame.push_back(static_createDepthResources(initializedrenderer, allocationArena, deletionQueue,
                                                        commandPoolmanager));
-        depthPyramidPerFrame.push_back(static_createDepthPyramidResources(initializedrenderer, allocationArena, deletionQueue,
+        depthPyramidPerFrame.push_back(static_createDepthPyramidResources(initializedrenderer,  allocationArena,"DepthPyramid", deletionQueue,
                                                                commandPoolmanager));
     }
     return {

@@ -25,6 +25,7 @@ struct rendererObjects
     VmaAllocator vmaAllocator;
     VkSurfaceKHR surface; //not sure I need surface for anything except cleanup?
     vkb::Swapchain swapchain;
+    
     //maybe move these two
 };
 

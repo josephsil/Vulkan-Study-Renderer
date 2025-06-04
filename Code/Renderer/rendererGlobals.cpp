@@ -5,13 +5,30 @@
 #include "minwindef.h"
 #include "libloaderapi.h"
 PFN_vkSetDebugUtilsObjectNameEXT FP_vkSetDebugUtilsObjectNameEXT;
+char scratchMemory[256];
+
+std::span<char> GetScratchMemory()
+{
+    return scratchMemory;
+}
 
 void registerDebugUtilsFn(PFN_vkSetDebugUtilsObjectNameEXT ptr)
 {
     FP_vkSetDebugUtilsObjectNameEXT = ptr;
 }
+void SetDebugObjectName(VkDevice device, VkObjectType type, char* name, uint64_t handle)
+{
+    VkDebugUtilsObjectNameInfoEXT DebugUtilsObjectNameInfo{};
+    DebugUtilsObjectNameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
+    DebugUtilsObjectNameInfo.pNext = nullptr;
+    DebugUtilsObjectNameInfo.objectType = type;
+    DebugUtilsObjectNameInfo.objectHandle = handle;
+    DebugUtilsObjectNameInfo.pObjectName = name;
 
-void SetDebugObjectName(VkDevice device, VkObjectType type, std::string name, uint64_t handle)
+    FP_vkSetDebugUtilsObjectNameEXT(device, &DebugUtilsObjectNameInfo);
+}
+
+void SetDebugObjectNameS(VkDevice device, VkObjectType type, std::string name, uint64_t handle)
 {
     VkDebugUtilsObjectNameInfoEXT DebugUtilsObjectNameInfo{};
     DebugUtilsObjectNameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
