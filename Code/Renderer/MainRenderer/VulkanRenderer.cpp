@@ -69,7 +69,7 @@ size_t UpdateDrawCommanddataDrawIndirectCommands(AssetManager* rendererData,
 
 VulkanRenderer::VulkanRenderer()
 {
-    this->deletionQueue = std::make_unique<RendererDeletionQueue>(rendererVulkanObjects.vkbdevice, rendererVulkanObjects.vmaAllocator);
+    this->deletionQueue = std::make_unique<RendererDeletionQueue>(vulkanObjects.vkbdevice, vulkanObjects.vmaAllocator);
   
     
     //Initialize memory arenas we use throughout renderer 
@@ -86,13 +86,13 @@ VulkanRenderer::VulkanRenderer()
     
     //Initialize the window and vulkan renderer
     initializeWindow();
-    rendererVulkanObjects = initializeVulkanObjects(_window, WIDTH, HEIGHT);
+    vulkanObjects = initializeVulkanObjects(_window, WIDTH, HEIGHT);
 
     //Initialize the main datastructures the renderer uses
-    INIT_QUEUES(rendererVulkanObjects.vkbdevice);
-    commandPoolmanager = std::make_unique<CommandPoolManager>(rendererVulkanObjects.vkbdevice, deletionQueue.get());
-    globalResources = static_initializeResources(rendererVulkanObjects, &rendererArena, deletionQueue.get(),commandPoolmanager.get());
-    shadowResources = init_allocate_shadow_memory(rendererVulkanObjects, &rendererArena);
+    INIT_QUEUES(vulkanObjects.vkbdevice);
+    commandPoolmanager = std::make_unique<CommandPoolManager>(vulkanObjects.vkbdevice, deletionQueue.get());
+    globalResources = static_initializeResources(vulkanObjects, &rendererArena, deletionQueue.get(),commandPoolmanager.get());
+    shadowResources = init_allocate_shadow_memory(vulkanObjects, &rendererArena);
 
 
     perFrameData = MemoryArena::AllocSpan<FrameData>(&rendererArena, MAX_FRAMES_IN_FLIGHT);
@@ -101,14 +101,14 @@ VulkanRenderer::VulkanRenderer()
     //semaphores
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        createSemaphore(rendererVulkanObjects.vkbdevice.device, &(perFrameData[i].perFrameSemaphores.swapchainSemaphore), "Per Frame swapchain ready semaphore", deletionQueue.get());
-        createSemaphore(rendererVulkanObjects.vkbdevice.device, &(perFrameData[i].perFrameSemaphores.prepassSemaphore), "Per Frame prepass finished semaphore", deletionQueue.get());
-        createSemaphore(rendererVulkanObjects.vkbdevice.device, &(perFrameData[i].perFrameSemaphores.presentSemaphore), "Per Frame ready to present semaphore", deletionQueue.get());
-        createSemaphore(rendererVulkanObjects.vkbdevice.device, &(perFrameData[i].perFrameSemaphores.cullingSemaphore), "Per Frame finished culling semaphore", deletionQueue.get());
-        static_createFence(rendererVulkanObjects.vkbdevice.device,  &perFrameData[i].inFlightFence, "Per Frame finished rendering Fence", deletionQueue.get());
-        static_createFence(rendererVulkanObjects.vkbdevice.device,  &perFrameData[i].perFrameSemaphores.cullingFence, "Per frame culling fence", deletionQueue.get() );
-        vkResetFences(rendererVulkanObjects.vkbdevice.device,  1, &perFrameData[i].perFrameSemaphores.cullingFence);
-       perFrameDeletionQueuse[i] = std::make_unique<RendererDeletionQueue>(rendererVulkanObjects.vkbdevice, rendererVulkanObjects.vmaAllocator); //todo js double create, oops
+        createSemaphore(vulkanObjects.vkbdevice.device, &(perFrameData[i].perFrameSemaphores.swapchainSemaphore), "Per Frame swapchain ready semaphore", deletionQueue.get());
+        createSemaphore(vulkanObjects.vkbdevice.device, &(perFrameData[i].perFrameSemaphores.prepassSemaphore), "Per Frame prepass finished semaphore", deletionQueue.get());
+        createSemaphore(vulkanObjects.vkbdevice.device, &(perFrameData[i].perFrameSemaphores.presentSemaphore), "Per Frame ready to present semaphore", deletionQueue.get());
+        createSemaphore(vulkanObjects.vkbdevice.device, &(perFrameData[i].perFrameSemaphores.cullingSemaphore), "Per Frame finished culling semaphore", deletionQueue.get());
+        static_createFence(vulkanObjects.vkbdevice.device,  &perFrameData[i].inFlightFence, "Per Frame finished rendering Fence", deletionQueue.get());
+        static_createFence(vulkanObjects.vkbdevice.device,  &perFrameData[i].perFrameSemaphores.cullingFence, "Per frame culling fence", deletionQueue.get() );
+        vkResetFences(vulkanObjects.vkbdevice.device,  1, &perFrameData[i].perFrameSemaphores.cullingFence);
+       perFrameDeletionQueuse[i] = std::make_unique<RendererDeletionQueue>(vulkanObjects.vkbdevice, vulkanObjects.vmaAllocator); //todo js double create, oops
     }
     //Initialize sceneData
     AssetDataAndMemory = GetGlobalAssetManager();
@@ -121,15 +121,15 @@ VulkanRenderer::VulkanRenderer()
 PerThreadRenderContext VulkanRenderer::GetMainRendererContext()
 {
     return PerThreadRenderContext{
-        .physicalDevice = rendererVulkanObjects.vkbdevice.physical_device,
-        .device =  rendererVulkanObjects.vkbdevice.device,
+        .physicalDevice = vulkanObjects.vkbdevice.physical_device,
+        .device =  vulkanObjects.vkbdevice.device,
         .textureCreationcommandPoolmanager = commandPoolmanager.get(),
-        .allocator =  rendererVulkanObjects.vmaAllocator,
+        .allocator =  vulkanObjects.vmaAllocator,
         .arena = &rendererArena,
         .tempArena = &perFrameArenas[currentFrame],
         .threadDeletionQueue = deletionQueue.get(),
         .ImportFence = VK_NULL_HANDLE, //todo js
-        .vkbd = &rendererVulkanObjects.vkbdevice,
+        .vkbd = &vulkanObjects.vkbdevice,
         };
 }
 
@@ -142,23 +142,24 @@ BufferCreationContext VulkanRenderer::getPartialRendererContext()
 
 void VulkanRenderer::UpdateShadowImageViews(int frame, sceneCountData lightData)
 {
-    int i = frame;
        
-    shadowResources.shadowMapRenderingImageViews[i] =  MemoryArena::AllocSpan<VkImageView>(&rendererArena, MAX_SHADOWMAPS);
-    shadowResources.WIP_shadowDepthPyramidInfos[i] = MemoryArena::AllocSpan<DepthPyramidInfo>(&rendererArena, MAX_SHADOWMAPS);
+    shadowResources.shadowMapSingleLayerViews[frame] =  MemoryArena::AllocSpan<VkImageView>(&rendererArena, MAX_SHADOWMAPS);
+    shadowResources.WIP_shadowDepthPyramidInfos[frame] = MemoryArena::AllocSpan<DepthPyramidInfo>(&rendererArena, MAX_SHADOWMAPS);
     for (int j = 0; j < MAX_SHADOWMAPS; j++)
     {
-        shadowResources.shadowMapRenderingImageViews[i][j] = TextureUtilities::createImageViewCustomMip(
-            getPartialRendererContext(), shadowResources.shadowImages[i], shadowFormat,
+        shadowResources.shadowMapSingleLayerViews[frame][j] = TextureUtilities::createImageViewCustomMip(
+            getPartialRendererContext(), shadowResources.shadowImages[frame], shadowFormat,
             VK_IMAGE_ASPECT_DEPTH_BIT,
             (VkImageViewType)  VK_IMAGE_TYPE_2D,
             1, 
             j,1, 0);
 
-        shadowResources.WIP_shadowDepthPyramidInfos[i][j] = static_createDepthPyramidResources(rendererVulkanObjects, &rendererArena, deletionQueue.get(), commandPoolmanager.get());
+        shadowResources.WIP_shadowDepthPyramidInfos[frame][j] = 
+			static_createDepthPyramidResources(vulkanObjects, &rendererArena, deletionQueue.get(), 
+											  commandPoolmanager.get());
     }
 
-    shadowResources.shadowMapSamplingImageViews[i] =  MemoryArena::AllocSpan<VkImageView>(&rendererArena, MAX_SHADOWCASTERS);
+    shadowResources.shadowMapTextureArrayViews[frame] =  MemoryArena::AllocSpan<VkImageView>(&rendererArena, MAX_SHADOWCASTERS);
     for (size_t j = 0; j < MAX_SHADOWCASTERS; j++)
     {
         if (j < glm::min(lightData.lightCount, MAX_SHADOWCASTERS))
@@ -170,8 +171,8 @@ void VulkanRenderer::UpdateShadowImageViews(int frame, sceneCountData lightData)
                 type = VK_IMAGE_VIEW_TYPE_CUBE;
             }
            
-            shadowResources.shadowMapSamplingImageViews[i][j] = TextureUtilities::createImageViewCustomMip(
-                getPartialRendererContext(), shadowResources.shadowImages[i], shadowFormat,
+            shadowResources.shadowMapTextureArrayViews[frame][j] = TextureUtilities::createImageViewCustomMip(
+                getPartialRendererContext(), shadowResources.shadowImages[frame], shadowFormat,
                 VK_IMAGE_ASPECT_COLOR_BIT,
                 (VkImageViewType)  type,
                 ct, 
@@ -181,7 +182,7 @@ void VulkanRenderer::UpdateShadowImageViews(int frame, sceneCountData lightData)
         }
         else
         {
-            shadowResources.shadowMapSamplingImageViews[i][j] = shadowResources.shadowMapRenderingImageViews[i][j];
+            shadowResources.shadowMapTextureArrayViews[frame][j] = shadowResources.shadowMapSingleLayerViews[frame][j];
         }
     }
 }
@@ -201,8 +202,8 @@ static PerSceneShadowResources init_allocate_shadow_memory(rendererObjects initi
 
     return {
         
-        .shadowMapRenderingImageViews = (shadowMapRenderingImageViews),
-        .shadowMapSamplingImageViews =  (shadowMapSamplingImageViews),
+        .shadowMapSingleLayerViews = (shadowMapRenderingImageViews),
+        .shadowMapTextureArrayViews =  (shadowMapSamplingImageViews),
         .shadowSamplers =shadowSamplers,
         .shadowImages =shadowImages,
         .WIP_shadowDepthPyramidInfos = shadowMapDepthImageInfos,
@@ -252,11 +253,11 @@ void VulkanRenderer::initializePipelines(size_t shadowCasterCount)
    
    
    VkDescriptorSetLayoutBinding cullLayoutBindings[6] = {};
-    cullLayoutBindings[0] = VkDescriptorSetLayoutBinding{0, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT,  VK_NULL_HANDLE};// images 1 //per scene
-    cullLayoutBindings[1] = VkDescriptorSetLayoutBinding{2, VK_DESCRIPTOR_TYPE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT , VK_NULL_HANDLE} ;// iamges  4  // perscene
-   cullLayoutBindings[2] = VkDescriptorSetLayoutBinding{12, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}; //frustum data
-   cullLayoutBindings[3] = VkDescriptorSetLayoutBinding{13, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}; //draws 
-   cullLayoutBindings[4] = VkDescriptorSetLayoutBinding{14, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}; //ObjectData
+	cullLayoutBindings[0] = VkDescriptorSetLayoutBinding{0, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, MAX_SHADOWMAPS +1, VK_SHADER_STAGE_COMPUTE_BIT,  VK_NULL_HANDLE};// images 1 //per scene
+	cullLayoutBindings[1] = VkDescriptorSetLayoutBinding{2, VK_DESCRIPTOR_TYPE_SAMPLER, MAX_SHADOWMAPS +1, VK_SHADER_STAGE_COMPUTE_BIT , VK_NULL_HANDLE} ;// iamges  4  // perscene
+    cullLayoutBindings[2] = VkDescriptorSetLayoutBinding{12, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}; //frustum data
+    cullLayoutBindings[3] = VkDescriptorSetLayoutBinding{13, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}; //draws 
+    cullLayoutBindings[4] = VkDescriptorSetLayoutBinding{14, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}; //ObjectData
     cullLayoutBindings[5] = VkDescriptorSetLayoutBinding{15, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}; //ObjectData
   
   
@@ -288,7 +289,7 @@ void VulkanRenderer::initializePipelines(size_t shadowCasterCount)
 
 
     //opaque
-    auto swapchainFormat = rendererVulkanObjects.swapchain.image_format;
+    auto swapchainFormat = vulkanObjects.swapchain.image_format;
     const GraphicsPipelineSettings opaquePipelineSettings =  {.colorFormats = std::span(&swapchainFormat, 1),.depthFormat =  globalResources.depthBufferInfoPerFrame[currentFrame].format, .depthWriteEnable = VK_FALSE};
     auto opaque1 = pipelineLayoutManager.createPipeline(opaqueLayoutIDX, globalResources.shaderLoader->compiledShaders["triangle_alt"],  "triangle_alt", opaquePipelineSettings);
     auto opaque2 = pipelineLayoutManager.createPipeline(opaqueLayoutIDX, globalResources.shaderLoader->compiledShaders["triangle"],  "triangle", opaquePipelineSettings);
@@ -333,13 +334,11 @@ void VulkanRenderer::initializePipelines(size_t shadowCasterCount)
     {
         for(auto compiled_shader : kvp.second)
         {
-            vkDestroyShaderModule(rendererVulkanObjects.vkbdevice.device, compiled_shader.module, nullptr);
+            vkDestroyShaderModule(vulkanObjects.vkbdevice.device, compiled_shader.module, nullptr);
         }
     }
 }
 
-//TODO JS: break dependency on Scene -- add some kind of interface or something.
-//TODO JS: The layout creation stuff is awful -- need a full rethink of how layouts are set up and bound to. want a single centralized place.
 void VulkanRenderer::InitializeRendererForScene(sceneCountData sceneCountData) //todo remaining initialization refactor
 {
     //shadows
@@ -348,10 +347,10 @@ void VulkanRenderer::InitializeRendererForScene(sceneCountData sceneCountData) /
     for(int i = 0; i < MAX_FRAMES_IN_FLIGHT ; i++)
     {
         TextureUtilities::createImage(getPartialRendererContext(),SHADOW_MAP_SIZE, SHADOW_MAP_SIZE,shadowFormat,VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
-               VK_IMAGE_USAGE_SAMPLED_BIT,0,shadowResources.shadowImages[i],shadowResources.shadowMemory[i],1, MAX_SHADOWMAPS, true);
+                                      VK_IMAGE_USAGE_SAMPLED_BIT,0,shadowResources.shadowImages[i],shadowResources.shadowMemory[i],1, MAX_SHADOWMAPS, true);
         TextureCreation::CreateTextureSampler(&shadowResources.shadowSamplers[i], GetMainRendererContext(), VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER, 0, 1, true);
-        SetDebugObjectName(rendererVulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_IMAGE, "SHADOW IMAGE", (uint64_t)(shadowResources.shadowImages[i]));
-        SetDebugObjectName(rendererVulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_SAMPLER, "SHADOW IMAGE SAMPLER", (uint64_t)(shadowResources.shadowSamplers[i]));
+        SetDebugObjectName(vulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_IMAGE, "SHADOW IMAGE", (uint64_t)(shadowResources.shadowImages[i]));
+        SetDebugObjectName(vulkanObjects.vkbdevice.device, VK_OBJECT_TYPE_SAMPLER, "SHADOW IMAGE SAMPLER", (uint64_t)(shadowResources.shadowSamplers[i]));
         UpdateShadowImageViews(i, sceneCountData);
     }
 
@@ -520,11 +519,11 @@ std::span<descriptorUpdateData> VulkanRenderer::CreatePerFrameDescriptorUpdates(
         VkImageView view {};
         if (i < shadowCasterCount) 
         {
-            view =  shadowResources.shadowMapSamplingImageViews[frame][i] ;
+            view =  shadowResources.shadowMapTextureArrayViews[frame][i] ;
         }
         else
         {
-            view = shadowResources.shadowMapSamplingImageViews[frame][0];
+            view = shadowResources.shadowMapTextureArrayViews[frame][0];
         }
         
         assert( &view != VK_NULL_HANDLE);
@@ -679,7 +678,6 @@ void VulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<std::spa
     {
         for (int j = 0; j < perLightShadowData[i].size(); j++)
         {
-            viewProj vp = LightAndCameraHelpers::CalcViewProjFromCamera(scene->sceneCamera);
             glm::mat4  projT =   transpose(perLightShadowData[i][j].projMatrix)  ;
             frustums[offset + 0] = projT[3] + projT[0];
             frustums[offset + 1] = projT[3] - projT[0];
@@ -824,25 +822,51 @@ void BeginRendering(VkRenderingAttachmentInfo* depthAttatchment, int colorAttatc
 
 //Needs a better name -- these are the higher level render passes, and then meshpasses are pipelines and object lists
 //This is everything we need to submit commands
-void VulkanRenderer::updateBindingsComputeCulling(ActiveRenderStepData commandBufferContext, 
+void VulkanRenderer::updateBindingsComputeCulling(ActiveRenderStepData commandBufferContext, Scene* scene,
     ArenaAllocator arena)
 {
 
-    VkDescriptorImageInfo& depthViews = MemoryArena::AllocSpan<VkDescriptorImageInfo>(arena, 1)[0];
-    VkDescriptorImageInfo& depthSampler = MemoryArena::AllocSpan<VkDescriptorImageInfo>(arena, 1)[0];
-    for(int i =0; i < globalResources.depthPyramidInfoPerFrame[currentFrame].viewsForMips.size(); i++)
+    std::span<VkDescriptorImageInfo> depthViews = MemoryArena::AllocSpan<VkDescriptorImageInfo>(arena, MAX_SHADOWMAPS + 1); //+1 for opaque
+    std::span<VkDescriptorImageInfo> depthSampler = MemoryArena::AllocSpan<VkDescriptorImageInfo>(arena, MAX_SHADOWMAPS + 1);
+
+	uint32_t cullingIndex = 0;
+
+	int shadowMapIndex = 0;
+	for(int i =0; i < scene->lightCount; i++)
+	{
+		for (int j = 0; j < shadowCountFromLightType(scene->lightTypes[i]); j++)
+		{
+			depthViews[cullingIndex] = {
+				.imageView = shadowResources.WIP_shadowDepthPyramidInfos[currentFrame][shadowMapIndex].view, 
+				.imageLayout = VK_IMAGE_LAYOUT_GENERAL 
+			};
+			depthSampler[cullingIndex] = {
+				.sampler  =globalResources.readDepthMipSampler, 
+				.imageLayout = VK_IMAGE_LAYOUT_GENERAL
+			};
+			shadowMapIndex++;
+			cullingIndex++;
+		}
+	}
+	depthViews[cullingIndex] = {
+		.imageView = globalResources.depthPyramidInfoPerFrame[currentFrame].view, .imageLayout = VK_IMAGE_LAYOUT_GENERAL
+	};
+
+	depthSampler[cullingIndex] = {
+		.sampler  =globalResources.readDepthMipSampler, .imageLayout = VK_IMAGE_LAYOUT_GENERAL
+	};
+    //Hack: fill the rest with padding
+    for(uint32_t i = cullingIndex; i < MAX_SHADOWMAPS +1; i++)
     {
-        depthViews = {
+        depthViews[i] = {
             .imageView = globalResources.depthPyramidInfoPerFrame[currentFrame].view, .imageLayout = VK_IMAGE_LAYOUT_GENERAL
         };
 
-        depthSampler = {
+        depthSampler[i] = {
             .sampler  =globalResources.readDepthMipSampler, .imageLayout = VK_IMAGE_LAYOUT_GENERAL
         };
-
-    
     }
- 
+	
 
     assert(commandBufferContext.commandBufferActive);
     VkDescriptorBufferInfo* frustumData =  MemoryArena::Alloc<VkDescriptorBufferInfo>(arena, 1);
@@ -859,8 +883,8 @@ void VulkanRenderer::updateBindingsComputeCulling(ActiveRenderStepData commandBu
     
     std::span<descriptorUpdateData> descriptorUpdates = MemoryArena::AllocSpan<descriptorUpdateData>(arena, 6);
 
-    descriptorUpdates[0] = {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, &depthViews,1 }; 
-    descriptorUpdates[1] = {VK_DESCRIPTOR_TYPE_SAMPLER, &depthSampler, 1}; //draws 
+    descriptorUpdates[0] = {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, depthViews.data(),MAX_SHADOWMAPS +1}; 
+    descriptorUpdates[1] = {VK_DESCRIPTOR_TYPE_SAMPLER, depthSampler.data(), MAX_SHADOWMAPS +1}; //draws 
 
     descriptorUpdates[2] = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, frustumData};  //frustum data
     descriptorUpdates[3] = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, computeDrawBuffer}; //draws 
@@ -892,13 +916,15 @@ void RecordCullingCommands(ArenaAllocator allocator, VkPipelineLayout layout, Ac
     if (debug_cull_override)
     {
         cullFrustumIndex =  debug_cull_override_index * 6;
+        passIndex =  debug_cull_override_index;
     }
 
     GPU_CullPushConstants* cullconstants = MemoryArena::Alloc<GPU_CullPushConstants>(allocator);
     *cullconstants = {
         .viewMatrix = conf.view,
         .projMatrix =  conf.proj,
-        .offset = conf.drawOffset,
+        .drawOffset = conf.drawOffset,
+		.passOffset =passIndex,
         .frustumOffset = cullFrustumIndex,
         .objectCount = conf.drawCount,
         .LATE_CULL = 0,
@@ -1034,7 +1060,7 @@ void VulkanRenderer::RecordUtilityPasses( VkCommandBuffer commandBuffer, size_t 
     BeginRendering(
         &utilityDepthAttatchment,
         1, &dynamicRenderingColorAttatchment,
-        rendererVulkanObjects.swapchain.extent,commandBuffer);
+        vulkanObjects.swapchain.extent,commandBuffer);
     
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, opaqueBindlessLayoutGroup);
     // debugLines.push_back({{0,0,0},{20,40,20}, {0,0,1}});
@@ -1199,7 +1225,7 @@ void VulkanRenderer::Update(Scene* scene)
     ImGui::Begin("RENDERER Buffer preview window");
     ImGui::Text("TODO");
     int shadowIndex =1;
-    VkDescriptorSet img = GetOrRegisterImguiTextureHandle(shadowResources.shadowSamplers[shadowIndex],shadowResources.shadowMapSamplingImageViews[shadowIndex][3]);
+    VkDescriptorSet img = GetOrRegisterImguiTextureHandle(shadowResources.shadowSamplers[shadowIndex],shadowResources.shadowMapTextureArrayViews[shadowIndex][3]);
     //todo js: need to change image before/after doing this? need to do this toa  copy? not sure -- get valdidation errors around layout
     // VkDescriptorSet img_depth_0 = GetOrRegisterImguiTextureHandle(rendererResources.depthMipSampler,rendererResources.depthBufferInfo.view);
     // VkDescriptorSet img_depth_1 = GetOrRegisterImguiTextureHandle(rendererResources.depthMipSampler,rendererResources.depthPyramidInfo.viewsForMips[4]);
@@ -1219,7 +1245,7 @@ void VulkanRenderer::Update(Scene* scene)
 
         // printf("begin wait for fence %d \n", currentFrame);
         clock_t before = clock();
-        vkWaitForFences(rendererVulkanObjects.vkbdevice.device, 1, &GetFrameData().inFlightFence, VK_TRUE, UINT64_MAX);
+        vkWaitForFences(vulkanObjects.vkbdevice.device, 1, &GetFrameData().inFlightFence, VK_TRUE, UINT64_MAX);
         //Render
 
       
@@ -1239,7 +1265,7 @@ void VulkanRenderer::Update(Scene* scene)
   
     }
   
-    vkResetFences(rendererVulkanObjects.vkbdevice.device, 1, &GetFrameData().inFlightFence);
+    vkResetFences(vulkanObjects.vkbdevice.device, 1, &GetFrameData().inFlightFence);
     uint64_t RenderLoop =SDL_GetPerformanceCounter();
     AssetDataAndMemory->Update();
 
@@ -1413,7 +1439,7 @@ VkCommandBuffer AllocateAndBeginCommandBuffer(VkDevice device, CommandPoolManage
 }
 void VulkanRenderer::RenderFrame(Scene* scene)
 {
-    vkResetFences(rendererVulkanObjects.vkbdevice.device, 1, &GetFrameData().perFrameSemaphores.cullingFence);
+    vkResetFences(vulkanObjects.vkbdevice.device, 1, &GetFrameData().perFrameSemaphores.cullingFence);
     auto priorFrame = currentFrame  == 0? MAX_FRAMES_IN_FLIGHT-1 : currentFrame -1;
     superLuminalAdd("RenderFrame");
     if (debug_cull_override_index != internal_debug_cull_override_index)
@@ -1430,7 +1456,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     VkRenderingAttachmentInfoKHR* depthDrawAttatchment = MemoryArena::Alloc<VkRenderingAttachmentInfoKHR>(&perFrameArenas[currentFrame]);
     *depthDrawAttatchment = CreateRenderingAttatchmentStruct( globalResources.depthBufferInfoPerFrame[currentFrame].view, 0.0, true);
     
-    vkAcquireNextImageKHR(rendererVulkanObjects.vkbdevice.device, rendererVulkanObjects.swapchain,
+    vkAcquireNextImageKHR(vulkanObjects.vkbdevice.device, vulkanObjects.swapchain,
         60000,thisFrameData->perFrameSemaphores.swapchainSemaphore, VK_NULL_HANDLE,&thisFrameData->swapChainIndex);
     
     //Sync data updated from the engine
@@ -1483,7 +1509,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
 
     OrderedCommandBufferSteps renderSteps =
         {
-        .device =   rendererVulkanObjects.vkbdevice.device,
+        .device =   vulkanObjects.vkbdevice.device,
         .renderstepDatas =  MemoryArena::AllocSpan<ActiveRenderStepData>(&perFrameArenas[currentFrame], 20),
         };
 
@@ -1593,7 +1619,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     
     
     Array<RenderBatch> renderBatches = MemoryArena::AllocSpan<RenderBatch>(&perFrameArenas[currentFrame], MAX_RENDER_PASSES);
-    auto ShadowPassConfigs = createShadowPassConfigs(&perFrameArenas[currentFrame], shadowPassData.getSpan(), shadowResources.shadowMapRenderingImageViews[currentFrame]);
+    auto ShadowPassConfigs = createShadowPassConfigs(&perFrameArenas[currentFrame], shadowPassData.getSpan(), shadowResources.shadowMapSingleLayerViews[currentFrame]);
     for (int i =0; i < ShadowPassConfigs.size(); i++)
     {
         renderBatches.push_back(CreateRenderBatch( &renderPassContext, ShadowPassConfigs[i],  shadowPassData[i], true, shadowLayoutIDX, opaqueObjectShaderSets.shadowShaders.getSpan(), "shadow"));
@@ -1602,13 +1628,13 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     //This "add batches" concept was an earlier misguided design choice. Right now it's still here, but I'm hackily getting subspans out of it so I cna submit them independantly in order, separated by barriers.
     auto shadowBatches = renderBatches.getSpan();
 
-    auto opaqueconfig = creatOpaquePassConfig(&perFrameArenas[currentFrame],opaquePassData,mainRenderTargetAttatchment, depthDrawAttatchment,  rendererVulkanObjects.swapchain.extent);
+    auto opaqueconfig = creatOpaquePassConfig(&perFrameArenas[currentFrame],opaquePassData,mainRenderTargetAttatchment, depthDrawAttatchment,  vulkanObjects.swapchain.extent);
     renderBatches.push_back(CreateRenderBatch(  &renderPassContext, opaqueconfig, opaquePassData,false,  opaqueLayoutIDX, opaqueObjectShaderSets.opaqueShaders.getSpan(), "opaque"));
     auto opaqueBatches  = renderBatches.getSpan().subspan(renderBatches.size() -1, 1);
 
     //Indirect command buffer
     RecordIndirectCommandBufferForPasses(scene, AssetDataAndMemory, &perFrameArenas[currentFrame], thisFrameData->drawBuffers.getMappedSpan(), renderBatches.getSpan());
-    updateBindingsComputeCulling(*CullingStep,  &perFrameArenas[currentFrame]);
+    updateBindingsComputeCulling(*CullingStep,scene,  &perFrameArenas[currentFrame]);
     
  
     //Prototype depth passes code
@@ -1638,8 +1664,8 @@ void VulkanRenderer::RenderFrame(Scene* scene)
 
     if (haveInitializedFrame[currentFrame])
     {
-        vkWaitForFences(rendererVulkanObjects.vkbdevice.device, 1, &GetFrameData(priorFrame).perFrameSemaphores.cullingFence, VK_TRUE, UINT64_MAX);
-        vkResetFences(rendererVulkanObjects.vkbdevice.device, 1, &GetFrameData(priorFrame).perFrameSemaphores.cullingFence);
+        vkWaitForFences(vulkanObjects.vkbdevice.device, 1, &GetFrameData(priorFrame).perFrameSemaphores.cullingFence, VK_TRUE, UINT64_MAX);
+        vkResetFences(vulkanObjects.vkbdevice.device, 1, &GetFrameData(priorFrame).perFrameSemaphores.cullingFence);
     }
 
      
@@ -1662,21 +1688,22 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     //Does this work? Different commandbuffer than mipchain compute 
     SetPipelineBarrier(OpaqueStep->commandBuffer,0,0,0,1, &depthtoCompute );
 
-    DepthPyramidInfo& depthBufferPyramidData =   globalResources.depthPyramidInfoPerFrame[currentFrame];
-    RecordMipChainCompute(*BeforeCullingStep, &perFrameArenas[currentFrame], depthBufferPyramidData,
-                             globalResources.depthBufferInfoPerFrame[currentFrame].view);
+
     uint32_t shadowmapIndex = 0;
+	//TODO: Use a more bindless structure for mipchain compute, bind resources once and index in to textures
     for(int i =0; i < scene->lightCount; i++)
     {
-        for(int j = 0; j < shadowCountFromLightType(scene->lightTypes[i]); j++)
-        {
-            //TODO JS: Shadow samplers dont seme set up right -- or else I have severe synchronization issues 
-            auto& shadowPyramidData = shadowResources.WIP_shadowDepthPyramidInfos[currentFrame][shadowmapIndex++];
-            RecordMipChainCompute(*BeforeCullingStep, &perFrameArenas[currentFrame], shadowPyramidData,
-                                  shadowResources.shadowMapSamplingImageViews[currentFrame][i]);
-            }
+		for (int j = 0; j < shadowCountFromLightType(scene->lightTypes[i]); j++)
+		{
+		auto& shadowPyramidData = shadowResources.WIP_shadowDepthPyramidInfos[currentFrame][shadowmapIndex];
+		RecordMipChainCompute(*BeforeCullingStep, &perFrameArenas[currentFrame], shadowPyramidData,
+							shadowResources.shadowMapSingleLayerViews[currentFrame][shadowmapIndex]);
+		shadowmapIndex++;
+		}
     }
-
+	DepthPyramidInfo& depthBufferPyramidData =   globalResources.depthPyramidInfoPerFrame[currentFrame];
+    RecordMipChainCompute(*BeforeCullingStep, &perFrameArenas[currentFrame], depthBufferPyramidData,
+						  globalResources.depthBufferInfoPerFrame[currentFrame].view);
 
     auto shadowBarriers = MemoryArena::AllocSpan<VkImageMemoryBarrier2>(&perFrameArenas[currentFrame], MAX_SHADOWMAPS);
     for(int i =0; i < MAX_SHADOWMAPS; i++)
@@ -1709,8 +1736,8 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     //Culling for shadows
     uint32_t cullPassIndex = 0;
     for(int j = 0; j < shadowBatches.size(); j++)
-    {cullPassIndex++;
-            // RecordCullingCommands(&perFrameArenas[currentFrame],  pipelineLayoutManager.GetLayout(cullingLayoutIDX), *CullingStep,cullPassIndex++, shadowPassData[j], thisFrameData->drawBuffers.buffer.data);
+    {
+            RecordCullingCommands(&perFrameArenas[currentFrame],  pipelineLayoutManager.GetLayout(cullingLayoutIDX), *CullingStep,cullPassIndex++, shadowPassData[j], thisFrameData->drawBuffers.buffer.data);
     }
     //shadows
     SubmitRenderPassesForBatches(shadowBatches,thisFrameData->deviceIndices.data, OpaqueStep, &pipelineLayoutManager, thisFrameData->drawBuffers.buffer.data, currentFrame);
@@ -1778,7 +1805,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     presentInfo.waitSemaphoreCount =  1;
     presentInfo.pWaitSemaphores = OpaqueStep->signalSempahore;
     presentInfo.swapchainCount = 1;
-    presentInfo.pSwapchains = {&rendererVulkanObjects.swapchain.swapchain};
+    presentInfo.pSwapchains = {&vulkanObjects.swapchain.swapchain};
     presentInfo.pImageIndices = &GetFrameData().swapChainIndex;
     presentInfo.pResults = nullptr; // Optional
 
@@ -1793,7 +1820,7 @@ void VulkanRenderer::Cleanup()
 {
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        vkWaitForFences(rendererVulkanObjects.vkbdevice.device, 1, &GetFrameData().inFlightFence, VK_TRUE,
+        vkWaitForFences(vulkanObjects.vkbdevice.device, 1, &GetFrameData().inFlightFence, VK_TRUE,
                         UINT64_MAX);
     }
 
@@ -1804,14 +1831,14 @@ void VulkanRenderer::Cleanup()
     deletionQueue->FreeQueue();
     pipelineLayoutManager.cleanup();
     AssetDataAndMemory->Cleanup(); //noop currently
-    destroy_swapchain(rendererVulkanObjects.swapchain);
+    destroy_swapchain(vulkanObjects.swapchain);
 
-    vkDestroySurfaceKHR(rendererVulkanObjects.vkbInstance.instance, rendererVulkanObjects.surface, nullptr);
+    vkDestroySurfaceKHR(vulkanObjects.vkbInstance.instance, vulkanObjects.surface, nullptr);
 
-    vkDeviceWaitIdle(rendererVulkanObjects.vkbdevice.device);
-    vmaDestroyAllocator(rendererVulkanObjects.vmaAllocator);
-    destroy_device(rendererVulkanObjects.vkbdevice);
-    destroy_instance(rendererVulkanObjects.vkbInstance);
+    vkDeviceWaitIdle(vulkanObjects.vkbdevice.device);
+    vmaDestroyAllocator(vulkanObjects.vmaAllocator);
+    destroy_device(vulkanObjects.vkbdevice);
+    destroy_instance(vulkanObjects.vkbInstance);
     SDL_DestroyWindow(_window);
 }
 
@@ -1871,14 +1898,14 @@ void VulkanRenderer::initializeDearIMGUI()
     pool_info.poolSizeCount = (uint32_t)std::size(pool_sizes);
     pool_info.pPoolSizes = pool_sizes;
 
-    VK_CHECK(vkCreateDescriptorPool(rendererVulkanObjects.vkbdevice.device, &pool_info, nullptr, &imgui_descriptorPool));
+    VK_CHECK(vkCreateDescriptorPool(vulkanObjects.vkbdevice.device, &pool_info, nullptr, &imgui_descriptorPool));
     deletionQueue->push_backVk(deletionType::descriptorPool, uint64_t(imgui_descriptorPool));
 
     ImGui_ImplSDL2_InitForVulkan(_window);
     ImGui_ImplVulkan_InitInfo init_info = {};
-    init_info.Instance = rendererVulkanObjects.vkbInstance.instance;
-    init_info.PhysicalDevice = rendererVulkanObjects.vkbPhysicalDevice.physical_device;
-    init_info.Device = rendererVulkanObjects.vkbdevice.device;
+    init_info.Instance = vulkanObjects.vkbInstance.instance;
+    init_info.PhysicalDevice = vulkanObjects.vkbPhysicalDevice.physical_device;
+    init_info.Device = vulkanObjects.vkbdevice.device;
     init_info.QueueFamily =GET_QUEUES()->graphicsQueueFamily;
     init_info.Queue =GET_QUEUES()->graphicsQueue;
     // init_info.PipelineCache = HOPEFULLY OPTIONAL??;
@@ -1892,7 +1919,7 @@ void VulkanRenderer::initializeDearIMGUI()
     
     init_info.PipelineRenderingCreateInfo = {.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO};
     init_info.PipelineRenderingCreateInfo.colorAttachmentCount = 1;
-    init_info.PipelineRenderingCreateInfo.pColorAttachmentFormats = &rendererVulkanObjects.swapchain.image_format;
+    init_info.PipelineRenderingCreateInfo.pColorAttachmentFormats = &vulkanObjects.swapchain.image_format;
     init_info.PipelineRenderingCreateInfo.depthAttachmentFormat = globalResources.depthBufferInfoPerFrame[currentFrame].format;
     //init_info.Allocator = nullptr; //
     //init_info.CheckVkResultFn = check_vk_result;

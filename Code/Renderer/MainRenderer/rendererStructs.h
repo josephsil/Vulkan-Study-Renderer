@@ -10,6 +10,7 @@ struct pointerSize
     uint32_t size;
 };
 
+
 //TODO JS MESHLET PERF
 //Need to replace these: in the future, I want meshlets to share a single vertex buffer, and this should point to the vertex buffer and give info (as below) to navigate the index buffers
 //Each mesh has a span of these, which says how to index in to its submeshes meshlets

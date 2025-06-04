@@ -33,8 +33,14 @@ struct SDL_Window;
 
 struct PerSceneShadowResources
 {
-    std::span<std::span<VkImageView>> shadowMapRenderingImageViews;
-    std::span<std::span<VkImageView>> shadowMapSamplingImageViews;
+    //The way shadow maps are set up, different parts of the renderer need different views.
+    //"shadowMapSingleLayerViews" are used primarily for shadowmap rendering (and mip chain)
+    //These are one view per each shadowmap (for each cascade, cube face, etc)
+    std::span<std::span<VkImageView>> shadowMapSingleLayerViews;
+    //ShadowMapTextureArayViews contain one view for each shadow*caster, they are indexed by light count
+    //Each view has the appropriate number of array layers for cube faces, cascades, etc
+    //This is (currently) used for opaque rendering. I'd like to simplify.
+    std::span<std::span<VkImageView>> shadowMapTextureArrayViews;
     std::span<VkSampler> shadowSamplers;
     std::span<VkImage> shadowImages;
     std::span<std::span<DepthPyramidInfo>> WIP_shadowDepthPyramidInfos; //todo js populate
@@ -81,7 +87,7 @@ public:
 private:
     std::unordered_map<VkImageView, VkDescriptorSet> imguiRegisteredTextures;
     struct FrameData;
-    rendererObjects rendererVulkanObjects;
+    rendererObjects vulkanObjects;
     GlobalRendererResources globalResources;
     PerSceneShadowResources shadowResources;
     std::unique_ptr<CommandPoolManager> commandPoolmanager;
@@ -188,7 +194,7 @@ private:
 
     void RecordMipChainCompute(ActiveRenderStepData commandBufferContext, MemoryArena::memoryArena* arena,
                                DepthPyramidInfo& pyramidInfo, VkImageView srcView);
-    void updateBindingsComputeCulling(ActiveRenderStepData commandBufferContext, MemoryArena::memoryArena* arena);
+    void updateBindingsComputeCulling(ActiveRenderStepData commandBufferContext,Scene* scene, MemoryArena::memoryArena* arena);
 
 
     void RecordUtilityPasses(VkCommandBuffer commandBuffer, size_t imageIndex);

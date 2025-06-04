@@ -31,6 +31,7 @@ void registerDebugUtilsFn(PFN_vkSetDebugUtilsObjectNameEXT ptr);
 void registerTransitionImagefn(PFN_vkTransitionImageLayoutEXT ptr);
 void registerCopyImageToMemoryFn(PFN_vkCopyImageToMemoryEXT ptr);
 void SetDebugObjectName(VkDevice device, VkObjectType type, std::string name, uint64_t handle);
+const char* GetDebugObjectName(uint64_t handle);
 void vkTransitionImageLayout(
     VkDevice                                    device,
     uint32_t                                    transitionCount,

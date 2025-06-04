@@ -95,7 +95,8 @@ struct CullPushConstants
 {
     float4x4 viewMatrix;
     float4x4 projMatrix;
-    uint offset;
+    uint drawOffset;
+    uint passOffset;
     uint frustumOffset;
     uint objectCount;
     uint LATE_CULL;

@@ -33,6 +33,22 @@ glm::mat4  perspective_original(float vertical_fov, float aspect_ratio, float n,
 
     return projection;
 }
+
+
+glm::mat4 ortho(float left, float right, float bottom, float top, float zNear, float zFar)
+{
+    float far = zNear;
+    float near = zFar;
+    glm::mat4 Result(1);
+    Result[0][0] = (2.f) / (right - left);
+    Result[1][1] = (2.f) / (top - bottom);
+    Result[2][2] = (1.f) / (far - near);
+    Result[3][0] = - (right + left) / (right - left);
+    Result[3][1] = - (top + bottom) / (top - bottom);
+    Result[3][2] = - near / (far - near);
+    return Result;
+}
+
 glm::mat4 perspective_finite_z(float vertical_fov, float aspect_ratio, float n, float f, glm::mat4 *inverse)
 {
     float fov_rad = vertical_fov * 2.0f * 3.141592653589f / 360.0f;
@@ -300,10 +316,10 @@ std::span<GPU_perShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryA
     case LIGHT_SPOT:
         {
             outputSpan = MemoryArena::AllocSpan<GPU_perShadowData>(allocator, 1 ); 
-            lightViewMatrix = glm::lookAt(lightPos, (lightPos + dir), up);
+            lightViewMatrix = glm::lookAt(lightPos, (lightPos - dir), up);
             glm::mat4 
             lightProjection = perspective(spotRadius *2.f, //not sure what's wrong with my math to require this *2!
-                                               1.0f,  0.01f, 25.f, nullptr
+                                               1.0f,  0.001f, 2500.f, nullptr
                                                ); //TODO BETTER FAR 
             outputSpan[0] = {lightViewMatrix, lightProjection,  0};
                                   

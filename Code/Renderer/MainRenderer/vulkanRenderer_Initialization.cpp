@@ -202,14 +202,6 @@ rendererObjects initializeVulkanObjects(SDL_Window* _window, int WIDTH, int HEIG
     //Get physical device
     auto vkb_physicalDevice = getPhysicalDevice(vkb_instance, surface);
 
-    // Check if image format supports linear blitting
-    //TOOD JS: eventually run this commented code for all our supported image frmats to confirm we can do mipmaps later on
-    // VkFormatProperties formatProperties;
-    // vkGetPhysicalDeviceFormatProperties(vkb_physicalDevice.physical_device, imageFormat, &formatProperties);
-
-    // assert(!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT));
-
-
     //Get logical device
     auto vkb_device = getDevice(vkb_physicalDevice);
 
@@ -217,7 +209,7 @@ rendererObjects initializeVulkanObjects(SDL_Window* _window, int WIDTH, int HEIG
     auto allocator = VulkanMemory::GetAllocator(vkb_device.device, vkb_physicalDevice.physical_device,
                                                 vkb_instance.instance);
     registerSuperluminal();
-    //TODO JS: organize FPs somewhere
+
     registerDebugUtilsFn(
         (PFN_vkSetDebugUtilsObjectNameEXT)vkGetDeviceProcAddr(vkb_device.device, "vkSetDebugUtilsObjectNameEXT"));
     

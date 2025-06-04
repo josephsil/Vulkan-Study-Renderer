@@ -61,7 +61,7 @@ VkDescriptorSetLayoutCreateInfo DescriptorSets::createInfoFromSpan(std::span<VkD
 {
     VkDescriptorSetLayoutCreateInfo _createInfo = {};
     _createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    // _createInfo.flags =   VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
+     _createInfo.flags =   VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
     _createInfo.bindingCount = static_cast<uint32_t>(bindings.size());
     _createInfo.pBindings = bindings.data();
 

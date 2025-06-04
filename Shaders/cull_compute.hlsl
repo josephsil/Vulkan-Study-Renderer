@@ -16,9 +16,9 @@ struct drawCommandData
 };
 
 [[vk::binding(0, 0)]]
-Texture2D<float> bindless_textures;
+Texture2D<float> bindless_textures[];
 [[vk::binding(2, 0)]]
-SamplerState bindless_samplers;
+SamplerState bindless_samplers[];
 
 [[vk::push_constant]]
 CullPushConstants cullPC;
@@ -75,10 +75,11 @@ Bounds GetWorldSpaceBounds(float3 center, Bounds inB)
 
 
 #define ShaderGlobals cullPC //To make macros work 
-#define InstanceIndex drawData[ShaderGlobals.offset + GlobalInvocationID.x].objectIndex //To make macros work
+#define InstanceIndex drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].objectIndex //To make macros work
 [numthreads(64, 1, 1)]
 void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
 {
+	uint passIndex = cullPC.passOffset; 
     if (GlobalInvocationID.x >= cullPC.objectCount) return;
     uint objIndex = InstanceIndex;
     Transform transform = GetTransform();
@@ -130,29 +131,30 @@ void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
             float2 uv =  (aabb.xy + aabb.zw) / 2.f;
             float positive_z = ViewCenter.z * -1;
 
-            float hiZValue = bindless_textures.SampleLevel(bindless_samplers, float3(uv.x, uv.y,(int)0), level);
+			float hiZValue = bindless_textures[passIndex].SampleLevel(bindless_samplers[passIndex], float3(uv.x, uv.y,(int)0), level);
             
             float depthSphere =  (0.001f /( positive_z - scaledRadius));
 
-            drawData[ShaderGlobals.offset + GlobalInvocationID.x].debug1.xy = (aabb.xy + aabb.zw) / 2.f; 
-            drawData[ShaderGlobals.offset + GlobalInvocationID.x].debug1.zw = aabb.xy;
-            drawData[ShaderGlobals.offset + GlobalInvocationID.x].debug2.xy =  aabb.zw;
-            drawData[ShaderGlobals.offset + GlobalInvocationID.x].debug2.z = hiZValue;
-            drawData[ShaderGlobals.offset + GlobalInvocationID.x].debug2.w = depthSphere; //
+            drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].debug1.xy = (aabb.xy + aabb.zw) / 2.f; 
+            drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].debug1.zw = aabb.xy;
+            drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].debug2.xy =  aabb.zw;
+            drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].debug2.z = hiZValue;
+            drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].debug2.w = depthSphere; //
 
-            drawData[ShaderGlobals.offset + GlobalInvocationID.x].debug3.x = level;
-            drawData[ShaderGlobals.offset + GlobalInvocationID.x].debug3.y = hiZValue >  (depthSphere);
+            drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].debug3.x = level;
+            drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].debug3.y = hiZValue >  (depthSphere);
             if (hiZValue >  (depthSphere) && !cullPC.disable)
             {
                 
-                drawData[ShaderGlobals.offset + GlobalInvocationID.x].instanceCount = visible ? 0 : 0;
-                return;
+                drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].instanceCount = visible ? 0 : 0;
+                // return;
             }
         }
     }
 
 
-    drawData[ShaderGlobals.offset + GlobalInvocationID.x].instanceCount = visible ? 1 : 0;
+    drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].instanceCount = visible ? 1 : 0;
+    drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].instanceCount = 1;
     // drawData[GlobalInvocationID.x].debugData = center;
     // drawData[cullPC.offset + GlobalInvocationID.x].instanceCount = 0;
     // BufferTable[2].position = mul(float4(1,1,1,0), cullPC.projection) + d.indexCount;

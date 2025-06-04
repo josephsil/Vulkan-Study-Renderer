@@ -27,7 +27,7 @@ DepthBufferInfo static_createDepthResources(rendererObjects initializedrenderer,
 {
     auto depthFormat = Capabilities::findDepthFormat(initializedrenderer.vkbPhysicalDevice.physical_device);
     //The two null context will get overwritten by the create  calls below
-    DepthBufferInfo bufferInfo = {depthFormat, VK_NULL_HANDLE, VK_NULL_HANDLE, VmaAllocation{}};
+    // DepthBufferInfo bufferInfo = {depthFormat, VK_NULL_HANDLE, VK_NULL_HANDLE, VmaAllocation{}};
 
 
     BufferCreationContext context = {
@@ -37,22 +37,25 @@ DepthBufferInfo static_createDepthResources(rendererObjects initializedrenderer,
         .commandPoolmanager = commandPoolmanager
     };
 
+    VkImage image = {};
+    
+    VmaAllocation alloc; 
 
     TextureUtilities::createImage(context, initializedrenderer.swapchain.extent.width,
-                                  initializedrenderer.swapchain.extent.height, bufferInfo.format,
+                                  initializedrenderer.swapchain.extent.height, depthFormat,
                                   VK_IMAGE_TILING_OPTIMAL,
                                   VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
                                   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-                                  (bufferInfo.image),
-                                  (bufferInfo.vmaAllocation), 1, 1, false, "DEPTH TEXTURE");
+                                  (image),
+                                  (alloc), 1, 1, false, "DEPTH TEXTURE");
 
 
-    bufferInfo.view = TextureUtilities::createImageViewCustomMip(context, (bufferInfo.image), bufferInfo.format,
+    VkImageView view= TextureUtilities::createImageViewCustomMip(context, (image), depthFormat,
                                                                  VK_IMAGE_ASPECT_DEPTH_BIT, VK_IMAGE_VIEW_TYPE_2D, 1, 0,
                                                                  1, 0);
-    SetDebugObjectName(initializedrenderer.vkbdevice.device, VK_OBJECT_TYPE_IMAGE, "DepthBufferInfo image", (uint64_t)bufferInfo.image);
-    SetDebugObjectName(initializedrenderer.vkbdevice.device, VK_OBJECT_TYPE_IMAGE_VIEW, "DepthBufferInfo imageview", (uint64_t)bufferInfo.view);
-    return bufferInfo;
+    SetDebugObjectName(initializedrenderer.vkbdevice.device, VK_OBJECT_TYPE_IMAGE, "DepthBufferInfo image", (uint64_t)image);
+    SetDebugObjectName(initializedrenderer.vkbdevice.device, VK_OBJECT_TYPE_IMAGE_VIEW, "DepthBufferInfo imageview", (uint64_t)view);
+    return {.format = depthFormat, .image = image, .view = view, .vmaAllocation = alloc};
 }
 
 DepthPyramidInfo static_createDepthPyramidResources(rendererObjects initializedrenderer,
@@ -71,7 +74,8 @@ DepthPyramidInfo static_createDepthPyramidResources(rendererObjects initializedr
     uint32_t depthWidth = previousPow2(initializedrenderer.swapchain.extent.width);
     uint32_t depthHeight = previousPow2(initializedrenderer.swapchain.extent.height);
     DepthPyramidInfo bufferInfo = {
-        VK_FORMAT_R32_SFLOAT, VK_NULL_HANDLE, {}, viewsForMips, VmaAllocation{}, {depthWidth, depthHeight}
+        VK_FORMAT_R32_SFLOAT, {},
+        {}, viewsForMips, VmaAllocation{}, {depthWidth, depthHeight}
     };
 
 
