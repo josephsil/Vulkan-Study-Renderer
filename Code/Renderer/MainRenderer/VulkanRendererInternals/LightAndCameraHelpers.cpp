@@ -305,6 +305,8 @@ std::span<GPU_perShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryA
                 transformedCenter.y = floor(transformedCenter.y);
                 transformedCenter = texelInverse * transformedCenter ;
                 //Compute output matrices
+                //TODO: Derive the correc tortho matrices.
+                //TODO: Culling doesn't work because this is a FINITE depth projection, with positive (rather than negative) view Z.
                 lightViewMatrix = glm::lookAt(glm::vec3(transformedCenter)  + ((dir * maxExtents) * distanceOffset), glm::vec3(transformedCenter), up);
                 glm::mat4 lightOrthoMatrix = glm::ortho(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, (min_cascade + (maxExtents.z - minExtents.z) * distanceOffset), 0.001f) ;
 
