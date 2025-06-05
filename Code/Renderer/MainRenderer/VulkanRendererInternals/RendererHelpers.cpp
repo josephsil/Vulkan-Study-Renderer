@@ -5,7 +5,7 @@
 #include <Renderer/TextureCreation/Internal/TextureCreationUtilities.h>
 #include <Renderer/vulkan-utilities.h>
 
-
+#include <fmtInclude.h>
 #pragma region depth
 
 //zeux code
@@ -27,7 +27,7 @@ DepthBufferInfo static_createDepthResources(rendererObjects initializedrenderer,
 {
     auto depthFormat = Capabilities::findDepthFormat(initializedrenderer.vkbPhysicalDevice.physical_device);
     //The two null context will get overwritten by the create  calls below
-    DepthBufferInfo bufferInfo = {depthFormat, VK_NULL_HANDLE, VK_NULL_HANDLE, VmaAllocation{}};
+    // DepthBufferInfo bufferInfo = {depthFormat, VK_NULL_HANDLE, VK_NULL_HANDLE, VmaAllocation{}};
 
 
     BufferCreationContext context = {
@@ -37,40 +37,48 @@ DepthBufferInfo static_createDepthResources(rendererObjects initializedrenderer,
         .commandPoolmanager = commandPoolmanager
     };
 
+    VkImage image = {};
+    
+    VmaAllocation alloc; 
 
     TextureUtilities::createImage(context, initializedrenderer.swapchain.extent.width,
-                                  initializedrenderer.swapchain.extent.height, bufferInfo.format,
+                                  initializedrenderer.swapchain.extent.height, depthFormat,
                                   VK_IMAGE_TILING_OPTIMAL,
                                   VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
                                   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-                                  (bufferInfo.image),
-                                  (bufferInfo.vmaAllocation), 1, 1, false, "DEPTH TEXTURE");
+                                  (image),
+                                  (alloc), 1, 1, false, "DEPTH TEXTURE");
 
 
-    bufferInfo.view = TextureUtilities::createImageViewCustomMip(context, (bufferInfo.image), bufferInfo.format,
+    VkImageView view= TextureUtilities::createImageViewCustomMip(context, (image), depthFormat,
                                                                  VK_IMAGE_ASPECT_DEPTH_BIT, VK_IMAGE_VIEW_TYPE_2D, 1, 0,
                                                                  1, 0);
-    SetDebugObjectName(initializedrenderer.vkbdevice.device, VK_OBJECT_TYPE_IMAGE, "DepthBufferInfo image", (uint64_t)bufferInfo.image);
-    SetDebugObjectName(initializedrenderer.vkbdevice.device, VK_OBJECT_TYPE_IMAGE_VIEW, "DepthBufferInfo imageview", (uint64_t)bufferInfo.view);
-    return bufferInfo;
+   
+    SetDebugObjectNameS(initializedrenderer.vkbdevice.device, VK_OBJECT_TYPE_IMAGE, "DepthBufferInfo image", (uint64_t)image);
+    SetDebugObjectNameS(initializedrenderer.vkbdevice.device, VK_OBJECT_TYPE_IMAGE_VIEW, "DepthBufferInfo imageview", (uint64_t)view);
+
+    return {.format = depthFormat, .image = image, .view = view, .vmaAllocation = alloc};
 }
 
 DepthPyramidInfo static_createDepthPyramidResources(rendererObjects initializedrenderer,
                                                     MemoryArena::memoryArena* allocationArena,
+                                                    const char* name,
                                                     RendererDeletionQueue* deletionQueue,
                                                     CommandPoolManager* commandPoolmanager)
 {
     auto depthFormat = Capabilities::findSupportedFormat(initializedrenderer.vkbPhysicalDevice.physical_device,
-                                                         {VK_FORMAT_R16_SFLOAT},
+                                                         {VK_FORMAT_D32_SFLOAT, VK_FORMAT_R32_SFLOAT, VK_FORMAT_D16_UNORM},
                                                          VK_IMAGE_TILING_OPTIMAL,
                                                          VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT |
                                                          VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT);
     //The two null context will get overwritten by the create  calls below
     std::span<VkImageView> viewsForMips = MemoryArena::AllocSpan<VkImageView>(allocationArena, HIZDEPTH);
+
     uint32_t depthWidth = previousPow2(initializedrenderer.swapchain.extent.width);
     uint32_t depthHeight = previousPow2(initializedrenderer.swapchain.extent.height);
     DepthPyramidInfo bufferInfo = {
-        depthFormat, VK_NULL_HANDLE, viewsForMips, VmaAllocation{}, {depthWidth, depthHeight}
+        VK_FORMAT_R32_SFLOAT, {},
+        {}, viewsForMips, VmaAllocation{}, {depthWidth, depthHeight}
     };
 
 
@@ -88,14 +96,21 @@ DepthPyramidInfo static_createDepthPyramidResources(rendererObjects initializedr
                                   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
                                   (bufferInfo.image),
                                   (bufferInfo.vmaAllocation), HIZDEPTH, 1, false, "DEPTH PYRAMID TEXTURE");
+
+    auto scratchBuffer =  MemoryArena::AllocSpan<char>(allocationArena, 256);
     for (int i = 0; i < bufferInfo.viewsForMips.size(); i++)
     {
         bufferInfo.viewsForMips[i] =
             TextureUtilities::createImageViewCustomMip(context, (bufferInfo.image), bufferInfo.format,
                                                        VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_VIEW_TYPE_2D, 1, 0, 1, i);
-        SetDebugObjectName(initializedrenderer.vkbdevice.device, VK_OBJECT_TYPE_IMAGE, "depthPyramic image", (uint64_t)bufferInfo.image);
-        SetDebugObjectName(initializedrenderer.vkbdevice.device, VK_OBJECT_TYPE_IMAGE_VIEW, "depthPyramid imageview", (uint64_t)bufferInfo.viewsForMips[i]);
+        fmt::format_to_n(scratchBuffer.begin(),  scratchBuffer.size(), "{} Pyramid View Level{}\0",name, i);
+        SetDebugObjectName(initializedrenderer.vkbdevice.device, VK_OBJECT_TYPE_IMAGE_VIEW, scratchBuffer.data(), (uint64_t)bufferInfo.viewsForMips[i]);
     }
+    fmt::format_to_n(scratchBuffer.begin(),  scratchBuffer.size(), "{} Pyramid View Alllevels\0",name);
+    bufferInfo.view =
+        TextureUtilities::createImageViewCustomMip(context, (bufferInfo.image), bufferInfo.format,
+                                                   VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_VIEW_TYPE_2D, 1, 0, VK_REMAINING_MIP_LEVELS, 0);
+    SetDebugObjectNameS(initializedrenderer.vkbdevice.device, VK_OBJECT_TYPE_IMAGE_VIEW, scratchBuffer.data(), (uint64_t)bufferInfo.view);
 
     auto tempBufferAndPool = commandPoolmanager->beginSingleTimeCommands(false);
     VkImageMemoryBarrier2 barrier11 = GetImageBarrier(bufferInfo.image,
@@ -112,6 +127,7 @@ DepthPyramidInfo static_createDepthPyramidResources(rendererObjects initializedr
 
     commandPoolmanager->endSingleTimeCommands(tempBufferAndPool, true); //todo js sync
 
+    MemoryArena::freeLast(allocationArena); //Free our scratch memory.
     return bufferInfo;
 }
 
@@ -124,7 +140,7 @@ void createSemaphore(VkDevice device, VkSemaphore* semaphorePtr, const char* deb
     VkSemaphoreCreateInfo semaphoreInfo{};
     semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
     VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, semaphorePtr));
-    SetDebugObjectName(device, VK_OBJECT_TYPE_SEMAPHORE, debugName, uint64_t(*semaphorePtr));
+    SetDebugObjectNameS(device, VK_OBJECT_TYPE_SEMAPHORE, debugName, uint64_t(*semaphorePtr));
     if (!pushToDeletionQueue)
     {
         return;
@@ -140,7 +156,7 @@ void static_createFence(VkDevice device, VkFence* fencePtr, const char* debugNam
 
     VK_CHECK(vkCreateFence(device, &fenceInfo, nullptr, fencePtr));
     deletionQueue->push_backVk(deletionType::Fence, uint64_t(*fencePtr));
-    SetDebugObjectName(device, VK_OBJECT_TYPE_FENCE, debugName, uint64_t(*fencePtr));
+    SetDebugObjectNameS(device, VK_OBJECT_TYPE_FENCE, debugName, uint64_t(*fencePtr));
 }
 VkImageMemoryBarrier2 AllTextureAccessBarrier(CommandBufferPoolQueue bandp, VkImage image,
     VkImageLayout oldLayout,

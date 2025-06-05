@@ -2,6 +2,9 @@
 #include <Renderer/rendererGlobals.h>
 #include <General/GLM_impl.h>
 #include <Renderer/VulkanIncludes/vmaImplementation.h>
+
+#include "VulkanIncludes/structs_hlsl.h"
+
 enum LightType
 {
     LIGHT_DIR = 0,
@@ -22,6 +25,7 @@ struct rendererObjects
     VmaAllocator vmaAllocator;
     VkSurfaceKHR surface; //not sure I need surface for anything except cleanup?
     vkb::Swapchain swapchain;
+    
     //maybe move these two
 };
 
@@ -104,10 +108,10 @@ struct cameraData
 {
     glm::vec3 eyePos = glm::vec3(-4.0f, 0.4f, 1.0f);
     glm::vec2 eyeRotation = glm::vec2(55.0f, -22.0f); //yaw, pitch
-    float nearPlane = 0.1f;
-    float farPlane = 35.0f;
+    float nearPlane = CAMERA_NEAR_PLANE;
+    float farPlane = 350.0f;
 
-    extent extent;
+    extent extent = {WIDTH, HEIGHT};
     float fov = 70;
 
     glm::mat4 debug_frozen_culling_v;

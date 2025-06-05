@@ -3,6 +3,7 @@
 
 #define GLM_FORCE_RADIANS	
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
+#define GLM_FORCE_LEFT_HANDED
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 
 #include "../vertex.h"
@@ -36,7 +37,7 @@ struct ImportMeshData
     uint32_t vertexct;
     std::span<uint32_t> indexCounts;
     std::span<uint32_t> meshletVertexOffsets; //Redundant to PersubmeshData offset -- used to construct it, need to get rid of this
-    std::span<std::span<glm::vec3>> meshletBounds; //Redundant to PersubmeshData bounds  -- used to construct it, need to get rid of this
+    std::span<GPU_BoundingSphere> meshletBounds; //Redundant to PersubmeshData bounds  -- used to construct it, need to get rid of this
     uint32_t meshletCount;
 };
 
@@ -50,7 +51,7 @@ struct preMeshletMesh
 
 namespace MeshDataCreation
 {
-    positionRadius boundingSphereFromMeshBounds(std::span<glm::vec3> boundsCorners);
+    GPU_BoundingSphere boundingSphereFromMeshBounds(std::span<glm::vec3> boundsCorners);
     preMeshletMesh MeshDataFromSpans(std::span<Vertex> vertices,
                                std::span<uint32_t> indices);
     preMeshletMesh MeshDataFromObjFile(PerThreadRenderContext rendererHandles, const char* path);

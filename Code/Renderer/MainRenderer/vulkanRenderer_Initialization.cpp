@@ -145,9 +145,9 @@ GlobalRendererResources static_initializeResources(rendererObjects initializedre
     std::vector<VkImageView> swapchainImageViews = initializedrenderer.swapchain.get_image_views().value();
     for (int i = 0; i < swapchainImageViews.size(); i++)
     {
-        SetDebugObjectName(initializedrenderer.vkbdevice.device, VK_OBJECT_TYPE_IMAGE, "Swapchain image",
+        SetDebugObjectNameS(initializedrenderer.vkbdevice.device, VK_OBJECT_TYPE_IMAGE, "Swapchain image",
                            uint64_t(swapchainImages[i]));
-        SetDebugObjectName(initializedrenderer.vkbdevice.device, VK_OBJECT_TYPE_IMAGE_VIEW, "Swapchain image view",
+        SetDebugObjectNameS(initializedrenderer.vkbdevice.device, VK_OBJECT_TYPE_IMAGE_VIEW, "Swapchain image view",
                            uint64_t(swapchainImageViews[i]));
     }
 
@@ -172,7 +172,7 @@ GlobalRendererResources static_initializeResources(rendererObjects initializedre
     {
         depthBufferPerFrame.push_back(static_createDepthResources(initializedrenderer, allocationArena, deletionQueue,
                                                        commandPoolmanager));
-        depthPyramidPerFrame.push_back(static_createDepthPyramidResources(initializedrenderer, allocationArena, deletionQueue,
+        depthPyramidPerFrame.push_back(static_createDepthPyramidResources(initializedrenderer,  allocationArena,"DepthPyramid", deletionQueue,
                                                                commandPoolmanager));
     }
     return {
@@ -202,14 +202,6 @@ rendererObjects initializeVulkanObjects(SDL_Window* _window, int WIDTH, int HEIG
     //Get physical device
     auto vkb_physicalDevice = getPhysicalDevice(vkb_instance, surface);
 
-    // Check if image format supports linear blitting
-    //TOOD JS: eventually run this commented code for all our supported image frmats to confirm we can do mipmaps later on
-    // VkFormatProperties formatProperties;
-    // vkGetPhysicalDeviceFormatProperties(vkb_physicalDevice.physical_device, imageFormat, &formatProperties);
-
-    // assert(!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT));
-
-
     //Get logical device
     auto vkb_device = getDevice(vkb_physicalDevice);
 
@@ -217,7 +209,7 @@ rendererObjects initializeVulkanObjects(SDL_Window* _window, int WIDTH, int HEIG
     auto allocator = VulkanMemory::GetAllocator(vkb_device.device, vkb_physicalDevice.physical_device,
                                                 vkb_instance.instance);
     registerSuperluminal();
-    //TODO JS: organize FPs somewhere
+
     registerDebugUtilsFn(
         (PFN_vkSetDebugUtilsObjectNameEXT)vkGetDeviceProcAddr(vkb_device.device, "vkSetDebugUtilsObjectNameEXT"));
     
@@ -231,8 +223,13 @@ rendererObjects initializeVulkanObjects(SDL_Window* _window, int WIDTH, int HEIG
     //Swapchain
     vkb::SwapchainBuilder swapchain_builder{vkb_device};
 
+   auto sawpchainfmt = VkSurfaceFormatKHR
+    {
+        .format = VK_FORMAT_B8G8R8A8_SRGB,
+        .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR
+    };
     auto vkb_swapchain = swapchain_builder
-                         .use_default_format_selection()
+                         .set_desired_format(sawpchainfmt)
                          .set_desired_present_mode(VK_PRESENT_MODE_MAILBOX_KHR)
                          .set_desired_extent(WIDTH, HEIGHT)
                          .build()

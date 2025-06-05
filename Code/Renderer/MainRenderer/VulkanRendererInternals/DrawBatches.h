@@ -19,6 +19,8 @@ struct RenderPassDrawData
     uint32_t subMeshcount;
     glm::mat4 proj;
     glm::mat4 view;
+    float farPlane;
+    float nearPlane;
 };
 
 struct RenderPassConfig

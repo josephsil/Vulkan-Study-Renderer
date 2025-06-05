@@ -13,6 +13,7 @@
 #include "General/InputHandling.h"
 #include "General/MemoryArena.h"
 #include "Renderer/AssetManagerTypes.h"
+#include "Renderer/VulkanIncludes/structs_hlsl.h"
 
 void InitializeScene(MemoryArena::memoryArena* arena, Scene* scene)
 {
@@ -59,7 +60,6 @@ void Scene::UpdateCamera(inputData input)
         sceneCamera.eyeRotation.y = 89.0f;
     if (sceneCamera.eyeRotation.y < -89.0f)
         sceneCamera.eyeRotation.y = -89.0f;
-
     glm::quat Orientation = OrientationFromYawPitch(sceneCamera.eyeRotation);
 
     glm::quat forwardQuat = Orientation * glm::quat(0, 0, 0, -1) * conjugate(Orientation);
@@ -85,7 +85,7 @@ void Scene::UpdateRotations()
 
     for (int i = 0; i < ObjectsCount(); i++)
     {
-        objects.rotations[i] *= MyQuaternion;
+    objects.rotations[i] *= MyQuaternion;
     }
 }
 

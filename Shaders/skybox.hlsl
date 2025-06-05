@@ -1,6 +1,6 @@
 #define USE_RW
 
-#define LIGHTCOUNT   globals.lightcount_padding_padding_padding.r
+#define LIGHTCOUNT   ShaderGlobals.lightcount_padding_padding_padding.r
 #define VERTEXOFFSET pc.indexInfo.g
 #define TEXTURESAMPLERINDEX pc.indexInfo.b
 #define NORMALSAMPLERINDEX TEXTURESAMPLERINDEX +2 //TODO JS: temporary!
@@ -14,7 +14,7 @@ struct VSInput
     // [[vk::location(3)]] uint vertex_id : SV_VertexID;
 };
 
-struct objectData
+struct ObjectData
 {
     float4x4 Model;
     float4x4 NormalMat;
@@ -38,7 +38,7 @@ struct pconstant
     float4 _2;
 };
 
-struct MyVertexStructure
+struct VertexData
 {
     float4 position;
     float4 uv0;
@@ -47,7 +47,7 @@ struct MyVertexStructure
     // uint color;
 };
 
-struct MyLightStructure
+struct LightData
 {
     float4 position_range;
     float4 color_intensity;
@@ -62,12 +62,12 @@ struct FSOutput
     [[vk::location(0)]] float3 Color : SV_Target;
 };
 
-cbuffer globals : register(b0)
+cbuffer ShaderGlobals : register(b0)
 {
-    ShaderGlobals globals;
+    ShaderGlobals;
 }
 
-// ShaderGlobals globals;
+// ShaderGlobals ShaderGlobals;
 
 [[vk::binding(1)]]
 TextureCube bindless_textures;
@@ -77,15 +77,15 @@ SamplerState bindless_samplers;
 
 [[vk::binding(3)]]
 #ifdef USE_RW
-RWStructuredBuffer<MyVertexStructure> BufferTable;
+RWStructuredBuffer<VertexData> BufferTable;
 #else
 ByteAddressBuffer BufferTable;
 #endif
 [[vk::binding(4)]]
-RWStructuredBuffer<MyLightStructure> lights;
+RWStructuredBuffer<LightData> lights;
 
 [[vk::binding(5)]]
-RWStructuredBuffer<objectData> uboarr;
+RWStructuredBuffer<ObjectData> uboarr;
 
 [[vk::push_constant]]
 pconstant pc;
@@ -116,12 +116,12 @@ static float2 positions[3] = {
 // -spirv -T vs_6_5 -E Vert .\Shader1.hlsl -Fo .\triangle.vert.spv
 VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
 {
-    objectData ubo = uboarr[TRANSFORMINDEX];
+    ObjectData ubo = uboarr[TRANSFORMINDEX];
     VSOutput output = (VSOutput)0;
     output.Texture_ST = Pos;
     // Convert cubemap coordinates into Vulkan coordinate space
     output.Texture_ST.xy *= -1.0;
-    output.Pos = mul(globals.projection, mul(ubo.Model, float4(Pos.xyz, 1.0)));
+    output.Pos = mul(ShaderGlobals.projection, mul(ubo.Model, float4(Pos.xyz, 1.0)));
     return output;
 }
 

@@ -19,6 +19,7 @@ DepthBufferInfo static_createDepthResources(rendererObjects initializedrenderer,
                                             CommandPoolManager* commandPoolmanager);
 DepthPyramidInfo static_createDepthPyramidResources(rendererObjects initializedrenderer,
                                                     MemoryArena::memoryArena* allocationArena,
+                                                    const char* name,
                                                     RendererDeletionQueue* deletionQueue,
                                                     CommandPoolManager* commandPoolmanager);
 

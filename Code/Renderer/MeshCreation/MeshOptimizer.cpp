@@ -34,7 +34,7 @@ ImportMeshData  MeshOptimizer::RunMeshOptimizer(ArenaAllocator arena, AssetManag
         bounds.push_back( meshopt_computeMeshletBounds(&meshlet_vertices[m.vertex_offset], &meshlet_triangles[m.triangle_offset],
         m.triangle_count, &input.vertices[0].pos.x, input.vertices.size(), sizeof(Vertex)));
     }
-    auto outputBoundsForMeshlets =  MemoryArena::AllocSpan<std::span<glm::vec3>>(arena, meshlets.size());
+    auto outputBoundsForMeshlets =  MemoryArena::AllocSpan<GPU_BoundingSphere>(arena, meshlets.size());
     auto outputVertexOffsets  =  MemoryArena::AllocSpan<uint32_t>(arena, meshlets.size());
     Array _outputIndexCounts = MemoryArena::AllocSpan<uint32_t>(arena, meshlets.size());
     for(size_t i = 0; i < meshlets.size(); i++)
@@ -42,10 +42,9 @@ ImportMeshData  MeshOptimizer::RunMeshOptimizer(ArenaAllocator arena, AssetManag
         //Ingest meshlet bounds
         auto boundsCorners = MemoryArena::AllocSpan<glm::vec3>(arena, 2);
         auto& _bounds = bounds[i];
-        auto vecCenter = glm::vec3(_bounds.center[0],_bounds.center[1], _bounds.center[2]);
-        boundsCorners[0] = vecCenter+ (glm::vec3(1) * (_bounds.radius / 2));
-        boundsCorners[1] = vecCenter+ (glm::vec3(-1) * (_bounds.radius / 2));
-        outputBoundsForMeshlets[i] = boundsCorners;
+     
+        outputBoundsForMeshlets[i] =
+            {glm::vec4(_bounds.center[0],_bounds.center[1], _bounds.center[2], 1) , _bounds.radius};
 
         //Read meshlet index data
         auto& meshlet = meshlets[i];

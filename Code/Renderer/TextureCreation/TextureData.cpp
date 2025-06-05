@@ -459,7 +459,7 @@ TextureCreation::TextureImportProcessTemporaryTexture GetOrLoadTextureFromPath(P
 
 }
 
-void TextureCreation::CreateDepthPyramidSampler(VkSampler* textureSampler, PerThreadRenderContext rendererContext, uint32_t maxMip)
+void TextureCreation::CreateDepthPyramidSampler(VkSampler* textureSampler, VkSamplerReductionMode mode, PerThreadRenderContext rendererContext, uint32_t maxMip)
 {
     VkPhysicalDeviceProperties properties{};
     vkGetPhysicalDeviceProperties(rendererContext.physicalDevice, &properties);
@@ -471,20 +471,23 @@ void TextureCreation::CreateDepthPyramidSampler(VkSampler* textureSampler, PerTh
     samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
-    samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+    samplerInfo.maxAnisotropy = 0;
+    samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_WHITE;
     samplerInfo.unnormalizedCoordinates = VK_FALSE;
     samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
     samplerInfo.minLod = 0; // Optional
     samplerInfo.maxLod = static_cast<float>(maxMip);
 
     //add a extension struct to enable Min mode
-    VkSamplerReductionModeCreateInfoEXT createInfoReduction = {};
+    if (mode != VK_SAMPLER_REDUCTION_MODE_MAX_ENUM)
+    {
+        VkSamplerReductionModeCreateInfoEXT createInfoReduction = {};
 
-    createInfoReduction.sType = VK_STRUCTURE_TYPE_SAMPLER_REDUCTION_MODE_CREATE_INFO_EXT;
-    createInfoReduction.reductionMode = VK_SAMPLER_REDUCTION_MODE_MIN;
-    samplerInfo.pNext = &createInfoReduction;
-    VK_CHECK(vkCreateSampler(rendererContext.device, &samplerInfo, nullptr, textureSampler));
+        createInfoReduction.sType = VK_STRUCTURE_TYPE_SAMPLER_REDUCTION_MODE_CREATE_INFO_EXT;
+        createInfoReduction.reductionMode = mode;
+        samplerInfo.pNext = &createInfoReduction;
+    }
+        VK_CHECK(vkCreateSampler(rendererContext.device, &samplerInfo, nullptr, textureSampler));
     rendererContext.threadDeletionQueue->push_backVk(deletionType::Sampler, uint64_t(*textureSampler));
 }
 
@@ -505,7 +508,7 @@ void TextureCreation::CreateTextureSampler(VkSampler* textureSampler, PerThreadR
     samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
     samplerInfo.unnormalizedCoordinates = VK_FALSE;
     samplerInfo.compareEnable = shadow ? VK_TRUE : VK_FALSE;
-    samplerInfo.compareOp = shadow ? VK_COMPARE_OP_LESS : VK_COMPARE_OP_ALWAYS;
+    samplerInfo.compareOp = shadow ? VK_COMPARE_OP_GREATER : VK_COMPARE_OP_ALWAYS; //todo js: unknown if this lss is right
     samplerInfo.anisotropyEnable = VK_FALSE;
     samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
     samplerInfo.minLod = .0; // Optional
@@ -648,11 +651,11 @@ static TextureCreation::stagingTextureData CreateTextureImage(PerThreadRenderCon
                                       fullMipPyramid, workingTextureBuffer); //TODO JS: centralize mip levels
 
 
-    SetDebugObjectName(rendererContext.device, VK_OBJECT_TYPE_IMAGE, "temporary texture info image",
+    SetDebugObjectNameS(rendererContext.device, VK_OBJECT_TYPE_IMAGE, "temporary texture info image",
                        (uint64_t)_textureImage);
-    SetDebugObjectName(rendererContext.device, VK_OBJECT_TYPE_BUFFER, "temporary texture info buffer",
+    SetDebugObjectNameS(rendererContext.device, VK_OBJECT_TYPE_BUFFER, "temporary texture info buffer",
                        (uint64_t)stagingBuffer);
-    SetDebugObjectName(rendererContext.device, VK_OBJECT_TYPE_BUFFER, "temporary texture info buffer",
+    SetDebugObjectNameS(rendererContext.device, VK_OBJECT_TYPE_BUFFER, "temporary texture info buffer",
                        (uint64_t)stagingBuffer);
 
    
@@ -714,7 +717,7 @@ TextureMetaData TextureCreation::CreateImageFromCachedKTX(PerThreadRenderContext
 
     GET_QUEUES()->graphicsQueueMutex.unlock(); //todo js
 
-    SetDebugObjectName(rendererContext.device, VK_OBJECT_TYPE_IMAGE, path, (uint64_t)texture.image);
+    SetDebugObjectNameS(rendererContext.device, VK_OBJECT_TYPE_IMAGE, path, (uint64_t)texture.image);
 
     rendererContext.threadDeletionQueue->push_backVk(deletionType::KTXDestroyTexture, (uint64_t)kTexture);
 

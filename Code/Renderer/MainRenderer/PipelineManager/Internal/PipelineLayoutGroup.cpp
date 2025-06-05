@@ -32,27 +32,6 @@ VkDescriptorSet PreAllocatedDescriptorSetPool::peekNextDescriptorSet()
 }
 
 
-DescriptorDataForPipeline constructDescriptorDataObject(MemoryArena::memoryArena* arena,
-                                                        std::span<VkDescriptorSetLayoutBinding> layoutBindings,
-                                                        uint32_t descriptorSetPoolSize, bool isPerFrame)
-{
-    int SetsForFrameCt = isPerFrame ? MAX_FRAMES_IN_FLIGHT : 1;
-    PreAllocatedDescriptorSetPool* _DescriptorSets = MemoryArena::AllocSpan<PreAllocatedDescriptorSetPool>(
-        arena, SetsForFrameCt).data();
-
-    for (int i = 0; i < SetsForFrameCt; i++)
-    {
-        (_DescriptorSets[i]) = PreAllocatedDescriptorSetPool(arena, descriptorSetPoolSize);
-    }
-
-    auto _BindlessLayoutBindings = MemoryArena::copySpan<VkDescriptorSetLayoutBinding>(arena, layoutBindings);
-    return {
-        .isPerFrame = isPerFrame, .descriptorSetsCaches = _DescriptorSets, .layoutBindings = _BindlessLayoutBindings
-    };
-}
-
-
-
 PipelineLayoutGroup::PipelineLayoutGroup(PerThreadRenderContext handles, VkDescriptorPool pool,
                                          std::span<DescriptorDataForPipeline> descriptorInfo,
                                          std::span<VkDescriptorSetLayout> layouts, uint32_t pconstantsize, bool compute,
@@ -147,7 +126,7 @@ void PipelineLayoutGroup::createPipelineLayoutForGroup(PerPipelineLayoutData* pe
         printf("failed to create pipeline layout!");
         exit(-1);
     }
-    SetDebugObjectName(device, VK_OBJECT_TYPE_PIPELINE_LAYOUT, name, (uint64_t)(perPipelineData->layout));
+    SetDebugObjectNameS(device, VK_OBJECT_TYPE_PIPELINE_LAYOUT, name, (uint64_t)(perPipelineData->layout));
 }
 
 
@@ -197,6 +176,7 @@ void PipelineLayoutGroup::createGraphicsPipeline(std::span<VkPipelineShaderStage
     rasterizer.cullMode = settings.cullMode;
     rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     rasterizer.depthBiasEnable = settings.depthBias;
+    
     // rasterizer.depthBiasConstantFactor = shadow ? 6 : 0;
     // rasterizer.depthBiasSlopeFactor = shadow ? 3 : 0;
     // rasterizer.depth
@@ -213,9 +193,9 @@ void PipelineLayoutGroup::createGraphicsPipeline(std::span<VkPipelineShaderStage
 
     VkPipelineDepthStencilStateCreateInfo depthStencil{};
     depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    depthStencil.depthTestEnable = VK_TRUE;
+    depthStencil.depthTestEnable = VK_TRUE; //todo debugging
     depthStencil.depthWriteEnable = settings.depthWriteEnable;
-    depthStencil.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+    depthStencil.depthCompareOp = VK_COMPARE_OP_GREATER_OR_EQUAL;
     depthStencil.depthBoundsTestEnable = VK_FALSE;
     depthStencil.stencilTestEnable = VK_FALSE;
 
@@ -275,7 +255,7 @@ void PipelineLayoutGroup::createGraphicsPipeline(std::span<VkPipelineShaderStage
         exit(-1);
     }
 
-    SetDebugObjectName(device, VK_OBJECT_TYPE_PIPELINE, name, uint64_t(newGraphicsPipeline));
+    SetDebugObjectNameS(device, VK_OBJECT_TYPE_PIPELINE, name, uint64_t(newGraphicsPipeline));
 
     pipelines.push_back(newGraphicsPipeline);
 }
@@ -297,7 +277,7 @@ void PipelineLayoutGroup::createComputePipeline(VkPipelineShaderStageCreateInfo 
 
     VK_CHECK(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &newPipeline));
 
-    SetDebugObjectName(device, VK_OBJECT_TYPE_PIPELINE, name, uint64_t(newPipeline));
+    SetDebugObjectNameS(device, VK_OBJECT_TYPE_PIPELINE, name, uint64_t(newPipeline));
     pipelines.push_back(newPipeline);
 }
 

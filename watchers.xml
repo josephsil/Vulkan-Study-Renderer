@@ -1,0 +1,22 @@
+<TaskOptions>
+  <TaskOptions>
+    <option name="arguments" value="$SolutionDir$generate_shader_structs_cpp.ps1" />
+    <option name="checkSyntaxErrors" value="false" />
+    <option name="description" />
+    <option name="exitCodeBehavior" value="ERROR" />
+    <option name="fileExtension" value="*" />
+    <option name="immediateSync" value="false" />
+    <option name="name" value="Generate shader struct header file" />
+    <option name="output" value="" />
+    <option name="outputFilters">
+      <array />
+    </option>
+    <option name="outputFromStdout" value="false" />
+    <option name="program" value="powershell" />
+    <option name="runOnExternalChanges" value="false" />
+    <option name="scopeName" value="Shaders\structs.hlsl" />
+    <option name="trackOnlyRoot" value="false" />
+    <option name="workingDir" value="$SolutionDir$" />
+    <envs />
+  </TaskOptions>
+</TaskOptions>

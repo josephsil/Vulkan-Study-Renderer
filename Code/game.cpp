@@ -20,7 +20,7 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
     rendererContext.tempArena = &sceneLoading;
     ArenaAllocator loadingArena = &sceneLoading;
     LinearDictionary<char*, TextureData> textureLookup = {};
-    scene->sceneCamera.extent = {16, 10}; // ????
+    scene->sceneCamera.extent = {WIDTH, HEIGHT}; // ????
     std::vector<ID::SubMeshGroupID> randomMeshes;
     std::vector<ID::MaterialID> randomMaterials;
     std::vector<TextureData> completedTextures;
@@ -73,21 +73,20 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
        setdiff2,
        setSpec2,setNorm2);
     
-    placeholderMatidx = rendererData->AddMaterial(0.2f, 0, glm::vec3(1.0f), placeholderTextureidx, 0);
+    placeholderMatidx = rendererData->AddMaterial(0.2f, 0, glm::vec3(1.0f), placeholderTextureidx, 1);
     randomMaterials.push_back(placeholderMatidx);
 
 
     //spot light
     //rendererContext JS: paramaterize better -- hard to set power and radius currently
-    scene->AddSpotLight(glm::vec3(2.5, 3, 3.3), glm::vec3(0, 0, -1), glm::vec3(0.5, 0.5, 1), 45, 14000);
+    scene->AddSpotLight(glm::vec3(2.5, 2, 3.3), glm::vec3(0, 0, -1), glm::vec3(0.5, 0.5, 1), 45, 260);
 
 
     //point lights    
-    // scene->AddPointLight(glm::vec3(1, 1, 0), glm::vec3(1, 1, 1), 55);
-    // scene->AddDirLight(glm::vec3(0,0,1), glm::vec3(1,1,1), 3);
-    scene->AddDirLight(glm::vec3(0.00, 1, 0), glm::vec3(1, 1, 1), 33);
-    // scene->AddPointLight(glm::vec3(-2, 2, 0), glm::vec3(1, 0, 0), 4422 / 2);
-    // scene->AddPointLight(glm::vec3(0, 0, 0), glm::vec3(1, 1, 0), 999 / 2);
+    // scene->AddPointLight(glm::vec3(1, 1, 0), glm::vec3(0.3, 0.8, 1), 2);
+    scene->AddDirLight(glm::vec3(0.00, 0.9, 0.1), glm::vec3(1, 1, 1), 1);
+    // scene->AddPointLight(glm::vec3(-2, 2, 0), glm::vec3(1, 0, 0), 999 / 2);
+    // scene->AddPointLight(glm::vec3(0, 0, 0), glm::vec3(0, 1, 1), 999 / 2);
 
     GltfData gltf;
 #define SPONZA
@@ -95,7 +94,7 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
     //rendererContext: gltf load fn that gets back struct, then append its contents to scene 
     gltf = GltfLoadMeshes(rendererContext,*rendererData, "Meshes/sponza.glb");
     ObjectImport::CreateObjectAssets(loadingArena, *scene, *rendererData, gltf, {defaultTexture, defaultSPec,defaultNormal});
-#pragma region gltf adding stuff --- todo move to fn
+#pragma region gltf awwwwwwwwwdding stuff --- todo move to fn
    
 #endif
 #pragma endregion
@@ -136,11 +135,12 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
     auto root = scene->AddObject(
         rendererData->subMeshGroups[randomMeshes[rand() % randomMeshes.size()]].getSpan(), MemoryArena::AllocSpanEmplaceInitialize<uint32_t>(rendererContext.arena, 1, (uint32_t) (uint32_t)randomMaterials[1]), glm::vec4(0, 0, 0, 0) * 1.2f, MyQuaternion,
         glm::vec3(0.5));
+
     
     localTransform* tform = &scene->transforms.transformNodes[root];
-    for (int i = 0; i < 100; i++)
+    for (int i = 0; i < 5; i++)
     {
-        for (int j = i == 0 ? 1 : 0; j < 10; j++)
+        for (int j = i == 0 ? 1 : 0; j < 5; j++)
         {
             float rowRoughness = static_cast<float>(glm::clamp(static_cast<float>(i) / 8.0, 0.0, 1.0));
             bool rowmetlalic = i % 3 == 0;

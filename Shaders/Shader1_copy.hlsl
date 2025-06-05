@@ -41,22 +41,22 @@ VSOutput Vert(VSInput input, [[vk::builtin("BaseInstance")]] uint InstanceIndex 
               uint VertexIndex : SV_VertexID)
 {
 #ifdef USE_RW
-    MyVertexStructure myVertex = BufferTable[VertexIndex];
+    VertexData myVertex = BufferTable[VertexIndex];
 #else
 	//Interesting buffer load perf numbers
 	// https://github.com/sebbbi/perfindexInfo
 	// https://github.com/microsoft/DirectXShaderCompiler/issues/2193 	
- 	MyVertexStructure myVertex = BufferTable.Load<MyVertexStructure>((VERTEXOFFSET + VertexIndex) * sizeof(MyVertexStructure));
+ 	VertexData myVertex = BufferTable.Load<VertexData>((VERTEXOFFSET + VertexIndex) * sizeof(VertexData));
 #endif
     float4 vertPos = positions[VertexIndex];
     vertPos.a = 1.0;
     // printf("My float is %d\n", InstanceIndex);
     //
-    transformdata transform = GetTransform();
+    Transform transform = GetTransform();
     VSOutput output = (VSOutput)0;
     //
-    float4x4 modelView = mul(globals.view, GetTransform().Model);
-    float4x4 mvp = mul(globals.projection, modelView);
+    float4x4 modelView = mul(ShaderGlobals.viewMatrix, GetTransform().Model);
+    float4x4 mvp = mul(ShaderGlobals.projMatrix, modelView);
     output.Pos = mul(mvp, vertPos);
     output.Texture_ST = myVertex.uv0.xy;
     output.Color = myVertex.normal.xyz;
@@ -93,7 +93,7 @@ VSOutput Vert(VSInput input, [[vk::builtin("BaseInstance")]] uint InstanceIndex 
 
 bool getMode()
 {
-    return globals.lightcount_mode_shadowct_padding.g;
+    return ShaderGlobals.lightcount_mode_shadowct_padding.g;
 }
 
 struct FSInput
@@ -145,7 +145,7 @@ FSOutput Frag(VSOutput input)
 
     normalMap = normalize(mul(input.TBN, normalize(normalMap)));
 
-    float3 V = normalize(globals.viewPos - input.worldPos);
+    float3 V = normalize(ShaderGlobals.eyePos - input.worldPos);
     float3 reflected = reflect(V, normalMap);
 
     float3 F0 = 0.04;
@@ -186,22 +186,34 @@ FSOutput Frag(VSOutput input)
     //
     output.Color *= input.Color;
 
-    output.Color = output.Color / (output.Color + 1.0);
 
-    // output.Color = getLighting(model, diff, input.Normal, input.worldPos, F0, roughness, metallic) / 10;
-    //TODO: pcf
-    //TODO: cascade
-    //
-    // output.Color = reflected;
-    //
-    // MyLightStructure light = lights[0];
-    // int lightIndex = getShadowMatrixIndex(light);
-    // int cascadeLevel = findCascadeLevel(lightIndex, input.worldPos);
-    // if (cascadeLevel == 0) output.Color *= float3(0, 0, 1);
-    // if (cascadeLevel == 1) output.Color *= float3(1, 0, 0);
-    // if (cascadeLevel == 2) output.Color *= float3(0, 1, 0);
-    // if (cascadeLevel == 3) output.Color = float3(0.5, 0.5, 0);
+    // output.Color *= float3(1.0f, 0.5f, 0.5f);
+    // int cascadelevel = findCascadeLevel(0, input.worldPos);
+    // if (cascadelevel == 0)
+    // {
+    //     output.Color += (float3(1,0,0) *0.05f*0.5);
+    // }
+    // else if (cascadelevel == 1)
+    // {
+    //     output.Color += (float3(1,0,0) *0.05f*0.3);
+    // }
+    // else if (cascadelevel ==2)
+    // {
+    //     output.Color += (float3(0,1,0) *0.05f*0.5);
+    // }
+    // else if (cascadelevel == 3)
+    // {
+    //     output.Color += (float3(0,0,1) *0.05f*0.3);
+    // }
+    // else if (cascadelevel == 4)
+    // {
+    //     output.Color += (float3(0,0,1) *0.05f*0.5);
+    // }
+    // else if (cascadelevel == 5)
+    // {
+    //     output.Color += (float3(0,0,1) *0.05f*0.3);
+    // }
 
-    output.Color *= float3(1.0f, 0.2f, 0.2f);
+
     return output;
 }

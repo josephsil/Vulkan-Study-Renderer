@@ -18,9 +18,9 @@
 
 #include "Scene/AssetManager.h"
 // My stuff 
-struct gpulight;
-struct gpuvertex;
-struct PerShadowData;
+struct GPU_LightData;
+struct GPU_VertexData;
+struct GPU_perShadowData;
 struct preMeshletMesh; //Forward Declaration
 struct Vertex; //Forward Declaration
 using VmaAllocator = struct VmaAllocator_T*;
@@ -33,8 +33,14 @@ struct SDL_Window;
 
 struct PerSceneShadowResources
 {
-    std::span<std::span<VkImageView>> shadowMapRenderingImageViews;
-    std::span<std::span<VkImageView>> shadowMapSamplingImageViews;
+    //The way shadow maps are set up, different parts of the renderer need different views.
+    //"shadowMapSingleLayerViews" are used primarily for shadowmap rendering (and mip chain)
+    //These are one view per each shadowmap (for each cascade, cube face, etc)
+    std::span<std::span<VkImageView>> shadowMapSingleLayerViews;
+    //ShadowMapTextureArayViews contain one view for each shadow*caster, they are indexed by light count
+    //Each view has the appropriate number of array layers for cube faces, cascades, etc
+    //This is (currently) used for opaque rendering. I'd like to simplify.
+    std::span<std::span<VkImageView>> shadowMapTextureArrayViews;
     std::span<VkSampler> shadowSamplers;
     std::span<VkImage> shadowImages;
     std::span<std::span<DepthPyramidInfo>> WIP_shadowDepthPyramidInfos; //todo js populate
@@ -46,7 +52,8 @@ struct GlobalRendererResources //Buffers, images, etc, used in core rendering --
     std::unique_ptr<ShaderLoader> shaderLoader;
     std::vector<VkImage> swapchainImages;
     std::vector<VkImageView> swapchainImageViews;
-    VkSampler depthMipSampler;
+    VkSampler writeDepthMipSampler;
+    VkSampler readDepthMipSampler;
      std::vector<DepthBufferInfo> depthBufferInfoPerFrame;
      std::vector<DepthPyramidInfo> depthPyramidInfoPerFrame;
 };
@@ -79,8 +86,8 @@ public:
     static uint32_t StaticCalculateTotalDrawCount(Scene* scene, std::span<PerSubmeshData> submeshData);
 private:
     std::unordered_map<VkImageView, VkDescriptorSet> imguiRegisteredTextures;
-    struct per_frame_data;
-    rendererObjects rendererVulkanObjects;
+    struct FrameData;
+    rendererObjects vulkanObjects;
     GlobalRendererResources globalResources;
     PerSceneShadowResources shadowResources;
     std::unique_ptr<CommandPoolManager> commandPoolmanager;
@@ -90,11 +97,10 @@ private:
     MemoryArena::memoryArena rendererArena{};
     MemoryArena::memoryArena perFrameArenas[MAX_FRAMES_IN_FLIGHT];
 
-    int WIDTH = (int)(1280 * 1.5);
-    int HEIGHT = (int)(720 * 1.5);
+ 
     struct SDL_Window* _window{nullptr};
     glm::mat4 freezeView = {};
-    std::span<std::span<PerShadowData>> perLightShadowData;
+    std::span<std::span<GPU_perShadowData>> perLightShadowData;
 
 #pragma region  descriptor sets
     VkDescriptorPool descriptorPool;
@@ -114,7 +120,9 @@ private:
     std::span<descriptorUpdateData> computeUpdates[MAX_FRAMES_IN_FLIGHT] = {};
 
     
-    std::span<per_frame_data> FramesInFlightData;
+    std::span<FrameData> perFrameData;
+    FrameData& GetFrameData(size_t frame);
+    FrameData& GetFrameData();
     bool haveInitializedFrame[MAX_FRAMES_IN_FLIGHT];
     bool isFirstFrame = true;
     size_t cubemaplut_utilitytexture_index;
@@ -141,32 +149,37 @@ private:
 
 
     std::span<std::unique_ptr<RendererDeletionQueue>> perFrameDeletionQueuse;
-    struct per_frame_data
+    struct FrameData
     {
         uint32_t swapChainIndex;
         std::span<uint32_t> boundCommandBuffers;
         FrameSemaphores perFrameSemaphores;
        
         VkFence inFlightFence{};
-        HostDataBufferObject<ShaderGlobals> opaqueShaderGlobalsBuffer;
+        HostDataBufferObject<GPU_ShaderGlobals> opaqueShaderGlobalsBuffer;
         HostDataBufferObject<glm::vec4> hostVerts;
         dataBuffer deviceVerts;
         HostDataBufferObject<uint32_t> hostIndices;
         dataBuffer deviceIndices;
-        HostDataBufferObject<gpu_per_draw> perMeshbuffers;
-        HostDataBufferObject<gpu_transform> perObjectBuffers;
-        HostDataBufferObject<gpuvertex> hostMesh;
+        HostDataBufferObject<GPU_ObjectData> perMeshbuffers;
+        HostDataBufferObject<GPU_Transform> perObjectBuffers;
+        HostDataBufferObject<GPU_VertexData> hostMesh;
         dataBuffer deviceMesh;
 
         //Basic data about the light used in all passes 
-        HostDataBufferObject<gpulight> lightBuffers;
-        HostDataBufferObject<gpuPerShadowData> shadowDataBuffers;
+        HostDataBufferObject<GPU_LightData> lightBuffers;
+        HostDataBufferObject<GPU_perShadowData> shadowDataBuffers;
 
         //Draw indirect
         HostDataBufferObject<drawCommandData> drawBuffers;
 
         //Compute culling for draw indirect 
         HostDataBufferObject<glm::vec4> frustumsForCullBuffers;
+
+
+        std::span<GPU_ObjectData> ObjectDataForFrame;
+        std::span<GPU_Transform> ObjectTransformsForFrame;
+ 
     };
 
 
@@ -180,11 +193,8 @@ private:
 
 
     void RecordMipChainCompute(ActiveRenderStepData commandBufferContext, MemoryArena::memoryArena* arena,
-                               VkImage dstImage, VkImageView srcView, std::span<VkImageView> pyramidviews,
-                               VkSampler sampler, uint32_t _currentFrame, uint32_t
-                               pyramidWidth, uint32_t pyramidHeight);
-    void updateBindingsComputeCulling(ActiveRenderStepData commandBufferContext, MemoryArena::memoryArena* arena,
-                                      uint32_t _currentFrame);
+                               DepthPyramidInfo& pyramidInfo, VkImageView srcView);
+    void updateBindingsComputeCulling(ActiveRenderStepData commandBufferContext,Scene* scene, MemoryArena::memoryArena* arena);
 
 
     void RecordUtilityPasses(VkCommandBuffer commandBuffer, size_t imageIndex);
@@ -196,6 +206,7 @@ private:
     void RenderFrame(Scene* scene);
 
 };
+
 
 
 

@@ -16,10 +16,6 @@ struct descriptorUpdateData;
 
 
 
-DescriptorDataForPipeline constructDescriptorDataObject(MemoryArena::memoryArena* arena,
-                                                        std::span<VkDescriptorSetLayoutBinding> layoutBindings,
-                                                        uint32_t descriptorSetPoolSize = 1, bool isPerFrame = true);
-
 DescriptorDataForPipeline CreateDescriptorDataForPipeline(PerThreadRenderContext ctx, VkDescriptorSetLayout layout,
                                                           bool isPerFrame,
                                                           std::span<VkDescriptorSetLayoutBinding> bindingLayout,

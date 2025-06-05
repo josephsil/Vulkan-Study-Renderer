@@ -17,10 +17,11 @@ AssetManager::AssetManager()
     //1000000
     // this->meshData.vertices = MemoryArena::AllocSpan<Vertex>(&this->allocator,350000); 
     this->meshData.vertPositions = MemoryArena::AllocSpan<glm::vec4>(&this->allocator,350000); 
-    this->meshData.vertData = MemoryArena::AllocSpan<gpuvertex>(&this->allocator,350000);     
+    this->meshData.vertData = MemoryArena::AllocSpan<GPU_VertexData>(&this->allocator,350000);     
     this->meshData.vertIndices = MemoryArena::AllocSpan<uint8_t>(&this->allocator, 950000);
     this->meshData.meshletInfo =  MemoryArena::AllocSpan<MeshletData>(&this->allocator, MESHLET_MAX_PER * ASSET_MAX);
-    this->meshData.boundingInfo =  MemoryArena::AllocSpan<positionRadius>(&this->allocator, MESHLET_MAX_PER * ASSET_MAX);
+    this->meshData.boundingSpheres =  MemoryArena::AllocSpan<GPU_BoundingSphere>(&this->allocator, MESHLET_MAX_PER * ASSET_MAX);
+    this->meshData.GPU_Boundses =  MemoryArena::AllocSpan<GPU_Bounds>(&this->allocator, MESHLET_MAX_PER * ASSET_MAX);
     this->meshData.perSubmeshData = Array(MemoryArena::AllocSpan<PerSubmeshData>(&this->allocator, MESHLET_MAX_PER * ASSET_MAX));
     this->texturesMetaData = Array(MemoryArena::AllocSpan<TextureMetaData>(&this->allocator, ASSET_MAX));
     this->textures = Array(MemoryArena::AllocSpan<VkDescriptorImageInfo>(&this->allocator, ASSET_MAX));
@@ -112,13 +113,14 @@ AllocatedMeshData AssetManager::RequestMeshMemory(uint32_t vertCt, uint32_t inde
     
 }
 
-void SetVertexDataFromLoadingMeshVertex(Vertex& input, glm::vec4& outptuPos, gpuvertex& outputVert)
+void SetVertexDataFromLoadingMeshVertex(Vertex& input, glm::vec4& outptuPos, GPU_VertexData& outputVert)
 {
     outptuPos = input.pos;
     outputVert =            {
-        .texCoord = input.texCoord,
+        .uv0 = input.texCoord,
         .normal = input.normal,
-        .tangent = input.tangent};
+        .Tangent =  input.tangent
+       };
 }
 
 //It would be nicer if the assetmanager provided asset importers memory to load their verts into, and all that got passed around was layout/config/offset data
@@ -126,12 +128,17 @@ ID::SubMeshID AssetManager::AddMesh(ImportMeshData importMesh)
 {
 
     Array offsets = meshData.meshletInfo.pushUninitializedSpan(importMesh.meshletCount);
-    Array boundingInfo = meshData.boundingInfo.pushUninitializedSpan(importMesh.meshletCount);
+    Array spheres = meshData.boundingSpheres.pushUninitializedSpan(importMesh.meshletCount);
+    Array GPU_Boundses = meshData.GPU_Boundses.pushUninitializedSpan(importMesh.meshletCount);
 
     auto meshVertexOffset = globalVertexCount;
     for (uint32_t j = 0; j < importMesh.meshletCount; j++)
     {
-        boundingInfo.push_back(MeshDataCreation::boundingSphereFromMeshBounds(importMesh.meshletBounds[j]));
+        spheres.push_back(importMesh.meshletBounds[j]);
+        auto& vecCenter = importMesh.meshletBounds[j].center;
+         GPU_Boundses.push_back({ vecCenter+ (glm::vec4(-1) * ( importMesh.meshletBounds[j].radius)),
+        vecCenter+ (glm::vec4(1) * ( importMesh.meshletBounds[j].radius))
+             });
         offsets.push_back({
             importMesh.meshletVertexOffsets[j] + meshVertexOffset, globalIndexCount, importMesh.indexCounts[j]
         });
@@ -163,7 +170,7 @@ ID::SubMeshGroupID AssetManager::AddMultiSubmeshMeshMesh2(std::span<ImportMeshDa
 
 
 //TODO JS: 
-// positionRadius AssetManager::GetBoundingSphere(int idx)
+// GPU_BoundingSphere AssetManager::GetBoundingSphere(int idx)
 // {
 //     printf("NOT IMPLEMENTED: NEED TO USE CORRECT INDEX FOR GETBOUNDINGSPHERE\n");
 //     return TODO_MOVET_TO_MESHDATA_meshBoundingSphereRad[idx];

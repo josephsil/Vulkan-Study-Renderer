@@ -98,7 +98,7 @@ RenderBatch CreateRenderBatch(CommonRenderPassData* context,
       .pushConstants = config.PushConstants.ptr,
       .pushConstantsSize = config.PushConstants.size,
       //TODO JS: dynamically set bias per shadow caster, especially for cascades
-      .depthBiasSetting =!shadow ?depthBiasSettng{.use =false, .depthBias = 0, .slopeBias = 0} : depthBiasSettng{.use = true, .depthBias = 6.0, .slopeBias = 3.0}
+      .depthBiasSetting =!shadow ?depthBiasSettng{.use =false, .depthBias = 0, .slopeBias = 0} : depthBiasSettng{.use = true, .depthBias = -8.0, .slopeBias = -10.0} 
           };
 }
 

@@ -131,7 +131,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>.\vkbootstrap;C:\VulkanSDK\1.3.239.0\Include;C:\Program Files\Microsoft Visual Studio\2022\Community\libraries\stb-master;C:\VulkanSDK\1.3.239.0\Include\vma;C:\Program Files\Microsoft Visual Studio\2022\Community\libraries\tinyobjloader-release;C:\VulkanSDK\KTX-Software\include;.\Code;.\tinygltf;.\External;.\External\imgui;.\External\JoltPhysics;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\External\fmt\include;.\External\DXC\inc;.\vkbootstrap;C:\VulkanSDK\1.3.239.0\Include;C:\Program Files\Microsoft Visual Studio\2022\Community\libraries\stb-master;C:\VulkanSDK\1.3.239.0\Include\vma;C:\Program Files\Microsoft Visual Studio\2022\Community\libraries\tinyobjloader-release;C:\VulkanSDK\KTX-Software\include;.\Code;.\tinygltf;.\External;.\External\imgui;.\External\JoltPhysics;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <TreatWarningAsError>true</TreatWarningAsError>
@@ -140,11 +140,14 @@
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
-      <GenerateDebugInformation>DebugFastLink</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>.\External\Superluminal\Include;.\dll;C:\VulkanSDK\1.3.239.0\Lib;C:\VulkanSDK\KTX-Software\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <GenerateDebugInformation>DebugFull</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>.\External\DXC\lib\x64;.\External\Superluminal\Include;.\dll;C:\VulkanSDK\1.3.239.0\Lib;C:\VulkanSDK\KTX-Software\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>vulkan-1.lib;dxcompiler.lib;SDL2.lib;SDL2main.lib;ktx.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ShowProgress>LinkVerbose</ShowProgress>
     </Link>
+    <PreBuildEvent>
+      <!--      <Command>powershell ./generate_shader_structs_cpp.ps1</Command>-->
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -154,7 +157,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_DEPRECATE;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>.\vkbootstrap;C:\VulkanSDK\1.3.239.0\Include;C:\Program Files\Microsoft Visual Studio\2022\Community\libraries\stb-master;C:\VulkanSDK\1.3.239.0\Include\vma;C:\Program Files\Microsoft Visual Studio\2022\Community\libraries\tinyobjloader-release;C:\VulkanSDK\KTX-Software\include;.\Code;.\tinygltf;.\External;.\External\imgui;.\External\JoltPhysics;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\External\fmt\include;.\External\DXC\inc;.\vkbootstrap;C:\VulkanSDK\1.3.239.0\Include;C:\Program Files\Microsoft Visual Studio\2022\Community\libraries\stb-master;C:\VulkanSDK\1.3.239.0\Include\vma;C:\Program Files\Microsoft Visual Studio\2022\Community\libraries\tinyobjloader-release;C:\VulkanSDK\KTX-Software\include;.\Code;.\tinygltf;.\External;.\External\imgui;.\External\JoltPhysics;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
@@ -166,10 +169,13 @@
       <SubSystem>Console</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <GenerateDebugInformation>DebugFastLink</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>.\External\Superluminal\Include;.\dll;C:\VulkanSDK\1.3.239.0\Lib;C:\VulkanSDK\KTX-Software\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <GenerateDebugInformation>DebugFull</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>.\External\DXC\lib\x64;.\External\Superluminal\Include;.\dll;C:\VulkanSDK\1.3.239.0\Lib;C:\VulkanSDK\KTX-Software\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>vulkan-1.lib;dxcompiler.lib;SDL2.lib;SDL2main.lib;ktx.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PreBuildEvent>
+      <!--      <Command>powershell ./generate_shader_structs_cpp.ps1</Command>-->
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Code\game.cpp" />
@@ -302,12 +308,14 @@
     <ClInclude Include="Code\Renderer\VulkanBuffers\bufferCreation.h" />
     <ClInclude Include="Code\Renderer\VulkanBuffers\HostDataBuffer.h" />
     <ClInclude Include="Code\Renderer\VulkanIncludes\forward-declarations-renderer.h" />
+    <ClInclude Include="Code\Renderer\VulkanIncludes\structs_hlsl.h" />
     <ClInclude Include="Code\Renderer\VulkanIncludes\vmaImplementation.h" />
     <ClInclude Include="Code\Renderer\VulkanIncludes\VulkanMemory.h" />
     <ClInclude Include="Code\Renderer\VulkanIncludes\Vulkan_Includes.h" />
     <ClInclude Include="Code\Scene\Scene.h" />
     <ClInclude Include="Code\Scene\AssetManager.h" />
     <ClInclude Include="Code\Scene\Transforms.h" />
+    <ClInclude Include="External\fmtInclude.h" />
     <ClInclude Include="External\imgui\backends\imgui_impl_sdl2.h" />
     <ClInclude Include="External\imgui\backends\imgui_impl_vulkan.h" />
     <ClInclude Include="External\imgui\imconfig.h" />
@@ -337,6 +345,9 @@
   </ItemGroup>
   <ItemGroup>
     <Natvis Include="External\imgui\misc\debuggers\imgui.natvis" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="External\fmt\" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

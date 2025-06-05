@@ -33,19 +33,19 @@ VSOutput Vert(VSInput input, [[vk::builtin("BaseInstance")]] uint InstanceIndex 
               uint VertexIndex : SV_VertexID)
 {
 #ifdef USE_RW
-    MyVertexStructure myVertex = BufferTable[VertexIndex];
+    VertexData myVertex = BufferTable[VertexIndex];
 #else
 	//Interesting buffer load perf numbers
 	// https://github.com/sebbbi/perfindexInfo
 	// https://github.com/microsoft/DirectXShaderCompiler/issues/2193 	
- 	MyVertexStructure myVertex = BufferTable.Load<MyVertexStructure>((VERTEXOFFSET + VertexIndex) * sizeof(MyVertexStructure));
+ 	VertexData myVertex = BufferTable.Load<VertexData>((VERTEXOFFSET + VertexIndex) * sizeof(VertexData));
 #endif
     float4 vertPos = positions[VertexIndex];
     vertPos.a = 1.0;
-    objectData ubo = perObjectData[InstanceIndex];
+    ObjectData ubo = PerObjectData[InstanceIndex];
     VSOutput output = (VSOutput)0;
-    float4x4 modelView = mul(globals.view,GetTransform().Model);
-    float4x4 mvp = mul(globals.projection, modelView);
+    float4x4 modelView = mul(ShaderGlobals.viewMatrix,GetTransform().Model);
+    float4x4 mvp = mul(ShaderGlobals.projMatrix, modelView);
 
     output.Pos = mul(mvp, vertPos);
     output.Texture_ST = myVertex.uv0.xy;
@@ -81,7 +81,7 @@ VSOutput Vert(VSInput input, [[vk::builtin("BaseInstance")]] uint InstanceIndex 
 
 bool getMode()
 {
-    return globals.lightcount_mode_shadowct_padding.g;
+    return ShaderGlobals.lightcount_mode_shadowct_padding.g;
 }
 
 struct FSInput
@@ -118,7 +118,7 @@ FSOutput Frag(VSOutput input)
     InstanceIndex = input.InstanceID;
     FSOutput output;
 
-    objectData ubo = perObjectData[InstanceIndex];
+    ObjectData ubo = PerObjectData[InstanceIndex];
 
 
     float3 diff = saturate(
@@ -135,7 +135,7 @@ FSOutput Frag(VSOutput input)
 
 
     normalMap = normalize(mul(input.TBN, ((2.0 * normalMap) - 1.0)));
-    float3 V = normalize(globals.viewPos - input.worldPos);
+    float3 V = normalize(ShaderGlobals.eyePos - input.worldPos);
     float3 reflected = reflect(V, normalMap);
 
     float3 F0 = 0.04;
@@ -171,7 +171,6 @@ FSOutput Frag(VSOutput input)
     }
     //
 
-    output.Color = output.Color / (output.Color + 1.0);
     //	output.Color = pow(output.Color, 1.0/2.2); 
     // output.Color = reflected;
     return output;

@@ -44,7 +44,7 @@ void DebugLineData::addDebugCross(glm::vec3 point, float size, glm::vec3 color)
 }
 
 
-debugLinePConstants DebugLineData::getDebugLineForRendering(size_t i)
+GPU_DebugLinePushConstants DebugLineData::getDebugLineForRendering(size_t i)
 {
     return {
         .m = glm::mat4(1.0),

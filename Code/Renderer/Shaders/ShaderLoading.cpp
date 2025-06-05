@@ -290,7 +290,6 @@ void ShaderLoader::AddShader(const char* name, std::wstring shaderPath, bool com
     //TODO JS: get all includes recursively 
     shaderPaths shaderPaths = {.path = shaderPath, .includePaths = findShaderIncludes(&scratch, shaderPath)};
     bool needsCompiled = ShaderNeedsReciompiled(shaderPaths);
-    needsCompiled = true;
     //TODO JS: if no, load a cached version
 
     switch (compute)
@@ -306,7 +305,7 @@ void ShaderLoader::AddShader(const char* name, std::wstring shaderPath, bool com
             VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
             if (vertShaderStageInfo.module != VK_NULL_HANDLE)
             {
-                SetDebugObjectName(device_, VK_OBJECT_TYPE_SHADER_MODULE, name, (uint64_t)(vertShaderStageInfo.module));
+                SetDebugObjectNameS(device_, VK_OBJECT_TYPE_SHADER_MODULE, name, (uint64_t)(vertShaderStageInfo.module));
             }
             fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
             fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -316,7 +315,7 @@ void ShaderLoader::AddShader(const char* name, std::wstring shaderPath, bool com
             std::vector shaderStages = {vertShaderStageInfo, fragShaderStageInfo};
             if (fragShaderStageInfo.module != VK_NULL_HANDLE)
             {
-                SetDebugObjectName(device_, VK_OBJECT_TYPE_SHADER_MODULE, name, (uint64_t)fragShaderStageInfo.module);
+                SetDebugObjectNameS(device_, VK_OBJECT_TYPE_SHADER_MODULE, name, (uint64_t)fragShaderStageInfo.module);
             }
             VkPipelineShaderStageCreateInfo test[] = {vertShaderStageInfo, fragShaderStageInfo};
             compiledShaders.insert({name, shaderStages});
@@ -334,7 +333,7 @@ void ShaderLoader::AddShader(const char* name, std::wstring shaderPath, bool com
             compiledShaders.insert({name, shaderStages});
             if (computeShaderStage.module != VK_NULL_HANDLE)
             {
-                SetDebugObjectName(device_, VK_OBJECT_TYPE_SHADER_MODULE, name, (uint64_t)computeShaderStage.module);
+                SetDebugObjectNameS(device_, VK_OBJECT_TYPE_SHADER_MODULE, name, (uint64_t)computeShaderStage.module);
             }
             break;
         }
@@ -423,6 +422,10 @@ void ShaderLoader::shaderCompile(std::wstring shaderFilename, shaderType stagety
         L"-I", L"./Shaders/Includes",
         // Compile to SPIRV
         L"-spirv",
+#if _DEBUG
+        L"-D",
+        L"_DEBUG", //todo js: make sure to recompile shaders when this changes 
+#endif 
         L"-fvk-support-nonzero-base-instance",
         L"-Zi",
         L"-fspv-debug=vulkan-with-source"

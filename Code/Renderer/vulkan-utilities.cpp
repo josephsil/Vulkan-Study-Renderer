@@ -8,7 +8,7 @@
 VkFormat Capabilities::findDepthFormat(VkPhysicalDevice physicalDevice)
 {
     return findSupportedFormat(physicalDevice,
-                               {VK_FORMAT_D16_UNORM},
+                               {VK_FORMAT_D32_SFLOAT},
                                VK_IMAGE_TILING_OPTIMAL,
                                VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT
     );
@@ -34,7 +34,7 @@ VkFormat Capabilities::findSupportedFormat(VkPhysicalDevice physicalDevice, cons
         }
     }
 
-    printf("failed to find supported format!");
+    assert(!"failed to find supported format!");
     exit(1);
 }
 
@@ -61,7 +61,6 @@ VkDescriptorSetLayoutCreateInfo DescriptorSets::createInfoFromSpan(std::span<VkD
 {
     VkDescriptorSetLayoutCreateInfo _createInfo = {};
     _createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    // _createInfo.flags =   VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
     _createInfo.bindingCount = static_cast<uint32_t>(bindings.size());
     _createInfo.pBindings = bindings.data();
 
@@ -73,7 +72,7 @@ VkDescriptorSetLayout DescriptorSets::createVkDescriptorSetLayout(PerThreadRende
                                                                   layoutBindings, const char* debugName)
 {
     VkDescriptorSetLayoutCreateInfo layoutCreateInfo = createInfoFromSpan(layoutBindings);
-    VkDescriptorBindingFlags binding_flags = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT_EXT;
+    VkDescriptorBindingFlags binding_flags = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
     VkDescriptorSetLayoutBindingFlagsCreateInfoEXT extended_info = {
         VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO_EXT
     };
@@ -96,7 +95,7 @@ VkDescriptorSetLayout DescriptorSets::createVkDescriptorSetLayout(PerThreadRende
 
     VkDescriptorSetLayout _layout = {};
     VK_CHECK(vkCreateDescriptorSetLayout(handles.device, &layoutCreateInfo, nullptr, &_layout));
-    SetDebugObjectName(handles.device, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, debugName, (uint64_t)_layout);
+    SetDebugObjectNameS(handles.device, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, debugName, (uint64_t)_layout);
     return _layout;
 }
 
@@ -129,7 +128,7 @@ void DescriptorSets::CreateDescriptorSetsForLayout(PerThreadRenderContext handle
         }
 
         AllocateDescriptorSet(handles.device, pool, descriptorSetLayoutCopiesForAlloc.data(), &sets[i], descriptorCt);
-        SetDebugObjectName(handles.device, VK_OBJECT_TYPE_DESCRIPTOR_SET, debugName, uint64_t(sets[i]));
+        SetDebugObjectNameS(handles.device, VK_OBJECT_TYPE_DESCRIPTOR_SET, debugName, uint64_t(sets[i]));
     }
 }
 
