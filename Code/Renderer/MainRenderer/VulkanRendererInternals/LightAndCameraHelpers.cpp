@@ -305,13 +305,13 @@ std::span<GPU_perShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryA
                 transformedCenter.y = floor(transformedCenter.y);
                 transformedCenter = texelInverse * transformedCenter ;
                 //Compute output matrices
-                //TODO: Derive the correc tortho matrices.
-                //TODO: Culling doesn't work because this is a FINITE depth projection, with positive (rather than negative) view Z.
+                //TODO: Derive the correc tortho matrices -- these produce weird depth buffers, with everything clustered around 0.5
+                float farPlane = (min_cascade + (maxExtents.z - minExtents.z) * distanceOffset);
                 lightViewMatrix = glm::lookAt(glm::vec3(transformedCenter)  + ((dir * maxExtents) * distanceOffset), glm::vec3(transformedCenter), up);
-                glm::mat4 lightOrthoMatrix = glm::ortho(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, (min_cascade + (maxExtents.z - minExtents.z) * distanceOffset), 0.001f) ;
+                glm::mat4 lightOrthoMatrix = glm::ortho(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, farPlane, 0.001f) ;
 
                 lightProjection =  lightOrthoMatrix;
-                outputSpan[i] = {lightViewMatrix, lightProjection,  0.001f/*todo*/,(min_cascade + ((maxExtents.z - minExtents.z) /2.f)  )};
+                outputSpan[i] = {lightViewMatrix, lightProjection,  farPlane, 0.001f/*todo*/,(min_cascade + ((maxExtents.z - minExtents.z) /3.0f)  )}; // /3 here is a hacky number -- need to fix all this
             }
             return  outputSpan.subspan(0,CASCADE_CT);
         }
@@ -323,7 +323,7 @@ std::span<GPU_perShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryA
             lightProjection = perspective(spotRadius *2.f, //not sure what's wrong with my math to require this *2!
                                                1.0f,  0.001f, 2500.f, nullptr
                                                ); //TODO BETTER FAR 
-            outputSpan[0] = {lightViewMatrix, lightProjection, 0.001f, 0};
+            outputSpan[0] = {lightViewMatrix, lightProjection, 0, 0.001f, 0};
                                   
             return  outputSpan;
         }
@@ -338,6 +338,7 @@ std::span<GPU_perShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryA
         for(int i = 0; i < outputSpan.size(); i++)
         {
             outputSpan[i].nearPlane = POINT_LIGHT_NEAR_PLANE;
+            outputSpan[1].farPlane = 0;
             outputSpan[i].depth = 0;
         }
         glm::mat4 translation = glm::translate(glm::mat4(1.0f), -lightPos);

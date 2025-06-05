@@ -923,6 +923,7 @@ void RecordCullingCommands(ArenaAllocator allocator, VkPipelineLayout layout, Ac
     //Culling override code
     uint32_t cullFrustumIndex = passIndex * 6; //this doesn't seem right!
     float nearPlane = conf.nearPlane;
+    float farPlane = conf.farPlane;
     glm::mat4& proj = conf.proj;
     glm::mat4& view = conf.view;
     if (debug_cull_override)
@@ -930,6 +931,7 @@ void RecordCullingCommands(ArenaAllocator allocator, VkPipelineLayout layout, Ac
         cullFrustumIndex =  debug_cull_override_index * 6;
         passIndex =  debug_cull_override_index;
         nearPlane = DebugCullingData[passIndex].nearPlane;
+        farPlane = DebugCullingData[passIndex].farPlane;
         proj = DebugCullingData[passIndex].proj;
         proj = DebugCullingData[passIndex].proj;
         
@@ -945,6 +947,7 @@ void RecordCullingCommands(ArenaAllocator allocator, VkPipelineLayout layout, Ac
         .objectCount = conf.drawCount,
         .LATE_CULL = 0,
         .disable = (uint32_t)debug_shader_bool_2,
+        .farPlane =  farPlane,
         .nearPlane = nearPlane
         };
 
@@ -1605,13 +1608,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     for(size_t i = 0; i < glm::min(scene->lightCount, MAX_SHADOWCASTERS); i ++)
     {
         LightType type = (LightType)scene->lightTypes[i];
-        size_t lightSubpasses = shadowCountFromLightType(type);
-        for (size_t j = 0; j < lightSubpasses; j++)
-        {
-            auto view = perLightShadowData[i][j].viewMatrix;
-            auto proj =  perLightShadowData[i][j].projMatrix;
-            flatShadowData.push_back({.viewMatrix = view, .projMatrix = proj, .nearPlane = perLightShadowData[i][j].nearPlane,.depth = perLightShadowData[i][j].depth });
-        }
+        flatShadowData.push_copy_span( perLightShadowData[i]);
     }
 
     //Create shadow info for passes
@@ -1619,7 +1616,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     uint32_t batchIndex =0;
     for (auto& shadowData : flatShadowData.getSpan())
     {
-        shadowPassData.push_back({.drawCount = drawPerPass, .drawOffset = drawOffset,.subMeshcount = submeshperPass, .proj = shadowData.projMatrix, .view = shadowData.viewMatrix, .nearPlane = shadowData.nearPlane});
+        shadowPassData.push_back({.drawCount = drawPerPass, .drawOffset = drawOffset,.subMeshcount = submeshperPass, .proj = shadowData.projMatrix, .view = shadowData.viewMatrix, .farPlane = shadowData.farPlane,.nearPlane = shadowData.nearPlane});
         DebugCullingData[batchIndex++] = (shadowPassData.back());
         drawOffset += drawPerPass;
     }
@@ -1635,7 +1632,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
         debugLinesManager.AddDebugFrustum(frustumCornersWorldSpace);
     }
     
-    RenderPassDrawData opaquePassData = {.drawCount = drawPerPass, .drawOffset = drawOffset, .subMeshcount = submeshperPass,.proj = viewProjMatricesForCulling.proj, .view = viewProjMatricesForCulling.view, .nearPlane =  CAMERA_NEAR_PLANE };
+    RenderPassDrawData opaquePassData = {.drawCount = drawPerPass, .drawOffset = drawOffset, .subMeshcount = submeshperPass,.proj = viewProjMatricesForCulling.proj, .view = viewProjMatricesForCulling.view, .farPlane = 0.0, .nearPlane =  CAMERA_NEAR_PLANE };
     DebugCullingData[batchIndex++] = (opaquePassData);
     
     Array<RenderBatch> renderBatches = MemoryArena::AllocSpan<RenderBatch>(&perFrameArenas[currentFrame], MAX_RENDER_PASSES);

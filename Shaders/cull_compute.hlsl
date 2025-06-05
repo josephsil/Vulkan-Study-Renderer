@@ -116,38 +116,63 @@ void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
         //
         //
         //
+        bool is_directional_light_hack = ShaderGlobals.farPlane > 0.0; //Hacky way to determine if you're a directional light
+        float nearPlane = ShaderGlobals.nearPlane;
+     
         float4 aabb;
-        if (projectSphere(ViewCenter, scaledRadius, ShaderGlobals.nearPlane,  ShaderGlobals.projMatrix[0][0], ShaderGlobals.projMatrix[1][1], aabb))
+        if (!is_directional_light_hack)
         {
-            float width = ((aabb.x - aabb.z) ) *  1024.0;
-            float height = ((aabb.w - aabb.y )) *  1024.0;
-
-            int level = ceil(log2(max(width, height)));
-            float2 hiZSamplePoint1 =  (aabb.xy);
-            float2 hiZSamplePoint2 =  (aabb.zw);
-            float2 hiZSamplePoint3 =  (aabb.xw);
-            float2 hiZSamplePoint4 =  (aabb.zy); 
-
-            float2 uv =  (aabb.xy + aabb.zw) / 2.f;
-            float positive_z = ViewCenter.z * -1;
-
-			float hiZValue = bindless_textures[passIndex].SampleLevel(bindless_samplers[passIndex], float3(uv.x, uv.y,(int)0), level);
-            
-            float depthSphere =  (ShaderGlobals.nearPlane /( positive_z - scaledRadius));
-
-            drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].debug1.xy = (aabb.xy + aabb.zw) / 2.f; 
-            drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].debug1.zw = aabb.xy;
-            drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].debug2.xy =  aabb.zw;
-            drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].debug2.z = hiZValue;
-            drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].debug2.w = depthSphere; //
-
-            drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].debug3.x = level;
-            drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].debug3.y = hiZValue >  (depthSphere);
-            if (hiZValue >  (depthSphere) && !cullPC.disable)
+            if (projectSphere(ViewCenter, scaledRadius, nearPlane,  ShaderGlobals.projMatrix[0][0], ShaderGlobals.projMatrix[1][1], aabb))
             {
+                float width = ((aabb.x - aabb.z) ) *  1024.0;
+                float height = ((aabb.w - aabb.y )) *  1024.0;
+
+                int level = ceil(log2(max(width, height)));
+                float2 hiZSamplePoint1 =  (aabb.xy);
+                float2 hiZSamplePoint2 =  (aabb.zw);
+                float2 hiZSamplePoint3 =  (aabb.xw);
+                float2 hiZSamplePoint4 =  (aabb.zy); 
+
+                float2 uv =  (aabb.xy + aabb.zw) / 2.f;
+                float positive_z = ViewCenter.z * -1;
+
+                float hiZValue = bindless_textures[passIndex].SampleLevel(bindless_samplers[passIndex], float3(uv.x, uv.y,(int)0), level);
+            
+                float depthSphere =  (nearPlane /( positive_z - scaledRadius));
+
+                drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].debug1.xy = (aabb.xy + aabb.zw) / 2.f; 
+                drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].debug1.zw = aabb.xy;
+                drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].debug2.xy =  aabb.zw;
+                drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].debug2.z = hiZValue;
+                drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].debug2.w = depthSphere; //
+
+                drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].debug3.x = level;
+                drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].debug3.y = hiZValue >  (depthSphere);
+                if (hiZValue >  (depthSphere) && !cullPC.disable)
+                {
+                   visible = false;
+                }
+            }
+        }
+        else //Directional light light (ortho)
+        {
+            float2 uv = centerUV.xy; //?
+            if (ViewCenter.z - nearPlane >= scaledRadius)
+            {
+                float2 aabbmax = (NDCToUV(WorldToClip(worldCenter - float4(scaledRadius,scaledRadius,scaledRadius,1.0)))).xy; //todo, could do this without the matrix multiplies
+                float2 aabbmin = (NDCToUV(WorldToClip(worldCenter + float4(scaledRadius,scaledRadius,scaledRadius,1.0)))).xy; //todo, could do this without the matrix multiplies
+                float width = ((aabbmax.x - aabbmin.x) ) *  1024.0;
+                float height = ((aabbmax.y - aabbmin.y )) *  1024.0;
+                float uvRadius =distance(aabbmax, aabbmin);
+                int level = ceil(log2(max(width, height)));
+                float hiZValue = bindless_textures[passIndex].SampleLevel(bindless_samplers[passIndex], float3(uv.x, uv.y,(int)0), level);
+                float depthSphere = ((centerClipSpace.z + uvRadius));
                 
-                drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].instanceCount = 0;
-                return;
+                if (hiZValue >  (depthSphere) && !cullPC.disable)
+                {
+                
+                   visible = false;
+                }
             }
         }
     }

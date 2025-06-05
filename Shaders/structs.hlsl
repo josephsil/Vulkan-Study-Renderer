@@ -63,6 +63,7 @@ struct perShadowData
 {
     float4x4 viewMatrix;
     float4x4 projMatrix;
+    float farPlane;
     float nearPlane;
     float depth;
 };//
@@ -103,6 +104,7 @@ struct CullPushConstants
     uint objectCount;
     uint LATE_CULL;
     uint disable;
+    float farPlane;
     float nearPlane;
     //TODO JS: frustum should just go in here
 };
