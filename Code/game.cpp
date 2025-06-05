@@ -85,7 +85,7 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
     //point lights    
     // scene->AddPointLight(glm::vec3(1, 1, 0), glm::vec3(0.3, 0.8, 1), 2);
     scene->AddDirLight(glm::vec3(0.00, 0.9, 0.1), glm::vec3(1, 1, 1), 1);
-    // scene->AddPointLight(glm::vec3(-2, 2, 0), glm::vec3(1, 0, 0), 999 / 2);
+    scene->AddPointLight(glm::vec3(-2, 2, 0), glm::vec3(1, 0, 0), 999 / 2);
     // scene->AddPointLight(glm::vec3(0, 0, 0), glm::vec3(0, 1, 1), 999 / 2);
 
     GltfData gltf;
@@ -138,9 +138,9 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
 
     
     localTransform* tform = &scene->transforms.transformNodes[root];
-    for (int i = 0; i < 5; i++)
+    for (int i = 0; i < 50; i++)
     {
-        for (int j = i == 0 ? 1 : 0; j < 5; j++)
+        for (int j = i == 0 ? 1 : 0; j < 20; j++)
         {
             float rowRoughness = static_cast<float>(glm::clamp(static_cast<float>(i) / 8.0, 0.0, 1.0));
             bool rowmetlalic = i % 3 == 0;

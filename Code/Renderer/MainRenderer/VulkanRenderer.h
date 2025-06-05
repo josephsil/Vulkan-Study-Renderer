@@ -172,6 +172,8 @@ private:
 
         //Draw indirect
         HostDataBufferObject<drawCommandData> drawBuffers;
+        //Draw early draw list
+        HostDataBufferObject<bool> earlyDrawList;
 
         //Compute culling for draw indirect 
         HostDataBufferObject<glm::vec4> frustumsForCullBuffers;

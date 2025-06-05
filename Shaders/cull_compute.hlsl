@@ -3,10 +3,6 @@
 #include "ObjectDataMacros.hlsl"
 struct drawCommandData
 {
-
-    float4 debug1;
-    float4 debug2;
-    float4 debug3;
     uint objectIndex;
     uint indexCount;
     uint instanceCount;
@@ -35,6 +31,8 @@ RWStructuredBuffer<ObjectData> PerObjectData;
 [[vk::binding(15, 0)]]
 RWStructuredBuffer<Transform> Transforms;
 
+[[vk::binding(16, 0)]]
+RWStructuredBuffer<bool> EarlyDrawList; //Index in with objIndex 
 
 // 2D Polyhedral Bounds of a Clipped, Perspective-Projected 3D Sphere. Michael Mara, Morgan McGuire. 2013
 bool projectSphere(float3 c, float r, float znear, float P00, float P11, out float4 aabb)
@@ -93,10 +91,18 @@ void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
     float centerDepth = NDCToDepth(centerNDC);
 
     bool visible = true;
-    bool test = visible;
+    //Goal: This shader runs twice a frame. The first time, it is culling against the early draw. The early draw has already happened, and should have been supplied a correct list of draws.
+    //During this first run, mark all objects from the early draw list to not be drawn during late draw.
+    //The second run needs to get accurate culling information for the following frame.
+    //It culls *everything* against the finished depth buffer for the frame.
+    
+    if (!ShaderGlobals.LATE_CULL) //On first cull, mark all of the early draw objects to not be drawn again 
+    {
+        visible = !EarlyDrawList[objIndex];
+    }
 
     //frustum
-    if (test)
+    if (visible)
     {
     // TODO JS Culling doesn't work properly for low FOVs -- scale up to be conservative
         float radius = mesh.boundsSphere.radius * mesh.objectScale * 1.5f;
@@ -108,7 +114,7 @@ void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
     }
     
     //Occlusion
-    if (test && visible)
+    if (visible)
     {
         //todo js test 
         float scaledRadius = (mesh.boundsSphere.radius) * mesh.objectScale;
@@ -139,15 +145,6 @@ void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
                 float hiZValue = bindless_textures[passIndex].SampleLevel(bindless_samplers[passIndex], float3(uv.x, uv.y,(int)0), level);
             
                 float depthSphere =  (nearPlane /( positive_z - scaledRadius));
-
-                drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].debug1.xy = (aabb.xy + aabb.zw) / 2.f; 
-                drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].debug1.zw = aabb.xy;
-                drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].debug2.xy =  aabb.zw;
-                drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].debug2.z = hiZValue;
-                drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].debug2.w = depthSphere; //
-
-                drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].debug3.x = level;
-                drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].debug3.y = hiZValue >  (depthSphere);
                 if (hiZValue >  (depthSphere) && !cullPC.disable)
                 {
                    visible = false;
@@ -177,9 +174,11 @@ void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
         }
     }
 
-
+    if (ShaderGlobals.LATE_CULL) //On late draw, update the early draw list. We expect NEXT frame's early draw list to be bound.
+    {
+        EarlyDrawList[objIndex] = visible;
+    }
+    
+    //On late draw, we expect NEXT frame's drawData to be bound.
     drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].instanceCount = visible ? 1 : 0;
-    // drawData[GlobalInvocationID.x].debugData = center;
-    // drawData[cullPC.offset + GlobalInvocationID.x].instanceCount = 0;
-    // BufferTable[2].position = mul(float4(1,1,1,0), cullPC.projection) + d.indexCount;
 }

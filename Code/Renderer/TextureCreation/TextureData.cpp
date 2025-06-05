@@ -479,9 +479,9 @@ void TextureCreation::CreateDepthPyramidSampler(VkSampler* textureSampler, VkSam
     samplerInfo.maxLod = static_cast<float>(maxMip);
 
     //add a extension struct to enable Min mode
+    VkSamplerReductionModeCreateInfoEXT createInfoReduction = {};
     if (mode != VK_SAMPLER_REDUCTION_MODE_MAX_ENUM)
     {
-        VkSamplerReductionModeCreateInfoEXT createInfoReduction = {};
 
         createInfoReduction.sType = VK_STRUCTURE_TYPE_SAMPLER_REDUCTION_MODE_CREATE_INFO_EXT;
         createInfoReduction.reductionMode = mode;

@@ -23,9 +23,6 @@ struct __VkDrawIndirectCommand
 
 struct drawCommandData
 {
-    glm::vec4 debug1;
-    glm::vec4 debug2;
-    glm::vec4 debug3;
     uint32_t objectIndex;
     __VkDrawINDEXEDIndirectCommand command;
 };

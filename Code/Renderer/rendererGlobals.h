@@ -8,7 +8,7 @@ static constexpr int HEIGHT = (int)(720 * 1.5);
 static constexpr size_t MAX_SHADOWCASTERS = 8;
 
 #define MAX_SHADOWMAPS (MAX_SHADOWCASTERS * 8)
-#define MAX_SHADOWMAPS_WITH_CULLING (8)
+#define MAX_SHADOWMAPS_WITH_CULLING (16)
 static constexpr int MAX_CAMERAS = 1;
 static constexpr int HIZDEPTH = 10;
 static constexpr int MAX_FRAMES_IN_FLIGHT = 3;
