@@ -94,7 +94,6 @@ void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
     
     if (EARLY_CULL) //On first cull, mark all of the early draw objects to not be drawn again. 
     {
-        //todo: this produces black color swapchain on first frame, because currently early render is a DEPTH PREPASS rather than a color pass.
         visible = !EarlyDrawList[objIndex];
     }
 

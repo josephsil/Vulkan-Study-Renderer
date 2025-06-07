@@ -113,13 +113,13 @@ void* BufferUtilities::createHostMappedBuffer(VmaAllocator allocator, VkDeviceSi
 }
 
 
-void BufferUtilities::createDeviceBuffer(VmaAllocator allocator, VkDeviceSize size, VkBufferUsageFlags usage,
+void BufferUtilities::createDeviceBuffer(VmaAllocator allocator, const char* name, VkDeviceSize size, VkBufferUsageFlags usage,
                                          VkDevice device, VmaAllocation* allocation, VkBuffer* buffer)
 {
     VmaAllocationInfo AllocationInfo = {};
     createBuffer(allocator, size, usage, VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                  allocation, buffer, &AllocationInfo);
-    SetDebugObjectNameS(device, VK_OBJECT_TYPE_BUFFER, "Bufferutiltiies create device buffer buffer", (uint64_t)*buffer);
+    SetDebugObjectNameS(device, VK_OBJECT_TYPE_BUFFER, name, (uint64_t)*buffer);
 }
 
 void BufferUtilities::createStagingBuffer(VkDeviceSize size,

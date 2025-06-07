@@ -433,14 +433,14 @@ void VulkanRenderer::CreateUniformBuffers( size_t drawCount, size_t objectsCount
 
         GetFrameData(i).deviceVerts = {.data = VK_NULL_HANDLE, .size = AssetDataAndMemory->getVertexCount() * sizeof(glm::vec4), .mapped = nullptr};
         VmaAllocation alloc = {};
-        BufferUtilities::createDeviceBuffer(context.allocator,
+        BufferUtilities::createDeviceBuffer(context.allocator,"verts",
                                             GetFrameData(i).deviceVerts.size,
                                             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,context.device,&alloc,
                                             &GetFrameData(i).deviceVerts.data);
 
         GetFrameData(i).deviceMesh = {.data = VK_NULL_HANDLE, .size = AssetDataAndMemory->getVertexCount() * sizeof(GPU_VertexData), .mapped = nullptr};
         VmaAllocation alloc2 = {};
-        BufferUtilities::createDeviceBuffer(context.allocator,
+        BufferUtilities::createDeviceBuffer(context.allocator, "meshes",
                                             GetFrameData(i).deviceMesh.size,
                                             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,context.device,&alloc2,
                                             &GetFrameData(i).deviceMesh.data);
@@ -448,7 +448,7 @@ void VulkanRenderer::CreateUniformBuffers( size_t drawCount, size_t objectsCount
         GetFrameData(i).hostIndices = createDataBuffer<uint32_t>(&context,AssetDataAndMemory->getIndexCount(), VK_BUFFER_USAGE_INDEX_BUFFER_BIT| VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
         GetFrameData(i).deviceIndices = {.data = VK_NULL_HANDLE, .size = AssetDataAndMemory->getIndexCount() * sizeof(uint32_t), .mapped = nullptr};
         VmaAllocation alloc3 = {};
-        BufferUtilities::createDeviceBuffer(context.allocator,
+        BufferUtilities::createDeviceBuffer(context.allocator, "indices",
                                             GetFrameData(i).deviceIndices.size,
                                             VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,context.device,&alloc2,
                                             &GetFrameData(i).deviceIndices.data);
@@ -968,27 +968,22 @@ void VulkanRenderer::updateBindingsComputeCulling(ActiveRenderStepData commandBu
 #pragma endregion
 
 #pragma region draw
-void RecordCullCopyCOmmand(ArenaAllocator allocator, VkPipelineLayout layout, ActiveRenderStepData commandBufferContext,uint32_t passIndex, RenderPassDrawData conf, VkBuffer indirectCommandsBuffer)
+void RecordCullCopyCommand(ArenaAllocator allocator, VkPipelineLayout layout, ActiveRenderStepData commandBufferContext, uint32_t count)
 {
     struct GPU_CullCopyPushConstants
     {
         uint32_t drawOffset;
-        uint32_t passOffset;
-        uint32_t frustumOffset;
         uint32_t objectCount;
-        uint32_t disable;
     };
     GPU_CullCopyPushConstants* pc = MemoryArena::Alloc<GPU_CullCopyPushConstants>(allocator);
     *pc = {
-        .drawOffset = conf.drawOffset,
-		.passOffset = passIndex,
-        .objectCount = conf.drawCount,
-        .disable = (uint32_t)debug_shader_bool_2,
+        .drawOffset = 0,
+        .objectCount = count,
         };
 
     assert(commandBufferContext.commandBufferActive);
 
-    auto& drawCount = conf.drawCount;
+    auto& drawCount = count;
 
     vkCmdPushConstants(commandBufferContext.commandBuffer,  layout, VK_SHADER_STAGE_COMPUTE_BIT, 0,
                        sizeof(GPU_CullPushConstants), pc);
@@ -997,19 +992,10 @@ void RecordCullCopyCOmmand(ArenaAllocator allocator, VkPipelineLayout layout, Ac
                                     ? 1 + static_cast<uint32_t>((drawCount - 1) / 16)
                                     : 1;
     vkCmdDispatch(commandBufferContext.commandBuffer, dispatch_x, 1, 1);
-     
 
-    //do I need different synchronization for late cull?
-    VkBufferMemoryBarrier2 barrier = bufferBarrier(indirectCommandsBuffer,
-    VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-      VK_ACCESS_2_SHADER_WRITE_BIT,
-      VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT,
-     VK_ACCESS_2_MEMORY_READ_BIT_KHR );
-    
-    SetPipelineBarrier(commandBufferContext.commandBuffer,0, 1, &barrier, 0, 0);
 
 }
-void RecordCullingCommands(ArenaAllocator allocator, VkPipelineLayout layout, ActiveRenderStepData commandBufferContext,uint32_t passIndex, RenderPassDrawData conf, VkBuffer indirectCommandsBuffer, bool lateCull)
+void RecordCullingCommands(ArenaAllocator allocator, VkPipelineLayout layout, ActiveRenderStepData commandBufferContext,uint32_t passIndex, RenderPassDrawData conf, std::span<VkBufferMemoryBarrier2> barriers, bool lateCull)
 {
     
     //Culling override code
@@ -1056,14 +1042,8 @@ void RecordCullingCommands(ArenaAllocator allocator, VkPipelineLayout layout, Ac
     vkCmdDispatch(commandBufferContext.commandBuffer, dispatch_x, 1, 1);
      
 
-    //do I need different synchronization for late cull?
-    VkBufferMemoryBarrier2 barrier = bufferBarrier(indirectCommandsBuffer,
-    VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-      VK_ACCESS_2_SHADER_WRITE_BIT,
-      VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT,
-     VK_ACCESS_2_MEMORY_READ_BIT_KHR );
-    
-    SetPipelineBarrier(commandBufferContext.commandBuffer,0, 1, &barrier, 0, 0);
+
+    SetPipelineBarrier(commandBufferContext.commandBuffer,0, barriers.size(), barriers.data(), 0, 0);
 
 }
 //TODO JS: this is brutally slow atm, takes up over half the frame
@@ -1548,10 +1528,104 @@ void VulkanRenderer::RenderFrame(Scene* scene)
         internal_debug_cull_override_index = debug_cull_override_index;
         printf("new cull index: %d! \n",  debug_cull_override_index);
     }
-    
+        
     //Update per frame data
     FrameData* thisFrameData = &GetFrameData();
 
+    VkBufferMemoryBarrier2 indirectCommandsBarrier = bufferBarrier(thisFrameData->drawBuffers.buffer.data,
+                                                                   VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                                                                   VK_ACCESS_MEMORY_WRITE_BIT,
+                                                                   VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT |
+                                                                   VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT,
+                                                                   VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT |
+                                                                   VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT |
+                                                                   VK_ACCESS_2_SHADER_READ_BIT |
+                                                                   VK_ACCESS_2_SHADER_STORAGE_READ_BIT);
+    VkBufferMemoryBarrier2 earlyDrawListBarrier = bufferBarrier(thisFrameData->earlyDrawList.buffer.data,
+                                                                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                                                                VK_ACCESS_MEMORY_WRITE_BIT,
+                                                                VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT |
+                                                                VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT,
+                                                                VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT |
+                                                                VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT |
+                                                                VK_ACCESS_2_SHADER_READ_BIT |
+                                                                VK_ACCESS_2_SHADER_STORAGE_READ_BIT);
+    VkBufferMemoryBarrier2 earlyDrawListFirstBarrier = bufferBarrier(thisFrameData->earlyDrawList.buffer.data,
+                                                              VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, //To synchronize with last frame
+                                                              VK_ACCESS_MEMORY_WRITE_BIT,
+                                                              VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT |
+                                                              VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT,
+                                                              VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT |
+                                                              VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT |
+                                                              VK_ACCESS_2_SHADER_READ_BIT |
+                                                              VK_ACCESS_2_SHADER_STORAGE_READ_BIT);
+    VkBufferMemoryBarrier2 indirectBarriers[2] = {indirectCommandsBarrier, earlyDrawListBarrier};
+
+    VkImageMemoryBarrier2 shadowToOpaqueBarrier = GetImageBarrier(shadowResources.shadowImages[currentFrame],
+                                                                  VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                                                                  VK_ACCESS_2_SHADER_WRITE_BIT,
+                                                                  VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+                                                                  VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT |
+                                                                  VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+                                                                  VK_ACCESS_2_SHADER_WRITE_BIT |
+                                                                  VK_ACCESS_2_SHADER_READ_BIT |
+                                                                  VK_ACCESS_2_SHADER_SAMPLED_READ_BIT,
+                                                                  VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+                                                                  VK_IMAGE_ASPECT_DEPTH_BIT,
+                                                                  0,
+                                                                  VK_REMAINING_MIP_LEVELS);
+
+    auto afterShadowRenderBarriers = MemoryArena::AllocSpan<VkImageMemoryBarrier2>(&perFrameArenas[currentFrame], MAX_SHADOWMAPS);
+    for (int i = 0; i < MAX_SHADOWMAPS; i++)
+    {
+        VkImageMemoryBarrier2 b = GetImageBarrier(shadowResources.shadowImages[currentFrame],
+                                                                     VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                                                                     VK_ACCESS_2_SHADER_WRITE_BIT,
+                                                                     VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+                                                                     VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+                                                                     VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_SAMPLED_READ_BIT,
+                                                                     VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+                                                                     VK_IMAGE_ASPECT_DEPTH_BIT ,
+                                                                     0,
+                                                                     1, i);
+        afterShadowRenderBarriers[i] = b;
+    }
+    //Unneeded, without z prepass?
+    VkImageMemoryBarrier2 afterDepthDrawBarrier = GetImageBarrier(globalResources.depthBufferInfoPerFrame[currentFrame].image,
+                                                           VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                                                           VK_ACCESS_2_SHADER_WRITE_BIT,
+                                                           VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+                                                           VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                                                           VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_MEMORY_READ_BIT,
+                                                           VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+                                                           VK_IMAGE_ASPECT_DEPTH_BIT,
+                                                           0,
+                                                           VK_REMAINING_MIP_LEVELS);
+
+    VkImageMemoryBarrier2 depthtoCompute = GetImageBarrier(globalResources.depthBufferInfoPerFrame[currentFrame].image,
+                                                           VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+                                                           VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+                                                           VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+                                                           VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT |
+                                                           VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
+                                                           VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_2_SHADER_SAMPLED_READ_BIT,
+                                                           VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+                                                           VK_IMAGE_ASPECT_DEPTH_BIT,
+                                                           0,
+                                                           VK_REMAINING_MIP_LEVELS);
+
+    //barrier for shadows to compute
+    VkImageMemoryBarrier2 shadowToCompute = GetImageBarrier(shadowResources.shadowImages[currentFrame],
+                                                            VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+                                                            VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+                                                            VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+                                                            VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT |
+                                                            VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_ACCESS_2_SHADER_SAMPLED_READ_BIT, 
+                                                            VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_MEMORY_READ_BIT,
+                                                            VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+                                                            VK_IMAGE_ASPECT_DEPTH_BIT,
+                                                            0,
+                                                            VK_REMAINING_MIP_LEVELS);
     //Get swapchain image and depth attatchment
     VkRenderingAttachmentInfoKHR* depthDrawAttatchment = MemoryArena::Alloc<VkRenderingAttachmentInfoKHR>(&perFrameArenas[currentFrame]);
     *depthDrawAttatchment = CreateRenderingAttatchmentStruct( globalResources.depthBufferInfoPerFrame[currentFrame].view, 0.0, true);
@@ -1618,21 +1692,21 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     //////////
     /////////
     auto EarlyStep = renderSteps.PushAndInitializeRenderStep(
-    "Early Cbuffer", &perFrameArenas[currentFrame],
+    "EarlyStep", &perFrameArenas[currentFrame],
     commandPoolmanager.get());
     
     auto BeforeCullingStep = renderSteps.PushAndInitializeRenderStep(
-        "Transition swap buffer Cbuffer", &perFrameArenas[currentFrame],
+        "BeforeCullingStep", &perFrameArenas[currentFrame],
         commandPoolmanager.get(), &thisFrameData->perFrameSemaphores.swapchainSemaphore, &thisFrameData->perFrameSemaphores.prepassSemaphore);
     
     auto CullingStep = renderSteps.PushAndInitializeRenderStep(
-       "Compute Culling cbuffer", &perFrameArenas[currentFrame],
+       "CullingStep", &perFrameArenas[currentFrame],
        commandPoolmanager.get(), &thisFrameData->perFrameSemaphores.prepassSemaphore, nullptr,  &thisFrameData->perFrameSemaphores.cullingFence);
 
-    auto OpaqueStep =renderSteps.PushAndInitializeRenderStep("Main/Rendering Cbuffer", &perFrameArenas[currentFrame],
+    auto OpaqueStep =renderSteps.PushAndInitializeRenderStep("OpaqueStep", &perFrameArenas[currentFrame],
         commandPoolmanager.get(), nullptr, &thisFrameData->perFrameSemaphores.opaqueSemaphore);
 
-    auto PostRenderStep =renderSteps.PushAndInitializeRenderStep("Post render mip/cull", &perFrameArenas[currentFrame], //todo js: this shouldn't need to happen before presenting, and shouldnt need to signal the same fence
+    auto PostRenderStep =renderSteps.PushAndInitializeRenderStep("PostRenderStep", &perFrameArenas[currentFrame], //todo js: this shouldn't need to happen before presenting, and shouldnt need to signal the same fence
     commandPoolmanager.get(), &thisFrameData->perFrameSemaphores.opaqueSemaphore, &thisFrameData->perFrameSemaphores.presentSemaphore,
     &GetFrameData().inFlightFence);
 
@@ -1782,50 +1856,37 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     }
     updateBindingsDrawCopy(*BeforeCullingStep, &perFrameArenas[currentFrame]);
 
+    
+    SetPipelineBarrier(BeforeCullingStep->commandBuffer,0,1,&earlyDrawListFirstBarrier,0, 0 );
     //Pre-Cull copy (need to refactor, based on cull code atm)
     uint32_t Pre_Cull_Index = 0;
+    uint32_t drawdataSize = 0;
     for(int j = 0; j < (shadowBatches.size() < MAX_SHADOWMAPS_WITH_CULLING ? shadowBatches.size() : MAX_SHADOWMAPS_WITH_CULLING); j++)
     {
-        RecordCullCopyCOmmand(&perFrameArenas[currentFrame],  pipelineLayoutManager.GetLayout(cullingLayoutIDX), *BeforeCullingStep,
-        Pre_Cull_Index++, shadowPassesData[j], thisFrameData->drawBuffers.buffer.data);
+        drawdataSize +=shadowPassesData[j].drawCount;
     }
     for(int j = 0; j < opaqueBatches.size(); j++)
     {
-        RecordCullCopyCOmmand(&perFrameArenas[currentFrame],  pipelineLayoutManager.GetLayout(cullingLayoutIDX), *BeforeCullingStep,
-        Pre_Cull_Index++, opaquePassData, thisFrameData->drawBuffers.buffer.data);
+    drawdataSize += opaquePassData.drawCount;
     }
+    RecordCullCopyCommand(&perFrameArenas[currentFrame],  pipelineLayoutManager.GetLayout(cullingLayoutIDX), *BeforeCullingStep,
+    drawdataSize);
+
+    SetPipelineBarrier(BeforeCullingStep->commandBuffer,0,2,indirectBarriers,0, 0 );
     
     updateBindingsComputeCulling(*CullingStep,scene,  &perFrameArenas[currentFrame], false);
     //Submit the early prepass draws
     // auto& lastFrameCommands =  GetFrameData(priorFrame).drawBuffers.buffer.data;
-    SubmitRenderPassesForBatches(prepassBatches, thisFrameData->deviceIndices.data, BeforeCullingStep, &pipelineLayoutManager, thisFrameData->drawBuffers.buffer.data, currentFrame);
+    //Shadows (improve)
+    SubmitRenderPassesForBatches(prepassBatches.subspan(0, prepassBatches.size() -1), thisFrameData->deviceIndices.data, BeforeCullingStep, &pipelineLayoutManager, thisFrameData->drawBuffers.buffer.data, currentFrame);
+    SetPipelineBarrier(BeforeCullingStep->commandBuffer,0,0,0,1, &shadowToOpaqueBarrier );
+    SubmitRenderPassesForBatches(prepassBatches.subspan(prepassBatches.size() -1), thisFrameData->deviceIndices.data, BeforeCullingStep, &pipelineLayoutManager, thisFrameData->drawBuffers.buffer.data, currentFrame);
 
-
-    VkImageMemoryBarrier2 depthtoCompute = GetImageBarrier(globalResources.depthBufferInfoPerFrame[currentFrame].image,
-        VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT, 
-           VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-           VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-           VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT ,
-           VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_MEMORY_READ_BIT,
-           VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-           VK_IMAGE_ASPECT_DEPTH_BIT,
-           0,
-        VK_REMAINING_MIP_LEVELS);
-
+   
     
     SetPipelineBarrier(BeforeCullingStep->commandBuffer,0,0,0,1, &depthtoCompute );
 
-    //barrier for shadows to compute
-    VkImageMemoryBarrier2 shadowToCompute = GetImageBarrier(shadowResources.shadowImages[currentFrame],
-    VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT, 
-       VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-       VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-       VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT ,
-       VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_MEMORY_READ_BIT,
-       VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-       VK_IMAGE_ASPECT_DEPTH_BIT,
-       0,
-    VK_REMAINING_MIP_LEVELS);
+ 
     SetPipelineBarrier(BeforeCullingStep->commandBuffer,0,0,0,1, &shadowToCompute );
     uint32_t shadowmapIndex = 0;
 	//TODO: Use a more bindless structure for mipchain compute, bind resources once and index in to textures
@@ -1844,60 +1905,26 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     RecordMipChainCompute(*BeforeCullingStep, &perFrameArenas[currentFrame], depthBufferPyramidData,
 						  globalResources.depthBufferInfoPerFrame[currentFrame].view);
 
-    auto shadowBarriers = MemoryArena::AllocSpan<VkImageMemoryBarrier2>(&perFrameArenas[currentFrame], MAX_SHADOWMAPS);
-    for(int i =0; i < MAX_SHADOWMAPS; i++)
-    {
-        VkImageMemoryBarrier2 depthToShadowBarrier = GetImageBarrier(shadowResources.shadowImages[currentFrame],
-       VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 
-       VK_ACCESS_2_SHADER_WRITE_BIT,
-       VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-       VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT ,
-       VK_ACCESS_2_SHADER_READ_BIT,
-       VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-       VK_IMAGE_ASPECT_DEPTH_BIT,
-       0,
-       1, i);
-        shadowBarriers[i] = depthToShadowBarrier;
-    }
-    VkImageMemoryBarrier2 depthtoDrawing = GetImageBarrier(globalResources.depthBufferInfoPerFrame[currentFrame].image,
-    VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 
-       VK_ACCESS_2_SHADER_WRITE_BIT,
-       VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-       VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT ,
-       VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_MEMORY_READ_BIT,
-       VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-       VK_IMAGE_ASPECT_DEPTH_BIT,
-       0,
-    VK_REMAINING_MIP_LEVELS);
-    SetPipelineBarrier(OpaqueStep->commandBuffer,0,0,0,MAX_SHADOWMAPS, shadowBarriers.data() );
-    SetPipelineBarrier(OpaqueStep->commandBuffer,0,0,0,1, &depthtoDrawing);
+ 
+    SetPipelineBarrier(OpaqueStep->commandBuffer,0,0,0,MAX_SHADOWMAPS, afterShadowRenderBarriers.data() );
+    SetPipelineBarrier(OpaqueStep->commandBuffer,0,0,0,1, &afterDepthDrawBarrier);
 
     //Culling for shadows
     uint32_t cullPassIndex = 0;
     for(int j = 0; j < (shadowBatches.size() < MAX_SHADOWMAPS_WITH_CULLING ? shadowBatches.size() : MAX_SHADOWMAPS_WITH_CULLING); j++)
     {
-            RecordCullingCommands(&perFrameArenas[currentFrame],  pipelineLayoutManager.GetLayout(cullingLayoutIDX), *CullingStep,cullPassIndex++, shadowPassesData[j], thisFrameData->drawBuffers.buffer.data, false);
+            RecordCullingCommands(&perFrameArenas[currentFrame],  pipelineLayoutManager.GetLayout(cullingLayoutIDX), *CullingStep,cullPassIndex++, shadowPassesData[j], indirectBarriers, false);
     }
-    //shadows
-    SubmitRenderPassesForBatches(shadowBatches,thisFrameData->deviceIndices.data, OpaqueStep, &pipelineLayoutManager, thisFrameData->drawBuffers.buffer.data, currentFrame);
-
-    VkImageMemoryBarrier2 shadowToOpaqueBarrier = GetImageBarrier(shadowResources.shadowImages[currentFrame],
-     VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 
-     VK_ACCESS_2_SHADER_WRITE_BIT,
-     VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-     VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT ,
-     VK_ACCESS_2_SHADER_WRITE_BIT | VK_ACCESS_2_SHADER_READ_BIT,
-     VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-     VK_IMAGE_ASPECT_DEPTH_BIT,
-     0,
-     VK_REMAINING_MIP_LEVELS);
-    SetPipelineBarrier(OpaqueStep->commandBuffer,0,0,0,1, &shadowToOpaqueBarrier );
-    
     //Culling for Opaque
     for(int j = 0; j < opaqueBatches.size(); j++)
     {
-        RecordCullingCommands(&perFrameArenas[currentFrame],  pipelineLayoutManager.GetLayout(cullingLayoutIDX), *CullingStep,cullPassIndex++, opaquePassData, thisFrameData->drawBuffers.buffer.data, false);
+        RecordCullingCommands(&perFrameArenas[currentFrame],  pipelineLayoutManager.GetLayout(cullingLayoutIDX), *CullingStep,cullPassIndex++, opaquePassData, indirectBarriers, false);
     }
+
+    //shadows
+    SubmitRenderPassesForBatches(shadowBatches,thisFrameData->deviceIndices.data, OpaqueStep, &pipelineLayoutManager, thisFrameData->drawBuffers.buffer.data, currentFrame);
+
+    SetPipelineBarrier(OpaqueStep->commandBuffer,0,0,0,1, &shadowToOpaqueBarrier );
     //opaque
     SubmitRenderPassesForBatches(opaqueBatches,thisFrameData->deviceIndices.data, OpaqueStep, &pipelineLayoutManager, thisFrameData->drawBuffers.buffer.data, currentFrame);
 
@@ -1918,12 +1945,11 @@ void VulkanRenderer::RenderFrame(Scene* scene)
          0,
          VK_REMAINING_MIP_LEVELS);
 
-
+    //Drawing -> final mipchain sync
     SetPipelineBarrier(OpaqueStep->commandBuffer,0,0,0,1, &swapchainToPresent );
-
-    auto indirectCommandsOutBarrier = bufferBarrier(thisFrameData->drawBuffers.buffer.data, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-        VK_ACCESS_MEMORY_WRITE_BIT,  VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT, VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT);
-
+    SetPipelineBarrier(OpaqueStep->commandBuffer,0,0,0,1, &depthtoCompute );
+    SetPipelineBarrier(OpaqueStep->commandBuffer,0,0,0,1, &shadowToCompute );
+    SetPipelineBarrier(OpaqueStep->commandBuffer,0,2,&indirectBarriers[0],0, 0 );
 
     //Mip for late cull!
     uint32_t lateShadowMapIndex = 0;
@@ -1948,16 +1974,16 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     for(int j = 0; j < (shadowBatches.size() < MAX_SHADOWMAPS_WITH_CULLING ? shadowBatches.size() : MAX_SHADOWMAPS_WITH_CULLING); j++)
     {
         RecordCullingCommands(&perFrameArenas[currentFrame],  pipelineLayoutManager.GetLayout(cullingLayoutIDX), *PostRenderStep,
-        lateCullPassIndex++, shadowPassesData[j], thisFrameData->drawBuffers.buffer.data, true);
+        lateCullPassIndex++, shadowPassesData[j],indirectBarriers, true);
     }
     //Culling for Opaque
     for(int j = 0; j < opaqueBatches.size(); j++)
     {
         RecordCullingCommands(&perFrameArenas[currentFrame],  pipelineLayoutManager.GetLayout(cullingLayoutIDX), *PostRenderStep,
-        lateCullPassIndex++, opaquePassData, thisFrameData->drawBuffers.buffer.data, true);
+        lateCullPassIndex++, opaquePassData,indirectBarriers, true);
     }
 
-    SetPipelineBarrier(CullingStep->commandBuffer,0,1,&indirectCommandsOutBarrier,0, 0 );
+    SetPipelineBarrier(CullingStep->commandBuffer,0,2,&indirectBarriers[0],0, 0 );
     // //Submit commandbuffers
     EndCommandBufferForStep(EarlyStep);
     SubmitCommandBuffer(EarlyStep);
