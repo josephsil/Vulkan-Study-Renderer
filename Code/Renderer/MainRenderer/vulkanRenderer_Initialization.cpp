@@ -34,7 +34,7 @@ void VulkanRenderer::initializeWindow()
 
 vkb::PhysicalDevice getPhysicalDevice(vkb::Instance instance, VkSurfaceKHR surface)
 {
-// #define RENDERDOC_COMPATIBILITY
+#define RENDERDOC_COMPATIBILITY
     const std::vector<const char*> deviceExtensions = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_MAINTENANCE_4_EXTENSION_NAME, VK_KHR_MAINTENANCE_3_EXTENSION_NAME,
         VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME, VK_EXT_MUTABLE_DESCRIPTOR_TYPE_EXTENSION_NAME
@@ -163,6 +163,7 @@ GlobalRendererResources static_initializeResources(rendererObjects initializedre
     shaderLoader->AddShader("shadow", L"./Shaders/bindlessShadow.hlsl");
     shaderLoader->AddShader("lines", L"./Shaders/lines.hlsl");
     shaderLoader->AddShader("cull", L"./Shaders/cull_compute.hlsl", true);
+    shaderLoader->AddShader("pre_cull_copy", L"./Shaders/drawindirect_copy_compute.hlsl", true);
     shaderLoader->AddShader("mipChain", L"./Shaders/mipchain_compute.hlsl", true);
     shaderLoader->AddShader("debug", L"./Shaders/Shader_Debug_Raymarch.hlsl", false);
 

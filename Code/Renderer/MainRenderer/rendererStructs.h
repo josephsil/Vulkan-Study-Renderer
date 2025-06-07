@@ -81,6 +81,7 @@ struct FrameSemaphores
 {
     VkSemaphore swapchainSemaphore{};
     VkSemaphore prepassSemaphore{};
+    VkSemaphore opaqueSemaphore{};
     VkSemaphore presentSemaphore{};
     VkSemaphore cullingSemaphore{};
     VkFence cullingFence{};

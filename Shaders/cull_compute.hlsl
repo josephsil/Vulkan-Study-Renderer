@@ -1,15 +1,7 @@
 #include "structs.hlsl"
 #include "GeneralIncludes.hlsl"
 #include "ObjectDataMacros.hlsl"
-struct drawCommandData
-{
-    uint objectIndex;
-    uint indexCount;
-    uint instanceCount;
-    uint firstIndex;
-    int vertexOffset;
-    uint firstInstance;
-};
+
 
 [[vk::binding(0, 0)]]
 Texture2D<float> bindless_textures[];
@@ -32,7 +24,7 @@ RWStructuredBuffer<ObjectData> PerObjectData;
 RWStructuredBuffer<Transform> Transforms;
 
 [[vk::binding(16, 0)]]
-RWStructuredBuffer<bool> EarlyDrawList; //Index in with objIndex 
+RWStructuredBuffer<uint> EarlyDrawList; //Index in with objIndex 
 
 // 2D Polyhedral Bounds of a Clipped, Perspective-Projected 3D Sphere. Michael Mara, Morgan McGuire. 2013
 bool projectSphere(float3 c, float r, float znear, float P00, float P11, out float4 aabb)
@@ -77,9 +69,13 @@ Bounds GetWorldSpaceBounds(float3 center, Bounds inB)
 [numthreads(64, 1, 1)]
 void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
 {
+    bool EARLY_CULL = ShaderGlobals.LATE_CULL == 0;
+    bool LATE_CULL = ShaderGlobals.LATE_CULL == 1; 
 	uint passIndex = cullPC.passOffset; 
     if (GlobalInvocationID.x >= cullPC.objectCount) return;
     uint objIndex = InstanceIndex;
+
+
     Transform transform = GetTransform();
     ObjectData mesh = PerObjectData[objIndex];
     float4 objectCenter = mesh.boundsSphere.center;
@@ -96,8 +92,9 @@ void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
     //The second run needs to get accurate culling information for the following frame.
     //It culls *everything* against the finished depth buffer for the frame.
     
-    if (!ShaderGlobals.LATE_CULL) //On first cull, mark all of the early draw objects to not be drawn again 
+    if (EARLY_CULL) //On first cull, mark all of the early draw objects to not be drawn again. 
     {
+        //todo: this produces black color swapchain on first frame, because currently early render is a DEPTH PREPASS rather than a color pass.
         visible = !EarlyDrawList[objIndex];
     }
 
@@ -174,11 +171,12 @@ void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
         }
     }
 
-    if (ShaderGlobals.LATE_CULL) //On late draw, update the early draw list. We expect NEXT frame's early draw list to be bound.
+    if (LATE_CULL) //On late draw, update the early draw list.
     {
         EarlyDrawList[objIndex] = visible;
     }
-    
-    //On late draw, we expect NEXT frame's drawData to be bound.
-    drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].instanceCount = visible ? 1 : 0;
+    else
+    {
+        drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].instanceCount = visible ? 1 : 0;
+    }
 }

@@ -113,6 +113,7 @@ private:
     PipelineLayoutHandle opaqueLayoutIDX;
     PipelineLayoutHandle shadowLayoutIDX;
     PipelineLayoutHandle cullingLayoutIDX;
+    PipelineLayoutHandle cullDataCopyLayoutIDX;
     PipelineLayoutHandle mipChainLayoutIDX;
     
     descriptorUpdates perSceneDescriptorUpdates = {};
@@ -173,7 +174,7 @@ private:
         //Draw indirect
         HostDataBufferObject<drawCommandData> drawBuffers;
         //Draw early draw list
-        HostDataBufferObject<bool> earlyDrawList;
+        HostDataBufferObject<uint32_t> earlyDrawList;
 
         //Compute culling for draw indirect 
         HostDataBufferObject<glm::vec4> frustumsForCullBuffers;
@@ -196,7 +197,10 @@ private:
 
     void RecordMipChainCompute(ActiveRenderStepData commandBufferContext, MemoryArena::memoryArena* arena,
                                DepthPyramidInfo& pyramidInfo, VkImageView srcView);
-    void updateBindingsComputeCulling(ActiveRenderStepData commandBufferContext,Scene* scene, MemoryArena::memoryArena* arena);
+    void updateBindingsComputeCullingPreCull(ActiveRenderStepData commandBufferContext,
+                                             ArenaAllocator arena);
+    void updateBindingsDrawCopy(ActiveRenderStepData commandBufferContext, ArenaAllocator arena);
+    void updateBindingsComputeCulling(ActiveRenderStepData commandBufferContext, Scene* scene, MemoryArena::memoryArena* arena, bool latecull);
 
 
     void RecordUtilityPasses(VkCommandBuffer commandBuffer, size_t imageIndex);

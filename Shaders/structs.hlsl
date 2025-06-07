@@ -42,7 +42,7 @@ struct ObjectData
     objectProperties props;
     float objectScale;
     //Culling info
-    //This data is really per model, not per object, but I'm lazy
+    //This data is really per model, not per object, should move
     BoundingSphere boundsSphere;
 
     //bounding box
@@ -115,4 +115,14 @@ struct DebugLinePushConstants
     float4 pos1;
     float4 pos2;
     float4 color;
+};
+
+struct drawCommandData
+{
+    uint objectIndex;
+    uint indexCount;
+    uint instanceCount;
+    uint firstIndex;
+    int vertexOffset;
+    uint firstInstance;
 };
