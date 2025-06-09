@@ -450,7 +450,7 @@ void VulkanRenderer::CreateUniformBuffers( size_t drawCount, size_t objectsCount
         VmaAllocation alloc3 = {};
         BufferUtilities::createDeviceBuffer(context.allocator, "indices",
                                             GetFrameData(i).deviceIndices.size,
-                                            VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,context.device,&alloc2,
+                                            VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,context.device,&alloc3,
                                             &GetFrameData(i).deviceIndices.data);
 
 
