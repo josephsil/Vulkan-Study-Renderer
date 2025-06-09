@@ -89,7 +89,7 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
     // scene->AddPointLight(glm::vec3(0, 0, 0), glm::vec3(0, 1, 1), 999 / 2);
 
     GltfData gltf;
-// #define SPONZA
+#define SPONZA
 #ifdef SPONZA
     //rendererContext: gltf load fn that gets back struct, then append its contents to scene 
     gltf = GltfLoadMeshes(rendererContext,*rendererData, "Meshes/sponza.glb");
