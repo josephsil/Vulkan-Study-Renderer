@@ -79,12 +79,13 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
 
     //spot light
     //rendererContext JS: paramaterize better -- hard to set power and radius currently
+    scene->AddDirLight(glm::vec3(0.00, 0.9, 0.1), glm::vec3(1, 1, 1), 1);
     scene->AddSpotLight(glm::vec3(2.5, 2, 3.3), glm::vec3(0, 0, -1), glm::vec3(0.5, 0.5, 1), 45, 260);
 
 
     //point lights    
-    scene->AddPointLight(glm::vec3(1, 1, 0), glm::vec3(0.3, 0.8, 1), 2);
-    scene->AddDirLight(glm::vec3(0.00, 0.9, 0.1), glm::vec3(1, 1, 1), 1);
+    // scene->AddPointLight(glm::vec3(1, 1, 0), glm::vec3(0.3, 0.8, 1), 2);
+  
     // scene->AddPointLight(glm::vec3(-2, 2, 0), glm::vec3(1, 0, 0), 999 / 2);
     // scene->AddPointLight(glm::vec3(0, 0, 0), glm::vec3(0, 1, 1), 999 / 2);
 
@@ -136,11 +137,12 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
         rendererData->subMeshGroups[randomMeshes[rand() % randomMeshes.size()]].getSpan(), MemoryArena::AllocSpanEmplaceInitialize<uint32_t>(rendererContext.arena, 1, (uint32_t) (uint32_t)randomMaterials[1]), glm::vec4(0, 0, 0, 0) * 1.2f, MyQuaternion,
         glm::vec3(0.5));
 
-    
+    int ict = 20;
+    int jct = ict;
     localTransform* tform = &scene->transforms.transformNodes[root];
-    for (int i = 0; i < 50; i++)
+    for (int i = 0; i < ict; i++)
     {
-        for (int j = i == 0 ? 1 : 0; j < 20; j++)
+        for (int j = i == 0 ? 1 : 0; j < jct; j++)
         {
             float rowRoughness = static_cast<float>(glm::clamp(static_cast<float>(i) / 8.0, 0.0, 1.0));
             bool rowmetlalic = i % 3 == 0;
@@ -154,7 +156,7 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
     
             scene->AddObject(
                 rendererData->subMeshGroups[randomMeshes[rand() % randomMeshes.size()]].getSpan(), 
-               MemoryArena::AllocSpanEmplaceInitialize<uint32_t>(rendererContext.arena, 1, (uint32_t)newRandomColorMaterial), glm::vec4((j), (i / 10) * 1.0, -(i % 10), 1) * 1.2f, MyQuaternion,
+               MemoryArena::AllocSpanEmplaceInitialize<uint32_t>(rendererContext.arena, 1, (uint32_t)newRandomColorMaterial), glm::vec4((j), (i / (ict / 5)) * 1.0, -(i % (ict / 5)), 1) * 1.2f, MyQuaternion,
                 glm::vec3(0.5));
             matIDX = rand() % randomMaterials.size();
         }

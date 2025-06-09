@@ -94,7 +94,7 @@ void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
     
     if (EARLY_CULL) //On first cull, mark all of the early draw objects to not be drawn again. 
     {
-        visible = !EarlyDrawList[ShaderGlobals.drawOffset + objIndex];
+        visible = drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].instanceCount == 1 ? 0 : 1;
     }
 
     //frustum
@@ -108,7 +108,7 @@ void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
             visible = visible && dot(frustumData[i + cullPC.frustumOffset], float4(centerViewSpace.xyz, 1)) > -(radius);
         }
     }
-    
+        
     //Occlusion
     if (visible)
     {
@@ -172,7 +172,7 @@ void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
 
     if (LATE_CULL) //On late draw, update the early draw list.
     {
-        EarlyDrawList[ShaderGlobals.drawOffset + objIndex] = visible;
+        EarlyDrawList[ShaderGlobals.drawOffset + InstanceIndex] = visible;
     }
     else
     {

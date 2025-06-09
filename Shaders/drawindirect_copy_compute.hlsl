@@ -19,5 +19,5 @@ PushConstants PC;
 [numthreads(COPY_WORKGROUP_X, 1, 1)]
 void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
 {
-        drawData[PC.drawOffset + GlobalInvocationID.x].instanceCount = EarlyDrawList[InstanceIndex] ? 1 : 0;
+        drawData[PC.drawOffset + GlobalInvocationID.x].instanceCount = EarlyDrawList[PC.drawOffset + InstanceIndex] ? 1 : 0;
 }
