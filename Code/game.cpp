@@ -73,7 +73,7 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
        setdiff2,
        setSpec2,setNorm2);
     
-    placeholderMatidx = rendererData->AddMaterial(0.2f, 0, glm::vec3(1.0f), placeholderTextureidx, 1);
+    placeholderMatidx = rendererData->AddMaterial(0.2f, 0, glm::vec3(1.0f), placeholderTextureidx, 0);
     randomMaterials.push_back(placeholderMatidx);
 
 
@@ -86,7 +86,7 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
     //point lights    
     // scene->AddPointLight(glm::vec3(1, 1, 0), glm::vec3(0.3, 0.8, 1), 2);
   
-    // scene->AddPointLight(glm::vec3(-2, 2, 0), glm::vec3(1, 0, 0), 999 / 2);
+    scene->AddPointLight(glm::vec3(-2, 2, 0), glm::vec3(1, 0, 0), 999 / 2);
     // scene->AddPointLight(glm::vec3(0, 0, 0), glm::vec3(0, 1, 1), 999 / 2);
 
     GltfData gltf;
@@ -111,7 +111,7 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
         setSpec3,
         setNorm3);
     
-    placeholderMatidx = rendererData->AddMaterial(0.2f, 0, glm::vec3(1.0f), placeholderTextureidx, 1);
+    placeholderMatidx = rendererData->AddMaterial(0.2f, 0, glm::vec3(1.0f), placeholderTextureidx, 0);
     randomMaterials.push_back(placeholderMatidx);
     
     randomMeshes.push_back(rendererData->AddMultiSubmeshMeshMesh2(gltf.meshes[0].submeshes));
