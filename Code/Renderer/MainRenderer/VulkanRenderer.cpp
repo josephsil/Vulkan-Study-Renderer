@@ -1860,24 +1860,19 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     SetPipelineBarrier(BeforeCullingStep->commandBuffer,0,1,&earlyDrawListFirstBarrier,0, 0 );
     //Pre-Cull copy (need to refactor, based on cull code atm)
     uint32_t copyOffset = 0;
-    for(int j = 0; j < (shadowBatches.size() < MAX_SHADOWMAPS_WITH_CULLING ? shadowBatches.size() : MAX_SHADOWMAPS_WITH_CULLING); j++)
+    for(int j = 0; j < (shadowPassesData.size() < MAX_SHADOWMAPS_WITH_CULLING ? shadowBatches.size() : MAX_SHADOWMAPS_WITH_CULLING); j++)
     {
-    for(int k =0; k < shadowBatches[j].perPipelinePasses.size(); k++)
-    {
+
         RecordCullCopyCommand(&perFrameArenas[currentFrame],  pipelineLayoutManager.GetLayout(cullingLayoutIDX), *BeforeCullingStep,
-        copyOffset, shadowBatches[j].perPipelinePasses[k].drawCount);
-        copyOffset += shadowBatches[j].perPipelinePasses[k].drawCount;
-}
+        copyOffset, shadowPassesData[j].drawCount);
+        copyOffset += shadowPassesData[j].drawCount;
     }
-    for(int j = 0; j < opaqueBatches.size(); j++)
-    {
-    for(int k =0; k < opaqueBatches[j].perPipelinePasses.size(); k++)
-    {
-        RecordCullCopyCommand(&perFrameArenas[currentFrame],  pipelineLayoutManager.GetLayout(cullingLayoutIDX), *BeforeCullingStep,
-     copyOffset, opaqueBatches[j].perPipelinePasses[k].drawCount);
-        copyOffset += shadowBatches[j].perPipelinePasses[k].drawCount;
-}
-    }
+
+    RecordCullCopyCommand(&perFrameArenas[currentFrame],  pipelineLayoutManager.GetLayout(cullingLayoutIDX), *BeforeCullingStep,
+ copyOffset,opaquePassData.drawCount);
+    copyOffset += opaquePassData.drawCount;
+
+
   
 
     SetPipelineBarrier(BeforeCullingStep->commandBuffer,0,2,indirectBarriers,0, 0 );

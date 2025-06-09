@@ -94,8 +94,9 @@ void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
     
     if (EARLY_CULL) //On first cull, mark all of the early draw objects to not be drawn again. 
     {
-        visible = drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].instanceCount == 1 ? 0 : 1;
+        visible = EarlyDrawList[ShaderGlobals.drawOffset + InstanceIndex]  ? 0 : 1;
     }
+
 
     //frustum
     if (visible)
