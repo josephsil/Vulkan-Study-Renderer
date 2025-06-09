@@ -66,7 +66,7 @@ Bounds GetWorldSpaceBounds(float3 center, Bounds inB)
 
 #define ShaderGlobals cullPC //To make macros work 
 #define InstanceIndex drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].objectIndex //To make macros work
-[numthreads(64, 1, 1)]
+[numthreads(CULL_WORKGROUP_X, 1, 1)]
 void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
 {
     bool EARLY_CULL = ShaderGlobals.LATE_CULL == 0;

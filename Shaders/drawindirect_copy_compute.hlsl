@@ -16,7 +16,7 @@ struct  PushConstants
 PushConstants PC;
 
 #define InstanceIndex drawData[PC.drawOffset + GlobalInvocationID.x].objectIndex
-[numthreads(64, 1, 1)]
+[numthreads(COPY_WORKGROUP_X, 1, 1)]
 void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
 {
         drawData[PC.drawOffset + GlobalInvocationID.x].instanceCount = EarlyDrawList[InstanceIndex] ? 1 : 0;

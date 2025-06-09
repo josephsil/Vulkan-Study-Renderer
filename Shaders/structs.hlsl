@@ -4,6 +4,10 @@ static const float POINT_LIGHT_FAR_PLANE = 10.0;
 static const float POINT_LIGHT_NEAR_PLANE = 0.01f;
 static const float CAMERA_NEAR_PLANE = 0.01f;
 static const uint CASCADE_CT = 6;
+static const uint CULL_WORKGROUP_X = 64;
+static const uint COPY_WORKGROUP_X = CULL_WORKGROUP_X;
+static const uint MIP_WORKGROUP_X = 16;
+static const uint MIP_WORKGROUP_Y = MIP_WORKGROUP_X;
 struct Transform
 {
     float4x4 Model;

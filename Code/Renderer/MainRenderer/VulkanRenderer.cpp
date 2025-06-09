@@ -989,7 +989,7 @@ void RecordCullCopyCommand(ArenaAllocator allocator, VkPipelineLayout layout, Ac
                        sizeof(GPU_CullPushConstants), pc);
 
     const uint32_t dispatch_x = drawCount != 0
-                                    ? 1 + static_cast<uint32_t>((drawCount - 1) / 16)
+                                    ? 1 + static_cast<uint32_t>((drawCount - 1) / COPY_WORKGROUP_X)
                                     : 1;
     vkCmdDispatch(commandBufferContext.commandBuffer, dispatch_x, 1, 1);
 
@@ -1023,7 +1023,7 @@ void RecordCullingCommands(ArenaAllocator allocator, VkPipelineLayout layout, Ac
 		.passOffset =passIndex,
         .frustumOffset = cullFrustumIndex,
         .objectCount = conf.drawCount,
-        .CULL_MODE = lateCull,
+        .LATE_CULL = lateCull,
         .disable = (uint32_t)debug_shader_bool_2,
         .farPlane =  farPlane,
         .nearPlane = nearPlane
@@ -1037,7 +1037,7 @@ void RecordCullingCommands(ArenaAllocator allocator, VkPipelineLayout layout, Ac
                        sizeof(GPU_CullPushConstants), cullconstants);
 
     const uint32_t dispatch_x = drawCount != 0
-                                    ? 1 + static_cast<uint32_t>((drawCount - 1) / 16)
+                                    ? 1 + static_cast<uint32_t>((drawCount - 1) / CULL_WORKGROUP_X)
                                     : 1;
     vkCmdDispatch(commandBufferContext.commandBuffer, dispatch_x, 1, 1);
      
@@ -1118,18 +1118,19 @@ void VulkanRenderer::RecordMipChainCompute(ActiveRenderStepData commandBufferCon
         DescriptorSets::_updateDescriptorSet_NEW(GetMainRendererContext(),mipChainDescriptorCache->getNextDescriptorSet(), mipChainDescriptorConfig->layoutBindings,  descriptorUpdates); //Update desciptor sets for the compute bindings
         pipelineLayoutManager.BindRequiredSetsToCommandBuffer(mipChainLayoutIDX,commandBufferContext.commandBuffer, commandBufferContext.boundDescriptorSets, currentFrame, VK_PIPELINE_BIND_POINT_COMPUTE);
         
-
-        int outputWidth= pyramidWidth >> i;
-        outputWidth = outputWidth < 1 ? 1 : outputWidth;
-        int outputHeight = pyramidHeight >> i;
-        outputHeight = outputHeight < 1 ? 1 : outputHeight;
+        uint32_t outputWidth= pyramidWidth >> i;
+        uint32_t outputHeight = pyramidHeight >> i;
+        auto size_x = outputWidth < 1 ? 1 : outputWidth;
+        auto size_y = outputHeight < 1 ? 1 : outputHeight;
+        uint32_t dispatchX =  1 + (size_x - 1) / MIP_WORKGROUP_X;
+        uint32_t dispatchY =  1 + (size_y - 1) / MIP_WORKGROUP_Y;
         auto pushConstants = MemoryArena::Alloc<glm::vec2>(arena);
-        *pushConstants = {outputWidth, outputHeight};
+        *pushConstants = {size_x, size_y};
         vkCmdPushConstants(commandBufferContext.commandBuffer, pipelineLayoutManager.GetLayout(mipChainLayoutIDX),VK_SHADER_STAGE_COMPUTE_BIT, 0,
                           sizeof(glm::vec2),pushConstants);
 
         //Dispatch for all the pixels?
-        vkCmdDispatch(commandBufferContext.commandBuffer, outputWidth, outputHeight, 1);
+        vkCmdDispatch(commandBufferContext.commandBuffer, dispatchX, dispatchY, 1);
 
         VkImageMemoryBarrier2 barrier = GetImageBarrier(dstImage,
             VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,

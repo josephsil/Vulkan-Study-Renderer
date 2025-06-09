@@ -1,9 +1,9 @@
 #include "structs.hlsl"
 
 [[vk::binding(12, 0)]]
-Texture2D<float> srcTexture; //could be read only
+Texture2D<float> srcTexture; 
 [[vk::binding(13, 0)]]
-RWTexture2D<float> dstTexture; //could be write  only
+RWTexture2D<float> dstTexture;
 [[vk::binding(14, 0)]]
 SamplerState samplers;
 
@@ -15,7 +15,7 @@ struct mipchainPushConstant
 [[vk::push_constant]]
 mipchainPushConstant pc;
 
-[numthreads(8, 8, 1)]
+[numthreads(MIP_WORKGROUP_X,MIP_WORKGROUP_Y, 1)]
 void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
 {
     //todo js Need to undo the part where we put actual mip levels on our depth buffer/attatchment
