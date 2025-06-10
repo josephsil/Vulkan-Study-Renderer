@@ -54,6 +54,7 @@ struct Scene
 
 
     objectTransforms transforms;
+	MemoryArena::memoryArena scratchMemory; //Freed every frame
     void Update();
 
 

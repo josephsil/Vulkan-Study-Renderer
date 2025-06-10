@@ -1,6 +1,6 @@
 #include "Algorithms.h"
-void ReorderParallelOpaqueSpans(ArenaAllocator scratchMemory, 
-							std::span<OpaqueSpan> targets, 
+void ReorderParallelOpaqueSpans(ArenaAllocator temporaryMemory, 
+							std::span<UntypedSpan> targets, 
 							std::span<size_t> indices)
 {
 	#if _DEBUG 
@@ -19,7 +19,7 @@ void ReorderParallelOpaqueSpans(ArenaAllocator scratchMemory,
 		}
 	}
 	//Allocate a big enough scratch space to store our largest type
-	void* tempCopy = MemoryArena::alloc(scratchMemory, indices.size() * max);
+	void* tempCopy = MemoryArena::alloc(temporaryMemory, indices.size() * max);
 
 	for (int i = 0; i < targets.size(); i++)
 	{
@@ -33,5 +33,6 @@ void ReorderParallelOpaqueSpans(ArenaAllocator scratchMemory,
 		}
 
 	}
+	MemoryArena::freeLast(temporaryMemory); //Free temp copy
 
 }

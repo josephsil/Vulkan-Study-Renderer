@@ -59,7 +59,7 @@ inline std::span<T> GetIndicesAscending(ArenaAllocator allocator, size_t size)
 
 //
 //sorting helpers for SOA
-struct OpaqueSpan
+struct UntypedSpan
 {
 	void* data;
 	size_t count;
@@ -77,31 +77,40 @@ void ReoderByIndices(ArenaAllocator scratchMemory, std::span<T> target, std::spa
 
 }
 
-void ReorderParallelOpaqueSpans(ArenaAllocator scratchMemory, 
-							 std::span<OpaqueSpan> targets, 
+void ReorderParallelOpaqueSpans(ArenaAllocator temporaryMemory, 
+							 std::span<UntypedSpan> targets, 
 							std::span<size_t> indices);
 
 template<class T>
-OpaqueSpan ToOpaqueSpan(std::span<T> target)
+UntypedSpan ToOpaqueSpan(std::span<T> target)
 {
 	return {
 		.data = (void*)target.data(), .count = target.size(), .size = sizeof(target[0]) };
 }
-
 template<typename... Types>
-std::span<OpaqueSpan> ConvertToOpaqueSpans(ArenaAllocator scratchMemory, Types&&... vars)
+std::span<UntypedSpan> ToUntypedSpans(ArenaAllocator allocator, Types&&... vars)
 {
-	const auto ct = sizeof...(Types); //Hacky -- counting up the number of args by testing a predicate which is always true
-	Array<OpaqueSpan> opaqueSpans = MemoryArena::AllocSpan<OpaqueSpan>(scratchMemory, ct);
+	constexpr auto ct = sizeof...(Types); 
+	Array<UntypedSpan> opaqueSpans = MemoryArena::AllocSpan(allocator, ct);
 	(opaqueSpans.push_back(ToOpaqueSpan(vars)), ...);
 	return opaqueSpans.getSpan();
 }
 
 template<typename... Types>
-void ReorderSOA(ArenaAllocator scratchMemory, std::span<size_t> indices, Types&&... vars)
+std::span<UntypedSpan> ToUntypedSpans(Types&&... vars)
 {
-	std::span<OpaqueSpan> opaqueSpans = ConvertToOpaqueSpans(scratchMemory, vars...);
-	ReorderParallelOpaqueSpans(scratchMemory, opaqueSpans, indices);
+	constexpr auto ct = sizeof...(Types); 
+	UntypedSpan opaqueSpansMemory[ct];
+	Array<UntypedSpan> opaqueSpans = std::span<UntypedSpan>(opaqueSpansMemory);
+	(opaqueSpans.push_back(ToOpaqueSpan(vars)), ...);
+	return opaqueSpans.getSpan();
+}
+
+template<typename... Types>
+void ReorderAll(ArenaAllocator temporaryMemory, std::span<size_t> indices, Types&&... vars)
+{
+	std::span<UntypedSpan> opaqueSpans = ToUntypedSpans(vars...);
+	ReorderParallelOpaqueSpans(temporaryMemory, opaqueSpans, indices);
 }
 
 

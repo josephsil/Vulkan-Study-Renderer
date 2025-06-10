@@ -14,6 +14,8 @@
 void InitializeScene(MemoryArena::memoryArena* arena, Scene* scene)
 {
     //Objects
+	MemoryArena::initialize(&scene->scratchMemory);
+
     scene->objects = {};
     scene->objects.objectsCount = 0;
     scene->objects.translations = Array(MemoryArena::AllocSpan<glm::vec3>(arena, OBJECT_MAX));
@@ -109,6 +111,7 @@ void Scene::Update()
     }
 
     transforms.UpdateWorldTransforms();
+    free(&scratchMemory);
 }
 
 size_t Scene::AddObject(std::span<ID::SubMeshID> submeshIndices, std::span<ID::MaterialID> materialIndices,
@@ -198,19 +201,19 @@ int lightOrder(LightType t)
 
 void Scene::lightSort()
 {
-	MemoryArena::memoryArena scratchArena; //TODO pass in 
-	MemoryArena::initialize(&scratchArena);
 
-	std::span<size_t> indices = GetIndicesAscending<size_t>(&scratchArena, lightCount);
+	MemoryArena::setCursor(&scratchMemory);
+	std::span<size_t> indices = GetIndicesAscending<size_t>(&scratchMemory, lightCount);
 	
 	//Get indices sorted by light type
 	std::sort(indices.data(), indices.data() + indices.size(), [ & ](size_t a, size_t b) 
 			  { return (int)(lightTypes[a]) < (int)(lightTypes[b]); });
 	
-	ReorderSOA(&scratchArena, indices,  lightposandradius.getSpan(),
+	ReorderAll(&scratchMemory, indices,  lightposandradius.getSpan(),
 												lightcolorAndIntensity.getSpan(),
 												lightDir.getSpan(),
 												lightTypes.getSpan());
+	MemoryArena::freeToCursor(&scratchMemory);
 }
 
 size_t Scene::getShadowDataIndex(size_t idx, std::span<LightType> lightTypes)
