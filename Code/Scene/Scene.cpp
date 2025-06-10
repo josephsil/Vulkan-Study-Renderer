@@ -3,12 +3,8 @@
 #include "engineGlobals.h"
 #include "glm_misc.h"
 #include "Transforms.h"
-#include "General/Array.h"
-#include "General/Array.h"
-#include "General/Array.h"
-#include "General/Array.h"
-#include "General/Array.h"
-#include "General/Array.h"
+#include "General/Algorithms.h"
+#include <algorithm>
 #include "General/Array.h"
 #include "General/InputHandling.h"
 #include "General/MemoryArena.h"
@@ -181,90 +177,40 @@ size_t Scene::MeshesCount()
     return objects.subMeshesCount;
 }
 
+int lightOrder(LightType t)
+{
+    if (t == LightType::LIGHT_DIR)
+    {
+        return 0;
+    }
+    if (t == LIGHT_SPOT)
+    {
+        return 2; 
+    }
+    if (t == LIGHT_POINT)
+    {
+         return 1;
+    }
+    return 0;
+}
 
 
-//very dumb/brute force for now
+
 void Scene::lightSort()
 {
-    int dir_array[LIGHT_MAX];
-    int point_array[LIGHT_MAX];
-    int spot_array[LIGHT_MAX];
-    Array<int> dirlightIndices = std::span<int>(dir_array);
-    Array<int> pointlightIndices = std::span<int>(point_array);
-    Array<int> spotlightIndices = std::span<int>(spot_array);
+	MemoryArena::memoryArena scratchArena; //TODO pass in 
+	MemoryArena::initialize(&scratchArena);
 
-    for (int i = 0; i < lightCount; i++)
-    {
-        switch (lightTypes[i])
-        {
-        case LIGHT_DIR:
-            dirlightIndices.push_back(i);
-            break;
-        case LIGHT_SPOT:
-            spotlightIndices.push_back(i);
-            break;
-        case LIGHT_POINT:
-            pointlightIndices.push_back(i);
-            break;
-        }
-    }
-    std::span<uint32_t> tempShadowCt;
-    std::span<glm::vec4> tempPos;
-    std::span<glm::vec4> tempCol;
-    std::span<glm::vec4> tempDir;
-    std::span<LightType> tempType;
-
-    //if there's room, use the back half of the existing arrays
-    if (lightCount < LIGHT_MAX / 2)
-    {
-        tempPos = std::span<glm::vec4>(lightposandradius.data, LIGHT_MAX).subspan(LIGHT_MAX / 2, LIGHT_MAX / 2);
-        tempCol = std::span<glm::vec4>(lightcolorAndIntensity.data, LIGHT_MAX).subspan(LIGHT_MAX / 2, LIGHT_MAX / 2);
-        tempDir = std::span<glm::vec4>(lightDir.data, LIGHT_MAX).subspan(LIGHT_MAX / 2, LIGHT_MAX / 2);
-        tempType = std::span<LightType>(lightTypes.data, LIGHT_MAX).subspan(LIGHT_MAX / 2, LIGHT_MAX / 2);
-    }
-    else
-    {
-        //not implemented
-        assert(lightCount < LIGHT_MAX / 2);
-        // tempPos = MemoryArena::AllocSpan<glm::vec4>(allocator, lightCount);
-        // tempCol = MemoryArena::AllocSpan<glm::vec4>(allocator, lightCount);
-        // tempDir = MemoryArena::AllocSpan<glm::vec4>(allocator, lightCount);
-        // tempType = MemoryArena::AllocSpan<lightType>(allocator, lightCount);
-    }
-
-    for (int i = 0; i < lightCount; i++)
-    {
-        tempPos[i] = lightposandradius[i];
-        tempCol[i] = lightcolorAndIntensity[i];
-        tempDir[i] = lightDir[i];
-        tempType[i] = lightTypes[i];
-    }
-
-    int i = 0;
-    int j;
-    for (j = 0; j < dirlightIndices.ct; j++)
-    {
-        lightposandradius[i + j] = tempPos[dirlightIndices[j]];
-        lightcolorAndIntensity[i + j] = tempCol[dirlightIndices[j]];
-        lightDir[i + j] = tempDir[dirlightIndices[j]];
-        lightTypes[i + j] = tempType[dirlightIndices[j]];
-    }
-    i += j;
-    for (j = 0; j < spotlightIndices.ct; j++)
-    {
-        lightposandradius[i + j] = tempPos[spotlightIndices[j]];
-        lightcolorAndIntensity[i + j] = tempCol[spotlightIndices[j]];
-        lightDir[i + j] = tempDir[spotlightIndices[j]];
-        lightTypes[i + j] = tempType[spotlightIndices[j]];
-    }
-    i += j;
-    for (j = 0; j < pointlightIndices.ct; j++)
-    {
-        lightposandradius[i + j] = tempPos[pointlightIndices[j]];
-        lightcolorAndIntensity[i + j] = tempCol[pointlightIndices[j]];
-        lightDir[i + j] = tempDir[pointlightIndices[j]];
-        lightTypes[i + j] = tempType[pointlightIndices[j]];
-    }
+	std::span<size_t> indices = GetIndicesAscending<size_t>(&scratchArena, lightCount);
+	
+	//Get indices sorted by light type
+	std::sort(indices.data(), indices.data() + indices.size(), [ & ](size_t a, size_t b) 
+			  { return (int)(lightTypes[a]) < (int)(lightTypes[b]); });
+	
+	ReorderSOA(&scratchArena, indices,  lightposandradius.getSpan(),
+												lightcolorAndIntensity.getSpan(),
+												lightDir.getSpan(),
+												lightTypes.getSpan());
 }
 
 size_t Scene::getShadowDataIndex(size_t idx, std::span<LightType> lightTypes)

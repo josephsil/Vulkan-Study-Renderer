@@ -172,7 +172,7 @@ void VulkanRenderer::UpdateShadowImageViews(int frame, sceneCountData lightData)
         {
             VkImageViewType type = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
             uint32_t ct = (uint32_t)shadowCountFromLightType(lightData.lightTypes[j]);
-            if ((LightType)lightData.lightTypes[j] == LIGHT_POINT)
+            if (lightData.lightTypes[j] == LIGHT_POINT)
             {
                 type = VK_IMAGE_VIEW_TYPE_CUBE;
             }
@@ -1765,7 +1765,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     Array flatShadowData = MemoryArena::AllocSpan<GPU_perShadowData>(&perFrameArenas[currentFrame], MAX_SHADOWMAPS);
     for(size_t i = 0; i < glm::min(scene->lightCount, MAX_SHADOWCASTERS); i ++)
     {
-        LightType type = (LightType)scene->lightTypes[i];
+        LightType type = scene->lightTypes[i];
         flatShadowData.push_copy_span( perLightShadowData[i]);
     }
 
