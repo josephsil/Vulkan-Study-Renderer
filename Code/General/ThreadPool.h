@@ -132,7 +132,7 @@ namespace ThreadPool {
     {
         auto poll = WorkerState::POLL;
         size_t currentRequestindex = thread_idx;
-        bool cancelled = false;
+      
         // auto& workItemsData = ThreadJobData->workItemsData;
 
         size_t requestCt = GetRequestCt(ThreadJobData); //Read this atomically before each loop
@@ -140,6 +140,7 @@ namespace ThreadPool {
 
         while (true)
         {
+            bool cancelled = false;
             if (currentRequestindex < requestCt)
             {
                 switch (poll)

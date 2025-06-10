@@ -1,5 +1,5 @@
 #pragma once
-#include "VulkanIncludes/structs_hlsl.h"
+#include <Renderer/VulkanIncludes/structs_hlsl.h>
 #include "VulkanIncludes/forward-declarations-renderer.h"
 #include <General/GLM_IMPL.h>
 #include <vector>

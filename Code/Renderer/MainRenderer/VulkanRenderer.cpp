@@ -431,14 +431,14 @@ void VulkanRenderer::CreateUniformBuffers( size_t drawCount, size_t objectsCount
         GetFrameData(i).hostMesh = createDataBuffer<GPU_VertexData>(&context,AssetDataAndMemory->getVertexCount(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
         GetFrameData(i).hostVerts = createDataBuffer<glm::vec4>(&context,AssetDataAndMemory->getVertexCount(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT); //TODO JS: use index buffer, get vertex count
 
-        GetFrameData(i).deviceVerts = {.data = VK_NULL_HANDLE, .size = AssetDataAndMemory->getVertexCount() * sizeof(glm::vec4), .mapped = nullptr};
+        GetFrameData(i).deviceVerts = { .data = VK_NULL_HANDLE, .size = (uint32_t)(AssetDataAndMemory->getVertexCount() * sizeof(glm::vec4)), .mapped = nullptr };
         VmaAllocation alloc = {};
         BufferUtilities::createDeviceBuffer(context.allocator,"verts",
                                             GetFrameData(i).deviceVerts.size,
                                             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,context.device,&alloc,
                                             &GetFrameData(i).deviceVerts.data);
 
-        GetFrameData(i).deviceMesh = {.data = VK_NULL_HANDLE, .size = AssetDataAndMemory->getVertexCount() * sizeof(GPU_VertexData), .mapped = nullptr};
+        GetFrameData(i).deviceMesh = { .data = VK_NULL_HANDLE, .size = (uint32_t)(AssetDataAndMemory->getVertexCount() * sizeof(GPU_VertexData)), .mapped = nullptr };
         VmaAllocation alloc2 = {};
         BufferUtilities::createDeviceBuffer(context.allocator, "meshes",
                                             GetFrameData(i).deviceMesh.size,
@@ -446,7 +446,7 @@ void VulkanRenderer::CreateUniformBuffers( size_t drawCount, size_t objectsCount
                                             &GetFrameData(i).deviceMesh.data);
         
         GetFrameData(i).hostIndices = createDataBuffer<uint32_t>(&context,AssetDataAndMemory->getIndexCount(), VK_BUFFER_USAGE_INDEX_BUFFER_BIT| VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
-        GetFrameData(i).deviceIndices = {.data = VK_NULL_HANDLE, .size = AssetDataAndMemory->getIndexCount() * sizeof(uint32_t), .mapped = nullptr};
+        GetFrameData(i).deviceIndices = {.data = VK_NULL_HANDLE, .size = (uint32_t)(AssetDataAndMemory->getIndexCount() * sizeof(uint32_t)), .mapped = nullptr};
         VmaAllocation alloc3 = {};
         BufferUtilities::createDeviceBuffer(context.allocator, "indices",
                                             GetFrameData(i).deviceIndices.size,

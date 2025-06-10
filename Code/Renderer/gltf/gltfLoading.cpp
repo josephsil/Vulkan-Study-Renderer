@@ -15,7 +15,7 @@
 #include <Renderer/PerThreadRenderContext.h>
 #include <Renderer/MeshCreation/MeshOptimizer.h>
 #include <Renderer/TextureCreation/TextureData.h>
-
+#include <General/MemoryArena.h>
 #include "General/ThreadedTextureLoading.h"
 #include "General/ThreadPool.h"
 #include "Renderer/rendererGlobals.h"
