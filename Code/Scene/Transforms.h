@@ -5,7 +5,7 @@
 #include <span>
 #include <string>
 #include <vector>
-#include <General/GLM_IMPL.h>
+#include <General/GLM_impl.h>
 
 #include "General/Array.h"
 #include "General/MemoryArena.h"

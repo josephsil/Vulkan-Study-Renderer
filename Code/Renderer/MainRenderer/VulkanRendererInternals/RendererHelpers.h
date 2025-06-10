@@ -1,5 +1,5 @@
 #pragma once 
-#include <General/GLM_IMPL.h>
+#include <General/GLM_impl.h>
 
 #include "../../CommandPoolManager.h"
 #include "../../gpu-data-structs.h"

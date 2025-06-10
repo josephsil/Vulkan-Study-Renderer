@@ -54,9 +54,6 @@ struct TextureData
 
 namespace TextureCreation
 {
-    static TextureMetaData CreateImageFromCachedKTX(PerThreadRenderContext rendererContext, const char* path, TextureType type,
-                                                    bool mips, VkSamplerAddressMode mode);
-    static VkImageView CreateTextureImageView(PerThreadRenderContext rendererContext, TextureMetaData data, VkImageViewType type);
     void CreateTextureSampler(VkSampler* textureSampler, PerThreadRenderContext rendererContext, VkSamplerAddressMode mode,
                               float bias, uint32_t maxMip, bool shadow = false);
     void CreateDepthPyramidSampler(VkSampler* textureSampler, VkSamplerReductionMode mode, PerThreadRenderContext rendererContext, uint32_t maxMip);

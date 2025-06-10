@@ -1,6 +1,6 @@
-#include <General/GLM_IMPL.h>
+#include <General/GLM_impl.h>
 #include "AssetManager.h"
-#include <Renderer/MeshCreation/meshData.h> // TODO JS: I want to separate the backing data from the scene 
+#include <Renderer/MeshCreation/MeshData.h> // TODO JS: I want to separate the backing data from the scene 
 #include <Renderer/TextureCreation/TextureData.h> // TODO JS: I want to separate the backing data from the scene 
 #include <General/MemoryArena.h>
 #include "engineGlobals.h"

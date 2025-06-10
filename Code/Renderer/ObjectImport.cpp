@@ -4,7 +4,7 @@
 #include <Scene/AssetManager.h>
 #include <Scene/Transforms.h>
 
-#include "MeshCreation/meshData.h"
+#include "MeshCreation/MeshData.h"
 #include "Scene/Scene.h"
 
 

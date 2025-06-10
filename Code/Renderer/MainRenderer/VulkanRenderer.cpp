@@ -1,10 +1,10 @@
 #include "VulkanRenderer.h"
+#include "vulkan/vulkan_core.h"
 #undef main
 #define SDL_MAIN_HANDLED 
 #include <SDL2/SDL.h>
 ////
 #include <cstdlib>
-#include <functional>
 #include <span>
 #include <Renderer/Vertex.h>
 #include <ImageLibraryImplementations.h>
@@ -16,7 +16,7 @@
 #include <Renderer/VulkanBuffers/bufferCreation.h>
 #include <Renderer/CommandPoolManager.h>
 #include <Renderer/gpu-data-structs.h>
-#include <Renderer/MeshCreation/meshData.h>
+#include <Renderer/MeshCreation/MeshData.h>
 #include <Scene/AssetManager.h>
 #include <imgui.h>
 #include <Renderer/RendererInterface.h>
@@ -35,11 +35,8 @@
 #include <Renderer/MainRenderer/VulkanRendererInternals/LightAndCameraHelpers.h>
 #include <Renderer/MainRenderer/VulkanRendererInternals/RendererHelpers.h>
 
-#include "engineGlobals.h"
-#include "General/Algorithms.h"
 #include "General/LinearDictionary.h"
 #include "General/ThreadedTextureLoading.h"
-#include "Renderer/gltf/gltf_impl.h"
 //Should move somewhere
 #include <fmtInclude.h>
 struct GPU_perShadowData;
@@ -660,10 +657,10 @@ static void updateShadowData(MemoryArena::memoryArena* allocator, std::span<std:
 }
 
 //from niagara
-static glm::vec4 normalizePlane(glm::vec4 p)
-{
-    return p / length(glm::vec3(p));
-}
+//static glm::vec4 normalizePlane(glm::vec4 p)
+//{
+//    return p / length(glm::vec3(p));
+//}
 
 void VulkanRenderer::updatePerFrameBuffers(uint32_t currentFrame, Array<std::span<glm::mat4>> models, Scene* scene)
 {
@@ -799,13 +796,18 @@ void EndCommandBufferRecording(ActiveRenderStepData* context)
 
 VkRenderingAttachmentInfoKHR CreateRenderingAttatchmentWithLayout(VkImageView target, float clearColor, bool clear, VkImageLayout layout)
 {
+    VkClearDepthStencilValue depth = { .depth = 0, .stencil = 0 };
+    VkClearColorValue ccv = { .float32 = {clearColor,clearColor,clearColor,1.0f} };
+    VkClearValue clearvalue;
+    clearvalue.color = ccv;
+    clearvalue.depthStencil = depth; 
     return  {
         .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
         .imageView = target,
         .imageLayout = layout,
         .loadOp = clear ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD,
         .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-        .clearValue =  {clearColor, 0}
+        .clearValue = clearvalue
     }; 
 }
 VkRenderingAttachmentInfoKHR CreateRenderingAttatchmentStruct(VkImageView target, float clearColor, bool clear)
@@ -840,7 +842,7 @@ void BeginRendering(VkRenderingAttachmentInfo* depthAttatchment, int colorAttatc
     viewport.maxDepth = 1.0f;
 
     vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-
+    //
     
     VkRect2D scissor{};
     scissor.offset = {0, 0};

@@ -49,14 +49,14 @@ std::span<std::span<wchar_t>> parseShaderIncludeStrings(MemoryArena::memoryArena
 
     int i = 0;
     int stringsCt = 0;
-    bool scanningInclude = false;
+    int scanningInclude = 0;
     int quotesCount = 0;
     int includeLength = 0;
     while ((c = fgetc(f)) != EOF)
     {
         switch (scanningInclude)
         {
-        case false:
+        case 0:
             if (c == '#' || i != 0)
             {
                 //failed 
@@ -71,12 +71,12 @@ std::span<std::span<wchar_t>> parseShaderIncludeStrings(MemoryArena::memoryArena
                 //passed
                 if (i == 7)
                 {
-                    scanningInclude = true;
+                    scanningInclude = 1;
                     //match -- we're reading an include pragma 
                 }
             }
             continue;
-        case true:
+        case 1:
             if (c == '"')
             {
                 quotesCount++;
@@ -90,7 +90,7 @@ std::span<std::span<wchar_t>> parseShaderIncludeStrings(MemoryArena::memoryArena
                         strings[stringsCt - 1][j] = fgetc(f);
                     }
                     quotesCount = 0;
-                    scanningInclude = false;
+                    scanningInclude = 0;
                     includeLength = 0;
                 }
                 continue;
@@ -99,7 +99,7 @@ std::span<std::span<wchar_t>> parseShaderIncludeStrings(MemoryArena::memoryArena
             {
                 //Reset and continue 
                 quotesCount = 0;
-                scanningInclude = false;
+                scanningInclude = 0;
                 includeLength = 0;
             }
             if (quotesCount > 0)
@@ -291,10 +291,8 @@ void ShaderLoader::AddShader(const char* name, std::wstring shaderPath, bool com
     shaderPaths shaderPaths = {.path = shaderPath, .includePaths = findShaderIncludes(&scratch, shaderPath)};
     bool needsCompiled = ShaderNeedsReciompiled(shaderPaths);
     //TODO JS: if no, load a cached version
-
-    switch (compute)
-    {
-    case false:
+    
+    if (!compute)
         {
             VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
             vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -319,9 +317,8 @@ void ShaderLoader::AddShader(const char* name, std::wstring shaderPath, bool com
             }
             VkPipelineShaderStageCreateInfo test[] = {vertShaderStageInfo, fragShaderStageInfo};
             compiledShaders.insert({name, shaderStages});
-            break;
         }
-    case true:
+    else
         {
             VkPipelineShaderStageCreateInfo computeShaderStage{};
             computeShaderStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -335,9 +332,7 @@ void ShaderLoader::AddShader(const char* name, std::wstring shaderPath, bool com
             {
                 SetDebugObjectNameS(device_, VK_OBJECT_TYPE_SHADER_MODULE, name, (uint64_t)computeShaderStage.module);
             }
-            break;
         }
-    }
     if (needsCompiled)
     {
         FileCaching::saveAssetChangedTime(shaderPaths.path);

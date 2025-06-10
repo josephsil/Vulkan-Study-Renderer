@@ -1,17 +1,17 @@
 #include "game.h"
 
 //rendererContext JS: I'd love to include less
-#include "Renderer/MeshCreation/meshData.h"
-#include "Renderer/TextureCreation/TextureData.h"
-#include "Renderer/gltf/gltfLoading.h"
-#include "Renderer/MeshCreation/MeshData.h"
-#include "Scene/AssetManager.h"
-#include "Scene/Scene.h"
+#include <Renderer/MeshCreation/MeshData.h>
+#include <Renderer/TextureCreation/TextureData.h>
+#include <Renderer/gltf/gltfLoading.h>
+#include <Renderer/MeshCreation/MeshData.h>
+#include <Scene/AssetManager.h>
+#include <Scene/Scene.h>
 #include <glm/gtc/random.hpp>
 
-#include "General/LinearDictionary.h"
-#include "General/ThreadedTextureLoading.h"
-#include "Renderer/MeshCreation/MeshOptimizer.h"
+#include <General/LinearDictionary.h>
+#include <General/ThreadedTextureLoading.h>
+#include <Renderer/MeshCreation/MeshOptimizer.h>
 
 void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* rendererData, Scene* scene)
 {
@@ -99,7 +99,7 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
    
 #endif
 #pragma endregion
-    printf("objects count: %llu \n", scene->objects.objectsCount);
+    printf("objects count: %zu \n", scene->objects.objectsCount);
     gltf = GltfLoadMeshes(rendererContext,*rendererData, "Meshes/pig.glb");
     
     

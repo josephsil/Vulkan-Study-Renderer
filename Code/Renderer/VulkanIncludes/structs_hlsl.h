@@ -2,7 +2,7 @@
 //EDIT structs.hlsl TO UPDATE
 #pragma once
 #include <Renderer/VulkanIncludes/forward-declarations-renderer.h>
-#include <General/GLM_IMPL.h>
+#include <General/GLM_impl.h>
 static constexpr uint32_t SHADOW_MAP_SIZE = 1024;
 static constexpr uint32_t DEPTH_PYRAMID_SIZE = SHADOW_MAP_SIZE;
 static constexpr float POINT_LIGHT_FAR_PLANE = 10.0f;

@@ -1,11 +1,11 @@
 #include "MeshOptimizer.h"
 
-#include "meshData.h"
-#include "General/Array.h"
-#include "General/MemoryArena.h"
-#include "meshoptimizer/src/meshoptimizer.h"
-#include "Renderer/rendererGlobals.h"
-#include "Scene/AssetManager.h"
+#include <Renderer/MeshCreation/MeshData.h>
+#include <General/Array.h>
+#include <General/MemoryArena.h>
+#include <meshoptimizer/src/meshoptimizer.h>
+#include <Renderer/rendererGlobals.h>
+#include <Scene/AssetManager.h>
 
 ImportMeshData  MeshOptimizer::RunMeshOptimizer(ArenaAllocator arena, AssetManager& rendererData, preMeshletMesh input)
 {

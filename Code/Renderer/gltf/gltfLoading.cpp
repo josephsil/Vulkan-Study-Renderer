@@ -2,7 +2,7 @@
 #include "gltfLoading.h"
 #include "Renderer/VulkanIncludes/Vulkan_Includes.h"
 
-#include <Renderer/MeshCreation/meshData.h>
+#include <Renderer/MeshCreation/MeshData.h>
 #include <General/MemoryArena.h>
 #include <General/Array.h>
 #include <General/GLM_impl.h>

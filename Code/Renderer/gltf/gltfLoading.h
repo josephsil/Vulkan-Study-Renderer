@@ -1,6 +1,6 @@
 #pragma once
 #include <span>
-#include <General/GLM_IMPL.h>
+#include <General/GLM_impl.h>
 
 #include <Renderer/ObjectImport.h>
 #include <Renderer/TextureCreation/TextureData.h>

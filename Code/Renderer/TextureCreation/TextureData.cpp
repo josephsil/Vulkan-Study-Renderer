@@ -13,7 +13,7 @@
 
 #include <Renderer/VulkanBuffers/bufferCreation.h>
 #include <Renderer/CommandPoolManager.h>
-#include <Renderer/TextureCreation/internal/TextureCreationUtilities.h>
+#include <Renderer/TextureCreation/Internal/TextureCreationUtilities.h>
 #include <General/FileCaching.h>
 
 #include "Renderer/MainRenderer/VulkanRendererInternals/RendererHelpers.h"
@@ -28,17 +28,13 @@ static void CacheImportedTextureToKTXFile(VkDevice device, TextureCreation::stag
                                     VkFormat format,  bool compress);
 TextureCreation::TextureImportProcessTemporaryTexture GetOrLoadTextureFromPath(PerThreadRenderContext rendererContext, const char* path, VkFormat format, VkSamplerAddressMode mode,
                                  TextureType textureType, VkImageViewType imageViewType, bool useMipmaps, bool compress);
-
-// TextureData TextureCreation::CreateTexture_part1(RendererContext rendererContext, const char* path, TextureType type, VkImageViewType viewType)
-// {
-// }
+VkImageView CreateTextureImageView(PerThreadRenderContext rendererContext, TextureMetaData data, VkImageViewType type);
 TextureCreation::LOAD_KTX_CACHED_args TextureCreation::CreateTexture_Cache_Temp_To_KTX_Step(
     PerThreadRenderContext rendererContext, TextureCreation::TextureImportProcessTemporaryTexture r)
 {
     CacheImportedTextureToKTXFile(rendererContext.device,r.stagingTexture, r.outputPath,  r.format, 
        r.compress);
 
-    // auto ktxResult = TextureCreation::CreateImageFromCachedKTX(rendererContext, r.outputPath, r.type, true, r.samplerMode);
         return   {
             .cachedKtxPath = r.outputPath,
             .samplerMode = r.samplerMode,
@@ -112,10 +108,10 @@ TextureCreation::TextureImportProcessTemporaryTexture CreateTextureFromPath(PerT
 TextureCreation::TextureImportRequest TextureCreation::MakeCreationArgsFromFilepathArgs(
     const char* path, ArenaAllocator arena, TextureType type, VkImageViewType viewType)
 {
-    if (viewType == -1)
-    {
-        viewType = type == CUBE ? VK_IMAGE_VIEW_TYPE_CUBE : VK_IMAGE_VIEW_TYPE_2D;
-    }
+    //if (viewType == -1)
+    //{
+        //viewType = type == CUBE ? VK_IMAGE_VIEW_TYPE_CUBE : VK_IMAGE_VIEW_TYPE_2D;
+    //}
     
     //Don't regenerate ktx if image modified time is older than last ktx
     std::span<char> resultPath = {};
@@ -209,7 +205,7 @@ TextureCreation::TextureImportProcessTemporaryTexture CreateTextureFromGLTF(PerT
 
 TextureData CreateSamplerAndViewForLoadedTexture(PerThreadRenderContext rendererContext, TextureMetaData tData, VkImageViewType viewType)
 {
-    VkImageView textureImageView = TextureCreation::CreateTextureImageView(rendererContext,
+    VkImageView textureImageView = CreateTextureImageView(rendererContext,
         tData, viewType);
     assert(textureImageView != VK_NULL_HANDLE);
     VkSampler textureSampler = {};
@@ -583,7 +579,7 @@ void CacheImportedTextureToKTXFile(VkDevice device, TextureCreation::stagingText
     ktxTexture_Destroy(ktxTexture(texture));
 }
 
-VkImageView TextureCreation::CreateTextureImageView(PerThreadRenderContext rendererContext, TextureMetaData data, VkImageViewType type)
+VkImageView CreateTextureImageView(PerThreadRenderContext rendererContext, TextureMetaData data, VkImageViewType type)
 {
     VkImageView view = TextureUtilities::createImageView(objectCreationContextFromRendererContext(rendererContext),
                                                          data.textureImage.image, data.dimensionsInfo.format,
@@ -678,7 +674,7 @@ static TextureCreation::stagingTextureData CreatetempTextureFromPath(PerThreadRe
 
 
 
-TextureMetaData TextureCreation::CreateImageFromCachedKTX(PerThreadRenderContext rendererContext,const char* path, TextureType type, bool mips, VkSamplerAddressMode mode)
+TextureMetaData CreateImageFromCachedKTX(PerThreadRenderContext rendererContext,const char* path, TextureType type, bool mips, VkSamplerAddressMode mode)
 {
     superLuminalAdd("Cachedktxtexturecreation");
     ktxVulkanTexture texture;
@@ -765,7 +761,7 @@ TextureCreation::TextureImportProcessTemporaryTexture TextureCreation::GetTempor
 TextureCreation::TextureImportResult TextureCreation::LoadAndUploadTextureFromImportCache(PerThreadRenderContext context, TextureCreation::LOAD_KTX_CACHED_args importArguments)
 {
     TextureCreation::TextureImportResult r = {};
-        r.metaData  = TextureCreation::CreateImageFromCachedKTX(context, importArguments.cachedKtxPath, importArguments.isCube ? CUBE : DIFFUSE, true, importArguments.samplerMode);
+        r.metaData  = CreateImageFromCachedKTX(context, importArguments.cachedKtxPath, importArguments.isCube ? CUBE : DIFFUSE, true, importArguments.samplerMode);
         r.viewType = importArguments.isCube ? VK_IMAGE_VIEW_TYPE_CUBE : VK_IMAGE_VIEW_TYPE_2D;
         return r;
 }

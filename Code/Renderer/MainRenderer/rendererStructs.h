@@ -1,6 +1,6 @@
 #pragma once
 #include <Renderer/VulkanIncludes/forward-declarations-renderer.h>
-#include <General/GLM_IMPL.h>
+#include <General/GLM_impl.h>
 
 #include "PipelineManager/PipelineLayoutManager.h"
 

@@ -6,12 +6,12 @@
 #define GLM_FORCE_LEFT_HANDED
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 
-#include "../vertex.h"
+#include <Renderer/Vertex.h>
 
 #pragma region forward declarations
 #include <span>
 
-#include "../gpu-data-structs.h"
+#include <Renderer/gpu-data-structs.h>
 #pragma endregion
 
 namespace MemoryArena

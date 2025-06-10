@@ -1,5 +1,5 @@
 #include <cstdlib>
-#include <General/GLM_IMPL.h>
+#include <General/GLM_impl.h>
 #include "engineGlobals.h"
 #include "game.h"
 #include "imgui.h"
@@ -7,7 +7,7 @@
 #include "backends/imgui_impl_vulkan.h"
 
 #include "General/InputHandling.h"
-#include "Renderer/MeshCreation/meshData.h"
+#include "Renderer/MeshCreation/MeshData.h"
 #include "Renderer/TextureCreation/TextureData.h"
 #include "Renderer/gltf/gltfLoading.h"
 #include "Scene/Scene.h"
