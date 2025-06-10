@@ -52,7 +52,7 @@ function generate-structs-hlsl
     $output += $contents
 
     # Write-Host $output 
-    $output | Out-File Code/Renderer/VulkanIncludes/structs_hlsl.h
+    $output | Out-File Code/Renderer/VulkanIncludes/structs_hlsl.h -Encoding ascii
 }
 
 # function process-binding-line

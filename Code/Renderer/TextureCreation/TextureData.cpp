@@ -522,8 +522,6 @@ void CacheImportedTextureToKTXFile(VkDevice device, TextureCreation::stagingText
                              VkFormat format, bool compress)
 {
 
-    ktx_size_t srcSize = 0;
-    VkImage image = tempTexture.textureImage;
     ktxTexture2* texture; // For KTX2
     ktxTextureCreateInfo createInfo;
     KTX_error_code result;
@@ -690,7 +688,6 @@ TextureMetaData CreateImageFromCachedKTX(PerThreadRenderContext rendererContext,
     {
         std::cerr << "Creation of ktxTexture from \"" << path << "\" failed: " << ktxErrorString(ktxresult);
     }
-    bool debugnomips = false;
     
     //If it's a basis texture, we need to transcode (and also can't generate mipmaps)
     if (ktxTexture2_NeedsTranscoding(kTexture))
@@ -701,8 +698,6 @@ TextureMetaData CreateImageFromCachedKTX(PerThreadRenderContext rendererContext,
         kTexture->generateMipmaps = false;
     }
 
-    uint32_t fullMipPyramid = static_cast<uint32_t>(std::floor(
-        std::log2(glm::max(kTexture->baseWidth, kTexture->baseHeight)))) + 1;
 
     //Need to eventually get away from calling ktx vkupload -- because it manages it own command buffer/queue submission I have to mutex here :[ 
     GET_QUEUES()->graphicsQueueMutex.lock();

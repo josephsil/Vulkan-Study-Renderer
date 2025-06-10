@@ -312,7 +312,7 @@ void ShaderLoader::AddShader(const char* name, std::wstring shaderPath, bool com
             fragShaderStageInfo.pName = "Frag"; //Entry point name   
             std::vector shaderStages = {vertShaderStageInfo, fragShaderStageInfo};
             if (fragShaderStageInfo.module != VK_NULL_HANDLE)
-            {
+            {//
                 SetDebugObjectNameS(device_, VK_OBJECT_TYPE_SHADER_MODULE, name, (uint64_t)fragShaderStageInfo.module);
             }
             VkPipelineShaderStageCreateInfo test[] = {vertShaderStageInfo, fragShaderStageInfo};
