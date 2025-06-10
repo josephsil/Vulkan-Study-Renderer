@@ -36,11 +36,16 @@ int main()
     initialize(&sceneArena, 3 * 1000000);
     Scene scene = {};
     InitializeScene(&sceneArena, &scene);
+
     Add_Scene_Content(renderer.GetMainRendererContext(), renderer.AssetDataAndMemory, &scene);
+
     auto meshletCt = VulkanRenderer::StaticCalculateTotalDrawCount(&scene, renderer.AssetDataAndMemory->meshData.perSubmeshData.getSpan());
-    sceneCountData sceneData = {.objectCount = scene.ObjectsCount(), .totalDrawCt = meshletCt, .lightCount = scene.lightCount, .lightTypes = scene.lightTypes.getSpan()};
+    
+	sceneCountData sceneData = {.objectCount = scene.ObjectsCount(), .totalDrawCt = meshletCt, .lightCount = scene.lightCount, .lightTypes = scene.lightTypes.getSpan()};
     renderer.InitializeRendererForScene(sceneData );
     renderer.initializePipelines( scene.lightCount);
+
+
     engineLoop(&renderer, &scene);
 
     return EXIT_SUCCESS;
@@ -63,7 +68,7 @@ void updateImgui(bool* captureMouse)
 
 void engineLoop(VulkanRenderer* renderer, Scene* scene)
 {
-    renderer->BeforeFirstUpdate(); //TODO JS: Extract non-renderer stuff out
+    renderer->BeforeFirstUpdate(); 
     while (!QUIT)
     {
         bool imguiCaptureMouse = false;
@@ -71,8 +76,7 @@ void engineLoop(VulkanRenderer* renderer, Scene* scene)
         InputHandler_Update(imguiCaptureMouse);
         scene->Update();
         
-        renderer->Update(scene); //TODO JS: Extract non-renderer stuff out
-        // renderer->cleanup();
+        renderer->Update(scene); 
     }
 
     renderer->Cleanup();

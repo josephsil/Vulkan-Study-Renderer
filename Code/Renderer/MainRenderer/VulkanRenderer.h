@@ -64,7 +64,7 @@ GlobalRendererResources static_initializeResources(rendererObjects initializedre
                                                    MemoryArena::memoryArena* allocationArena,
                                                    RendererDeletionQueue* deletionQueue,
                                                    CommandPoolManager* commandPoolmanager);
-PerSceneShadowResources init_allocate_shadow_memory(rendererObjects initializedrenderer,
+PerSceneShadowResources AllocateShadowMemory(rendererObjects initializedrenderer,
                                                     MemoryArena::memoryArena* allocationArena);
 
 class VulkanRenderer

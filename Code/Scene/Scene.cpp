@@ -49,7 +49,6 @@ size_t shadowCountFromLightType(LightType t)
     return t == LIGHT_POINT ? 6 : t == LIGHT_DIR ? CASCADE_CT : 1;
 }
 
-//TODO JS: this sucks!
 void Scene::UpdateCamera(inputData input)
 {
     sceneCamera.eyeRotation += (input.mouseRot * 30000.0f * deltaTime);
@@ -120,9 +119,6 @@ size_t Scene::AddObject(std::span<ID::SubMeshID> submeshIndices, std::span<ID::M
     uint32_t submeshCt = static_cast<uint32_t>(submeshIndices.size());
 
 
-    //TODD JS: version that can add
-    // objects.meshes.push_back(mesh);
-
     //Add our materials
    auto firstSubmeshMaterial = allMaterials.size();
     allMaterials.push_copy_span(materialIndices);
@@ -141,9 +137,7 @@ size_t Scene::AddObject(std::span<ID::SubMeshID> submeshIndices, std::span<ID::M
     objects.subMeshes.push_back(allSubmeshes.push_copy_span(submeshIndices));
     objects.transformIDs.push_back(objects.transformIDs.size());
 
-    //TODO JS: When we use real objects, we'll only create transforms with these ids
-    // objects.meshVertCounts.push_back(mesh->vertcount);
-
+	//Parenting
     if (parent != nullptr)
     {
         localTransform newT = {

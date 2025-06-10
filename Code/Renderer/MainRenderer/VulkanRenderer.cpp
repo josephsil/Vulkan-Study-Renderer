@@ -44,6 +44,7 @@ std::vector<unsigned int> pastTimes;
 unsigned int averageCbTime;
 unsigned int frames;
 unsigned int MAX_TEXTURES = 120;
+uint32_t internal_debug_cull_override_index = 0;
 TextureData cube_irradiance;
 TextureData cube_specular;
 auto debugLinesManager = DebugLineData();
@@ -55,7 +56,7 @@ FullShaderHandle  DEBUG_RAYMARCH_SHADER_INDEX ={SIZE_MAX,SIZE_MAX};
 RenderPassDrawData DebugCullingData[100];
 LinearDictionary<FullShaderHandle, FullShaderHandle> PlaceholderDepthPassLookup = {};
 
-PerSceneShadowResources init_allocate_shadow_memory(rendererObjects initializedrenderer,
+PerSceneShadowResources AllocateShadowMemory(rendererObjects initializedrenderer,
                                                     MemoryArena::memoryArena* allocationArena);
 VkDescriptorSet UpdateAndGetBindlessDescriptorSetForFrame(PerThreadRenderContext context,
                                                           DescriptorDataForPipeline descriptorData, int currentFrame,
@@ -90,7 +91,7 @@ VulkanRenderer::VulkanRenderer()
     INIT_QUEUES(vulkanObjects.vkbdevice);
     commandPoolmanager = std::make_unique<CommandPoolManager>(vulkanObjects.vkbdevice, deletionQueue.get());
     globalResources = static_initializeResources(vulkanObjects, &rendererArena, deletionQueue.get(),commandPoolmanager.get());
-    shadowResources = init_allocate_shadow_memory(vulkanObjects, &rendererArena);
+    shadowResources = AllocateShadowMemory(vulkanObjects, &rendererArena);
 
 
     perFrameData = MemoryArena::AllocSpan<FrameData>(&rendererArena, MAX_FRAMES_IN_FLIGHT);
@@ -194,7 +195,7 @@ void VulkanRenderer::UpdateShadowImageViews(int frame, sceneCountData lightData)
 }
 
 
-static PerSceneShadowResources init_allocate_shadow_memory(rendererObjects initializedrenderer,  MemoryArena::memoryArena* allocationArena)
+static PerSceneShadowResources AllocateShadowMemory(rendererObjects initializedrenderer,  MemoryArena::memoryArena* allocationArena)
 {
   
     //TODO JS: it sucks that these aren't actually initialized in vulkan until later -- split them out? 
@@ -1488,7 +1489,7 @@ VkDescriptorSet UpdateAndGetBindlessDescriptorSetForFrame(PerThreadRenderContext
     DescriptorSets::_updateDescriptorSet_NEW(context, descriptorSet, descriptorData->layoutBindings,updates[idx]);
     return descriptorSet;
 }
-uint32_t internal_debug_cull_override_index = 0;
+
 
 uint32_t GetNextFirstIndex(RenderBatchQueue* q)
 {

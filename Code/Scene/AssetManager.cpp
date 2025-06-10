@@ -13,9 +13,6 @@ AssetManager::AssetManager()
 {
 
     MemoryArena::initialize(&this->allocator, 1000000 * 500); //500mb
-    // arallel arrays per Light
-    //1000000
-    // this->meshData.vertices = MemoryArena::AllocSpan<Vertex>(&this->allocator,350000); 
     this->meshData.vertPositions = MemoryArena::AllocSpan<glm::vec4>(&this->allocator,350000); 
     this->meshData.vertData = MemoryArena::AllocSpan<GPU_VertexData>(&this->allocator,350000);     
     this->meshData.vertIndices = MemoryArena::AllocSpan<uint8_t>(&this->allocator, 950000);
@@ -25,7 +22,6 @@ AssetManager::AssetManager()
     this->meshData.perSubmeshData = Array(MemoryArena::AllocSpan<PerSubmeshData>(&this->allocator, MESHLET_MAX_PER * ASSET_MAX));
     this->texturesMetaData = Array(MemoryArena::AllocSpan<TextureMetaData>(&this->allocator, ASSET_MAX));
     this->textures = Array(MemoryArena::AllocSpan<VkDescriptorImageInfo>(&this->allocator, ASSET_MAX));
-    // this->TODO_UNUSEDbacking_submeshes = Array(MemoryArena::AllocSpan<MeshData>(&this->allocator, MESHLET_MAX_PER * ASSET_MAX));
     this->subMeshGroups = Array(MemoryArena::AllocSpan<Array<uint32_t>>(&this->allocator, ASSET_MAX));
 
 
@@ -43,17 +39,14 @@ AssetManager* GetGlobalAssetManager()
     return &GlobalAssetManager;
 }
 
-//So things like, get the index back from this and then index in to these vecs to update them
-//At some point in the future I can replace this with a more sophisticated reference system if I need
-//Even just returning a pointer is probably plenty, then I can sort the lists, prune stuff, etc.
 ID::MaterialID AssetManager::AddMaterial(float roughness, float metallic, glm::vec3 color, textureSetIDs textureindex,
-                              uint32_t pipeline)
+										 uint32_t pipeline)
 {
-    materials.push_back(Material{
-        .shaderGroupIndex = pipeline, .diffuseIndex = static_cast<uint32_t>(textureindex.diffuseIndex), .specIndex =  static_cast<uint32_t>(textureindex.specIndex),
-        .normalIndex =  static_cast<uint32_t>(textureindex.normIndex), .metallic = metallic, .roughness = roughness, .color = color
-    });
-    return (uint32_t)materials.size() - 1;
+	materials.push_back(Material {
+		.shaderGroupIndex = pipeline, .diffuseIndex = static_cast<uint32_t>(textureindex.diffuseIndex), .specIndex = static_cast<uint32_t>(textureindex.specIndex),
+		.normalIndex = static_cast<uint32_t>(textureindex.normIndex), .metallic = metallic, .roughness = roughness, .color = color
+	});
+	return (uint32_t)materials.size() - 1;
 }
 
 void AssetManager::Update()
@@ -63,7 +56,6 @@ void AssetManager::Update()
 //
 uint32_t AssetManager::getOffsetFromMeshID(int submesh, int meshlet)
 {
-    //TODO remove
     return (uint32_t)meshData.perSubmeshData[submesh].firstMeshletIndex + meshlet;
 }
 
@@ -123,7 +115,6 @@ void SetVertexDataFromLoadingMeshVertex(Vertex& input, glm::vec4& outptuPos, GPU
        };
 }
 
-//It would be nicer if the assetmanager provided asset importers memory to load their verts into, and all that got passed around was layout/config/offset data
 ID::SubMeshID AssetManager::AddMesh(ImportMeshData importMesh)
 {
 
@@ -168,13 +159,6 @@ ID::SubMeshGroupID AssetManager::AddMultiSubmeshMeshMesh2(std::span<ImportMeshDa
     return (uint32_t)(subMeshGroups.ct -1);
 }
 
-
-//TODO JS: 
-// GPU_BoundingSphere AssetManager::GetBoundingSphere(int idx)
-// {
-//     printf("NOT IMPLEMENTED: NEED TO USE CORRECT INDEX FOR GETBOUNDINGSPHERE\n");
-//     return TODO_MOVET_TO_MESHDATA_meshBoundingSphereRad[idx];
-// }
 
 struct sortData
 {
