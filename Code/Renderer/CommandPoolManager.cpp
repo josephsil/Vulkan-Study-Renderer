@@ -47,8 +47,6 @@ CommandPoolManager::CommandPoolManager(vkb::Device vkbdevice, RendererDeletionQu
     MemoryArena::initialize(&this->arena, 6000 * 10); //todo 
     createCommandPool(device, QUEUES.graphicsQueueFamily, &commandPool);
     createCommandPool(device, QUEUES.transferQueueFamily, &transferCommandPool);
-    // deletionQueue->push_backVk(deletionType::CommandPool, uint64_t(commandPool));
-    // deletionQueue->push_backVk(deletionType::CommandPool, uint64_t(transferCommandPool));
 }
 
 CommandBufferPoolQueue CommandPoolManager::beginSingleTimeCommands_transfer()

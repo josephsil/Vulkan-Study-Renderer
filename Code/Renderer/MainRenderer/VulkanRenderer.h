@@ -92,7 +92,7 @@ private:
     GlobalRendererResources globalResources;
     PerSceneShadowResources shadowResources;
 
-    std::unique_ptr<CommandPoolManager> commandPoolmanager;
+    CommandPoolManager* commandPoolmanager;
     RendererDeletionQueue* deletionQueue;
     
     //Memory allocators

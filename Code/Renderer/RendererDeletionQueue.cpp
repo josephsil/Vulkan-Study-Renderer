@@ -78,7 +78,6 @@ void RendererDeletionQueue::FreeResource(VkDevice device, VmaAllocator allocator
 {
     
     deleteableResource resource = r;
-    // printf("deleting %d %p\n", i,resource.handle);
     switch (resource.type)
     {
     case deletionType::KTXDestroyTexture:
@@ -180,5 +179,4 @@ void RendererDeletionQueue::FreeQueue()
     FreeResource(device, allocator, r);
     }
     DeletionList.clear();
-    // deletionList.clear();
 }

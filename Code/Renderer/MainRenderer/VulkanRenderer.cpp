@@ -95,7 +95,8 @@ VulkanRenderer::VulkanRenderer()
 	this->deletionQueue = MemoryArena::Alloc<RendererDeletionQueue>(&rendererArena);
 	InitRendererDeletionQueue(deletionQueue, vulkanObjects.vkbdevice, vulkanObjects.vmaAllocator);
 	assert(deletionQueue->device != VK_NULL_HANDLE);
-	commandPoolmanager = std::make_unique<CommandPoolManager>(vulkanObjects.vkbdevice, deletionQueue);
+	this->commandPoolmanager = MemoryArena::Alloc<CommandPoolManager>(&rendererArena);
+	new (this->commandPoolmanager) CommandPoolManager(vulkanObjects.vkbdevice, deletionQueue);
 
     perFrameData = MemoryArena::AllocSpan<FrameData>(&rendererArena, MAX_FRAMES_IN_FLIGHT);
     perFrameDeletionQueuse = MemoryArena::AllocSpan<RendererDeletionQueue>(&rendererArena, MAX_FRAMES_IN_FLIGHT); 
@@ -114,7 +115,7 @@ VulkanRenderer::VulkanRenderer()
     }
 
 	shadowResources = AllocateShadowMemory(vulkanObjects, &rendererArena);
-	globalResources = static_initializeResources(vulkanObjects, &rendererArena, deletionQueue,commandPoolmanager.get());
+	globalResources = static_initializeResources(vulkanObjects, &rendererArena, deletionQueue,commandPoolmanager);
 
     //Initialize sceneData
     AssetDataAndMemory = GetGlobalAssetManager();
@@ -129,7 +130,7 @@ PerThreadRenderContext VulkanRenderer::GetMainRendererContext()
     return PerThreadRenderContext{
         .physicalDevice = vulkanObjects.vkbdevice.physical_device,
         .device =  vulkanObjects.vkbdevice.device,
-        .textureCreationcommandPoolmanager = commandPoolmanager.get(),
+        .textureCreationcommandPoolmanager = commandPoolmanager,
         .allocator =  vulkanObjects.vmaAllocator,
         .arena = &rendererArena,
         .tempArena = &perFrameArenas[currentFrame],
@@ -169,7 +170,7 @@ void VulkanRenderer::UpdateShadowImageViews(int frame, sceneCountData lightData)
         fmt::format_to_n(scratchMemory.begin(), scratchMemory.size(), "ShadowMapPyramid{}\0", j);
         shadowResources.WIP_shadowDepthPyramidInfos[frame][j] = 
             static_createDepthPyramidResources(vulkanObjects, &rendererArena, scratchMemory.data(), deletionQueue, 
-                                              commandPoolmanager.get());
+                                              commandPoolmanager);
     }
 
     shadowResources.shadowMapTextureArrayViews[frame] =  MemoryArena::AllocSpan<VkImageView>(&rendererArena, MAX_SHADOWCASTERS);
@@ -1703,21 +1704,21 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     /////////
     auto EarlyStep = renderSteps.PushAndInitializeRenderStep(
     "EarlyStep", &perFrameArenas[currentFrame],
-    commandPoolmanager.get());
+    commandPoolmanager);
     
     auto BeforeCullingStep = renderSteps.PushAndInitializeRenderStep(
         "BeforeCullingStep", &perFrameArenas[currentFrame],
-        commandPoolmanager.get(), &thisFrameData->perFrameSemaphores.swapchainSemaphore, &thisFrameData->perFrameSemaphores.prepassSemaphore);
+        commandPoolmanager, &thisFrameData->perFrameSemaphores.swapchainSemaphore, &thisFrameData->perFrameSemaphores.prepassSemaphore);
     
     auto CullingStep = renderSteps.PushAndInitializeRenderStep(
        "CullingStep", &perFrameArenas[currentFrame],
-       commandPoolmanager.get(), &thisFrameData->perFrameSemaphores.prepassSemaphore, nullptr,  &thisFrameData->perFrameSemaphores.cullingFence);
+       commandPoolmanager, &thisFrameData->perFrameSemaphores.prepassSemaphore, nullptr,  &thisFrameData->perFrameSemaphores.cullingFence);
 
     auto OpaqueStep =renderSteps.PushAndInitializeRenderStep("OpaqueStep", &perFrameArenas[currentFrame],
-        commandPoolmanager.get(), nullptr, &thisFrameData->perFrameSemaphores.opaqueSemaphore);
+        commandPoolmanager, nullptr, &thisFrameData->perFrameSemaphores.opaqueSemaphore);
 
     auto PostRenderStep =renderSteps.PushAndInitializeRenderStep("PostRenderStep", &perFrameArenas[currentFrame], //todo js: this shouldn't need to happen before presenting, and shouldnt need to signal the same fence
-    commandPoolmanager.get(), &thisFrameData->perFrameSemaphores.opaqueSemaphore, &thisFrameData->perFrameSemaphores.presentSemaphore,
+    commandPoolmanager, &thisFrameData->perFrameSemaphores.opaqueSemaphore, &thisFrameData->perFrameSemaphores.presentSemaphore,
     &GetFrameData().inFlightFence);
 
     VkImageMemoryBarrier2 swapChainTransitionInBarrier = GetImageBarrier(globalResources.swapchainImages[thisFrameData->swapChainIndex],

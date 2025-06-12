@@ -5,7 +5,6 @@
 #include "RendererDeletionQueue.h"
 #include "VkBootstrap.h"
 #include "General/MemoryArena.h"
-// #include "rendererGlobals.h"
 
 
 namespace vkb
@@ -43,12 +42,11 @@ struct QueueData
      VkQueue computeQueue = VK_NULL_HANDLE;
     uint32_t computeQueueFamily = UINT32_MAX;
     std::mutex computeQueueMutex = std::mutex();
-    
+    //
 };
 
-QueueData* GET_QUEUES(); // TODO JS;
-void INIT_QUEUES(vkb::Device d); // TODO JS;
-//This is silly -- merge with the apporoach used for drawing
+QueueData* GET_QUEUES(); 
+void INIT_QUEUES(vkb::Device d); 
 class CommandPoolManager
 {
 public:
@@ -59,12 +57,10 @@ public:
     VkCommandPool commandPool;
     VkCommandPool transferCommandPool;
     CommandBufferPoolQueue beginSingleTimeCommands_transfer();
-    CommandBufferPoolQueue beginSingleTimeCommands(bool useTransferPoolInsteadOfGraphicsPool); //TODO JS: can i move to cpp?
+    CommandBufferPoolQueue beginSingleTimeCommands(bool useTransferPoolInsteadOfGraphicsPool); 
     void endSingleTimeCommands(VkCommandBuffer buffer, VkFence fence);
-
     void endSingleTimeCommands(CommandBufferPoolQueue bufferAndPool, bool waitForFence = false);
 
-private:
     VkDevice device;
     MemoryArena::memoryArena arena;
     RendererDeletionQueue* deletionQueue;
