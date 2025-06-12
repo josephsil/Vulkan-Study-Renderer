@@ -54,8 +54,8 @@ struct GlobalRendererResources //Buffers, images, etc, used in core rendering --
     std::vector<VkImageView> swapchainImageViews;
     VkSampler writeDepthMipSampler;
     VkSampler readDepthMipSampler;
-     std::vector<DepthBufferInfo> depthBufferInfoPerFrame;
-     std::vector<DepthPyramidInfo> depthPyramidInfoPerFrame;
+    std::vector<DepthBufferInfo> depthBufferInfoPerFrame;
+    std::vector<DepthPyramidInfo> depthPyramidInfoPerFrame;
 };
 
 
@@ -82,16 +82,18 @@ public:
     void Cleanup();
     void initializeDearIMGUI();
     VkDescriptorSet GetOrRegisterImguiTextureHandle(VkSampler sampler, VkImageView imageView);
-
     static uint32_t StaticCalculateTotalDrawCount(Scene* scene, std::span<PerSubmeshData> submeshData);
+
 private:
     std::unordered_map<VkImageView, VkDescriptorSet> imguiRegisteredTextures;
     struct FrameData;
     rendererObjects vulkanObjects;
+
     GlobalRendererResources globalResources;
     PerSceneShadowResources shadowResources;
+
     std::unique_ptr<CommandPoolManager> commandPoolmanager;
-    std::unique_ptr<RendererDeletionQueue> deletionQueue;
+    RendererDeletionQueue* deletionQueue;
     
     //Memory allocators
     MemoryArena::memoryArena rendererArena{};
@@ -149,7 +151,7 @@ private:
 #pragma endregion
 
 
-    std::span<std::unique_ptr<RendererDeletionQueue>> perFrameDeletionQueuse;
+    std::span<RendererDeletionQueue> perFrameDeletionQueuse;
     struct FrameData
     {
         uint32_t swapChainIndex;
@@ -173,6 +175,7 @@ private:
 
         //Draw indirect
         HostDataBufferObject<drawCommandData> drawBuffers;
+
         //Draw early draw list
         HostDataBufferObject<uint32_t> earlyDrawList;
 

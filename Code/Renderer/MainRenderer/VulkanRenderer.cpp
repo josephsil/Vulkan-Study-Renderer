@@ -68,9 +68,7 @@ size_t UpdateDrawCommanddataDrawIndirectCommands(AssetManager* rendererData,
 
 VulkanRenderer::VulkanRenderer()
 {
-    this->deletionQueue = std::make_unique<RendererDeletionQueue>(vulkanObjects.vkbdevice, vulkanObjects.vmaAllocator);
   
-    
     //Initialize memory arenas we use throughout renderer 
     this->rendererArena = {};
     MemoryArena::initialize(&rendererArena, 1000000 * 200); // 200mb
@@ -81,6 +79,8 @@ VulkanRenderer::VulkanRenderer()
     }
 
 
+
+
     opaqueObjectShaderSets = BindlessObjectShaderGroup(&rendererArena, 10);
     
     //Initialize the window and vulkan renderer
@@ -89,27 +89,33 @@ VulkanRenderer::VulkanRenderer()
 
     //Initialize the main datastructures the renderer uses
     INIT_QUEUES(vulkanObjects.vkbdevice);
-    commandPoolmanager = std::make_unique<CommandPoolManager>(vulkanObjects.vkbdevice, deletionQueue.get());
-    globalResources = static_initializeResources(vulkanObjects, &rendererArena, deletionQueue.get(),commandPoolmanager.get());
-    shadowResources = AllocateShadowMemory(vulkanObjects, &rendererArena);
 
+
+
+	this->deletionQueue = MemoryArena::Alloc<RendererDeletionQueue>(&rendererArena);
+	InitRendererDeletionQueue(deletionQueue, vulkanObjects.vkbdevice, vulkanObjects.vmaAllocator);
+	assert(deletionQueue->device != VK_NULL_HANDLE);
+	commandPoolmanager = std::make_unique<CommandPoolManager>(vulkanObjects.vkbdevice, deletionQueue);
 
     perFrameData = MemoryArena::AllocSpan<FrameData>(&rendererArena, MAX_FRAMES_IN_FLIGHT);
-    perFrameDeletionQueuse = MemoryArena::AllocSpanDefaultInitialize<std::unique_ptr<RendererDeletionQueue>>(&rendererArena, MAX_FRAMES_IN_FLIGHT); //todo js double create, oops
-    //Command buffer stuff
+    perFrameDeletionQueuse = MemoryArena::AllocSpan<RendererDeletionQueue>(&rendererArena, MAX_FRAMES_IN_FLIGHT); 
     //semaphores
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        createSemaphore(vulkanObjects.vkbdevice.device, &(perFrameData[i].perFrameSemaphores.swapchainSemaphore), "Per Frame swapchain ready semaphore", deletionQueue.get());
-        createSemaphore(vulkanObjects.vkbdevice.device, &(perFrameData[i].perFrameSemaphores.prepassSemaphore), "Per Frame prepass finished semaphore", deletionQueue.get());
-        createSemaphore(vulkanObjects.vkbdevice.device, &(perFrameData[i].perFrameSemaphores.opaqueSemaphore), "Per Frame opaque finished semaphore", deletionQueue.get());
-        createSemaphore(vulkanObjects.vkbdevice.device, &(perFrameData[i].perFrameSemaphores.presentSemaphore), "Per Frame ready to present semaphore", deletionQueue.get());
-        createSemaphore(vulkanObjects.vkbdevice.device, &(perFrameData[i].perFrameSemaphores.cullingSemaphore), "Per Frame finished culling semaphore", deletionQueue.get());
-        static_createFence(vulkanObjects.vkbdevice.device,  &perFrameData[i].inFlightFence, "Per Frame finished rendering Fence", deletionQueue.get());
-        static_createFence(vulkanObjects.vkbdevice.device,  &perFrameData[i].perFrameSemaphores.cullingFence, "Per frame culling fence", deletionQueue.get() );
+        createSemaphore(vulkanObjects.vkbdevice.device, &(perFrameData[i].perFrameSemaphores.swapchainSemaphore), "Per Frame swapchain ready semaphore", deletionQueue);
+        createSemaphore(vulkanObjects.vkbdevice.device, &(perFrameData[i].perFrameSemaphores.prepassSemaphore), "Per Frame prepass finished semaphore", deletionQueue);
+        createSemaphore(vulkanObjects.vkbdevice.device, &(perFrameData[i].perFrameSemaphores.opaqueSemaphore), "Per Frame opaque finished semaphore", deletionQueue);
+        createSemaphore(vulkanObjects.vkbdevice.device, &(perFrameData[i].perFrameSemaphores.presentSemaphore), "Per Frame ready to present semaphore", deletionQueue);
+        createSemaphore(vulkanObjects.vkbdevice.device, &(perFrameData[i].perFrameSemaphores.cullingSemaphore), "Per Frame finished culling semaphore", deletionQueue);
+        static_createFence(vulkanObjects.vkbdevice.device,  &perFrameData[i].inFlightFence, "Per Frame finished rendering Fence", deletionQueue);
+        static_createFence(vulkanObjects.vkbdevice.device,  &perFrameData[i].perFrameSemaphores.cullingFence, "Per frame culling fence", deletionQueue );
         vkResetFences(vulkanObjects.vkbdevice.device,  1, &perFrameData[i].perFrameSemaphores.cullingFence);
-       perFrameDeletionQueuse[i] = std::make_unique<RendererDeletionQueue>(vulkanObjects.vkbdevice, vulkanObjects.vmaAllocator); //todo js double create, oops
+		InitRendererDeletionQueue(&perFrameDeletionQueuse[i], vulkanObjects.vkbdevice, vulkanObjects.vmaAllocator);
     }
+
+	shadowResources = AllocateShadowMemory(vulkanObjects, &rendererArena);
+	globalResources = static_initializeResources(vulkanObjects, &rendererArena, deletionQueue,commandPoolmanager.get());
+
     //Initialize sceneData
     AssetDataAndMemory = GetGlobalAssetManager();
     //imgui
@@ -127,7 +133,7 @@ PerThreadRenderContext VulkanRenderer::GetMainRendererContext()
         .allocator =  vulkanObjects.vmaAllocator,
         .arena = &rendererArena,
         .tempArena = &perFrameArenas[currentFrame],
-        .threadDeletionQueue = deletionQueue.get(),
+        .threadDeletionQueue = deletionQueue,
         .ImportFence = VK_NULL_HANDLE, //todo js
         .vkbd = &vulkanObjects.vkbdevice,
         };
@@ -162,7 +168,7 @@ void VulkanRenderer::UpdateShadowImageViews(int frame, sceneCountData lightData)
     {
         fmt::format_to_n(scratchMemory.begin(), scratchMemory.size(), "ShadowMapPyramid{}\0", j);
         shadowResources.WIP_shadowDepthPyramidInfos[frame][j] = 
-            static_createDepthPyramidResources(vulkanObjects, &rendererArena, scratchMemory.data(), deletionQueue.get(), 
+            static_createDepthPyramidResources(vulkanObjects, &rendererArena, scratchMemory.data(), deletionQueue, 
                                               commandPoolmanager.get());
     }
 
@@ -1349,7 +1355,7 @@ void VulkanRenderer::Update(Scene* scene)
         clock_t afterFence = clock();
         clock_t difference = clock() - afterFence;
         auto msec = difference * 1000 / CLOCKS_PER_SEC;
-        perFrameDeletionQueuse[currentFrame]->FreeQueue();
+        perFrameDeletionQueuse[currentFrame].FreeQueue();
         MemoryArena::free(&perFrameArenas[currentFrame]);
 
     }

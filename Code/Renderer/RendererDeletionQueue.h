@@ -31,17 +31,18 @@ struct deleteableResource
 
 class RendererDeletionQueue
 {
-public: 
-    RendererDeletionQueue(VkDevice d, VmaAllocator vmaAllocator);
+public:
     static void FreeResource(VkDevice device, VmaAllocator allocator, deleteableResource r);
     void push_backVk(deletionType t, uint64_t vulkanObject);
     void push_backVMA(deletionType t, uint64_t vulkanObject, VmaAllocation allocation);
     void TransferOwnershipTo(RendererDeletionQueue* target);
     void FreeQueue();
 
-private:
-    std::vector<deleteableResource> ToDeleteStaging;
-    VkDevice device;
+	VkDevice device;
     VmaAllocator allocator;
     int initialized = 0;
+    std::vector<deleteableResource> DeletionList;
+   
 };
+
+void InitRendererDeletionQueue(RendererDeletionQueue* queue, VkDevice d, VmaAllocator vmaAllocator);

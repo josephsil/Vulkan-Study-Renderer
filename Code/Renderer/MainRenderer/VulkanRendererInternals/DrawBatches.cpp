@@ -24,12 +24,11 @@ RenderBatch CreateRenderBatch(CommonRenderPassData* context,
                                      PipelineLayoutHandle pipelineGroup,
                                     std::span<FullShaderHandle> shaderIDs, const char* name)
 {
-    
     ////Flatten buckets into simpleMeshPassInfos sorted by pipeline
     ///    //passes are bucketed by pipeline 
     Array<pipelineBucket> batchedDrawBuckets = MemoryArena::AllocSpan<pipelineBucket>(context->tempAllocator, shaderIDs.size());
     for (uint32_t i = 0; i <shaderIDs.size(); i++)
-    {
+    { //
         //Prepare a bucket for each shader
         if (shaderIDs[i].shader >= batchedDrawBuckets.size())
         {

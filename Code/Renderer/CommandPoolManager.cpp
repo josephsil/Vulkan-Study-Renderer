@@ -42,13 +42,11 @@ QueueData* GET_QUEUES()
 
 CommandPoolManager::CommandPoolManager(vkb::Device vkbdevice, RendererDeletionQueue* deletionQueue)
 {
-    // Queues = GET_QUEUES(vkbdevice);
     device = vkbdevice.device;
     this->deletionQueue = deletionQueue;
-    MemoryArena::initialize(&this->arena, 6000 * 10); // tood js
+    MemoryArena::initialize(&this->arena, 6000 * 10); //todo 
     createCommandPool(device, QUEUES.graphicsQueueFamily, &commandPool);
     createCommandPool(device, QUEUES.transferQueueFamily, &transferCommandPool);
-
     // deletionQueue->push_backVk(deletionType::CommandPool, uint64_t(commandPool));
     // deletionQueue->push_backVk(deletionType::CommandPool, uint64_t(transferCommandPool));
 }
@@ -79,7 +77,6 @@ CommandBufferPoolQueue CommandPoolManager::beginSingleTimeCommands(
     VkFence outputFence;
     VkFenceCreateInfo fenceInfo{};
     fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    // fenceInfo.flags = V_FENCE_CREATE;
 
     VK_CHECK(vkCreateFence(device, &fenceInfo, nullptr, &outputFence));
     SetDebugObjectNameS(device, VK_OBJECT_TYPE_FENCE, "begin single time commands fence", uint64_t(outputFence));

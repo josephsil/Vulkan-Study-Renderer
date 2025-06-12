@@ -13,11 +13,12 @@ bool deleteableResource::operator==(const deleteableResource& other) const
     return (handle == other.handle);
 }
 
-RendererDeletionQueue::RendererDeletionQueue(VkDevice d, VmaAllocator vmaAllocator)
+void InitRendererDeletionQueue(RendererDeletionQueue* queue,  VkDevice d, VmaAllocator vmaAllocator)
 {
-    device = d;
-    allocator = vmaAllocator;
-    initialized = 1;
+    queue->device = d;
+    queue->allocator = vmaAllocator;
+    queue->initialized = 1;
+	queue->DeletionList = std::vector<deleteableResource>();
 }
 
 void RendererDeletionQueue::push_backVk(deletionType t, uint64_t vulkanObject)
@@ -26,10 +27,10 @@ void RendererDeletionQueue::push_backVk(deletionType t, uint64_t vulkanObject)
     assert(t != deletionType::vmaBuffer && t != deletionType::VmaImage);
 
     deleteableResource deletionObj = {t, vulkanObject};
-    if (std::find(ToDeleteStaging.begin(), ToDeleteStaging.end(), deletionObj) != ToDeleteStaging.end())
+    if (std::find(DeletionList.begin(), DeletionList.end(), deletionObj) != DeletionList.end())
     {
-        auto minlength = std::min(20, (int)ToDeleteStaging.size());
-        std::span<deleteableResource> recentResource =   std::span<deleteableResource>(ToDeleteStaging.data() + (ToDeleteStaging.size() - minlength), minlength);
+        auto minlength = std::min(20, (int)DeletionList.size());
+        std::span<deleteableResource> recentResource =   std::span<deleteableResource>(DeletionList.data() + (DeletionList.size() - minlength), minlength);
         for (auto recent_resource : recentResource)
         {
             printf(">>> %llu \n", recent_resource.handle);
@@ -38,7 +39,7 @@ void RendererDeletionQueue::push_backVk(deletionType t, uint64_t vulkanObject)
         return;
         
     }
-    ToDeleteStaging.push_back(deletionObj);
+    DeletionList.push_back(deletionObj);
     
 }
 
@@ -49,10 +50,10 @@ void RendererDeletionQueue::push_backVMA(deletionType t, uint64_t vulkanObject, 
     assert(t == deletionType::vmaBuffer || t == deletionType::VmaImage);
 
     deleteableResource deletionObj = {t, vulkanObject, allocation};
-    if (std::find(ToDeleteStaging.begin(), ToDeleteStaging.end(), deletionObj) != ToDeleteStaging.end())
+    if (std::find(DeletionList.begin(), DeletionList.end(), deletionObj) != DeletionList.end())
     {
-        auto minlength = std::min(20, (int)ToDeleteStaging.size());
-        std::span<deleteableResource> recentResource =   std::span<deleteableResource>(ToDeleteStaging.data() + (ToDeleteStaging.size() - minlength), minlength);
+        auto minlength = std::min(20, (int)DeletionList.size());
+        std::span<deleteableResource> recentResource =   std::span<deleteableResource>(DeletionList.data() + (DeletionList.size() - minlength), minlength);
         for (auto recent_resource : recentResource)
         {
             printf(">>> %llu \n", recent_resource.handle);
@@ -60,17 +61,17 @@ void RendererDeletionQueue::push_backVMA(deletionType t, uint64_t vulkanObject, 
         assert(!"duplicate deletionqueue push");
         
     }
-    ToDeleteStaging.push_back(deletionObj);
+    DeletionList.push_back(deletionObj);
     
 }
 
 void RendererDeletionQueue::TransferOwnershipTo(RendererDeletionQueue* target)
 {
-    for (auto element : ToDeleteStaging)
+    for (auto element : DeletionList)
     {
-        target->ToDeleteStaging.push_back(element);
+        target->DeletionList.push_back(element);
     }
-    ToDeleteStaging.clear();
+    DeletionList.clear();
 }
 
 void RendererDeletionQueue::FreeResource(VkDevice device, VmaAllocator allocator, deleteableResource r)
@@ -160,10 +161,10 @@ void RendererDeletionQueue::FreeQueue()
 
     assert(allocator != VK_NULL_HANDLE);
     std::vector<deleteableResource> toDelete = {};
-    for (size_t i =1; i <= ToDeleteStaging.size(); i++)
+    for (size_t i =1; i <= DeletionList.size(); i++)
     {
-        size_t idx =  ToDeleteStaging.size() - i;
-        auto to_delete = ToDeleteStaging[idx];
+        size_t idx =  DeletionList.size() - i;
+        auto to_delete = DeletionList[idx];
 
             if (std::find(toDelete.begin(), toDelete.end(), to_delete) != toDelete.end())
             {
@@ -178,6 +179,6 @@ void RendererDeletionQueue::FreeQueue()
     {
     FreeResource(device, allocator, r);
     }
-    ToDeleteStaging.clear();
+    DeletionList.clear();
     // deletionList.clear();
 }

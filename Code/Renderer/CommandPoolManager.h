@@ -28,7 +28,7 @@ struct QueueData
 {
     
     
-    VkQueue graphicsQueue = VK_NULL_HANDLE; //TODO JS: Currently wrapped in atomics for per-thread synchronization. Need t o move to a 'submit thread' model where we only submit from one place
+    VkQueue graphicsQueue = VK_NULL_HANDLE; 
     uint32_t graphicsQueueFamily = UINT32_MAX;
     std::mutex graphicsQueueMutex = std::mutex();
     

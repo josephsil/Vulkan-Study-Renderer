@@ -122,6 +122,7 @@ struct Array
     }
     std::span<T> getSubSpan(size_t offset, size_t length = 0)
     {
+		assert(offset + length < capacity);
         return std::span<T>(data + offset, length == 0 ? size() - offset :  length - offset);
     }
     
@@ -134,41 +135,4 @@ struct Array
     size_t size() const { return ct; }
     size_t size_bytes() const { return sizeof(T) * ct; }
     size_t capacity_bytes() const { return sizeof(T) * capacity; }
-};
-template <typename T>
-struct FlatSpanOfSpans //need a better name 
-{
-    FlatSpanOfSpans()
-    {
-    };
-    Array<T> BackingData;
-    Array<std::span<T>> Views; //could make something slimmer
-
-    FlatSpanOfSpans(ArenaAllocator allocator, uint32_t max_entries,  size_t max_views = SIZE_MAX )
-    {
-        BackingData = MemoryArena::AllocSpan<T>(allocator, max_entries);
-        Views = MemoryArena::AllocSpan<std::span<T>>(allocator, (max_entries >= max_views ? max_views : max_entries));
-    }
-
-    std::span<T>& AddSpan(size_t size = INT_MAX)
-    {
-        Views.push_back(BackingData.pushUninitializedSpan(size));
-        return Views.back();
-    }
-
-    std::span<T>& AddSpanCopy(std::span<T> src)
-    {
-        Views.push_back(BackingData.push_copy_span(src));
-        return Views.back();
-    }
-
-    std::span<T> operator[](int i)
-    {
-        return Views[i];
-    }
-    std::span<T> getSpan(size_t size = INT_MAX)
-    {
-        return BackingData.getSpan(size);
-    }
-    
 };

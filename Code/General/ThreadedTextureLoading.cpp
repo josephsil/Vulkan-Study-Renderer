@@ -73,7 +73,8 @@ void createPerThreadRenderContexts(ArenaAllocator allocator, PerThreadRenderCont
     for (auto& newctx : newContexts)
     {
         newctx = {mainThreadContext}; //initialize the per thread context by copying the render context
-        newctx.threadDeletionQueue = new RendererDeletionQueue(
+		newctx.threadDeletionQueue = MemoryArena::Alloc<RendererDeletionQueue>(allocator); 
+		InitRendererDeletionQueue(newctx.threadDeletionQueue,
            newctx.device, newctx.allocator);
         static_createFence(newctx.device, &newctx.ImportFence, "Fence for thread", newctx.threadDeletionQueue);
         newctx.textureCreationcommandPoolmanager = MemoryArena::Alloc<CommandPoolManager>(allocator);
