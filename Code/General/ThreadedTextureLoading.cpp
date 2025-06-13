@@ -76,7 +76,7 @@ void createPerThreadRenderContexts(ArenaAllocator allocator, PerThreadRenderCont
 		newctx.threadDeletionQueue = MemoryArena::Alloc<RendererDeletionQueue>(allocator); 
 		InitRendererDeletionQueue(newctx.threadDeletionQueue,
            newctx.device, newctx.allocator);
-        static_createFence(newctx.device, &newctx.ImportFence, "Fence for thread", newctx.threadDeletionQueue);
+        CreateFence(newctx.device, &newctx.ImportFence, "Fence for thread", newctx.threadDeletionQueue);
         newctx.textureCreationcommandPoolmanager = MemoryArena::Alloc<CommandPoolManager>(allocator);
         new(newctx.textureCreationcommandPoolmanager) CommandPoolManager(*mainThreadContext.vkbd, newctx.threadDeletionQueue);
         SetDebugObjectNameS(newctx.device, VK_OBJECT_TYPE_COMMAND_POOL, "thread ktx pool",(uint64_t)newctx.textureCreationcommandPoolmanager->commandPool);

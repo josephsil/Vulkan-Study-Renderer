@@ -30,18 +30,17 @@ int main()
     ImGuiExposedTextures = {};
 
 
-    VulkanRenderer renderer = {};
-
+    VulkanRenderer renderer;
     MemoryArena::memoryArena sceneArena = {};
     initialize(&sceneArena, 3 * 1000000);
-    Scene scene = {};
+    Scene scene;
     InitializeScene(&sceneArena, &scene);
 
     Add_Scene_Content(renderer.GetMainRendererContext(), renderer.AssetDataAndMemory, &scene);
 
     auto meshletCt = VulkanRenderer::StaticCalculateTotalDrawCount(&scene, renderer.AssetDataAndMemory->meshData.perSubmeshData.getSpan());
     
-	sceneCountData sceneData = {.objectCount = scene.ObjectsCount(), .totalDrawCt = meshletCt, .lightCount = scene.lightCount, .lightTypes = scene.lightTypes.getSpan()};
+	SceneSizeData sceneData = {.objectCount = scene.GetObjectsCount(), .totalDrawCt = meshletCt, .lightCount = scene.lightCount, .lightTypes = scene.lightTypes.getSpan()};
     renderer.InitializeRendererForScene(sceneData );
     renderer.initializePipelines( scene.lightCount);
 

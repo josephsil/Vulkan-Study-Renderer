@@ -54,7 +54,7 @@ struct stackEntry
 };
 
 
-flatlocalTransform* objectTransforms::get(uint64_t ID)
+flatlocalTransform* objectTransforms::GetTransform(uint64_t ID)
 {
     auto lookup = _transform_lookup[ID];
     return &_local_transform_hiearchy[lookup.depth][lookup.index];

@@ -15,7 +15,7 @@ class PipelineLayoutGroup;
 struct Vertex;
 //Forward declaration
 struct PerThreadRenderContext;
-struct descriptorUpdateData;
+struct DescriptorUpdateData;
 
 typedef size_t PipelineLayoutHandle;
 typedef size_t ShaderHandle;
@@ -42,7 +42,7 @@ struct PreAllocatedDescriptorSetPool
     void markCurrentDescriptorUsed();
 };
 
-using descriptorUpdates = std::span<descriptorUpdateData>;
+using descriptorUpdates = std::span<DescriptorUpdateData>;
 
 struct DescriptorDataForPipeline
 {

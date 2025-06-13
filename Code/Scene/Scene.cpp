@@ -35,7 +35,7 @@ void InitializeScene(MemoryArena::memoryArena* arena, Scene* scene)
     scene->sceneCamera = {};
     scene->lightCount = 0;
 
-    //Transforms (TODO)
+    //Transforms (work in progress)
     scene->transforms = {};
 
     scene->transforms.worldMatrices = Array(MemoryArena::AllocSpan<std::span<glm::mat4>>(arena, OBJECT_MAX));
@@ -77,10 +77,7 @@ void Scene::UpdateRotations()
     glm::vec3 EulerAngles = glm::vec3(0, 1, 0.00) * deltaTime / 10.0f; // One revolution per second
     auto MyQuaternion = glm::quat(EulerAngles);
 
-    // Conversion from axis-angle
-    // In GLM the angle must be in degrees here, so convert it.
-
-    for (int i = 0; i < ObjectsCount(); i++)
+    for (int i = 0; i < GetObjectsCount(); i++)
     {
     objects.rotations[i] *= MyQuaternion;
     }
@@ -89,28 +86,27 @@ void Scene::UpdateRotations()
 
 void Scene::Update()
 {
-    //This stuff goes in scene
     float translateSpeed = 3.0;
-    inputData input = {
+    inputData cameraInput = {
         glm::vec3(INPUT_translate_x, INPUT_translate_y, 0.0f) * translateSpeed, glm::vec2(INPUT_mouse_x, INPUT_mouse_y)
     };
 
-    UpdateCamera(input);
+    UpdateCamera(cameraInput);
     UpdateRotations();
     for (int i = 0; i < objects.objectsCount; i++)
     {
-        glm::mat4& model =  transforms.get(objects.transformIDs[i])->matrix;
+        glm::mat4& model =  transforms.GetTransform(objects.transformIDs[i])->matrix;
         model = glm::mat4(1.0f);
         glm::mat4 objectLocalRotation = toMat4(objects.rotations[i]);
-        model = translate(model, objects.translations[i]);
+        model = glm::translate(model, objects.translations[i]);
         model *= objectLocalRotation;
         model = scale(model, objects.scales[i]);
         auto& scale = objects.scales[i];
-        transforms.get(objects.transformIDs[i])->uniformScale = glm::max(scale.y, glm::max(scale.z, scale.x));
+        transforms.GetTransform(objects.transformIDs[i])->uniformScale = glm::max(scale.y, glm::max(scale.z, scale.x));
     }
 
     transforms.UpdateWorldTransforms();
-    free(&scratchMemory);
+    MemoryArena::free(&scratchMemory);
 }
 
 size_t Scene::AddObject(std::span<ID::SubMeshID> submeshIndices, std::span<ID::MaterialID> materialIndices,
@@ -119,22 +115,26 @@ size_t Scene::AddObject(std::span<ID::SubMeshID> submeshIndices, std::span<ID::M
     uint32_t submeshCt = static_cast<uint32_t>(submeshIndices.size());
 
 
-    //Add our materials
-   auto firstSubmeshMaterial = allMaterials.size();
-    allMaterials.push_copy_span(materialIndices);
-    for(int i =0; i < submeshIndices.size() - materialIndices.size(); i++)
+    //Add materials
+	//Get a view into AllMaterials for the object's submeshes
+	objects.subMeshMaterials.push_back(allMaterials.pushUninitializedSpan(submeshIndices.size()));
+	auto& subMeshMaterialsSpan = objects.subMeshMaterials.back();
+	//Copy unique materials into submeshmaterials
+	std::copy(materialIndices.begin(), materialIndices.end(), subMeshMaterialsSpan.begin());
+	//Copy the last material into the remaining submesh slots 
+	//TODO: Uses the last material index for the remaining submeshes. Don't love this behavior, but it's convenient for now
+    for(size_t i = materialIndices.size(); i < submeshCt; i++)
     {
-        //Use the last material index for the remaining submeshes. Don't love this behavior, but it's convenient for now
-        allMaterials.push_back(materialIndices.back());
+        subMeshMaterialsSpan[i] = (uint32_t)materialIndices.back();
     }
-    objects.subMeshMaterials.push_back(allMaterials.getSpan().subspan(firstSubmeshMaterial, submeshIndices.size()));
 
-    
+	//Meshes
+	objects.subMeshes.push_back(allSubmeshes.push_copy_span(submeshIndices));
+
+    //Transforms
     objects.translations.push_back(position);
     objects.rotations.push_back(rotation);
     objects.scales.push_back(scale);
-    // transforms.worldMatrices.push_back(glm::mat4(1.0));
-    objects.subMeshes.push_back(allSubmeshes.push_copy_span(submeshIndices));
     objects.transformIDs.push_back(objects.transformIDs.size());
 
 	//Parenting
@@ -164,12 +164,12 @@ size_t Scene::AddObject(std::span<ID::SubMeshID> submeshIndices, std::span<ID::M
 }
 
 
-size_t Scene::ObjectsCount()
+size_t Scene::GetObjectsCount()
 {
     return objects.objectsCount;
 }
 
-size_t Scene::MeshesCount()
+size_t Scene::GetMeshesCount()
 {
     return objects.subMeshesCount;
 }
@@ -210,13 +210,13 @@ void Scene::lightSort()
 	MemoryArena::freeToCursor(&scratchMemory);
 }
 
+//Linear search to find the first shadowmap.
 size_t Scene::getShadowDataIndex(size_t idx, std::span<LightType> lightTypes)
 {
     size_t output = 0;
     for (size_t i = 0; i < idx; i++)
     {
-        LightType type = lightTypes[i];
-        output += shadowCountFromLightType(type);
+        output += shadowCountFromLightType(lightTypes[i]);
     }
     return output;
 }
@@ -228,7 +228,7 @@ int Scene::AddLight(glm::vec3 position, glm::vec3 dir, glm::vec3 color, float ra
     lightDir.push_back(glm::vec4(dir, -1.0));
     lightTypes.push_back(type);
     lightCount++;
-    lightSort();
+    lightSort(); //Currently lights are always sorted
     return 0;
 }
 

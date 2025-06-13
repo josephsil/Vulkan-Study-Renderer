@@ -9,7 +9,7 @@
 struct Vertex;
 //Forward declaration
 struct PerThreadRenderContext;
-struct descriptorUpdateData;
+struct DescriptorUpdateData;
 
 
 

@@ -102,7 +102,7 @@ void TextureUtilities::transitionImageLayout(BufferCreationContext rendererConte
                                              bool useTransferPool, bool depth)
 {
     bool usingTempBuffer = workingBuffer == nullptr;
-    CommandBufferPoolQueue tempBufferAndPool{};
+    CommandBufferData tempBufferAndPool{};
     if (usingTempBuffer)
     {
         //Optional buffer for if the caller wants to submit the command to an existing buffer and manually end it later
@@ -204,7 +204,7 @@ VkPipelineStageFlags2 deduceStage(VkAccessFlags2 access)
     return 0;
 }
 
-VkImageMemoryBarrier2 AllTextureAccessBarrier(CommandBufferPoolQueue bandp, VkImage image,
+VkImageMemoryBarrier2 AllTextureAccessBarrier(CommandBufferData bandp, VkImage image,
     VkPipelineStageFlags2 srcStage,
     VkPipelineStageFlags2 dstStage,
     VkImageLayout oldLayout,
@@ -220,10 +220,10 @@ VkImageMemoryBarrier2 AllTextureAccessBarrier(CommandBufferPoolQueue bandp, VkIm
                                                 VK_IMAGE_ASPECT_COLOR_BIT,
                                                 mipLevel,
                                                 1);
-    SetPipelineBarrier(bandp->buffer, 0, 0, nullptr, 1, &barrier11);
+	SetPipelineBarrier(bandp->buffer, {}, { &barrier11, 1 });
     return barrier11;
 }
-VkImageMemoryBarrier2 blitBarrier(CommandBufferPoolQueue bandp, VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevel)
+VkImageMemoryBarrier2 blitBarrier(CommandBufferData bandp, VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevel)
 {
     VkImageMemoryBarrier2 barrier11 = GetImageBarrier(image,
                                                 VK_PIPELINE_STAGE_TRANSFER_BIT,
@@ -235,12 +235,12 @@ VkImageMemoryBarrier2 blitBarrier(CommandBufferPoolQueue bandp, VkImage image, V
                                                 VK_IMAGE_ASPECT_COLOR_BIT,
                                                 mipLevel,
                                                 1);
-    SetPipelineBarrier(bandp->buffer, 0, 0, nullptr, 1, &barrier11);
+	SetPipelineBarrier(bandp->buffer, {}, { &barrier11, 1});
     return barrier11;
 }
 void TextureUtilities::generateMipmaps(BufferCreationContext rendererContext, VkImage image, VkFormat imageFormat,
                                        int32_t texWidth,
-                                       int32_t texHeight, uint32_t mipLevels, CommandBufferPoolQueue bandp)
+                                       int32_t texHeight, uint32_t mipLevels, CommandBufferData bandp)
 {
     std::vector<VkImageMemoryBarrier2> barrierMemory= {};
 
@@ -263,7 +263,7 @@ void TextureUtilities::generateMipmaps(BufferCreationContext rendererContext, Vk
     for (uint32_t nextMipLevel = 1; nextMipLevel < mipLevels; nextMipLevel++)
     {
         // CommandBufferPoolQueue _bandp = rendererContext.commandPoolmanager->beginSingleTimeCommands(false);
-        CommandBufferPoolQueue& _bandp = bandp;
+        CommandBufferData& _bandp = bandp;
         VkImageBlit blit{};
         blit.srcOffsets[0] = {0, 0, 0};
         blit.srcOffsets[1] = {mipWidth, mipHeight, 1};

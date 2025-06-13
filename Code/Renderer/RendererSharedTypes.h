@@ -50,14 +50,14 @@ struct RenderTextureFormat
     VkFormat DepthFormat;
 };
 
-struct descriptorUpdateData
+struct DescriptorUpdateData
 {
     VkDescriptorType type;
     void* ptr;
     uint32_t count = 1;
 };
 
-struct dataBuffer
+struct GpuDataBuffer
 {
     VkBuffer data;
     uint32_t size;
@@ -69,7 +69,7 @@ struct dataBuffer
 
 struct dataBufferAllocationsView
 {
-    dataBuffer buffer;
+    GpuDataBuffer buffer;
     VmaAllocation allocation;
 };
 

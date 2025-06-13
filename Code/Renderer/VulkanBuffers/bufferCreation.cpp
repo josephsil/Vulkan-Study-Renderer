@@ -11,7 +11,7 @@
 #include <Renderer/rendererGlobals.h>
 
 
-void createBuffer(VmaAllocator allocator, VkDeviceSize size, VkBufferUsageFlags usage, VmaAllocationCreateFlags flags,
+void CreateBuffer(VmaAllocator allocator, VkDeviceSize size, VkBufferUsageFlags usage, VmaAllocationCreateFlags flags,
                   VmaAllocation* allocation, VkBuffer* buffer, VmaAllocationInfo* outAllocInfo)
 {
     VkBufferCreateInfo bufferInfo{};
@@ -26,20 +26,7 @@ void createBuffer(VmaAllocator allocator, VkDeviceSize size, VkBufferUsageFlags 
     vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, buffer, allocation, outAllocInfo);
 }
 
-void BufferUtilities::copyBuffer(CommandPoolManager* commandPoolManager, VkBuffer srcBuffer, VkBuffer dstBuffer,
-                                 VkDeviceSize size)
-{
-    auto commandBuffer = commandPoolManager->beginSingleTimeCommands_transfer();
-
-    VkBufferCopy copyRegion{};
-    copyRegion.size = size;
-    vkCmdCopyBuffer(commandBuffer->buffer, srcBuffer, dstBuffer, 1, &copyRegion);
-
-    //todo js sync
-    commandPoolManager->endSingleTimeCommands(commandBuffer, true);
-}
-
-void BufferUtilities::copyBufferWithCommandBuffer(VkCommandBuffer cb, VkBuffer srcBuffer, VkBuffer dstBuffer,
+void BufferUtilities::CopyBuffer(VkCommandBuffer cb, VkBuffer srcBuffer, VkBuffer dstBuffer,
                                                   VkDeviceSize size)
 {
     VkBufferCopy copyRegion{};
@@ -48,41 +35,11 @@ void BufferUtilities::copyBufferWithCommandBuffer(VkCommandBuffer cb, VkBuffer s
 }
 
 
-void BufferUtilities::stageMeshDataBuffer(VmaAllocator allocator, CommandPoolManager* commandPoolManager,
-                                          VkDeviceSize bufferSize, VkBuffer& buffer,
-                                          VmaAllocation& allocation, void* vertices, VkBufferUsageFlags dataTypeFlag)
-{
-    VkBuffer stagingBuffer;
-
-    VmaAllocation stagingallocation = {};
-
-    createBuffer(allocator, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                 VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-                 &stagingallocation, &stagingBuffer, nullptr);
-
-
-    void* data;
-    VulkanMemory::MapMemory(allocator, stagingallocation, &data);
-    memcpy(data, vertices, bufferSize);
-    VulkanMemory::UnmapMemory(allocator, stagingallocation);
-
-    createBuffer(allocator, bufferSize,
-                 VK_BUFFER_USAGE_TRANSFER_DST_BIT | dataTypeFlag, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
-                 &allocation, &buffer, nullptr);
-
-    copyBuffer(commandPoolManager, stagingBuffer, buffer, bufferSize);
-
-    //delete temp buffer
-    vmaDestroyBuffer(allocator, stagingBuffer, stagingallocation);
-    vmaFreeMemory(allocator, stagingallocation);
-}
-
-
-void BufferUtilities::createDeviceBuffer(VmaAllocator allocator, VkDeviceSize size, VkBufferUsageFlags usage,
+void BufferUtilities::CreateDeviceBuffer(VmaAllocator allocator, VkDeviceSize size, VkBufferUsageFlags usage,
                                          VmaAllocation* allocation, VkBuffer& buffer)
 {
     VmaAllocationInfo allocInfo;
-    createBuffer(allocator, size, usage, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
+    CreateBuffer(allocator, size, usage, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
                  allocation, &buffer, &allocInfo);
 
 
@@ -90,11 +47,11 @@ void BufferUtilities::createDeviceBuffer(VmaAllocator allocator, VkDeviceSize si
     vmaGetAllocationMemoryProperties(allocator, *allocation, &memPropFlags);
 }
 
-void* BufferUtilities::createHostMappedBuffer(VmaAllocator allocator, VkDeviceSize size, VkBufferUsageFlags usage,
+void* BufferUtilities::CreateHostMappedBuffer(VmaAllocator allocator, VkDeviceSize size, VkBufferUsageFlags usage,
                                               VmaAllocation* allocation, VkBuffer& buffer)
 {
     VmaAllocationInfo allocInfo;
-    createBuffer(allocator, size, usage, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
+    CreateBuffer(allocator, size, usage, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
                  VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT |
                  VMA_ALLOCATION_CREATE_MAPPED_BIT,
                  allocation, &buffer, &allocInfo);
@@ -113,20 +70,20 @@ void* BufferUtilities::createHostMappedBuffer(VmaAllocator allocator, VkDeviceSi
 }
 
 
-void BufferUtilities::createDeviceBuffer(VmaAllocator allocator, const char* name, VkDeviceSize size, VkBufferUsageFlags usage,
+void BufferUtilities::CreateDeviceBuffer(VmaAllocator allocator, const char* name, VkDeviceSize size, VkBufferUsageFlags usage,
                                          VkDevice device, VmaAllocation* allocation, VkBuffer* buffer)
 {
     VmaAllocationInfo AllocationInfo = {};
-    createBuffer(allocator, size, usage, VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+    CreateBuffer(allocator, size, usage, VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                  allocation, buffer, &AllocationInfo);
     SetDebugObjectNameS(device, VK_OBJECT_TYPE_BUFFER, name, (uint64_t)*buffer);
 }
 
-void BufferUtilities::createStagingBuffer(VkDeviceSize size,
+void BufferUtilities::CreateStagingBuffer(VkDeviceSize size,
                                           VmaAllocation* allocation, VkBuffer& stagingBuffer, VkDevice device,
                                           VmaAllocator allocator, const char* debugName)
 {
-    createBuffer(allocator, size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+    CreateBuffer(allocator, size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                  VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, allocation,
                  &stagingBuffer, nullptr);
     SetDebugObjectNameS(device, VK_OBJECT_TYPE_BUFFER, "Bufferutiltiies create staging buffer buffer",

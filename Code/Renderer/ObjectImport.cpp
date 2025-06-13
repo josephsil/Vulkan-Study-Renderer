@@ -7,13 +7,8 @@
 #include "MeshCreation/MeshData.h"
 #include "Scene/Scene.h"
 
-
-struct AddObjectResult
-{
-    
-};
 //TODO JS: Unify this path and the other mesh import path -- everything should go thru here 
-void ObjectImport::CreateObjectAssets(ArenaAllocator &arena, Scene &scene, AssetManager &assetManager, ImportedObjectData &gltf, DefaultTextures defaults)
+void ObjectImport::CreateObjectAssetsAndAddToScene(ArenaAllocator &arena, Scene &scene, AssetManager &assetManager, ImportedObjectData &gltf, DefaultTextures defaults)
 {
     size_t totalSubmeshct = 0;
     for (auto& gltfmesh : gltf.meshes)
@@ -45,22 +40,18 @@ void ObjectImport::CreateObjectAssets(ArenaAllocator &arena, Scene &scene, Asset
     size_t submeshIndex =0;
     for (int i = 0; i < gltf.meshes.size(); i++)
     {
-        //TODO JS MESHLET PERF: I now create a material *per meshlet*, which is way too many
         for (int j = 0; j < gltf.meshes[i].submeshes.size(); j++)
         {
 
             subMeshHandles[submeshIndex] = assetManager.AddMesh(gltf.meshes[i].submeshes[j]);
-          
-            //TODO JS MESHLET PERF: I now create a material *per meshlet*, which is way too many
             perSubmeshMaterialHandles[submeshIndex] =  createdMaterialIDs[gltf.meshes[i].submeshMaterialIndices[j]];
             submeshIndex++;
         }
     }
 
-    //< Tform
+	//Transforms
     std::span<localTransform*> objectTransformReferences = MemoryArena::AllocSpan<localTransform*>(arena, gltf.objects.size()); //TODO JS: move to contiguous memory somewhere
     std::span<size_t> parentTransformIndex = MemoryArena::AllocSpanEmplaceInitialize<size_t>(arena, gltf.objects.size(), SIZE_MAX); //TODO JS: move to contiguous memory somewhere
-    /// />
     //prepass to set up parents
     for (int i = 0; i < gltf.objects.size(); i++)
     {
@@ -71,7 +62,7 @@ void ObjectImport::CreateObjectAssets(ArenaAllocator &arena, Scene &scene, Asset
     }
         for (int obj = 0; obj < gltf.objects.size(); obj++)
         {
-            auto transformData = gltf.objects[obj]; //todo js: return list of created parent objects?
+            auto transformData = gltf.objects[obj]; //TODO: perhaps should return the list of new root objects?
 
             auto mesh =gltf.objects[obj].meshidx;
             localTransform* parentTransformReference = (parentTransformIndex[obj] != SIZE_MAX) ? objectTransformReferences[parentTransformIndex[obj]] : nullptr;
@@ -90,14 +81,3 @@ void ObjectImport::CreateObjectAssets(ArenaAllocator &arena, Scene &scene, Asset
 
      
 }
-
-// void ObjectImport::AddObjectToScene(Allocator &arena, Scene &scene, ImportedObjectData &gltf)
-// {
-//     int addedCt = 0;
-//     std::span<bool> created = MemoryArena::AllocSpan<bool>(arena, gltf.objects.size());
-//     std::span<localTransform*> tforms = MemoryArena::AllocSpan<localTransform*>(arena, gltf.objects.size());
-//
-//     std::span<size_t> parent = MemoryArena::AllocSpanEmplaceInitialize<size_t>(arena, gltf.objects.size(), SIZE_MAX);
-//
-//     
-// }

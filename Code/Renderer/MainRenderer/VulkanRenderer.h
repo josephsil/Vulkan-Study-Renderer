@@ -76,7 +76,7 @@ public:
     PerThreadRenderContext GetMainRendererContext();
     BufferCreationContext getPartialRendererContext();
     void initializePipelines(size_t shadowCasterCount);
-    void InitializeRendererForScene(sceneCountData sceneCountData);
+    void InitializeRendererForScene(SceneSizeData sceneCountData);
     void Update(Scene* scene);
     void BeforeFirstUpdate();
     void Cleanup();
@@ -120,7 +120,7 @@ private:
     
     descriptorUpdates perSceneDescriptorUpdates = {};
     std::span<descriptorUpdates> perFrameDescriptorUpdates = {};
-    std::span<descriptorUpdateData> computeUpdates[MAX_FRAMES_IN_FLIGHT] = {};
+    std::span<DescriptorUpdateData> computeUpdates[MAX_FRAMES_IN_FLIGHT] = {};
 
     
     std::span<FrameData> perFrameData;
@@ -131,14 +131,14 @@ private:
     size_t cubemaplut_utilitytexture_index;
     uint32_t currentFrame = 0;
 
-    void UpdateShadowImageViews(int frame, sceneCountData lightData);
+    void UpdateShadowImageViews(int frame, SceneSizeData lightData);
     
     void createDescriptorSetPool(PerThreadRenderContext handles, VkDescriptorPool* pool);
-    std::span<descriptorUpdateData> CreatePerSceneDescriptorUpdates(uint32_t frame,
+    std::span<DescriptorUpdateData> CreatePerSceneDescriptorUpdates(uint32_t frame,
                                                                     MemoryArena::memoryArena* arena,
                                                                     std::span<VkDescriptorSetLayoutBinding>
                                                                     layoutBindings);
-    std::span<descriptorUpdateData> CreatePerFrameDescriptorUpdates(uint32_t frame, size_t shadowCasterCount,
+    std::span<DescriptorUpdateData> CreatePerFrameDescriptorUpdates(uint32_t frame, size_t shadowCasterCount,
                                                                     MemoryArena::memoryArena* arena,
                                                                     std::span<VkDescriptorSetLayoutBinding>
                                                                     layoutBindings);
@@ -157,30 +157,32 @@ private:
         uint32_t swapChainIndex;
         std::span<uint32_t> boundCommandBuffers;
         FrameSemaphores perFrameSemaphores;
-       
         VkFence inFlightFence{};
-        HostDataBufferObject<GPU_ShaderGlobals> opaqueShaderGlobalsBuffer;
-        HostDataBufferObject<glm::vec4> hostVerts;
-        dataBuffer deviceVerts;
-        HostDataBufferObject<uint32_t> hostIndices;
-        dataBuffer deviceIndices;
-        HostDataBufferObject<GPU_ObjectData> perMeshbuffers;
-        HostDataBufferObject<GPU_Transform> perObjectBuffers;
-        HostDataBufferObject<GPU_VertexData> hostMesh;
-        dataBuffer deviceMesh;
+       
+		//TODO: Less of this should be host mapped
+		//Fine on modern GPUs, for now.
+        HostMappedDataBuffer<GPU_ShaderGlobals> opaqueShaderGlobalsBuffer;
+        HostMappedDataBuffer<glm::vec4> hostVerts;
+        GpuDataBuffer deviceVerts;
+        HostMappedDataBuffer<uint32_t> hostIndices;
+        GpuDataBuffer deviceIndices;
+        HostMappedDataBuffer<GPU_ObjectData> perMeshbuffers;
+        HostMappedDataBuffer<GPU_Transform> perObjectBuffers;
+        HostMappedDataBuffer<GPU_VertexData> hostMesh;
+        GpuDataBuffer deviceMesh;
 
         //Basic data about the light used in all passes 
-        HostDataBufferObject<GPU_LightData> lightBuffers;
-        HostDataBufferObject<GPU_perShadowData> shadowDataBuffers;
+        HostMappedDataBuffer<GPU_LightData> lightBuffers;
+        HostMappedDataBuffer<GPU_perShadowData> shadowDataBuffers;
 
         //Draw indirect
-        HostDataBufferObject<drawCommandData> drawBuffers;
+        HostMappedDataBuffer<drawCommandData> drawBuffers;
 
         //Draw early draw list
-        HostDataBufferObject<uint32_t> earlyDrawList;
+        HostMappedDataBuffer<uint32_t> earlyDrawList;
 
         //Compute culling for draw indirect 
-        HostDataBufferObject<glm::vec4> frustumsForCullBuffers;
+        HostMappedDataBuffer<glm::vec4> frustumsForCullBuffers;
 
 
         std::span<GPU_ObjectData> ObjectDataForFrame;

@@ -75,7 +75,7 @@ struct objectTransforms
     std::vector<std::vector<flatlocalTransform>> _local_transform_hiearchy; // [depth][object]
 
 
-    flatlocalTransform* get(uint64_t ID);
+    flatlocalTransform* GetTransform(uint64_t ID);
     //used by get
     std::vector<flT_lookup> _transform_lookup;
 

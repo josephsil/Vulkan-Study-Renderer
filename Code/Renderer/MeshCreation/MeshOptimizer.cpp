@@ -61,7 +61,7 @@ ImportMeshData  MeshOptimizer::RunMeshOptimizer(ArenaAllocator arena, AssetManag
     for(int i =0; i < meshlet_vertices.size(); i++)
     {
         auto& vertex = input.vertices[meshlet_vertices[i]];
-        SetVertexDataFromLoadingMeshVertex(vertex,  outputStorage.vertPositions[i], outputStorage.vertData[i]);
+        GpuVertexFromImportVertex(vertex,  outputStorage.vertPositions[i], outputStorage.vertData[i]);
         
     }
     

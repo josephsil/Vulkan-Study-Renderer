@@ -5,9 +5,9 @@
 #include <General/MemoryArena.h>
 
 
-VkFormat Capabilities::findDepthFormat(VkPhysicalDevice physicalDevice)
+VkFormat Capabilities::FindDepthFormat(VkPhysicalDevice physicalDevice)
 {
-    return findSupportedFormat(physicalDevice,
+    return FindSupportedFormat(physicalDevice,
                                {VK_FORMAT_D32_SFLOAT},
                                VK_IMAGE_TILING_OPTIMAL,
                                VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT
@@ -15,7 +15,7 @@ VkFormat Capabilities::findDepthFormat(VkPhysicalDevice physicalDevice)
 }
 
 
-VkFormat Capabilities::findSupportedFormat(VkPhysicalDevice physicalDevice, const std::vector<VkFormat>& candidates,
+VkFormat Capabilities::FindSupportedFormat(VkPhysicalDevice physicalDevice, const std::vector<VkFormat>& candidates,
                                            VkImageTiling tiling,
                                            VkFormatFeatureFlags features)
 {
@@ -38,23 +38,6 @@ VkFormat Capabilities::findSupportedFormat(VkPhysicalDevice physicalDevice, cons
     exit(1);
 }
 
-uint32_t Capabilities::findMemoryType(PerThreadRenderContext rendererHandles, uint32_t typeFilter,
-                                      VkMemoryPropertyFlags properties)
-{
-    VkPhysicalDeviceMemoryProperties memProperties;
-    vkGetPhysicalDeviceMemoryProperties(rendererHandles.physicalDevice, &memProperties);
-
-    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
-    {
-        if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties)
-        {
-            return i;
-        }
-    }
-
-    printf("failed to find suitable memory type!");
-    exit(-1);
-}
 
 
 VkDescriptorSetLayoutCreateInfo DescriptorSets::createInfoFromSpan(std::span<VkDescriptorSetLayoutBinding> bindings)
@@ -132,15 +115,16 @@ void DescriptorSets::CreateDescriptorSetsForLayout(PerThreadRenderContext handle
     }
 }
 
-void DescriptorSets::_updateDescriptorSet_NEW(PerThreadRenderContext rendererHandles, VkDescriptorSet set,
+//Updates descriptor set with a span of DescriptorUpdateDatas, validates them against provided LayoutBindings
+void DescriptorSets::UpdateDescriptorSet(PerThreadRenderContext rendererHandles, VkDescriptorSet set,
                                               std::span<VkDescriptorSetLayoutBinding> setBindingInfo,
-                                              std::span<descriptorUpdateData> descriptorUpdates)
+                                              std::span<DescriptorUpdateData> descriptorUpdates)
 {
     Array<VkWriteDescriptorSet> writeDescriptorSets = MemoryArena::AllocSpan<VkWriteDescriptorSet>(
         rendererHandles.tempArena, setBindingInfo.size());
     for (int i = 0; i < descriptorUpdates.size(); i++)
     {
-        descriptorUpdateData update = descriptorUpdates[i];
+        DescriptorUpdateData update = descriptorUpdates[i];
 
         VkDescriptorSetLayoutBinding bindingInfo = setBindingInfo[i];
 
@@ -153,7 +137,6 @@ void DescriptorSets::_updateDescriptorSet_NEW(PerThreadRenderContext rendererHan
 
         assert(update.type == bindingInfo.descriptorType);
         assert(update.count <= bindingInfo.descriptorCount);
-        // assert(bindingIndex == bindingInfo.binding);
 
         if (update.type == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE || update.type == VK_DESCRIPTOR_TYPE_SAMPLER || update.type
             == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
@@ -200,10 +183,10 @@ DescriptorDataForPipeline DescriptorSets::CreateDescriptorDataForPipeline(PerThr
     return outDescriptorData;
 }
 
-VkDescriptorBufferInfo dataBuffer::getBufferInfo()
+VkDescriptorBufferInfo GpuDataBuffer::getBufferInfo()
 {
     VkDescriptorBufferInfo bufferInfo{};
-    bufferInfo.buffer = data; //TODO: For loop over frames in flight
+    bufferInfo.buffer = data; 
     bufferInfo.offset = 0;
     bufferInfo.range = size;
     return bufferInfo;

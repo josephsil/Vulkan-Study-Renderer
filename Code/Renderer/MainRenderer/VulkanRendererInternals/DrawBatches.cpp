@@ -39,21 +39,21 @@ RenderBatch CreateRenderBatch(CommonRenderPassData* context,
     }
     
     //Bucket submeshes by shader 
-    uint32_t submeshIndex = 0;
-    uint32_t meshletIndex = 0;
-    for (uint32_t i = 0; i < context->scenePtr->ObjectsCount(); i++)
+    uint32_t drawSubmeshIndex = 0;
+    uint32_t drawIndex = 0;
+    for (uint32_t i = 0; i < context->scenePtr->GetObjectsCount(); i++)
     {
         for (uint32_t j = 0; j <context->scenePtr->objects.subMeshMaterials[i].size(); j++)
         {
             uint32_t shaderGroupIndex = context->assetDataPtr->materials[context->scenePtr->objects.subMeshMaterials[i][j]].shaderGroupIndex; 
             uint32_t pipelineIndex = (uint32_t)shaderIDs[shaderGroupIndex].shader;
-            batchedDrawBuckets[pipelineIndex].subMeshIndices.push_back( context->scenePtr->allSubmeshes[submeshIndex]);
-            batchedDrawBuckets[pipelineIndex].firstDrawIndices.push_back(meshletIndex);
-            meshletIndex += (uint32_t)context->assetDataPtr->meshData.perSubmeshData[context->scenePtr->allSubmeshes[submeshIndex]].meshletCt;
-            submeshIndex++;
+            batchedDrawBuckets[pipelineIndex].subMeshIndices.push_back( context->scenePtr->allSubmeshes[drawSubmeshIndex]);
+            batchedDrawBuckets[pipelineIndex].firstDrawIndices.push_back(drawIndex);
+            drawIndex += (uint32_t)context->assetDataPtr->meshData.perSubmeshData[context->scenePtr->allSubmeshes[drawSubmeshIndex]].meshletCt;
+            drawSubmeshIndex++;
         }
     }
-    
+
     Array outputMeshPasses = MemoryArena::AllocSpan<simpleMeshPassInfo>(context->tempAllocator, MAX_PIPELINES);
     uint32_t drawOffset = passInfo.drawOffset; //Where in the drawindirect buffer are we appending
 

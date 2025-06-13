@@ -11,15 +11,15 @@ struct ImportMeshData;
 struct TextureData;
 class AssetManager;
 struct Scene;
-
-
 struct preMeshletMesh;
 
+// This is used to take 'object like' imported files (gltfs,)
+// and add them to the scene.
+// A little janky, some weirdness spread between here and gltf import
+// This functionality is duplicated with the direct "scene->AddObject"
+// calls which are used for other objects -- eventually I want to unify them
 namespace ObjectImport
 {
-
-
-    //TODO JS: should have assetmanger return this
     struct DefaultTextures
     {
         ID::TextureID defaultTexture;
@@ -30,7 +30,6 @@ namespace ObjectImport
     struct MeshObject
     {
         int meshidx;
-        // glm::mat4 placeholder;
         std::span<int> children;
         glm::vec3 scale;
         glm::quat rotation;
@@ -49,8 +48,6 @@ namespace ObjectImport
         int specIndex;
         int normIndex;
         int occlusionIndex;
-        //texture indices?
-        //roughness/metal?
     };
     
     
@@ -63,17 +60,16 @@ namespace ObjectImport
     
     struct ImportedObjectData
     {
-        //TODO JS: to span of spans for submeshes 
         std::span<Mesh> meshes;
         std::span<std::span<meshletIndexInfo>> meshletInfo;
         std::span<TextureData> textures;
-        std::span<Material> materials;
+        std::span<Material> materials;	
         std::span<MeshObject> objects;
-        //std::span<tinygltf::Light> lights;
     };
 
-    void CreateObjectAssets(ArenaAllocator& arena, Scene& scene, AssetManager& assetManager, ImportedObjectData& gltf, DefaultTextures defaults);
-    void AddObjectToScene(ArenaAllocator& arena, Scene& scene, ImportedObjectData& gltf);
+	void CreateObjectAssetsAndAddToScene(ArenaAllocator& arena, Scene& scene, 
+							AssetManager& assetManager, ImportedObjectData& gltf, 
+							DefaultTextures defaults);
 
 
     

@@ -112,7 +112,7 @@ void RendererDeletionQueue::FreeResource(VkDevice device, VmaAllocator allocator
         }
     case deletionType::CommandBuffer:
         {
-            auto p = (CommandBufferPoolQueue)(resource.handle); 
+            auto p = (CommandBufferData)(resource.handle); 
             vkFreeCommandBuffers(device, p->pool, 1, &p->buffer);
             break;
         }

@@ -171,9 +171,9 @@ GlobalRendererResources static_initializeResources(rendererObjects initializedre
     std::vector<DepthPyramidInfo> depthPyramidPerFrame;
     for(int i =0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        depthBufferPerFrame.push_back(static_createDepthResources(initializedrenderer, allocationArena, deletionQueue,
+        depthBufferPerFrame.push_back(CreateDepthResources(initializedrenderer, allocationArena, deletionQueue,
                                                        commandPoolmanager));
-        depthPyramidPerFrame.push_back(static_createDepthPyramidResources(initializedrenderer,  allocationArena,"DepthPyramid", deletionQueue,
+        depthPyramidPerFrame.push_back(CreateDepthPyramidResources(initializedrenderer,  allocationArena,"DepthPyramid", deletionQueue,
                                                                commandPoolmanager));
     }
     return {

@@ -1,6 +1,4 @@
 #include "game.h"
-
-//rendererContext JS: I'd love to include less
 #include <Renderer/MeshCreation/MeshData.h>
 #include <Renderer/TextureCreation/TextureData.h>
 #include <Renderer/gltf/gltfLoading.h>
@@ -13,6 +11,9 @@
 #include <General/ThreadedTextureLoading.h>
 #include <Renderer/MeshCreation/MeshOptimizer.h>
 
+//Placeholder for defining a scene. 
+//TODO: Move to a config, or to simpler code. 
+//TODO: Decouple 'what assets we need imported' from 'what assets we want to load'
 void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* rendererData, Scene* scene)
 {
     auto sceneLoading = MemoryArena::memoryArena {};
@@ -94,7 +95,7 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
 #ifdef SPONZA
     //rendererContext: gltf load fn that gets back struct, then append its contents to scene 
     gltf = GltfLoadMeshes(rendererContext,*rendererData, "Meshes/sponza.glb");
-    ObjectImport::CreateObjectAssets(loadingArena, *scene, *rendererData, gltf, {defaultTexture, defaultSPec,defaultNormal});
+    ObjectImport::CreateObjectAssetsAndAddToScene(loadingArena, *scene, *rendererData, gltf, {defaultTexture, defaultSPec,defaultNormal});
 #pragma region gltf awwwwwwwwwdding stuff --- todo move to fn
    
 #endif
@@ -114,18 +115,18 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
     placeholderMatidx = rendererData->AddMaterial(0.2f, 0, glm::vec3(1.0f), placeholderTextureidx, 0);
     randomMaterials.push_back(placeholderMatidx);
     
-    randomMeshes.push_back(rendererData->AddMultiSubmeshMeshMesh2(gltf.meshes[0].submeshes));
+    randomMeshes.push_back(rendererData->AddMultiSubmeshMesh(gltf.meshes[0].submeshes));
     auto _cubesphere = GltfLoadMeshes(rendererContext,*rendererData, "Meshes/cubesphere.glb");
-    randomMeshes.push_back(rendererData->AddMultiSubmeshMeshMesh2(_cubesphere.meshes[0].submeshes));
+    randomMeshes.push_back(rendererData->AddMultiSubmeshMesh(_cubesphere.meshes[0].submeshes));
     
     auto monkeyMesh = MeshDataCreation::MeshDataFromObjFile(rendererContext, "Meshes/monkey.obj");
     
     auto meshLetMonkey =  MeshOptimizer::RunMeshOptimizer(rendererContext.tempArena, *rendererData, monkeyMesh);
     auto meshletMonkeyMeshletInfo = MemoryArena::AllocSpan<meshletIndexInfo>(rendererContext.tempArena, 1);
     meshletMonkeyMeshletInfo[0] = {0, meshLetMonkey.meshletCount};
-    randomMeshes.push_back(rendererData->AddMultiSubmeshMeshMesh2({&meshLetMonkey, 1}));
+    randomMeshes.push_back(rendererData->AddMultiSubmeshMesh({&meshLetMonkey, 1}));
     auto _cube =GltfLoadMeshes(rendererContext, *rendererData, "Meshes/cube.glb");
-    ID::SubMeshID cube = rendererData->AddMultiSubmeshMeshMesh2(_cube.meshes[0].submeshes);
+    ID::SubMeshID cube = rendererData->AddMultiSubmeshMesh(_cube.meshes[0].submeshes);
     
     //direciton light
     

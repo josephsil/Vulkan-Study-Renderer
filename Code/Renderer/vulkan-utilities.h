@@ -29,9 +29,9 @@ namespace DescriptorSets
                                VkDescriptorSet* pset, size_t ct);
     void CreateDescriptorSetsForLayout(PerThreadRenderContext handles, VkDescriptorPool pool, std::span<VkDescriptorSet> sets,
                                        VkDescriptorSetLayout layout, size_t descriptorCt, const char* debugName);
-    void _updateDescriptorSet_NEW(PerThreadRenderContext rendererHandles, VkDescriptorSet set,
+    void UpdateDescriptorSet(PerThreadRenderContext rendererHandles, VkDescriptorSet set,
                                   std::span<VkDescriptorSetLayoutBinding> setBindingInfo, std::span
-                                  <descriptorUpdateData> descriptorUpdates);
+                                  <DescriptorUpdateData> descriptorUpdates);
 
     
     DescriptorDataForPipeline CreateDescriptorDataForPipeline(PerThreadRenderContext ctx, VkDescriptorSetLayout layout,
@@ -43,10 +43,9 @@ namespace DescriptorSets
 
 namespace Capabilities
 {
-    VkFormat findDepthFormat(VkPhysicalDevice physicalDevice);
+    VkFormat FindDepthFormat(VkPhysicalDevice physicalDevice);
 
-    VkFormat findSupportedFormat(VkPhysicalDevice physicalDevice,
+    VkFormat FindSupportedFormat(VkPhysicalDevice physicalDevice,
                                  const std::vector<VkFormat>& candidates,
                                  VkImageTiling tiling, VkFormatFeatureFlags features);
-    uint32_t findMemoryType(PerThreadRenderContext rendererHandles, uint32_t typeFilter, VkMemoryPropertyFlags properties);
 }

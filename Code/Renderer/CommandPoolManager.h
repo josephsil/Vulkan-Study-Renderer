@@ -20,7 +20,7 @@ struct CommandBufferPoolQueue_T
     VkQueue queue;
     VkFence fence;
 };
-typedef CommandBufferPoolQueue_T* CommandBufferPoolQueue; 
+typedef CommandBufferPoolQueue_T* CommandBufferData; 
 
 
 struct QueueData
@@ -56,10 +56,10 @@ public:
 
     VkCommandPool commandPool;
     VkCommandPool transferCommandPool;
-    CommandBufferPoolQueue beginSingleTimeCommands_transfer();
-    CommandBufferPoolQueue beginSingleTimeCommands(bool useTransferPoolInsteadOfGraphicsPool); 
+    CommandBufferData beginSingleTimeCommands_transfer();
+    CommandBufferData beginSingleTimeCommands(bool useTransferPoolInsteadOfGraphicsPool); 
     void endSingleTimeCommands(VkCommandBuffer buffer, VkFence fence);
-    void endSingleTimeCommands(CommandBufferPoolQueue bufferAndPool, bool waitForFence = false);
+    void endSingleTimeCommands(CommandBufferData bufferAndPool, bool waitForFence = false);
 
     VkDevice device;
     MemoryArena::memoryArena arena;

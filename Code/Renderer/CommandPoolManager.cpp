@@ -49,12 +49,12 @@ CommandPoolManager::CommandPoolManager(vkb::Device vkbdevice, RendererDeletionQu
     createCommandPool(device, QUEUES.transferQueueFamily, &transferCommandPool);
 }
 
-CommandBufferPoolQueue CommandPoolManager::beginSingleTimeCommands_transfer()
+CommandBufferData CommandPoolManager::beginSingleTimeCommands_transfer()
 {
     return beginSingleTimeCommands(true);
 }
 
-CommandBufferPoolQueue CommandPoolManager::beginSingleTimeCommands(
+CommandBufferData CommandPoolManager::beginSingleTimeCommands(
     bool useTransferPoolInsteadOfGraphicsPool)
 {
     VkCommandBufferAllocateInfo allocInfo{};
@@ -81,7 +81,7 @@ CommandBufferPoolQueue CommandPoolManager::beginSingleTimeCommands(
 
 
     SetDebugObjectNameS(device, VK_OBJECT_TYPE_COMMAND_BUFFER, "Unnamed command buffer from beginsingl;etime", (uint64_t)commandBuffer);
-    CommandBufferPoolQueue result = MemoryArena::Alloc<CommandBufferPoolQueue_T>(&arena);
+    CommandBufferData result = MemoryArena::Alloc<CommandBufferPoolQueue_T>(&arena);
     *result = {
         commandBuffer, useTransferPoolInsteadOfGraphicsPool ? transferCommandPool : commandPool,
         useTransferPoolInsteadOfGraphicsPool ? QUEUES.transferQueue : QUEUES.graphicsQueue, outputFence
@@ -109,7 +109,7 @@ void CommandPoolManager::endSingleTimeCommands(VkCommandBuffer buffer, VkFence f
     vkFreeCommandBuffers(device, transferCommandPool, 1, &buffer);
 }
 
-void CommandPoolManager::endSingleTimeCommands(CommandBufferPoolQueue bufferAndPool, bool waitForFence)
+void CommandPoolManager::endSingleTimeCommands(CommandBufferData bufferAndPool, bool waitForFence)
 {
     vkEndCommandBuffer(bufferAndPool->buffer);
 

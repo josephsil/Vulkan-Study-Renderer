@@ -20,10 +20,10 @@
 
 
 
-static TextureCreation::stagingTextureData CreatetempTextureFromPath(PerThreadRenderContext rendererContext,CommandBufferPoolQueue buffer, const char* path, VkFormat format,
+static TextureCreation::stagingTextureData CreatetempTextureFromPath(PerThreadRenderContext rendererContext,CommandBufferData buffer, const char* path, VkFormat format,
                                                    bool mips);
 static TextureCreation::stagingTextureData CreateTextureImage(PerThreadRenderContext rendererContext, const unsigned char* pixels,
-                                            uint64_t texWidth, uint64_t texHeight, VkFormat format, bool mips, CommandBufferPoolQueue workingTextureBuffer);
+                                            uint64_t texWidth, uint64_t texHeight, VkFormat format, bool mips, CommandBufferData workingTextureBuffer);
 static void CacheImportedTextureToKTXFile(VkDevice device, TextureCreation::stagingTextureData tempTexture, const char* outpath,
                                     VkFormat format,  bool compress);
 TextureCreation::TextureImportProcessTemporaryTexture GetOrLoadTextureFromPath(PerThreadRenderContext rendererContext, const char* path, VkFormat format, VkSamplerAddressMode mode,
@@ -590,7 +590,7 @@ VkImageView CreateTextureImageView(PerThreadRenderContext rendererContext, Textu
 
 
 static TextureCreation::stagingTextureData CreateTextureImage(PerThreadRenderContext rendererContext, const unsigned char* pixels,
-                                            uint64_t texWidth, uint64_t texHeight, VkFormat format, bool mips, CommandBufferPoolQueue workingTextureBuffer)
+                                            uint64_t texWidth, uint64_t texHeight, VkFormat format, bool mips, CommandBufferData workingTextureBuffer)
 {
     VkDeviceSize imageSize = texWidth * texHeight * 4;
     assert(pixels);
@@ -600,7 +600,7 @@ static TextureCreation::stagingTextureData CreateTextureImage(PerThreadRenderCon
     VkImage _textureImage = {};
     VmaAllocation _textureImageAlloc;
 
-    BufferUtilities::createStagingBuffer(imageSize,
+    BufferUtilities::CreateStagingBuffer(imageSize,
                                          &bufferAlloc,
                                          stagingBuffer, rendererContext.device, rendererContext.allocator,
                                          "nonKTX texture");
@@ -659,7 +659,7 @@ static TextureCreation::stagingTextureData CreateTextureImage(PerThreadRenderCon
     return TextureCreation::stagingTextureData(_textureImage, _textureImageAlloc, texWidth, texHeight, fullMipPyramid);
 }
 
-static TextureCreation::stagingTextureData CreatetempTextureFromPath(PerThreadRenderContext rendererContext,CommandBufferPoolQueue buffer, const char* path, VkFormat format,
+static TextureCreation::stagingTextureData CreatetempTextureFromPath(PerThreadRenderContext rendererContext,CommandBufferData buffer, const char* path, VkFormat format,
                                                    bool mips)
 {
     int texWidth, texHeight, texChannels;

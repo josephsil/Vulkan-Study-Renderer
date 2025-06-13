@@ -6,6 +6,7 @@
 
 #include "../PerThreadRenderContext.h"
 #include  "../VulkanIncludes/Vulkan_Includes.h"
+#include <Renderer/TextureTypes.h>
 using ktxTexture2 = struct ktxTexture2;
 using ktxVulkanTexture = struct ktxVulkanTexture;
 
@@ -22,35 +23,6 @@ enum TextureType
 
 
 
-struct textureFormatInfo
-{
-    VkFormat format;
-    uint32_t width;
-    uint32_t height;
-    uint32_t mipCt;
-    uint32_t layerCt;
-};
-
-struct VkImageAndMemory
-{
-    VkImage image;
-    VkDeviceMemory memory;
-};
-
-struct TextureMetaData
-{
-    VkImageAndMemory textureImage;
-    textureFormatInfo dimensionsInfo;
-    VkDeviceMemory ktxMemory;
-    VkSamplerAddressMode mode;
-};
-
-
-struct TextureData
-{
-    VkDescriptorImageInfo vkImageInfo; //Info necessary for rendering
-    TextureMetaData metaData; //Other metadata for the renderer/engine to use someday
-};
 
 namespace TextureCreation
 {

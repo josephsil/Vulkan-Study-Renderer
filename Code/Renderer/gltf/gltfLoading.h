@@ -5,19 +5,16 @@
 #include <Renderer/ObjectImport.h>
 #include <Renderer/TextureCreation/TextureData.h>
 #include <Renderer/MeshCreation/MeshData.h>
-#include <tiny_gltf.h>
 struct PerThreadRenderContext;
 struct preMeshletMesh;
 struct TextureMetaData;
 
-
+//This is an "asset loading" step, might get separated from the main runtime at some point.
+//Wraps tinygltf, does gltf mesh/texture import,
+//Uploads data to assetmanager.
+//The 'gltfdata' result is the data required for ObjectImport::CreateObjectAssetsAndAddToScene
 using gltfNode = ObjectImport::MeshObject;
 using gltfMaterial = ObjectImport::Material ;
-
 using GltfMesh = ObjectImport::Mesh ;
-
 using GltfData = ObjectImport::ImportedObjectData ;
-
-temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygltf::Model* model, tinygltf::Primitive prim);
-
 GltfData GltfLoadMeshes(PerThreadRenderContext handles,   AssetManager& rendererData, const char* gltfpath);

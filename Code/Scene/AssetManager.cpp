@@ -1,17 +1,17 @@
 #include <General/GLM_impl.h>
 #include "AssetManager.h"
-#include <Renderer/MeshCreation/MeshData.h> // TODO JS: I want to separate the backing data from the scene 
-#include <Renderer/TextureCreation/TextureData.h> // TODO JS: I want to separate the backing data from the scene 
+#include <Renderer/MeshCreation/MeshData.h> 
+#include <Renderer/TextureCreation/TextureData.h> 
 #include <General/MemoryArena.h>
 #include "engineGlobals.h"
 #include "General/Array.h"
 
 
 
-//No scale for now
 AssetManager::AssetManager()
 {
 
+	//TODO: Allocation sizes 
     MemoryArena::initialize(&this->allocator, 1000000 * 500); //500mb
     this->meshData.vertPositions = MemoryArena::AllocSpan<glm::vec4>(&this->allocator,350000); 
     this->meshData.vertData = MemoryArena::AllocSpan<GPU_VertexData>(&this->allocator,350000);     
@@ -49,29 +49,25 @@ ID::MaterialID AssetManager::AddMaterial(float roughness, float metallic, glm::v
 	return (uint32_t)materials.size() - 1;
 }
 
-void AssetManager::Update()
-{
-    //noop
-}
 //
-uint32_t AssetManager::getOffsetFromMeshID(int submesh, int meshlet)
+uint32_t AssetManager::GetOffsetFromMeshID(int submesh, int meshlet)
 {
     return (uint32_t)meshData.perSubmeshData[submesh].firstMeshletIndex + meshlet;
 }
 
-uint32_t AssetManager::getIndexCount()
+uint32_t AssetManager::GetIndexCount()
 {
     return (uint32_t)globalIndexCount;
     
 }
 
-uint32_t AssetManager::getVertexCount()
+uint32_t AssetManager::GetVertexCount()
 {
 
     return (uint32_t)globalVertexCount;
 }
 
-size_t AssetManager::materialTextureCount()
+size_t AssetManager::GetTextureCount()
 {
     return textures.size();
 }
@@ -93,26 +89,18 @@ textureSetIDs AssetManager::AddTextureSet(TextureData D, TextureData S, TextureD
     return {static_cast<uint32_t>(dI), static_cast<uint32_t>(sI), static_cast<uint32_t>(nI)};
 }
 
+// Mesh import happens as a two step process -- importers request mesh memory, which they fill with data 
+// And then they later call "AddMesh" (or "AddMultiSubmeshMesh") to finalize the import and create 
+// All of the higher level mesh objects (meshlets, bounds, etc) which refer to the backing memory
 AllocatedMeshData AssetManager::RequestMeshMemory(uint32_t vertCt, uint32_t indexCt)
 {
-
     return
-    {
+		AllocatedMeshData {
     .vertPositions = meshData.vertPositions.pushUninitializedSpan(vertCt),
     .vertData = meshData.vertData.pushUninitializedSpan(vertCt),
     .vertIndices = meshData.vertIndices.pushUninitializedSpan(indexCt)
     };
     
-}
-
-void SetVertexDataFromLoadingMeshVertex(Vertex& input, glm::vec4& outptuPos, GPU_VertexData& outputVert)
-{
-    outptuPos = input.pos;
-    outputVert =            {
-        .uv0 = input.texCoord,
-        .normal = input.normal,
-        .Tangent =  input.tangent
-       };
 }
 
 ID::SubMeshID AssetManager::AddMesh(ImportMeshData importMesh)
@@ -146,7 +134,7 @@ ID::SubMeshID AssetManager::AddMesh(ImportMeshData importMesh)
     return submeshCount++;
 }
 
-ID::SubMeshGroupID AssetManager::AddMultiSubmeshMeshMesh2(std::span<ImportMeshData> Submeshes)
+ID::SubMeshGroupID AssetManager::AddMultiSubmeshMesh(std::span<ImportMeshData> Submeshes)
 {
     auto& _span = subMeshGroups.push_back();
 
@@ -159,13 +147,16 @@ ID::SubMeshGroupID AssetManager::AddMultiSubmeshMeshMesh2(std::span<ImportMeshDa
     return (uint32_t)(subMeshGroups.ct -1);
 }
 
-
-struct sortData
+//Helper function, might make sense to move
+void GpuVertexFromImportVertex(Vertex& input, glm::vec4& outptuPos, GPU_VertexData& outputVert)
 {
-    glm::float32_t* data;
-    uint32_t ct;
-};
-
+    outptuPos = input.pos;
+    outputVert =            {
+        .uv0 = input.texCoord,
+        .normal = input.normal,
+        .Tangent =  input.tangent
+	};
+}
 
 void AssetManager::Cleanup()
 {
