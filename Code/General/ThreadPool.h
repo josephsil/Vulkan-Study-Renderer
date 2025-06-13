@@ -7,6 +7,10 @@
 namespace ThreadPool_INTERNAL {
     struct ThreadPoolInternals;
 }
+//Code for spinning up a pool of single purpose threads and executing them
+//See usage example below 
+//Kinda naieve, want to revisit at some point soon
+//Only used in texture import currently.
 namespace ThreadPool {
     /**
     * // USAGE EXAMPLE:
@@ -222,7 +226,7 @@ namespace ThreadPool {
         return true;
     }
 
-    void InitializeThreadPool(MemoryArena::memoryArena* arena, Pool* _init, size_t maxRequests,
+    void InitializeThreadPool(MemoryArena::Allocator* arena, Pool* _init, size_t maxRequests,
         size_t THREAD_CT);
     void SubmitRequests(Pool* threadPool, size_t data);
 

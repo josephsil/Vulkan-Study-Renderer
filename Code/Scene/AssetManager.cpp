@@ -12,7 +12,7 @@ AssetManager::AssetManager()
 {
 
 	//TODO: Allocation sizes 
-    MemoryArena::initialize(&this->allocator, 1000000 * 500); //500mb
+    MemoryArena::Initialize(&this->allocator, 1000000 * 500); //500mb
     this->meshData.vertPositions = MemoryArena::AllocSpan<glm::vec4>(&this->allocator,350000); 
     this->meshData.vertData = MemoryArena::AllocSpan<GPU_VertexData>(&this->allocator,350000);     
     this->meshData.vertIndices = MemoryArena::AllocSpan<uint8_t>(&this->allocator, 950000);
@@ -103,7 +103,7 @@ AllocatedMeshData AssetManager::RequestMeshMemory(uint32_t vertCt, uint32_t inde
     
 }
 
-ID::SubMeshID AssetManager::AddMesh(ImportMeshData importMesh)
+ID::SubMeshID AssetManager::AddMesh(ImportedMeshData importMesh)
 {
 
     Array offsets = meshData.meshletInfo.pushUninitializedSpan(importMesh.meshletCount);
@@ -134,7 +134,7 @@ ID::SubMeshID AssetManager::AddMesh(ImportMeshData importMesh)
     return submeshCount++;
 }
 
-ID::SubMeshGroupID AssetManager::AddMultiSubmeshMesh(std::span<ImportMeshData> Submeshes)
+ID::SubMeshGroupID AssetManager::AddMultiSubmeshMesh(std::span<ImportedMeshData> Submeshes)
 {
     auto& _span = subMeshGroups.push_back();
 

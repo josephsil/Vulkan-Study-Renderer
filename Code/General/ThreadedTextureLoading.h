@@ -13,7 +13,5 @@ namespace TextureCreation
     struct TextureImportResult;
 }
 
-
-
-
+//Parallel texture loading
 void LoadTexturesThreaded(PerThreadRenderContext mainThreadContext, std::span<TextureData> dstTextures, std::span<TextureCreation::TextureImportRequest> textureCreationWork);

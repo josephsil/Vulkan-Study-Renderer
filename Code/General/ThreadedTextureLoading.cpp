@@ -6,6 +6,16 @@
 #include "Renderer/rendererGlobals.h"
 #include "Renderer/MainRenderer/VulkanRendererInternals/RendererHelpers.h"
 
+//This spins up a few parallel jobs to import textures.
+//Texture import is a janky multi step process currently - textures are imported from multiple formats,
+//Mipmapped,
+//Copied back to cpu ktx files,
+//Compressed (via ktx lib)
+//Saved to disk
+//And then loaded from disk.
+//This needs a general rethink, but more immediately I should directly cache the VKImage files rather than .ktx files on disk.
+//TODO: Known bug to fix here, first load doesn't properly respect certain texture settings 
+//See ThreadPool.h for context on these job structs and the pattern here
 struct TextureLoadingLoadCachedTextureJob
 {
     PerThreadRenderContext MainThreadContext;
@@ -73,12 +83,11 @@ void createPerThreadRenderContexts(ArenaAllocator allocator, PerThreadRenderCont
     for (auto& newctx : newContexts)
     {
         newctx = {mainThreadContext}; //initialize the per thread context by copying the render context
-		newctx.threadDeletionQueue = MemoryArena::Alloc<RendererDeletionQueue>(allocator); 
+		newctx.threadDeletionQueue = MemoryArena::AllocDefaultConstructor<RendererDeletionQueue>(allocator); 
 		InitRendererDeletionQueue(newctx.threadDeletionQueue,
            newctx.device, newctx.allocator);
         CreateFence(newctx.device, &newctx.ImportFence, "Fence for thread", newctx.threadDeletionQueue);
-        newctx.textureCreationcommandPoolmanager = MemoryArena::Alloc<CommandPoolManager>(allocator);
-        new(newctx.textureCreationcommandPoolmanager) CommandPoolManager(*mainThreadContext.vkbd, newctx.threadDeletionQueue);
+        newctx.textureCreationcommandPoolmanager = MemoryArena::AllocConstruct<CommandPoolManager>(allocator, *mainThreadContext.vkbd, newctx.threadDeletionQueue);
         SetDebugObjectNameS(newctx.device, VK_OBJECT_TYPE_COMMAND_POOL, "thread ktx pool",(uint64_t)newctx.textureCreationcommandPoolmanager->commandPool);
     }
 }
@@ -92,8 +101,8 @@ void LoadTexturesThreaded_ImportNewtexturesToCache(ArenaAllocator threadPoolAllo
 void LoadTexturesThreaded(PerThreadRenderContext mainThreadContext, std::span<TextureData> dstTextures,
                           std::span<TextureCreation::TextureImportRequest> textureCreationWork)
 {
-    MemoryArena::memoryArena threadPoolAllocator{};
-    initialize(&threadPoolAllocator, 64 * 10000);
+    MemoryArena::Allocator threadPoolAllocator{};
+    MemoryArena::Initialize(&threadPoolAllocator, 64 * 10000);
     Array texturesToImport = MemoryArena::AllocSpan<TextureCreation::TextureImportRequest>(&threadPoolAllocator, textureCreationWork.size());
     Array temporaryTextureToCache = MemoryArena::AllocSpan<TextureCreation::TextureImportProcessTemporaryTexture>(&threadPoolAllocator, textureCreationWork.size());
     Array LoadCachedTexturesInput = MemoryArena::AllocSpan<TextureCreation::LOAD_KTX_CACHED_args>(&threadPoolAllocator, textureCreationWork.size());

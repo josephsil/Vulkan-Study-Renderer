@@ -4,7 +4,7 @@
 #include "Vertex.h"
 
 
-MeshForMikkt::MeshForMikkt(MemoryArena::memoryArena* alloc, std::span<Vertex> verts, std::span<uint32_t> indices)
+MeshForMikkt::MeshForMikkt(MemoryArena::Allocator* alloc, std::span<Vertex> verts, std::span<uint32_t> indices)
 {
     //TODO JS: pass in temp allocator?
     pos = MemoryArena::AllocSpan<glm::vec3>(alloc, verts.size());

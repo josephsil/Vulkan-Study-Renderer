@@ -7,7 +7,7 @@
 #include <Renderer/MainRenderer/PipelineManager/PipelineLayoutManager.h>
 
 
-namespace MemoryArena
+namespace Allocator
 {
     struct memoryArena;
 }

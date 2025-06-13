@@ -1,35 +1,29 @@
 #include <cassert>
 
-#include "../../rendererGlobals.h"
-#include "../../vulkan-utilities.h"
-#include "../../VulkanIncludes/Vulkan_Includes.h"
-
-//TODO JS: break this dependency
 #include "PipelineLayoutManager.h"
-
 #include <span>
 #include "Internal/PipelineLayoutGroup.h"
+
 #include <General/MemoryArena.h>
 #include <Renderer/PerThreadRenderContext.h>
 
-PreAllocatedDescriptorSetPool::PreAllocatedDescriptorSetPool(MemoryArena::memoryArena* arena, size_t poolSize)
+PreAllocatedDescriptorSetPool::PreAllocatedDescriptorSetPool(MemoryArena::Allocator* arena, size_t poolSize)
 {
     descriptorSets = MemoryArena::AllocSpan<VkDescriptorSet>(arena, poolSize);
 }
 
 PipelineLayoutManager::PipelineLayoutManager()
 {
-    MemoryArena::initialize(&arena, 4000);
-    //TODO: I need to restructure this, this is a hack to get around my own static_assert about allocspan for non pod types
-    //TODO JS: Shouldnt use an Array, should grow a span manually with various emplace back calls
-    pipelineLayoutGroups = std::span<PipelineLayoutGroup>(static_cast<PipelineLayoutGroup*>(MemoryArena::alloc(&arena, sizeof(PipelineLayoutGroup) * 10)), 10);
+    MemoryArena::Initialize(&arena, 4000);
+    pipelineLayoutGroups = MemoryArena::AllocSpanDefaultConstructor<PipelineLayoutGroup>(&arena, 10);
 }
 
 PipelineLayoutHandle PipelineLayoutManager::CreateNewGroup(PerThreadRenderContext handles, VkDescriptorPool pool,
                                                            std::span<DescriptorDataForPipeline> descriptorInfo, std::span<VkDescriptorSetLayout> layouts,
                                                            uint32_t pconstantsize, bool compute, const char* debugName)
 {
-    pipelineLayoutGroups.emplace_back(handles, pool, descriptorInfo, layouts, pconstantsize, compute, debugName);
+	PipelineLayoutGroup& pipelineGroup = pipelineLayoutGroups.push_back();
+		PipelineLayoutGroup::Initialize(&pipelineGroup, handles, pool, descriptorInfo, layouts, pconstantsize, compute, debugName);
     return pipelineLayoutGroups.ct -1;
 }
 
@@ -75,7 +69,7 @@ VkPipelineLayout PipelineLayoutManager::GetLayout(PipelineLayoutHandle handle)
     return pipelineLayoutGroups[handle].layoutData.layout;
 }
 
-FullShaderHandle PipelineLayoutManager::createPipeline(PipelineLayoutHandle i,
+FullShaderHandle PipelineLayoutManager::CreatePipeline(PipelineLayoutHandle i,
                                                        std::span<VkPipelineShaderStageCreateInfo> shaders,
                                                        const char* name,
                                                        GraphicsPipelineSettings settings)
@@ -84,10 +78,6 @@ FullShaderHandle PipelineLayoutManager::createPipeline(PipelineLayoutHandle i,
     return {i, pipelineLayoutGroups[i].getPipelineCt() -1};
 }
 
-size_t PipelineLayoutManager::TODO_REMOVEgetPipelineCt(PipelineLayoutHandle handle)
-{
-    return pipelineLayoutGroups[handle].getPipelineCt();
-}
 
 void PipelineLayoutManager::cleanup()
 {
@@ -97,7 +87,7 @@ void PipelineLayoutManager::cleanup()
     }
 }
 
-BindlessObjectShaderGroup::BindlessObjectShaderGroup(MemoryArena::memoryArena* a, size_t ct)
+BindlessObjectShaderGroup::BindlessObjectShaderGroup(MemoryArena::Allocator* a, size_t ct)
 {
     auto backing = MemoryArena::AllocSpan<FullShaderHandle>(a, ct * 3);
     opaqueShaders = Array(backing.subspan(0, ct));

@@ -11,10 +11,10 @@
 #include "Renderer/AssetManagerTypes.h"
 #include "Renderer/VulkanIncludes/structs_hlsl.h"
 
-void InitializeScene(MemoryArena::memoryArena* arena, Scene* scene)
+void InitializeScene(MemoryArena::Allocator* arena, Scene* scene)
 {
     //Objects
-	MemoryArena::initialize(&scene->scratchMemory);
+	MemoryArena::Initialize(&scene->scratchMemory);
 
     scene->objects = {};
     scene->objects.objectsCount = 0;
@@ -22,8 +22,8 @@ void InitializeScene(MemoryArena::memoryArena* arena, Scene* scene)
     scene->objects.rotations = Array(MemoryArena::AllocSpan<glm::quat>(arena, OBJECT_MAX));
     scene->objects.scales = Array(MemoryArena::AllocSpan<glm::vec3>(arena, OBJECT_MAX));
     scene->objects.subMeshMaterials = Array(MemoryArena::AllocSpan<std::span<uint32_t>>(arena, OBJECT_MAX));
-    scene->allMaterials = Array(MemoryArena::AllocSpanDefaultInitialize<uint32_t>(arena, OBJECT_MAX * 100));
-    scene->allSubmeshes = Array(MemoryArena::AllocSpanDefaultInitialize<uint32_t>(arena, OBJECT_MAX * 100));
+    scene->allMaterials = Array(MemoryArena::AllocSpanDefaultConstructor<uint32_t>(arena, OBJECT_MAX * 100));
+    scene->allSubmeshes = Array(MemoryArena::AllocSpanDefaultConstructor<uint32_t>(arena, OBJECT_MAX * 100));
     scene->objects.subMeshes = Array(MemoryArena::AllocSpan<std::span<uint32_t>>(arena, OBJECT_MAX));
     scene->objects.transformIDs = Array(MemoryArena::AllocSpan<size_t>(arena, OBJECT_MAX));
 
@@ -106,7 +106,7 @@ void Scene::Update()
     }
 
     transforms.UpdateWorldTransforms();
-    MemoryArena::free(&scratchMemory);
+    MemoryArena::Free(&scratchMemory);
 }
 
 size_t Scene::AddObject(std::span<ID::SubMeshID> submeshIndices, std::span<ID::MaterialID> materialIndices,
@@ -196,7 +196,7 @@ int lightOrder(LightType t)
 void Scene::lightSort()
 {
 
-	MemoryArena::setCursor(&scratchMemory);
+	auto cursor = MemoryArena::GetCurrentOffset(&scratchMemory);
 	std::span<size_t> indices = GetIndicesAscending<size_t>(&scratchMemory, lightCount);
 	
 	//Get indices sorted by light type
@@ -207,7 +207,7 @@ void Scene::lightSort()
 												lightcolorAndIntensity.getSpan(),
 												lightDir.getSpan(),
 												lightTypes.getSpan());
-	MemoryArena::freeToCursor(&scratchMemory);
+	MemoryArena::FreeToOffset(&scratchMemory,cursor);
 }
 
 //Linear search to find the first shadowmap.

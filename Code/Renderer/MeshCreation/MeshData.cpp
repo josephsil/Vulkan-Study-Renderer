@@ -12,17 +12,17 @@
 int MESHID = 0;
 
 
-preMeshletMesh MeshDataCreation::MeshDataFromSpans(std::span<Vertex> vertices,
+InterchangeMesh MeshDataCreation::MeshDataFromSpans(std::span<Vertex> vertices,
                            std::span<uint32_t> indices)
 {
-    preMeshletMesh m = {};
+    InterchangeMesh m = {};
     m.vertices = vertices;
     m.indices = indices;
     return m;
 }
 
 //TODO JS: not sure what the interface should be like, but playing with this idea of a temporary/scratch mesh and then a final mesh
-preMeshletMesh MeshDataCreation::FinalizeMeshDataFromTempMesh(MemoryArena::memoryArena* outputArena, MemoryArena::memoryArena* tempArena,
+InterchangeMesh MeshDataCreation::FinalizeMeshDataFromTempMesh(MemoryArena::Allocator* outputArena, MemoryArena::Allocator* tempArena,
                                       temporaryloadingMesh tempMesh)
 {
     //Generate MikkT tangents
@@ -85,12 +85,12 @@ preMeshletMesh MeshDataCreation::FinalizeMeshDataFromTempMesh(MemoryArena::memor
 
     //TODO: Dedupe verts
 
-    preMeshletMesh m = {};
+    InterchangeMesh m = {};
     //Copy data
-    m.vertices = copySpan(outputArena, tempMesh.vertices);
-    m.indices = copySpan(outputArena, tempMesh.indices);
+    m.vertices = MemoryArena::AllocCopySpan(outputArena, tempMesh.vertices);
+    m.indices = MemoryArena::AllocCopySpan(outputArena, tempMesh.indices);
 
-
+	
     //Compute bounds 
     m.boundsCorners = MemoryArena::AllocSpan<glm::vec3>(outputArena, 2);
     m.boundsCorners[0] = m.vertices[0].pos;
@@ -111,7 +111,7 @@ preMeshletMesh MeshDataCreation::FinalizeMeshDataFromTempMesh(MemoryArena::memor
     return m;
 }
 
-temporaryloadingMesh geoFromObjPath(MemoryArena::memoryArena* tempArena, const char* path)
+temporaryloadingMesh geoFromObjPath(MemoryArena::Allocator* tempArena, const char* path)
 {
     tinyobj::ObjReader reader;
     tinyobj::ObjReaderConfig reader_config;
@@ -181,14 +181,14 @@ temporaryloadingMesh geoFromObjPath(MemoryArena::memoryArena* tempArena, const c
     return {_vertices.getSpan(), _indices.getSpan(), false};
 }
 
-preMeshletMesh MeshDataCreation::MeshDataFromObjFile(PerThreadRenderContext rendererHandles, const char* path)
+InterchangeMesh MeshDataCreation::MeshDataFromObjFile(PerThreadRenderContext rendererHandles, const char* path)
 {
-    setCursor(rendererHandles.tempArena);
+    auto cursor = MemoryArena::GetCurrentOffset(rendererHandles.tempArena);
     const char* ext = strrchr(path, '.');
     assert(strcmp(ext, ".obj") == 0);
     temporaryloadingMesh geo = geoFromObjPath(rendererHandles.tempArena, path);
-    preMeshletMesh mesh = FinalizeMeshDataFromTempMesh(rendererHandles.arena, rendererHandles.tempArena, geo);
-    freeToCursor(rendererHandles.tempArena);
+    InterchangeMesh mesh = FinalizeMeshDataFromTempMesh(rendererHandles.arena, rendererHandles.tempArena, geo);
+    MemoryArena::FreeToOffset(rendererHandles.tempArena,cursor);
     return mesh;
 }
 

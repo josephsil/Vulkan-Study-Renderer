@@ -10,20 +10,20 @@ void ReorderParallelOpaqueSpans(ArenaAllocator temporaryMemory,
 		assert(targets[i].count == count);
 	}
 	#endif
-	size_t max = 0; 
+	size_t largestElementSize = 0; 
 	for(auto& os : targets)
 	{
-		if (os.size > max)
+		if (os.elemSize > largestElementSize)
 		{
-			max = os.size;
+			largestElementSize = os.elemSize;
 		}
 	}
 	//Allocate a big enough scratch space to store our largest type
-	void* tempCopy = MemoryArena::alloc(temporaryMemory, indices.size() * max);
-
+	auto cursor = MemoryArena::GetCurrentOffset(temporaryMemory);
+	void* tempCopy = MemoryArena::allocbytes(temporaryMemory, indices.size() * largestElementSize);
 	for (int i = 0; i < targets.size(); i++)
 	{
-		ptrdiff_t valueSize = targets[i].size;
+		ptrdiff_t valueSize = targets[i].elemSize;
 		memcpy(tempCopy, targets[i].data, targets[i].count * valueSize); //Copy unsorted version to temp memory 
 		for (int j = 0; j < targets[i].count; j++)
 		{
@@ -33,6 +33,6 @@ void ReorderParallelOpaqueSpans(ArenaAllocator temporaryMemory,
 		}
 
 	}
-	MemoryArena::freeLast(temporaryMemory); //Free temp copy
+	MemoryArena::FreeToOffset(temporaryMemory,cursor); //Free temp copy
 
 }

@@ -15,7 +15,7 @@ struct deleteableResource;
 
 namespace MemoryArena
 {
-    struct memoryArena;
+    struct Allocator;
 }
 
 //Renderer stuff various subsystems will need to access
@@ -25,8 +25,8 @@ struct PerThreadRenderContext
     VkDevice device;
     CommandPoolManager* textureCreationcommandPoolmanager;
     VmaAllocator allocator;
-    MemoryArena::memoryArena* arena;
-    MemoryArena::memoryArena* tempArena;
+    MemoryArena::Allocator* arena;
+    MemoryArena::Allocator* tempArena;
     RendererDeletionQueue* threadDeletionQueue;
     VkFence ImportFence;
     vkb::Device* vkbd;

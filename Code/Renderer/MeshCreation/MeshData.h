@@ -16,7 +16,7 @@
 
 namespace MemoryArena
 {
-    struct memoryArena;
+    struct Allocator;
 }
 
 struct PerThreadRenderContext;
@@ -32,7 +32,7 @@ struct temporaryloadingMesh
 //This is what we get out of the end of the mesh asset importers
 //Underlying vertices and indices should already have been allocated with RequestMeshMemory
 //Filling out and submitting this to AssetManager::AddMesh builds out submesh data and finalizes it.
-struct ImportMeshData
+struct ImportedMeshData
 {
     uint32_t vertexct;
     std::span<uint32_t> indexCounts;
@@ -41,7 +41,9 @@ struct ImportMeshData
     uint32_t meshletCount;
 };
 
-struct preMeshletMesh
+//This is what we load from external mesh formats (gltf, obj)
+//This is fed to MeshOptimizer to produce ImportedMeshData
+struct InterchangeMesh
 {
    std::span<Vertex> vertices;
    std::span<uint32_t>indices;
@@ -52,9 +54,9 @@ struct preMeshletMesh
 namespace MeshDataCreation
 {
     GPU_BoundingSphere boundingSphereFromMeshBounds(std::span<glm::vec3> boundsCorners);
-    preMeshletMesh MeshDataFromSpans(std::span<Vertex> vertices,
+    InterchangeMesh MeshDataFromSpans(std::span<Vertex> vertices,
                                std::span<uint32_t> indices);
-    preMeshletMesh MeshDataFromObjFile(PerThreadRenderContext rendererHandles, const char* path);
-    preMeshletMesh FinalizeMeshDataFromTempMesh(MemoryArena::memoryArena* outputArena, MemoryArena::memoryArena* tempArena,
+    InterchangeMesh MeshDataFromObjFile(PerThreadRenderContext rendererHandles, const char* path);
+    InterchangeMesh FinalizeMeshDataFromTempMesh(MemoryArena::Allocator* outputArena, MemoryArena::Allocator* tempArena,
                                           temporaryloadingMesh tempMesh);
 }

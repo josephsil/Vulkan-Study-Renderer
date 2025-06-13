@@ -2,22 +2,21 @@
 #include <Renderer/MeshCreation/MeshData.h>
 #include <Renderer/TextureCreation/TextureData.h>
 #include <Renderer/gltf/gltfLoading.h>
-#include <Renderer/MeshCreation/MeshData.h>
 #include <Scene/AssetManager.h>
 #include <Scene/Scene.h>
 #include <glm/gtc/random.hpp>
 
 #include <General/LinearDictionary.h>
 #include <General/ThreadedTextureLoading.h>
-#include <Renderer/MeshCreation/MeshOptimizer.h>
+#include <Renderer/MeshCreation/RunMeshOptimizer.h>
 
 //Placeholder for defining a scene. 
 //TODO: Move to a config, or to simpler code. 
 //TODO: Decouple 'what assets we need imported' from 'what assets we want to load'
 void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* rendererData, Scene* scene)
 {
-    auto sceneLoading = MemoryArena::memoryArena {};
-    MemoryArena::initialize(&sceneLoading, 680000 * 420);
+    auto sceneLoading = MemoryArena::Allocator {};
+    MemoryArena::Initialize(&sceneLoading, 680000 * 420);
     rendererContext.tempArena = &sceneLoading;
     ArenaAllocator loadingArena = &sceneLoading;
     LinearDictionary<char*, TextureData> textureLookup = {};
@@ -135,7 +134,7 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
     auto MyQuaternion = glm::quat(EulerAngles);
     
     auto root = scene->AddObject(
-        rendererData->subMeshGroups[randomMeshes[rand() % randomMeshes.size()]].getSpan(), MemoryArena::AllocSpanEmplaceInitialize<uint32_t>(rendererContext.arena, 1, (uint32_t) (uint32_t)randomMaterials[1]), glm::vec4(0, 0, 0, 0) * 1.2f, MyQuaternion,
+        rendererData->subMeshGroups[randomMeshes[rand() % randomMeshes.size()]].getSpan(), MemoryArena::AllocSpanConstructEntries<uint32_t>(rendererContext.arena, 1, (uint32_t) (uint32_t)randomMaterials[1]), glm::vec4(0, 0, 0, 0) * 1.2f, MyQuaternion,
         glm::vec3(0.5));
 
     int ict = 20;
@@ -157,7 +156,7 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
     
             scene->AddObject(
                 rendererData->subMeshGroups[randomMeshes[rand() % randomMeshes.size()]].getSpan(), 
-               MemoryArena::AllocSpanEmplaceInitialize<uint32_t>(rendererContext.arena, 1, (uint32_t)newRandomColorMaterial), glm::vec4((j), (i / (ict / 5)) * 1.0, -(i % (ict / 5)), 1) * 1.2f, MyQuaternion,
+               MemoryArena::AllocSpanConstructEntries<uint32_t>(rendererContext.arena, 1, (uint32_t)newRandomColorMaterial), glm::vec4((j), (i / (ict / 5)) * 1.0, -(i % (ict / 5)), 1) * 1.2f, MyQuaternion,
                 glm::vec3(0.5));
             matIDX = rand() % randomMaterials.size();
         }

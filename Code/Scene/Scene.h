@@ -13,7 +13,7 @@ struct localTransform;
 
 namespace MemoryArena
 {
-    struct memoryArena;
+    struct Allocator;
 }
 
 //Used for allocations 
@@ -59,7 +59,7 @@ struct Scene
 
 
     objectTransforms transforms;
-	MemoryArena::memoryArena scratchMemory; //Freed every frame
+	MemoryArena::Allocator scratchMemory; //Freed every frame
 
 	size_t GetObjectsCount();
     size_t GetMeshesCount();
@@ -88,5 +88,5 @@ private:
 };
 
 
-void InitializeScene(MemoryArena::memoryArena* arena, Scene* scene);
+void InitializeScene(MemoryArena::Allocator* arena, Scene* scene);
 size_t shadowCountFromLightType(LightType t);

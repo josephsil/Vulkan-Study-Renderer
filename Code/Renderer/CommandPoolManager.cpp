@@ -44,7 +44,7 @@ CommandPoolManager::CommandPoolManager(vkb::Device vkbdevice, RendererDeletionQu
 {
     device = vkbdevice.device;
     this->deletionQueue = deletionQueue;
-    MemoryArena::initialize(&this->arena, 6000 * 10); //todo 
+    MemoryArena::Initialize(&this->arena, 6000 * 10); //todo 
     createCommandPool(device, QUEUES.graphicsQueueFamily, &commandPool);
     createCommandPool(device, QUEUES.transferQueueFamily, &transferCommandPool);
 }

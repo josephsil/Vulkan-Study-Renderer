@@ -2,6 +2,8 @@
 #include <cassert>
 #include <cstdint>
 #include <cstring>
+
+//TODO: Grab a dictionary/hashset library and replace this
 const int dict_size = 2048;
 template <class K, class V>
 struct LinearDictionary

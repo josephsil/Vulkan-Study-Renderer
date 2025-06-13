@@ -14,11 +14,11 @@
 struct ActiveRenderStepData;
 //Depth resources
 DepthBufferInfo CreateDepthResources(rendererObjects initializedrenderer,
-                                            MemoryArena::memoryArena* allocationArena,
+                                            MemoryArena::Allocator* allocationArena,
                                             RendererDeletionQueue* deletionQueue,
                                             CommandPoolManager* commandPoolmanager);
 DepthPyramidInfo CreateDepthPyramidResources(rendererObjects initializedrenderer,
-                                                    MemoryArena::memoryArena* allocationArena,
+                                                    MemoryArena::Allocator* allocationArena,
                                                     const char* name,
                                                     RendererDeletionQueue* deletionQueue,
                                                     CommandPoolManager* commandPoolmanager);

@@ -167,7 +167,7 @@ DescriptorDataForPipeline DescriptorSets::CreateDescriptorDataForPipeline(PerThr
     {
         (_DescriptorSets[i]) = PreAllocatedDescriptorSetPool(ctx.arena, descriptorSetPoolSize);
     }
-    auto bindlessLayoutBindings = MemoryArena::copySpan<VkDescriptorSetLayoutBinding>(ctx.arena, bindingLayout);
+    auto bindlessLayoutBindings = MemoryArena::AllocCopySpan<VkDescriptorSetLayoutBinding>(ctx.arena, bindingLayout);
 
     DescriptorDataForPipeline outDescriptorData = {
         .isPerFrame = isPerFrame, .descriptorSetsCaches = _DescriptorSets, .layoutBindings = bindlessLayoutBindings

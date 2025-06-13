@@ -115,10 +115,10 @@ TextureCreation::TextureImportRequest TextureCreation::MakeCreationArgsFromFilep
     
     //Don't regenerate ktx if image modified time is older than last ktx
     std::span<char> resultPath = {};
-    if (FileCaching::tryGetKTXCachedPath(arena, path, resultPath)) 
+    if (FileCaching::TryGetKTXCachedPath(arena, path, resultPath)) 
     {
         printf("Using cached texture at %s\n", resultPath.data()); //
-        if (!FileCaching::assetOutOfDate(path))
+        if (!FileCaching::IsAssetOutOfDate(path))
         {
             auto settings = ImportSettingsForType(type);
             return MakeTextureCreationArgsFromCachedKTX(resultPath.data(),settings.mode, settings.uncompressed);
@@ -185,8 +185,6 @@ TextureCreation::TextureImportProcessTemporaryTexture CreateTextureFromGLTF(PerT
     TextureCreation::stagingTextureData staging = CreateTextureImage(rendererContext, args.pixels, args.width, args.height, args.format, true, bandp);
 
     //We need a fence between creating the texture and caching the ktx, because the ktx requires a read to host memory
-    //I'd really rather go wide paralellizing the cache ktx, but I forgot how it worked when i started writing this. Someday I should break this up
-    //I could also do the ktx thing on a background pool, and just return the texture I got from staging?
     rendererContext.textureCreationcommandPoolmanager->endSingleTimeCommands(bandp, true);
 
     TextureCreation::TextureImportProcessTemporaryTexture r =
@@ -438,7 +436,7 @@ TextureCreation::TextureImportProcessTemporaryTexture GetOrLoadTextureFromPath(P
     TextureCreation::stagingTextureData staging = CreatetempTextureFromPath(rendererContext, bandp, path, format, useMipmaps);
     rendererContext.textureCreationcommandPoolmanager->endSingleTimeCommands(bandp, true);
     std::span<char> ktxCachePath = {};
-    FileCaching::tryGetKTXCachedPath(rendererContext.tempArena, path, ktxCachePath);
+    FileCaching::TryGetKTXCachedPath(rendererContext.tempArena, path, ktxCachePath);
     TextureCreation::TextureImportProcessTemporaryTexture r =
        {
         .stagingTexture = staging,
@@ -449,7 +447,7 @@ TextureCreation::TextureImportProcessTemporaryTexture GetOrLoadTextureFromPath(P
         .type = textureType,
         .viewType =  imageViewType
         };
-    FileCaching::saveAssetChangedTime(path);
+    FileCaching::SaveAssetChangedTime(path);
     return r;
 
 

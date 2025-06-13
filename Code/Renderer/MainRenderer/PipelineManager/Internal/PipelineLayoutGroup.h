@@ -12,26 +12,26 @@ struct PerThreadRenderContext;
 struct DescriptorUpdateData;
 
 
-
-
-
-
+//Pipeline layout groups organize shaders, pipelines (and relaed resources) by Layout 
+//The renderer mostly works with groups, and then queries them to get specific shaders when it's time 
+//To batch and actually render. 
+//This was initially implemented very early on in my understanding of vulkan, and has been since contorted into a slightly better state
+//May need an entire rethink.
 DescriptorDataForPipeline CreateDescriptorDataForPipeline(PerThreadRenderContext ctx, VkDescriptorSetLayout layout,
                                                           bool isPerFrame,
                                                           std::span<VkDescriptorSetLayoutBinding> bindingLayout,
                                                           const char* setname, VkDescriptorPool pool,
                                                           int descriptorSetPoolSize = 1);
-
-
 class PipelineLayoutGroup
 {
 public:
 
+	PipelineLayoutGroup();
 
-    PipelineLayoutGroup(PerThreadRenderContext handles, VkDescriptorPool pool,
-                        std::span<DescriptorDataForPipeline> descriptorInfo, std::span<VkDescriptorSetLayout> layouts,
-                        uint32_t pconstantsize, bool compute,
-                        const char* debugName);
+	static void Initialize(PipelineLayoutGroup* target, PerThreadRenderContext handles, VkDescriptorPool pool,
+					std::span<DescriptorDataForPipeline> descriptorInfo,
+					std::span<VkDescriptorSetLayout> layouts, uint32_t pconstantsize, bool compute,
+					const char* debugName);
 
     //Initialization
 
@@ -66,12 +66,12 @@ public:
     //Descriptor set update
 
 private:
+	bool initialized;
     size_t lastFrame;
     VkDevice device;
-    std::vector<VkPipeline> pipelines;
     void createPipelineLayoutForGroup(PerPipelineLayoutData* perPipelineData, size_t pconstantSize, char* name, bool
                                       compute);
-
+	std::vector<VkPipeline> pipelines;
     std::vector<VkWriteDescriptorSet> writeDescriptorSets;
     std::unordered_map<VkDescriptorSet, int> writeDescriptorSetsBindingIndices;
 };

@@ -9,13 +9,13 @@
 struct GPU_Bounds;
 struct GPU_Bounds;
 struct GPU_VertexData;
-struct ImportMeshData;
-struct preMeshletMesh;
+struct ImportedMeshData;
+struct InterchangeMesh;
 struct GPU_BoundingSphere;
 
 
 struct TextureMetaData;
-struct preMeshletMesh;
+struct InterchangeMesh;
 struct VkDescriptorImageInfo;
 
 struct AllocatedMeshData
@@ -51,7 +51,7 @@ public:
         Array<PerSubmeshData> perSubmeshData;
     };
     
-	MemoryArena::memoryArena allocator;
+	MemoryArena::Allocator allocator;
     uint32_t submeshCount = 0;
     size_t globalVertexCount = 0;
     size_t globalIndexCount = 0;
@@ -73,9 +73,9 @@ public:
     textureSetIDs AddTextureSet(TextureData D, TextureData S, TextureData N);
 
     AllocatedMeshData RequestMeshMemory(uint32_t vertCt, uint32_t indexCt);
-    ID::SubMeshID AddMesh(std::span<preMeshletMesh> SubmeshMeshlets);
-    ID::SubMeshID AddMesh(ImportMeshData importMesh);
-    ID::SubMeshGroupID AddMultiSubmeshMesh(std::span<ImportMeshData> Submeshes);
+    ID::SubMeshID AddMesh(std::span<InterchangeMesh> SubmeshMeshlets);
+    ID::SubMeshID AddMesh(ImportedMeshData importMesh);
+    ID::SubMeshGroupID AddMultiSubmeshMesh(std::span<ImportedMeshData> Submeshes);
     
     void Cleanup();
 

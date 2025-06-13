@@ -158,14 +158,14 @@ bool ThreadPool::CheckRequestDataReadable(ThreadPool_INTERNAL::ThreadPoolInterna
     return true;
 }
 
-void ThreadPool::InitializeThreadPool(MemoryArena::memoryArena* arena, ThreadPool::Pool* _init, size_t maxRequests,
+void ThreadPool::InitializeThreadPool(MemoryArena::Allocator* arena, ThreadPool::Pool* _init, size_t maxRequests,
                           size_t THREAD_CT)
 {
-    _init->_Internal = MemoryArena::AllocDefaultInitialize<ThreadPool_INTERNAL::ThreadPoolInternals>(arena);
+    _init->_Internal = MemoryArena::AllocDefaultConstructor<ThreadPool_INTERNAL::ThreadPoolInternals>(arena);
     _init->THREAD_CT = THREAD_CT;
     auto& threadPool = *_init->_Internal;
-    threadPool.debug_isCancelled = MemoryArena::AllocSpan<std::atomic<bool>>(arena, THREAD_CT);
-    threadPool.CancellationRequest = MemoryArena::AllocSpan<std::atomic<uint32_t>>(arena, THREAD_CT);
+    threadPool.debug_isCancelled = MemoryArena::AllocSpanDefaultConstructor<std::atomic<bool>>(arena, THREAD_CT);
+    threadPool.CancellationRequest = MemoryArena::AllocSpanDefaultConstructor<std::atomic<uint32_t>>(arena, THREAD_CT);
     for (int i = 0; i < THREAD_CT; i++)
     {
         new(&threadPool.debug_isCancelled[i]) std::atomic<bool>(false);
@@ -174,9 +174,9 @@ void ThreadPool::InitializeThreadPool(MemoryArena::memoryArena* arena, ThreadPoo
     }
 
     // threadPool.requests = std::vector<std::atomic<importThreadRequest>>();
-    threadPool.workItemsData.perThreadLockedIndices = MemoryArena::AllocSpanEmplaceInitialize<std::atomic<size_t>>(
+    threadPool.workItemsData.perThreadLockedIndices = MemoryArena::AllocSpanConstructEntries<std::atomic<size_t>>(
         arena, THREAD_CT, SIZE_MAX);
-    threadPool.threadMemory = MemoryArena::AllocSpan<std::thread>(arena, THREAD_CT);
+    threadPool.threadMemory = MemoryArena::AllocSpanDefaultConstructor<std::thread>(arena, THREAD_CT);
     threadPool.workItemsData.WorkItemRequests = MemoryArena::AllocSpan<ThreadPool::WorkItemState>(arena, maxRequests);
 }
 

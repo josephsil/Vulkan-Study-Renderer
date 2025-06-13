@@ -6,7 +6,7 @@
 #include <Renderer/TextureCreation/TextureData.h>
 #include <Renderer/MeshCreation/MeshData.h>
 struct PerThreadRenderContext;
-struct preMeshletMesh;
+struct InterchangeMesh;
 struct TextureMetaData;
 
 //This is an "asset loading" step, might get separated from the main runtime at some point.

@@ -1,16 +1,12 @@
 #pragma once
 
-#pragma region forward declarations
 #include <cstdint>
-
-
 #include "../PerThreadRenderContext.h"
 #include  "../VulkanIncludes/Vulkan_Includes.h"
 #include <Renderer/TextureTypes.h>
 using ktxTexture2 = struct ktxTexture2;
 using ktxVulkanTexture = struct ktxVulkanTexture;
 
-#pragma endregion
 enum TextureType
 {
     DIFFUSE,
@@ -20,8 +16,6 @@ enum TextureType
     LINEAR_DATA,
     DATA_DONT_COMPRESS
 };
-
-
 
 
 namespace TextureCreation

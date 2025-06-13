@@ -12,7 +12,9 @@ namespace vkb
     struct Device;
 }
 
-
+//This wrapper for command buffers is used requently throughout the renderer and in texture import (as CommandBufferData)
+//Based on a pattern from http://vulkan-tutorial.com/ which I don't think I want to carry forward
+//This class also acquired some helpers for queue access and lifetime.
 struct CommandBufferPoolQueue_T
 {
     VkCommandBuffer buffer;
@@ -47,6 +49,8 @@ struct QueueData
 
 QueueData* GET_QUEUES(); 
 void INIT_QUEUES(vkb::Device d); 
+//This is (mostly) older code, needs a rethink.
+//Wraps command buffer creation and queue management. Kinda a bad fit.
 class CommandPoolManager
 {
 public:
@@ -62,6 +66,6 @@ public:
     void endSingleTimeCommands(CommandBufferData bufferAndPool, bool waitForFence = false);
 
     VkDevice device;
-    MemoryArena::memoryArena arena;
+    MemoryArena::Allocator arena;
     RendererDeletionQueue* deletionQueue;
 };

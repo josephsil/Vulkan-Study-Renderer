@@ -21,7 +21,7 @@
 struct GPU_LightData;
 struct GPU_VertexData;
 struct GPU_perShadowData;
-struct preMeshletMesh; //Forward Declaration
+struct InterchangeMesh; //Forward Declaration
 struct Vertex; //Forward Declaration
 using VmaAllocator = struct VmaAllocator_T*;
 struct SDL_Window;
@@ -61,11 +61,11 @@ struct GlobalRendererResources //Buffers, images, etc, used in core rendering --
 
 rendererObjects initializeVulkanObjects(SDL_Window* sdlWin, int WIDTH, int HEIGHT);
 GlobalRendererResources static_initializeResources(rendererObjects initializedrenderer,
-                                                   MemoryArena::memoryArena* allocationArena,
+                                                   MemoryArena::Allocator* allocationArena,
                                                    RendererDeletionQueue* deletionQueue,
                                                    CommandPoolManager* commandPoolmanager);
 PerSceneShadowResources AllocateShadowMemory(rendererObjects initializedrenderer,
-                                                    MemoryArena::memoryArena* allocationArena);
+                                                    MemoryArena::Allocator* allocationArena);
 
 class VulkanRenderer
 {
@@ -75,7 +75,7 @@ public:
     VulkanRenderer();
     PerThreadRenderContext GetMainRendererContext();
     BufferCreationContext getPartialRendererContext();
-    void initializePipelines(size_t shadowCasterCount);
+    void InitializePipelines(size_t shadowCasterCount);
     void InitializeRendererForScene(SceneSizeData sceneCountData);
     void Update(Scene* scene);
     void BeforeFirstUpdate();
@@ -96,8 +96,8 @@ private:
     RendererDeletionQueue* deletionQueue;
     
     //Memory allocators
-    MemoryArena::memoryArena rendererArena{};
-    MemoryArena::memoryArena perFrameArenas[MAX_FRAMES_IN_FLIGHT];
+    MemoryArena::Allocator rendererArena{};
+    MemoryArena::Allocator perFrameArenas[MAX_FRAMES_IN_FLIGHT];
 
  
     struct SDL_Window* _window{nullptr};
@@ -135,11 +135,11 @@ private:
     
     void createDescriptorSetPool(PerThreadRenderContext handles, VkDescriptorPool* pool);
     std::span<DescriptorUpdateData> CreatePerSceneDescriptorUpdates(uint32_t frame,
-                                                                    MemoryArena::memoryArena* arena,
+                                                                    MemoryArena::Allocator* arena,
                                                                     std::span<VkDescriptorSetLayoutBinding>
                                                                     layoutBindings);
     std::span<DescriptorUpdateData> CreatePerFrameDescriptorUpdates(uint32_t frame, size_t shadowCasterCount,
-                                                                    MemoryArena::memoryArena* arena,
+                                                                    MemoryArena::Allocator* arena,
                                                                     std::span<VkDescriptorSetLayoutBinding>
                                                                     layoutBindings);
 
@@ -200,12 +200,12 @@ private:
     void updatePerFrameBuffers(unsigned currentFrame, Array<std::span<glm::mat4>> models, Scene* scene);
 
 
-    void RecordMipChainCompute(ActiveRenderStepData commandBufferContext, MemoryArena::memoryArena* arena,
+    void RecordMipChainCompute(ActiveRenderStepData commandBufferContext, MemoryArena::Allocator* arena,
                                DepthPyramidInfo& pyramidInfo, VkImageView srcView);
     void updateBindingsComputeCullingPreCull(ActiveRenderStepData commandBufferContext,
                                              ArenaAllocator arena);
     void updateBindingsDrawCopy(ActiveRenderStepData commandBufferContext, ArenaAllocator arena);
-    void updateBindingsComputeCulling(ActiveRenderStepData commandBufferContext, Scene* scene, MemoryArena::memoryArena* arena, bool latecull);
+    void updateBindingsComputeCulling(ActiveRenderStepData commandBufferContext, Scene* scene, MemoryArena::Allocator* arena, bool latecull);
 
 
     void RecordUtilityPasses(VkCommandBuffer commandBuffer, size_t imageIndex);

@@ -15,28 +15,6 @@ inline void CopySpanRemappedSRC(std::span<T> src, std::span<T> dst, std::span<U>
     
 }
 
-template<class T,class U>
-inline void CopySpanRemappedDST(std::span<T> src, std::span<T> dst, std::span<U> dstIndices)
-{
- static_assert( std::is_unsigned_v<U>, "U must be an unsigned type" );
-    for (size_t i = 0; i < dstIndices.size(); i++)
-    {
-        dst[dstIndices[i]] = src[i];
-    }
-    
-}
-template<class T,class U>
-inline void CopySpanRemappedBoth(std::span<T> src, std::span<T> dst, std::span<U> srcIndices,  std::span<U> dstIndices)
-{
- static_assert( std::is_unsigned_v<U>, "U must be an unsigned type" );
-    assert(srcIndices.size() == dstIndices.size());
-    for (size_t i = 0; i < srcIndices.size(); i++)
-    {
-        dst[dstIndices[i]] = src[srcIndices[i]];
-    }
-    
-}
-
 template<class T>
 inline void FillIndicesAscendingNoAlloc(std::span<T> numbers)
 {
@@ -63,18 +41,16 @@ struct UntypedSpan
 {
 	void* data;
 	size_t count;
-	size_t size;
+	size_t elemSize;
 };
 
 template<class T,class U>
 void ReoderByIndices(ArenaAllocator scratchMemory, std::span<T> target, std::span<U> indices)
 {
-	MemoryArena::setCursor(scratchMemory);
-	auto tempCopy = MemoryArena::copySpan(scratchMemory, target);
+	auto cursor = MemoryArena::GetCurrentOffset(scratchMemory);
+	auto tempCopy = MemoryArena::AllocCopySpan(scratchMemory, target);
 	CopySpanRemappedSRC(tempCopy, target, indices);
-	MemoryArena::freeToCursor(scratchMemory);
-
-
+	MemoryArena::FreeToOffset(scratchMemory,cursor);
 }
 
 void ReorderParallelOpaqueSpans(ArenaAllocator temporaryMemory, 
@@ -84,9 +60,9 @@ void ReorderParallelOpaqueSpans(ArenaAllocator temporaryMemory,
 template<class T>
 UntypedSpan ToOpaqueSpan(std::span<T> target)
 {
-	return {
-		.data = (void*)target.data(), .count = target.size(), .size = sizeof(target[0]) };
+	return {.data = (void*)target.data(), .count = target.size(), .elemSize = sizeof(target[0]) };
 }
+
 template<typename... Types>
 std::span<UntypedSpan> ToUntypedSpans(ArenaAllocator allocator, Types&&... vars)
 {

@@ -31,22 +31,27 @@ VkDescriptorSet PreAllocatedDescriptorSetPool::peekNextDescriptorSet()
     return descriptorSets[descriptorsUsed];
 }
 
+PipelineLayoutGroup::PipelineLayoutGroup()
+{
+	initialized = false;
+}
 
-PipelineLayoutGroup::PipelineLayoutGroup(PerThreadRenderContext handles, VkDescriptorPool pool,
+void PipelineLayoutGroup::Initialize(PipelineLayoutGroup* target, PerThreadRenderContext handles, VkDescriptorPool pool,
                                          std::span<DescriptorDataForPipeline> descriptorInfo,
                                          std::span<VkDescriptorSetLayout> layouts, uint32_t pconstantsize, bool compute,
                                          const char* debugName)
 {
-    device = handles.device;
+	target->initialized = true;
+    target->device = handles.device;
 
-    partialPipelinelayoutCreateInfo = {};
-    layoutData.descriptorConfiguration = copySpan(handles.arena, descriptorInfo);
+    target->partialPipelinelayoutCreateInfo = {};
+    target->layoutData.descriptorConfiguration = MemoryArena::AllocCopySpan(handles.arena, descriptorInfo);
 
-    partialPipelinelayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    partialPipelinelayoutCreateInfo.setLayoutCount = static_cast<uint32_t>(layouts.size());
-    partialPipelinelayoutCreateInfo.pSetLayouts = copySpan(handles.arena, layouts).data();
-    createPipelineLayoutForGroup(&layoutData, pconstantsize, const_cast<char*>(debugName), compute);
-    layoutData.iscompute = compute;
+    target->partialPipelinelayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    target->partialPipelinelayoutCreateInfo.setLayoutCount = static_cast<uint32_t>(layouts.size());
+    target->partialPipelinelayoutCreateInfo.pSetLayouts = MemoryArena::AllocCopySpan(handles.arena, layouts).data();
+    target->createPipelineLayoutForGroup(&target->layoutData, pconstantsize, const_cast<char*>(debugName), compute);
+    target->layoutData.iscompute = compute;
 }
 
 
@@ -75,6 +80,7 @@ void PipelineLayoutGroup::BindRequiredDescriptorSetsToCommandBuffer(VkCommandBuf
                                                                     uint32_t currentFrame,
                                                                     VkPipelineBindPoint bindPoint)
 {
+	assert(initialized);
     //Bind all the general purpose descriptor sets required by this pipeline layout, early out if they're already bound
     for (size_t i = 0; i < layoutData.descriptorConfiguration.size(); i++)
     {
@@ -93,18 +99,21 @@ void PipelineLayoutGroup::BindRequiredDescriptorSetsToCommandBuffer(VkCommandBuf
 
 VkPipeline PipelineLayoutGroup::getPipeline(size_t index)
 {
+	assert(initialized);
     assert(index < pipelines.size());
     return pipelines[index];
 }
 
 uint32_t PipelineLayoutGroup::getPipelineCt()
 {
+	assert(initialized);
     return static_cast<uint32_t>(pipelines.size());
 }
 
 void PipelineLayoutGroup::createPipelineLayoutForGroup(PerPipelineLayoutData* perPipelineData, size_t pconstantSize,
                                                        char* name, bool compute)
 {
+	assert(initialized);
     VkPipelineLayoutCreateInfo pipelineLayoutInfo = partialPipelinelayoutCreateInfo;
 
     //setup push constants
@@ -133,6 +142,7 @@ void PipelineLayoutGroup::createPipelineLayoutForGroup(PerPipelineLayoutData* pe
 void PipelineLayoutGroup::createPipeline(std::span<VkPipelineShaderStageCreateInfo> shaders, const char* name,
                                          GraphicsPipelineSettings settings)
 {
+	assert(initialized);
     bool compute = layoutData.iscompute;
     if (compute)
     {
@@ -148,6 +158,7 @@ void PipelineLayoutGroup::createPipeline(std::span<VkPipelineShaderStageCreateIn
 void PipelineLayoutGroup::createGraphicsPipeline(std::span<VkPipelineShaderStageCreateInfo> shaders, char* name,
                                                  GraphicsPipelineSettings settings)
 {
+	assert(initialized);
     VkPipeline newGraphicsPipeline{};
 
     VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
@@ -264,6 +275,7 @@ void PipelineLayoutGroup::createGraphicsPipeline(std::span<VkPipelineShaderStage
 void PipelineLayoutGroup::createComputePipeline(VkPipelineShaderStageCreateInfo shader, char* name,
                                                 size_t pconstantSize)
 {
+	assert(initialized);
     VkPipeline newPipeline{};
 
     VkComputePipelineCreateInfo pipelineInfo{};
@@ -283,6 +295,7 @@ void PipelineLayoutGroup::createComputePipeline(VkPipelineShaderStageCreateInfo 
 
 void PipelineLayoutGroup::cleanup()
 {
+	assert(initialized);
     for (int i = 0; i < pipelines.size(); i++)
     {
         vkDestroyPipeline(device, pipelines[i], nullptr);

@@ -1,4 +1,4 @@
-#include "MeshOptimizer.h"
+#include "RunMeshOptimizer.h"
 
 #include <Renderer/MeshCreation/MeshData.h>
 #include <General/Array.h>
@@ -7,7 +7,7 @@
 #include <Renderer/rendererGlobals.h>
 #include <Scene/AssetManager.h>
 
-ImportMeshData  MeshOptimizer::RunMeshOptimizer(ArenaAllocator arena, AssetManager& rendererData, preMeshletMesh input)
+ImportedMeshData  MeshOptimizer::RunMeshOptimizer(ArenaAllocator arena, AssetManager& rendererData, InterchangeMesh input)
 {
     const size_t max_vertices = MESHLET_VERTICES;
     const size_t max_triangles = MESHLET_TRIS;
@@ -67,7 +67,7 @@ ImportMeshData  MeshOptimizer::RunMeshOptimizer(ArenaAllocator arena, AssetManag
     
     int idx = 0;
     return
-            ImportMeshData{
+            ImportedMeshData{
                 .vertexct = (uint32_t)meshlet_vertices.size(),
                 .indexCounts = _outputIndexCounts.getSpan(),
                 .meshletVertexOffsets = outputVertexOffsets,

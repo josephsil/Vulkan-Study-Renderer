@@ -31,8 +31,8 @@ int main()
 
 
     VulkanRenderer renderer;
-    MemoryArena::memoryArena sceneArena = {};
-    initialize(&sceneArena, 3 * 1000000);
+    MemoryArena::Allocator sceneArena = {};
+    MemoryArena::Initialize(&sceneArena, 3 * 1000000);
     Scene scene;
     InitializeScene(&sceneArena, &scene);
 
@@ -42,7 +42,7 @@ int main()
     
 	SceneSizeData sceneData = {.objectCount = scene.GetObjectsCount(), .totalDrawCt = meshletCt, .lightCount = scene.lightCount, .lightTypes = scene.lightTypes.getSpan()};
     renderer.InitializeRendererForScene(sceneData );
-    renderer.initializePipelines( scene.lightCount);
+    renderer.InitializePipelines( scene.lightCount);
 
 
     engineLoop(&renderer, &scene);

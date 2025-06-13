@@ -51,7 +51,7 @@ void ObjectImport::CreateObjectAssetsAndAddToScene(ArenaAllocator &arena, Scene 
 
 	//Transforms
     std::span<localTransform*> objectTransformReferences = MemoryArena::AllocSpan<localTransform*>(arena, gltf.objects.size()); //TODO JS: move to contiguous memory somewhere
-    std::span<size_t> parentTransformIndex = MemoryArena::AllocSpanEmplaceInitialize<size_t>(arena, gltf.objects.size(), SIZE_MAX); //TODO JS: move to contiguous memory somewhere
+    std::span<size_t> parentTransformIndex = MemoryArena::AllocSpanConstructEntries<size_t>(arena, gltf.objects.size(), SIZE_MAX); //TODO JS: move to contiguous memory somewhere
     //prepass to set up parents
     for (int i = 0; i < gltf.objects.size(); i++)
     {

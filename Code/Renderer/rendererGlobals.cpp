@@ -7,7 +7,7 @@
 PFN_vkSetDebugUtilsObjectNameEXT FP_vkSetDebugUtilsObjectNameEXT;
 char scratchMemory[256];
 
-std::span<char> GetScratchMemory()
+std::span<char> GetScratchStringMemory()
 {
     return scratchMemory;
 }

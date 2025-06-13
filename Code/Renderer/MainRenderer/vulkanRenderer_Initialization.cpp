@@ -137,7 +137,7 @@ vkb::Instance getInstance()
 
 
 GlobalRendererResources static_initializeResources(rendererObjects initializedrenderer,
-                                                   MemoryArena::memoryArena* allocationArena,
+                                                   MemoryArena::Allocator* allocationArena,
                                                    RendererDeletionQueue* deletionQueue,
                                                    CommandPoolManager* commandPoolmanager)
 {

@@ -57,7 +57,7 @@ RenderPassDrawData DebugCullingData[100];
 LinearDictionary<FullShaderHandle, FullShaderHandle> PlaceholderDepthPassLookup = {};
 
 PerSceneShadowResources AllocateShadowMemory(rendererObjects initializedrenderer,
-                                                    MemoryArena::memoryArena* allocationArena);
+                                                    MemoryArena::Allocator* allocationArena);
 VkDescriptorSet UpdateAndGetBindlessDescriptorSetForFrame(PerThreadRenderContext context,
                                                           DescriptorDataForPipeline descriptorData, int currentFrame,
                                                           std::span<descriptorUpdates> updates);
@@ -70,11 +70,10 @@ VulkanRenderer::VulkanRenderer()
 {
   
     //Initialize memory arenas we use throughout renderer 
-    this->rendererArena = {};
-    MemoryArena::initialize(&rendererArena, 1000000 * 200); // 200mb
+    MemoryArena::Initialize(&rendererArena, 1000000 * 200); // 200mb
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        MemoryArena::initialize(&perFrameArenas[i], 1000000 * 120);
+        MemoryArena::Initialize(&perFrameArenas[i], 1000000 * 120);
         //TODO JS: Could be much smaller if I used stable memory for per frame verts and stuff
     }
 
@@ -92,14 +91,13 @@ VulkanRenderer::VulkanRenderer()
 
 
 
-	this->deletionQueue = MemoryArena::Alloc<RendererDeletionQueue>(&rendererArena);
+	this->deletionQueue = MemoryArena::AllocDefaultConstructor<RendererDeletionQueue>(&rendererArena);
 	InitRendererDeletionQueue(deletionQueue, vulkanObjects.vkbdevice, vulkanObjects.vmaAllocator);
 	assert(deletionQueue->device != VK_NULL_HANDLE);
-	this->commandPoolmanager = MemoryArena::Alloc<CommandPoolManager>(&rendererArena);
-	new (this->commandPoolmanager) CommandPoolManager(vulkanObjects.vkbdevice, deletionQueue);
+	this->commandPoolmanager = MemoryArena::AllocConstruct<CommandPoolManager>(&rendererArena, vulkanObjects.vkbdevice, deletionQueue);
 
     perFrameData = MemoryArena::AllocSpan<FrameData>(&rendererArena, MAX_FRAMES_IN_FLIGHT);
-    perFrameDeletionQueuse = MemoryArena::AllocSpan<RendererDeletionQueue>(&rendererArena, MAX_FRAMES_IN_FLIGHT); 
+    perFrameDeletionQueuse = MemoryArena::AllocSpanDefaultConstructor<RendererDeletionQueue>(&rendererArena, MAX_FRAMES_IN_FLIGHT); 
     //semaphores
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
@@ -152,7 +150,7 @@ void VulkanRenderer::UpdateShadowImageViews(int frame, SceneSizeData lightData)
        
     shadowResources.shadowMapSingleLayerViews[frame] =  MemoryArena::AllocSpan<VkImageView>(&rendererArena, MAX_SHADOWMAPS);
     shadowResources.WIP_shadowDepthPyramidInfos[frame] = MemoryArena::AllocSpan<DepthPyramidInfo>(&rendererArena, MAX_SHADOWMAPS);
-    auto scratchMemory = GetScratchMemory();
+    auto scratchMemory = GetScratchStringMemory();
     for (int j = 0; j < MAX_SHADOWMAPS; j++)
     {
         shadowResources.shadowMapSingleLayerViews[frame][j] = TextureUtilities::createImageViewCustomMip(
@@ -202,7 +200,7 @@ void VulkanRenderer::UpdateShadowImageViews(int frame, SceneSizeData lightData)
 }
 
 
-static PerSceneShadowResources AllocateShadowMemory(rendererObjects initializedrenderer,  MemoryArena::memoryArena* allocationArena)
+static PerSceneShadowResources AllocateShadowMemory(rendererObjects initializedrenderer,  MemoryArena::Allocator* allocationArena)
 {
   
     auto shadowImages = MemoryArena::AllocSpan<VkImage>(allocationArena, MAX_FRAMES_IN_FLIGHT); 
@@ -225,8 +223,18 @@ static PerSceneShadowResources AllocateShadowMemory(rendererObjects initializedr
 }
 
 
+//Pipelines. Currently, the assumption is that the renderer will (continue to) have a very small number of pipeline *layouts*,
+//And a fairly small number of pipelines total. Binding is expected to happen at very regular times in the frame.
+//So right now pipeline layout and configuration is mostly hardcoded. The setup is a little verbose and repetitive.
+//Pipeline group (see PipelineLayoutGroup.h) creation starts with a span of DescriptorLayouts, which are used to 
+//Create the VkDescriptorSet, and the DescriptorDataForPipeline struct with info for my code. 
+//For the bindless layouts which will get the same updates every frame, I also call functions to create std::span<DescriptorUpdateData>
+//DescriptorUpdateData are typed objects used to create VkDescriptorInfo objects when we do updates.
+//Other pipelines typically create these in place while rendering the frame.
 
-void VulkanRenderer::initializePipelines(size_t shadowCasterCount)
+//After layouts, I create PipelineGroups (see PipelineLayoutGroup.h), for each layout, and call CreatePipeline for each shader/pipeline permuation;
+//Finally, some lookups/global IDs are updated to for later rendering code to use.
+void VulkanRenderer::InitializePipelines(size_t shadowCasterCount)
 {
     
     createDescriptorSetPool(GetMainRendererContext(), &descriptorPool);
@@ -272,7 +280,7 @@ void VulkanRenderer::initializePipelines(size_t shadowCasterCount)
     DescriptorDataForPipeline copyDescriptorData = DescriptorSets::CreateDescriptorDataForPipeline(GetMainRendererContext(), copyLayout, true, copyBindings, "Copy DraIndirect Set", descriptorPool);
    
     cullDataCopyLayoutIDX = pipelineLayoutManager.CreateNewGroup(GetMainRendererContext(), descriptorPool, {&copyDescriptorData, 1}, {&copyLayout, 1},  256, true, "Copy Draw layout");
-    pipelineLayoutManager.createPipeline(cullDataCopyLayoutIDX, globalResources.shaderLoader->compiledShaders["pre_cull_copy"],  "pre_cull_copy",  {});
+    pipelineLayoutManager.CreatePipeline(cullDataCopyLayoutIDX, globalResources.shaderLoader->compiledShaders["pre_cull_copy"],  "pre_cull_copy",  {});
     
    VkDescriptorSetLayoutBinding cullLayoutBindings[7] = {};
 	cullLayoutBindings[0] = VkDescriptorSetLayoutBinding{0, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, MAX_SHADOWMAPS +1, VK_SHADER_STAGE_COMPUTE_BIT,  VK_NULL_HANDLE};// images 1 //per scene
@@ -301,8 +309,8 @@ void VulkanRenderer::initializePipelines(size_t shadowCasterCount)
 
     mipChainLayoutIDX = pipelineLayoutManager.CreateNewGroup(GetMainRendererContext(), descriptorPool, {&mipChainDescriptorData, 1}, {&_mipchainLayout, 1},  sizeof(glm::vec2), true, "mip chain layout");
     cullingLayoutIDX = pipelineLayoutManager.CreateNewGroup(GetMainRendererContext(), descriptorPool, {&cullingDescriptorData, 1}, {&_cullingLayout, 1}, sizeof(GPU_CullPushConstants), true, "culling layout");
-    pipelineLayoutManager.createPipeline(mipChainLayoutIDX, globalResources.shaderLoader->compiledShaders["mipChain"],  "mipChain",  {});
-    pipelineLayoutManager.createPipeline(cullingLayoutIDX, globalResources.shaderLoader->compiledShaders["cull"],  "cull",  {});
+    pipelineLayoutManager.CreatePipeline(mipChainLayoutIDX, globalResources.shaderLoader->compiledShaders["mipChain"],  "mipChain",  {});
+    pipelineLayoutManager.CreatePipeline(cullingLayoutIDX, globalResources.shaderLoader->compiledShaders["cull"],  "cull",  {});
 
     DescriptorDataForPipeline descriptorWrappers[2] = {perSceneBindlessDescriptorData, perFrameBindlessDescriptorData};
     VkDescriptorSetLayout layouts[2] = {perSceneBindlessDescriptorLayout, perFrameBindlessLayout};
@@ -315,13 +323,13 @@ void VulkanRenderer::initializePipelines(size_t shadowCasterCount)
     //opaque
     auto swapchainFormat = vulkanObjects.swapchain.image_format;
     const GraphicsPipelineSettings opaquePipelineSettings =  {.colorFormats = std::span(&swapchainFormat, 1),.depthFormat =  globalResources.depthBufferInfoPerFrame[currentFrame].format, .depthWriteEnable = VK_TRUE};
-    auto opaque1 = pipelineLayoutManager.createPipeline(opaqueLayoutIDX, globalResources.shaderLoader->compiledShaders["triangle_alt"],  "triangle_alt", opaquePipelineSettings);
-    auto opaque2 = pipelineLayoutManager.createPipeline(opaqueLayoutIDX, globalResources.shaderLoader->compiledShaders["triangle"],  "triangle", opaquePipelineSettings);
+    auto opaque1 = pipelineLayoutManager.CreatePipeline(opaqueLayoutIDX, globalResources.shaderLoader->compiledShaders["triangle_alt"],  "triangle_alt", opaquePipelineSettings);
+    auto opaque2 = pipelineLayoutManager.CreatePipeline(opaqueLayoutIDX, globalResources.shaderLoader->compiledShaders["triangle"],  "triangle", opaquePipelineSettings);
     
 
     //shadow 
     const GraphicsPipelineSettings shadowPipelineSettings =  {std::span(&swapchainFormat, 0), shadowFormat, VK_CULL_MODE_NONE, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_TRUE, VK_TRUE, VK_TRUE, true };
-    auto shadow = pipelineLayoutManager.createPipeline(shadowLayoutIDX, globalResources.shaderLoader->compiledShaders["shadow"],  "shadow", shadowPipelineSettings);
+    auto shadow = pipelineLayoutManager.CreatePipeline(shadowLayoutIDX, globalResources.shaderLoader->compiledShaders["shadow"],  "shadow", shadowPipelineSettings);
     const GraphicsPipelineSettings shadowDepthPipelineSettings =
         {std::span(&swapchainFormat, 0), shadowFormat, VK_CULL_MODE_BACK_BIT, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
         VK_FALSE, VK_TRUE, VK_TRUE, true };
@@ -330,9 +338,9 @@ void VulkanRenderer::initializePipelines(size_t shadowCasterCount)
     {std::span(&swapchainFormat, 0), shadowFormat, VK_CULL_MODE_BACK_BIT, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
     VK_FALSE, VK_TRUE, VK_FALSE, false };
 
-    SHADOW_PREPASS_SHADER_INDEX = pipelineLayoutManager.createPipeline(shadowLayoutIDX, globalResources.shaderLoader->compiledShaders["shadow"],  "shadowDepthPrepass",  shadowDepthPipelineSettings);
+    SHADOW_PREPASS_SHADER_INDEX = pipelineLayoutManager.CreatePipeline(shadowLayoutIDX, globalResources.shaderLoader->compiledShaders["shadow"],  "shadowDepthPrepass",  shadowDepthPipelineSettings);
     std::span<VkPipelineShaderStageCreateInfo> triangleShaderSpan =  globalResources.shaderLoader->compiledShaders["triangle"];
-    OPAQUE_PREPASS_SHADER_INDEX = pipelineLayoutManager.createPipeline(opaqueLayoutIDX, triangleShaderSpan.subspan(0, 1),  "opaqueDepthPrepass",  opaqueDepthPipelineSettings);
+    OPAQUE_PREPASS_SHADER_INDEX = pipelineLayoutManager.CreatePipeline(opaqueLayoutIDX, triangleShaderSpan.subspan(0, 1),  "opaqueDepthPrepass",  opaqueDepthPipelineSettings);
     
     opaqueObjectShaderSets.push_back(opaque1, shadow);
     opaqueObjectShaderSets.push_back(opaque2, shadow);
@@ -341,11 +349,11 @@ void VulkanRenderer::initializePipelines(size_t shadowCasterCount)
 
     
     const GraphicsPipelineSettings linePipelineSettings =  {std::span(&swapchainFormat, 1), globalResources.depthBufferInfoPerFrame[currentFrame].format, VK_CULL_MODE_NONE, VK_PRIMITIVE_TOPOLOGY_LINE_LIST };
-    DEBUG_LINE_SHADER_INDEX = pipelineLayoutManager.createPipeline(opaqueLayoutIDX, globalResources.shaderLoader->compiledShaders["lines"],  "lines", linePipelineSettings);
+    DEBUG_LINE_SHADER_INDEX = pipelineLayoutManager.CreatePipeline(opaqueLayoutIDX, globalResources.shaderLoader->compiledShaders["lines"],  "lines", linePipelineSettings);
 
     
     const GraphicsPipelineSettings debugRaymarchPipelineSettings =  {std::span(&swapchainFormat, 1), globalResources.depthBufferInfoPerFrame[currentFrame].format, VK_CULL_MODE_FRONT_BIT, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST};
-    DEBUG_RAYMARCH_SHADER_INDEX = pipelineLayoutManager.createPipeline(opaqueLayoutIDX, globalResources.shaderLoader->compiledShaders["debug"],  "debug", debugRaymarchPipelineSettings);
+    DEBUG_RAYMARCH_SHADER_INDEX = pipelineLayoutManager.CreatePipeline(opaqueLayoutIDX, globalResources.shaderLoader->compiledShaders["debug"],  "debug", debugRaymarchPipelineSettings);
 
     PlaceholderDepthPassLookup.Push( (shadow),  (SHADOW_PREPASS_SHADER_INDEX));
     PlaceholderDepthPassLookup.Push((opaque1), (OPAQUE_PREPASS_SHADER_INDEX));
@@ -367,7 +375,7 @@ void VulkanRenderer::InitializeRendererForScene(SceneSizeData sceneCountData) //
 {
     //shadows
     perLightShadowData = MemoryArena::AllocSpan<std::span<GPU_perShadowData>>(&rendererArena, sceneCountData.lightCount);
-    auto scratchMemory = GetScratchMemory();
+    auto scratchMemory = GetScratchStringMemory();
     for(int i = 0; i < MAX_FRAMES_IN_FLIGHT ; i++)
     {
         TextureUtilities::createImage(getPartialRendererContext(),SHADOW_MAP_SIZE, SHADOW_MAP_SIZE,shadowFormat,VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
@@ -380,28 +388,31 @@ void VulkanRenderer::InitializeRendererForScene(SceneSizeData sceneCountData) //
         UpdateShadowImageViews(i, sceneCountData);
     }
 
+	//Textures the renderer globalls needs
     TextureCreation::CreateDepthPyramidSampler(&globalResources.writeDepthMipSampler, VK_SAMPLER_REDUCTION_MODE_MIN, GetMainRendererContext(), HIZDEPTH);
     TextureCreation::CreateDepthPyramidSampler(&globalResources.readDepthMipSampler, VK_SAMPLER_REDUCTION_MODE_MIN, GetMainRendererContext(), HIZDEPTH);
+	
+	//Uniform buffers for objects
+	CreateUniformBuffers(sceneCountData.totalDrawCt, sceneCountData.objectCount, sceneCountData.lightCount);
+
+	//Mesh data
+	//TODO JS: Move -- should eventually run when meshes change
+    PopulateMeshBuffers();
+
+
+	//Initialize scene-ish objects we don't have a place for yet 
+	//TODO: cubemaps should be driven from the scene, eventually
     TextureCreation::TextureImportRequest args[3] = {
     TextureCreation::MakeCreationArgsFromFilepathArgs("textures/outputLUT.png", &perFrameArenas[currentFrame], TextureType::LINEAR_DATA, VK_IMAGE_VIEW_TYPE_2D),
     TextureCreation::MakeTextureCreationArgsFromCachedKTX("textures/output_cubemap2_diff8.ktx2",VK_SAMPLER_ADDRESS_MODE_REPEAT, true),
     TextureCreation::MakeTextureCreationArgsFromCachedKTX("textures/output_cubemap2_spec8.ktx2",VK_SAMPLER_ADDRESS_MODE_REPEAT, true)};
     TextureData data[3];
     LoadTexturesThreaded(GetMainRendererContext(), data, args);
-
-    //Initialize scene-ish objects we don't have a place for yet 
      auto cubemaplut_utilitytexture =data[0];
     cubemaplut_utilitytexture_index = AssetDataAndMemory->AddTexture(cubemaplut_utilitytexture);
      cube_irradiance =data[1];
      cube_specular = data[2];
 
-    CreateUniformBuffers(sceneCountData.totalDrawCt, sceneCountData.objectCount, sceneCountData.lightCount);
-
-
-    //TODO JS: Move... Run when meshes change?
-    PopulateMeshBuffers();
-
-    
 }
 
 //TODO JS: Support changing meshes at runtime
@@ -508,7 +519,7 @@ void VulkanRenderer::createDescriptorSetPool(PerThreadRenderContext context, VkD
 
 
 
-std::span<DescriptorUpdateData> VulkanRenderer::CreatePerSceneDescriptorUpdates(uint32_t frame, MemoryArena::memoryArena* arena, std::span<VkDescriptorSetLayoutBinding> layoutBindings)
+std::span<DescriptorUpdateData> VulkanRenderer::CreatePerSceneDescriptorUpdates(uint32_t frame, MemoryArena::Allocator* arena, std::span<VkDescriptorSetLayoutBinding> layoutBindings)
 {
     auto imageInfos = AssetDataAndMemory->textures.getSpan();
     std::span<VkDescriptorImageInfo> cubeImageInfos = MemoryArena::AllocSpan<VkDescriptorImageInfo>(arena, 2);
@@ -542,7 +553,7 @@ std::span<DescriptorUpdateData> VulkanRenderer::CreatePerSceneDescriptorUpdates(
    return descriptorUpdates.getSpan();
 }
 
-std::span<DescriptorUpdateData> VulkanRenderer::CreatePerFrameDescriptorUpdates(uint32_t frame, size_t shadowCasterCount, MemoryArena::memoryArena* arena, std::span<VkDescriptorSetLayoutBinding> layoutBindings)
+std::span<DescriptorUpdateData> VulkanRenderer::CreatePerFrameDescriptorUpdates(uint32_t frame, size_t shadowCasterCount, MemoryArena::Allocator* arena, std::span<VkDescriptorSetLayoutBinding> layoutBindings)
 {
     std::span<VkDescriptorImageInfo> shadows = MemoryArena::AllocSpan<VkDescriptorImageInfo>(arena, MAX_SHADOWMAPS);
     
@@ -650,7 +661,7 @@ static void updateGlobals(cameraData camera, size_t lightCount, size_t cubeMapLu
 
 }
 
-static void updateShadowData(MemoryArena::memoryArena* allocator, std::span<std::span<GPU_perShadowData>> perLightShadowData, Scene* scene, cameraData camera)
+static void updateShadowData(MemoryArena::Allocator* allocator, std::span<std::span<GPU_perShadowData>> perLightShadowData, Scene* scene, cameraData camera)
 {
     for(int i =0; i <scene->lightCount; i++)
     {
@@ -1192,7 +1203,7 @@ void VulkanRenderer::RecordUtilityPasses( VkCommandBuffer commandBuffer, size_t 
 //We end up with the gpu mapped DrawCommands populated with a unique list of drawcommanddata for each object for each draw
 //I think I did it this way so I can easily set index count to zero later on to skip a draw
 //Would be better to only have one list of objects to draw?
-void RecordIndirectCommandBufferForPasses(Scene* scene, AssetManager* rendererData, MemoryArena::memoryArena* allocator, std::span<drawCommandData> drawCommands, std::span<RenderBatch> passes)
+void RecordIndirectCommandBufferForPasses(Scene* scene, AssetManager* rendererData, MemoryArena::Allocator* allocator, std::span<drawCommandData> drawCommands, std::span<RenderBatch> passes)
 {
 
     //indirect draw commands
@@ -1344,7 +1355,7 @@ void VulkanRenderer::Update(Scene* scene)
         clock_t difference = clock() - afterFence;
         auto msec = difference * 1000 / CLOCKS_PER_SEC;
         perFrameDeletionQueuse[currentFrame].FreeQueue();
-        MemoryArena::free(&perFrameArenas[currentFrame]);
+        MemoryArena::Free(&perFrameArenas[currentFrame]);
 
     }
 
@@ -1641,7 +1652,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     {
         VkDevice device;
         Array<ActiveRenderStepData> renderstepDatas;
-        ActiveRenderStepData* PushAndInitializeRenderStep(const char* cbufferDebugName, MemoryArena::memoryArena* arena, CommandPoolManager* poolManager,
+        ActiveRenderStepData* PushAndInitializeRenderStep(const char* cbufferDebugName, MemoryArena::Allocator* arena, CommandPoolManager* poolManager,
             VkSemaphore* WaitSemaphore = nullptr, 
              VkSemaphore* SignalSemaphore = nullptr, VkFence* CbufferSignalFence = nullptr, bool transferQueue = false) 
         {
@@ -1830,7 +1841,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
         auto newBatch =  renderBatches[i];
         newBatch.colorattatchment = newBatch.colorattatchment  == ColorRenderTargetNoClear ?  initialColorRenderTarget : VK_NULL_HANDLE; //hack todo
         std::span<simpleMeshPassInfo> oldPasses = renderBatches[i].perPipelinePasses;
-        std::span<simpleMeshPassInfo> newPasses = MemoryArena::copySpan<simpleMeshPassInfo>(&perFrameArenas[currentFrame], oldPasses);
+        std::span<simpleMeshPassInfo> newPasses = MemoryArena::AllocCopySpan<simpleMeshPassInfo>(&perFrameArenas[currentFrame], oldPasses);
         for(int j =0; j < newPasses.size(); j++)
         {
             // newPasses[j].shader = PlaceholderDepthPassLookup.Find(oldPasses[j].shader); 
@@ -1843,7 +1854,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     }
     
     auto prepassBatches = renderBatches.getSpan().subspan(existingRenderBatches.size());
-    prepassBatches = MemoryArena::copySpan<RenderBatch>(&perFrameArenas[currentFrame], prepassBatches);
+    prepassBatches = MemoryArena::AllocCopySpan<RenderBatch>(&perFrameArenas[currentFrame], prepassBatches);
 
     if (haveInitializedFrame[currentFrame])
     {

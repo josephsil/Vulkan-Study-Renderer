@@ -81,5 +81,5 @@ struct objectTransforms
 
     void set(uint64_t ID, glm::mat4 mat);
     void UpdateWorldTransforms();
-    void RebuildTransformDataFromNodes(MemoryArena::memoryArena* arena);
+    void RebuildTransformDataFromNodes(MemoryArena::Allocator* arena);
 };

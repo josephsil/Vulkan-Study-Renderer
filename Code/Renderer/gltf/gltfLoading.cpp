@@ -13,7 +13,7 @@
 #include "gltf_impl.h"
 #include <Renderer/CommandPoolManager.h>
 #include <Renderer/PerThreadRenderContext.h>
-#include <Renderer/MeshCreation/MeshOptimizer.h>
+#include <Renderer/MeshCreation/RunMeshOptimizer.h>
 #include <Renderer/TextureCreation/TextureData.h>
 #include <General/MemoryArena.h>
 #include "General/ThreadedTextureLoading.h"
@@ -255,7 +255,7 @@ void loadAttributeOrDefault(Array<glm::vec4>* target, tinygltf::Model* model, ti
     }
 }
 
-temporaryloadingMesh geoFromGLTFMesh(MemoryArena::memoryArena* tempArena, tinygltf::Model* model,
+temporaryloadingMesh geoFromGLTFMesh(MemoryArena::Allocator* tempArena, tinygltf::Model* model,
                                      tinygltf::Primitive prim)
 {
     //TODOS: 2- Refactor the rest of the attributes like color?
@@ -412,13 +412,13 @@ void GltfLoadTextures(size_t imageCt, std::span<TextureData> textures,  std::spa
         imagePaths.push_back(cachedImagePath);
     }
 
-    auto memoryTempAllocator = MemoryArena::memoryArena {};
-    MemoryArena::initialize(&memoryTempAllocator, 6000);
+    auto memoryTempAllocator = MemoryArena::Allocator {};
+    MemoryArena::Initialize(&memoryTempAllocator, 6000);
     auto textureCreationRequests = MemoryArena::AllocSpan<TextureCreation::TextureImportRequest>(&memoryTempAllocator, imagePaths.size());
     for (size_t i = 0; i < imagePaths.size(); i++)
     {
         auto path = imagePaths[i];
-        auto loadFromCache = (FileCaching::fileExists(path) && !gltfOutOfDate);
+        auto loadFromCache = (FileCaching::FileExists(path) && !gltfOutOfDate);
         auto& image = gltfImages[i];
         TextureCreation::TextureImportRequest jobArg = {};
         if (loadFromCache)
@@ -434,21 +434,17 @@ void GltfLoadTextures(size_t imageCt, std::span<TextureData> textures,  std::spa
         }
     }
     LoadTexturesThreaded(handles, textures, textureCreationRequests);
-
-    MemoryArena::RELEASE(&memoryTempAllocator);
-
-
 }
 
 //TODO: Cameras? Probably not
 //TODO: More speed improvements: don't re-calculate tangents every load
 GltfData GltfLoadMeshes(PerThreadRenderContext handles,  AssetManager& rendererData, const char* gltfpath)
 {
-    bool gltfOutOfdate = FileCaching::assetOutOfDate(gltfpath);
+    bool gltfOutOfdate = FileCaching::IsAssetOutOfDate(gltfpath);
     // gltfOutOfdate = true;
 
-    MemoryArena::memoryArena scratchArena = {};
-    initialize(&scratchArena, 100000 * 5000); //TODO JS: right size this to the gltf size;
+    MemoryArena::Allocator scratchArena = {};
+    MemoryArena::Initialize(&scratchArena, 100000 * 5000); //TODO JS: right size this to the gltf size;
 
     GltfData output = {};
     const char* ext = strrchr(gltfpath, '.');
@@ -461,8 +457,8 @@ GltfData GltfLoadMeshes(PerThreadRenderContext handles,  AssetManager& rendererD
     if (gltfOutOfdate) loader.SetImageLoader(LoadImageData, nullptr);
     else loader.SetImageLoader(LoadImageDataNoop, nullptr);
 
-    MemoryArena::memoryArena* ScratchMemory = &scratchArena; 
-    MemoryArena::memoryArena* memoryArenaForLoading = handles.tempArena;
+    MemoryArena::Allocator* ScratchMemory = &scratchArena; 
+    MemoryArena::Allocator* memoryArenaForLoading = handles.tempArena;
 
 
     bool ret = loader.LoadBinaryFromFile(&model, &err, &warn, gltfpath);
@@ -487,9 +483,9 @@ GltfData GltfLoadMeshes(PerThreadRenderContext handles,  AssetManager& rendererD
     std::span<std::span<meshletIndexInfo>> meshletIndexInfos = MemoryArena::AllocSpan<std::span<meshletIndexInfo>>(memoryArenaForLoading, meshCt);
     for (int i = 0; i < meshCt; i++)
     {
-        setCursor(ScratchMemory);
+        auto cursor = MemoryArena::GetCurrentOffset(ScratchMemory);
         size_t submeshCt = model.meshes[i].primitives.size();
-        Array<ImportMeshData> submeshes = MemoryArena::AllocSpan<ImportMeshData>(memoryArenaForLoading, submeshCt); 
+        Array<ImportedMeshData> submeshes = MemoryArena::AllocSpan<ImportedMeshData>(memoryArenaForLoading, submeshCt); 
         Array<uint32_t> submeshMats = MemoryArena::AllocSpan<uint32_t>(ScratchMemory, submeshCt); 
     
          meshletIndexInfos[i] = MemoryArena::AllocSpan<meshletIndexInfo>(memoryArenaForLoading, submeshCt);
@@ -501,7 +497,7 @@ GltfData GltfLoadMeshes(PerThreadRenderContext handles,  AssetManager& rendererD
             auto tempMeshresult = MeshDataCreation::FinalizeMeshDataFromTempMesh(memoryArenaForLoading, ScratchMemory, tempMesh);
             submeshMats.push_back(model.meshes[i].primitives[j].material);
 
-            ImportMeshData meshOptimizedMesh = MeshOptimizer::RunMeshOptimizer(memoryArenaForLoading,rendererData,   tempMeshresult);
+            ImportedMeshData meshOptimizedMesh = MeshOptimizer::RunMeshOptimizer(memoryArenaForLoading,rendererData,   tempMeshresult);
 
             meshletIndexInfos[i][j] = {submeshes.ct, meshOptimizedMesh.meshletCount}; 
             
@@ -510,9 +506,9 @@ GltfData GltfLoadMeshes(PerThreadRenderContext handles,  AssetManager& rendererD
             //TODO JS
         }
      
-        importedMeshes[i].submeshes =   MemoryArena::copySpan(memoryArenaForLoading,   submeshes.getSpan());
-        importedMeshes[i].submeshMaterialIndices = MemoryArena::copySpan(memoryArenaForLoading,   submeshMats.getSpan());
-        freeToCursor(ScratchMemory);
+        importedMeshes[i].submeshes =   MemoryArena::AllocCopySpan(memoryArenaForLoading,   submeshes.getSpan());
+        importedMeshes[i].submeshMaterialIndices = MemoryArena::AllocCopySpan(memoryArenaForLoading,   submeshMats.getSpan());
+        MemoryArena::FreeToOffset(ScratchMemory,cursor);
     }
 
     //TODO support: lights
@@ -579,7 +575,7 @@ GltfData GltfLoadMeshes(PerThreadRenderContext handles,  AssetManager& rendererD
         gltfNodes[i] = {node.mesh, childIndices, scale, rotation, translation};
     }
 
-    FileCaching::saveAssetChangedTime(gltfpath);
+    FileCaching::SaveAssetChangedTime(gltfpath);
 
     //Not supporting, just for logging
     size_t cameraCt = model.cameras.size();
@@ -591,6 +587,5 @@ GltfData GltfLoadMeshes(PerThreadRenderContext handles,  AssetManager& rendererD
         gltfpath, nodeCt, meshCt, matCt, imageCt, cameraCt, animCt, texCt, lightCt);
 
 
-    RELEASE(&scratchArena);
     return {importedMeshes, meshletIndexInfos, textures, materials, gltfNodes};
 }

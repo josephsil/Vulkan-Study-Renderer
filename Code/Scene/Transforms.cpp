@@ -84,7 +84,7 @@ void objectTransforms::UpdateWorldTransforms()
 }
 
 //This is probably insane, i have a cold and can't remember how trees work
-void objectTransforms::RebuildTransformDataFromNodes(MemoryArena::memoryArena* arena)
+void objectTransforms::RebuildTransformDataFromNodes(MemoryArena::Allocator* arena)
 {
     printf("Repeatedly rebuilding transform data leaks memory! todo! \n"); //TODO JS
 

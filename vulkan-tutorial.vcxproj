@@ -355,7 +355,7 @@
     <ClCompile Include="Code\Renderer\MainRenderer\vulkanRenderer_Initialization.cpp" />
     <ClCompile Include="Code\Renderer\MeshCreation\MeshData.cpp">
     </ClCompile>
-    <ClCompile Include="Code\Renderer\MeshCreation\MeshOptimizer.cpp" />
+    <ClCompile Include="Code\Renderer\MeshCreation\RunMeshOptimizer.cpp" />
     <ClCompile Include="Code\Renderer\MikkTImpl.cpp" />
     <ClCompile Include="Code\Renderer\ObjectImport.cpp" />
     <ClCompile Include="Code\Renderer\RendererDeletionQueue.cpp" />
@@ -431,6 +431,7 @@
     <ClInclude Include="Code\Renderer\gltf\gltf_impl.h" />
     <ClInclude Include="Code\Renderer\gpu-data-structs.h" />
     <ClInclude Include="Code\Renderer\MainRenderer\PipelineManager\Internal\PipelineLayoutGroup.h" />
+    <ClInclude Include="Code\Renderer\MainRenderer\PipelineManager\Internal\PipelineLayoutManagerTypes.h" />
     <ClInclude Include="Code\Renderer\MainRenderer\PipelineManager\PipelineLayoutManager.h" />
     <ClInclude Include="Code\Renderer\MainRenderer\rendererStructs.h" />
     <ClInclude Include="Code\Renderer\MainRenderer\VulkanRenderer.h" />

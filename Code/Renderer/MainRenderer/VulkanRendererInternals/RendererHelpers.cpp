@@ -8,11 +8,14 @@
 #include <fmtInclude.h>
 #pragma region depth
 
-using PreviousPow2 = std::bit_floor(v)
+inline uint32_t PreviousPow2(uint32_t v)
+{
+	return std::bit_floor(v) ;
+}
 
 //TODO: Reuse more code between CreateDepthResources and CreateDepthPyramidResources
 DepthBufferInfo CreateDepthResources(rendererObjects initializedrenderer,
-											MemoryArena::memoryArena* allocationArena,
+											MemoryArena::Allocator* allocationArena,
 											RendererDeletionQueue* deletionQueue,
 											CommandPoolManager* commandPoolmanager)
 {
@@ -50,7 +53,7 @@ DepthBufferInfo CreateDepthResources(rendererObjects initializedrenderer,
 }
 
 DepthPyramidInfo CreateDepthPyramidResources(rendererObjects initializedrenderer,
-													MemoryArena::memoryArena* allocationArena,
+													MemoryArena::Allocator* allocationArena,
 													const char* name,
 													RendererDeletionQueue* deletionQueue,
 													CommandPoolManager* commandPoolmanager)
@@ -87,6 +90,7 @@ DepthPyramidInfo CreateDepthPyramidResources(rendererObjects initializedrenderer
 								  (bufferInfo.image),
 								  (bufferInfo.vmaAllocation), HIZDEPTH, 1, false, "DEPTH PYRAMID TEXTURE");
 
+	auto cursor = MemoryArena::GetCurrentOffset(allocationArena);
 	auto scratchBuffer = MemoryArena::AllocSpan<char>(allocationArena, 256);
 	for (int i = 0; i < bufferInfo.viewsForMips.size(); i++)
 	{
@@ -117,7 +121,7 @@ DepthPyramidInfo CreateDepthPyramidResources(rendererObjects initializedrenderer
 
 	commandPoolmanager->endSingleTimeCommands(tempBufferAndPool, true); //todo js sync
 
-	MemoryArena::freeLast(allocationArena); //Free our scratch memory.
+	MemoryArena::FreeToOffset(allocationArena,cursor); //Free our scratch memory.
 	return bufferInfo;
 }
 

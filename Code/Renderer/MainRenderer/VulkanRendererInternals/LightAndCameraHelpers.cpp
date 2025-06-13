@@ -202,7 +202,7 @@ std::span<glm::vec4> LightAndCameraHelpers::FillFrustumCornersForSpace(std::span
 }
 
 
-std::span<GPU_perShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryArena::memoryArena* allocator,
+std::span<GPU_perShadowData> LightAndCameraHelpers::CalculateLightMatrix(MemoryArena::Allocator* allocator,
                                                                      cameraData cam, glm::vec3 lightPos, glm::vec3 spotDir, float spotRadius, LightType type,
                                                                      DebugLineData* debugLinesManager)
 {

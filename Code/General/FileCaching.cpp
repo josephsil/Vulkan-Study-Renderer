@@ -5,59 +5,56 @@
 #include <fstream>
 #include <iostream>
 #include <sys/utime.h>
+#include <fmtInclude.h>
+#include <Renderer/rendererGlobals.h>//
 
 #ifdef WIN32
 #define stat _stat
 #endif
 
-std::wstring widenString(std::string s);
 
+//Needs rewrite, this was one of my first 'learning cpp' files
 
-bool FileCaching::fileExists(std::string_view assetPath)
+std::wstring WidenString(std::string s);
+bool FileCaching::FileExists(std::string_view assetPath)
 {
-    return fileExists(widenString(std::string(assetPath)));
+    return FileExists(WidenString(std::string(assetPath)));
 }
 
-bool FileCaching::fileExists(std::wstring_view assetPath)
+bool FileCaching::FileExists(std::wstring_view assetPath)
 {
     struct stat buf;
     return (_wstat(assetPath.data(), &buf) == 0);
 }
 
-std::wstring widenString(std::string s)
+std::wstring WidenString(std::string s)
 {
-    //
     return std::wstring(CA2W(std::string(s).c_str()));
 }
 
-const char suffix[] = {".ktx\0"};
-bool FileCaching::tryGetKTXCachedPath(ArenaAllocator arena, const char* path, std::span<char>& ktxPath)
+bool FileCaching::TryGetKTXCachedPath(ArenaAllocator arena, const char* path, std::span<char>& ktxPath)
 {
-    auto str_chars = strnlen_s(path, 128) / sizeof(char);
-    auto ktxPathMemory = MemoryArena::AllocSpan<char>(arena, strlen(path) + 5); //+4 for ".ktx\0"
-    auto oldPathSubSpan = ktxPathMemory.subspan(0, str_chars);
-    auto suffixSubSpan = ktxPathMemory.subspan(str_chars, 5);
-    
-    std::copy(path, path + (str_chars * sizeof(char)), oldPathSubSpan.data());
-    _memccpy(suffixSubSpan.data(), suffix, 0, sizeof(suffix));
-    ktxPath = ktxPathMemory.subspan(0, ktxPathMemory.size() -1); //Return a view which omits the null terminator
-    return FileCaching::fileExists(std::string_view(ktxPath.data()));
+    auto str_chars = strnlen_s(path, 1024) / sizeof(char);
+	auto scratchMemory = GetScratchStringMemory();
+    auto oldPathSubSpan = fmt::basic_string_view(path, str_chars - 4);
+	fmt::format_to_n(scratchMemory.begin(), scratchMemory.size(), "{}.ktx\0", oldPathSubSpan);
+    ktxPath = scratchMemory.subspan(0, str_chars); 
+    return FileCaching::FileExists(std::string_view(ktxPath.data()));
     
     
 }
 
-void FileCaching::saveAssetChangedTime(std::string_view assetPath)
+void FileCaching::SaveAssetChangedTime(std::string_view assetPath)
 {
-    saveAssetChangedTime(widenString(std::string(assetPath)));
+    SaveAssetChangedTime(WidenString(std::string(assetPath)));
 }
 
-void FileCaching::saveAssetChangedTime(std::wstring_view assetPath)
+void FileCaching::SaveAssetChangedTime(std::wstring_view assetPath)
 {
     struct stat result;
     if (_wstat(assetPath.data(), &result) != 0)
     {
-        printf("Could not read shader file date");
-        exit(-1);
+        assert(!"Could not read asset file date");
     }
 
     auto modifiedTime = result.st_mtime;
@@ -72,12 +69,12 @@ void FileCaching::saveAssetChangedTime(std::wstring_view assetPath)
 }
 
 
-bool FileCaching::assetOutOfDate(std::string_view assetPath)
+bool FileCaching::IsAssetOutOfDate(std::string_view assetPath)
 {
-    return assetOutOfDate(widenString(std::string(assetPath)));
+    return IsAssetOutOfDate(WidenString(std::string(assetPath)));
 }
 
-long long readdotModifiedTime(std::wstring_view assetPath)
+long long ReadModifiedTime(std::wstring_view assetPath)
 {
     std::wstring assetTimePath = std::wstring(assetPath) + L".modified";
     struct stat result;
@@ -90,7 +87,7 @@ long long readdotModifiedTime(std::wstring_view assetPath)
     std::ifstream myFile(assetTimePath.data(), std::ifstream::in | std::ifstream::out);
     if (!myFile.is_open())
     {
-        //Could not open shadertime file, assume new shader
+        //Could not open modified file, assume new asset
         return true;
     }
     auto buffer = new char [size];
@@ -104,12 +101,12 @@ long long readdotModifiedTime(std::wstring_view assetPath)
     return savedTime;
 }
 
-bool FileCaching::compareAssetAge(std::wstring_view assetNewer, std::wstring_view assetOlder)
+bool FileCaching::CompareAssetAge(std::wstring_view assetNewer, std::wstring_view assetOlder)
 {
-    return readdotModifiedTime(assetNewer) > readdotModifiedTime(assetOlder);
+    return ReadModifiedTime(assetNewer) > ReadModifiedTime(assetOlder);
 }
 
-void FileCaching::touchFile(std::wstring_view path)
+void FileCaching::UpdateModified(std::wstring_view path)
 {
     _utimbuf new_times;
     struct stat result;
@@ -119,8 +116,7 @@ void FileCaching::touchFile(std::wstring_view path)
     _wutime(path.data(), &new_times);
 }
 
-//TODO JS: Just checking date for now -- prefer some kind of hash
-bool FileCaching::assetOutOfDate(std::wstring_view assetPath)
+bool FileCaching::IsAssetOutOfDate(std::wstring_view assetPath)
 {
     assert(assetPath.data() != nullptr);
     //Last changed check 
@@ -134,7 +130,7 @@ bool FileCaching::assetOutOfDate(std::wstring_view assetPath)
     auto modifiedTime = result.st_mtime;
 
 
-    long long savedTime = readdotModifiedTime(assetPath);
+    long long savedTime = ReadModifiedTime(assetPath);
 
     if (savedTime == modifiedTime)
     {

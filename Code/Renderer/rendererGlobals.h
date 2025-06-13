@@ -23,12 +23,12 @@ static constexpr size_t MESHLET_TRIS = 124;
 static constexpr size_t MESHLET_INDICES =MESHLET_TRIS * 3;
 
 template <typename T>
-std::span<T > CreatePerFrameCollection(MemoryArena::memoryArena* arena)
+std::span<T > CreatePerFrameCollection(MemoryArena::Allocator* arena)
 {
     return MemoryArena::AllocSpan<T >(arena, MAX_FRAMES_IN_FLIGHT);
 }
 
-std::span<char> GetScratchMemory();
+std::span<char> GetScratchStringMemory();
 void registerDebugUtilsFn(PFN_vkSetDebugUtilsObjectNameEXT ptr);
 void registerTransitionImagefn(PFN_vkTransitionImageLayoutEXT ptr);
 void registerCopyImageToMemoryFn(PFN_vkCopyImageToMemoryEXT ptr);

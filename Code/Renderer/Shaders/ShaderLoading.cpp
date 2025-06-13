@@ -35,7 +35,7 @@ ShaderLoader::ShaderLoader(VkDevice device)
     device_ = device;
 }
 
-std::span<std::span<wchar_t>> parseShaderIncludeStrings(MemoryArena::memoryArena* tempArena, std::wstring shaderPath)
+std::span<std::span<wchar_t>> parseShaderIncludeStrings(MemoryArena::Allocator* tempArena, std::wstring shaderPath)
 {
     uint32_t MAX_INCLUDES = 10; //arbitrary
     FILE* f;
@@ -135,7 +135,7 @@ struct shaderIncludeInfo
     bool visited;
 };
 
-std::span<std::span<wchar_t>> findShaderIncludes(MemoryArena::memoryArena* allocator, std::wstring shaderPath)
+std::span<std::span<wchar_t>> findShaderIncludes(MemoryArena::Allocator* allocator, std::wstring shaderPath)
 {
     size_t filenameStart = 0;
     for (int i = static_cast<int>(shaderPath.length()); i > 0; i--)
@@ -165,6 +165,7 @@ std::span<std::span<wchar_t>> findShaderIncludes(MemoryArena::memoryArena* alloc
         {
             bool alreadyVisited = false;
 
+            auto cursor = MemoryArena::GetCurrentOffset(allocator);
             std::span<wchar_t> newPath = MemoryArena::AllocSpan<wchar_t>(allocator, filenameStart + includes[i].size());
 
             copySubstring(std::span<wchar_t>(shaderPath).subspan(0, filenameStart), includes[i], newPath);
@@ -179,7 +180,7 @@ std::span<std::span<wchar_t>> findShaderIncludes(MemoryArena::memoryArena* alloc
             }
             if (alreadyVisited)
             {
-                freeLast(allocator);
+                MemoryArena::FreeToOffset(allocator,cursor);
                 continue;
             }
             allIncludes.push_back({includes[i], false});
@@ -197,7 +198,7 @@ std::span<std::span<wchar_t>> findShaderIncludes(MemoryArena::memoryArena* alloc
 bool ShaderNeedsReciompiled(shaderPaths shaderPath)
 {
     //was this shader modified?
-    if (FileCaching::assetOutOfDate(shaderPath.path))
+    if (FileCaching::IsAssetOutOfDate(shaderPath.path))
     {
         return true;
     }
@@ -205,21 +206,21 @@ bool ShaderNeedsReciompiled(shaderPaths shaderPath)
     //were its includes?
     for (int i = 0; i < shaderPath.includePaths.size(); i++)
     {
-        if (FileCaching::assetOutOfDate(shaderPath.includePaths[i].data()))
+        if (FileCaching::IsAssetOutOfDate(shaderPath.includePaths[i].data()))
         {
-            FileCaching::saveAssetChangedTime(shaderPath.includePaths[i].data()); //TODO JS: recursively walk includes
+            FileCaching::SaveAssetChangedTime(shaderPath.includePaths[i].data()); //TODO JS: recursively walk includes
             //TODO JS: would be way easier just to hoist the includes over and hash the file ???
         }
     }
     for (int i = 0; i < shaderPath.includePaths.size(); i++)
     {
-        if (!FileCaching::compareAssetAge(shaderPath.path.data(), shaderPath.includePaths[i].data()))
+        if (!FileCaching::CompareAssetAge(shaderPath.path.data(), shaderPath.includePaths[i].data()))
         {
             printf("Compiling shader %ls -- #include %ls updated \n", shaderPath.path.data(),
                    shaderPath.includePaths[i].data());
 
             //touch shader to update time
-            FileCaching::touchFile(shaderPath.path);
+            FileCaching::UpdateModified(shaderPath.path);
 
             return true;
         }
@@ -284,8 +285,8 @@ loadedBlob LoadBlobFromDisk(std::wstring shaderPath)
 
 void ShaderLoader::AddShader(const char* name, std::wstring shaderPath, bool compute)
 {
-    MemoryArena::memoryArena scratch;
-    initialize(&scratch, 80000);
+    MemoryArena::Allocator scratch;
+    MemoryArena::Initialize(&scratch, 80000);
 
     //TODO JS: get all includes recursively 
     shaderPaths shaderPaths = {.path = shaderPath, .includePaths = findShaderIncludes(&scratch, shaderPath)};
@@ -335,7 +336,7 @@ void ShaderLoader::AddShader(const char* name, std::wstring shaderPath, bool com
         }
     if (needsCompiled)
     {
-        FileCaching::saveAssetChangedTime(shaderPaths.path);
+        FileCaching::SaveAssetChangedTime(shaderPaths.path);
     }
 }
 

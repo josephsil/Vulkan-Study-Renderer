@@ -7,11 +7,11 @@
 #include "MainRenderer/rendererStructs.h"
 
 
-struct ImportMeshData;
+struct ImportedMeshData;
 struct TextureData;
 class AssetManager;
 struct Scene;
-struct preMeshletMesh;
+struct InterchangeMesh;
 
 // This is used to take 'object like' imported files (gltfs,)
 // and add them to the scene.
@@ -53,7 +53,7 @@ namespace ObjectImport
     
     struct Mesh
     {
-        std::span<ImportMeshData> submeshes;
+        std::span<ImportedMeshData> submeshes;
         std::span<uint32_t> submeshMaterialIndices;
     };
 
