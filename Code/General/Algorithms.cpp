@@ -21,7 +21,7 @@ void ReorderParallelOpaqueSpans(ArenaAllocator temporaryMemory,
 	//Allocate a big enough scratch space to store our largest type
 	auto cursor = MemoryArena::GetCurrentOffset(temporaryMemory);
 	void* tempCopy = MemoryArena::allocbytes(temporaryMemory, indices.size() * largestElementSize);
-	for (int i = 0; i < targets.size(); i++)
+	for (size_t i = 0; i < targets.size(); i++)
 	{
 		ptrdiff_t valueSize = targets[i].elemSize;
 		memcpy(tempCopy, targets[i].data, targets[i].count * valueSize); //Copy unsorted version to temp memory 

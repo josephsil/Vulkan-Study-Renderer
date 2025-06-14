@@ -67,17 +67,7 @@ template<typename... Types>
 std::span<UntypedSpan> ToUntypedSpans(ArenaAllocator allocator, Types&&... vars)
 {
 	constexpr auto ct = sizeof...(Types); 
-	Array<UntypedSpan> opaqueSpans = MemoryArena::AllocSpan(allocator, ct);
-	(opaqueSpans.push_back(ToOpaqueSpan(vars)), ...);
-	return opaqueSpans.getSpan();
-}
-
-template<typename... Types>
-std::span<UntypedSpan> ToUntypedSpans(Types&&... vars)
-{
-	constexpr auto ct = sizeof...(Types); 
-	UntypedSpan opaqueSpansMemory[ct];
-	Array<UntypedSpan> opaqueSpans = std::span<UntypedSpan>(opaqueSpansMemory);
+	Array<UntypedSpan> opaqueSpans = MemoryArena::AllocSpan<UntypedSpan>(allocator, ct);
 	(opaqueSpans.push_back(ToOpaqueSpan(vars)), ...);
 	return opaqueSpans.getSpan();
 }
@@ -85,7 +75,7 @@ std::span<UntypedSpan> ToUntypedSpans(Types&&... vars)
 template<typename... Types>
 void ReorderAll(ArenaAllocator temporaryMemory, std::span<size_t> indices, Types&&... vars)
 {
-	std::span<UntypedSpan> opaqueSpans = ToUntypedSpans(vars...);
+	std::span<UntypedSpan> opaqueSpans = ToUntypedSpans(temporaryMemory, vars...);
 	ReorderParallelOpaqueSpans(temporaryMemory, opaqueSpans, indices);
 }
 
