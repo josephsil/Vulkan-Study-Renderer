@@ -1,4 +1,5 @@
 #include "BindlessIncludes.hlsl"
+
 //
 struct VSInput
 {
@@ -27,37 +28,37 @@ struct VSOutput
 };
 
 
-
 // -spirv -T vs_6_5 -E Vert .\Shader1.hlsl -Fo .\triangle.vert.spv
-VSOutput Vert(VSInput input,  [[vk::builtin("BaseInstance")]]  uint InstanceIndex : BaseInstance, uint VertexIndex : SV_VertexID)
+VSOutput Vert(VSInput input, [[vk::builtin("BaseInstance")]] uint InstanceIndex : BaseInstance,
+              uint VertexIndex : SV_VertexID)
 {
 #ifdef USE_RW
-    MyVertexStructure myVertex = BufferTable[VertexIndex];
+    VertexData myVertex = BufferTable[VertexIndex];
 #else
 	//Interesting buffer load perf numbers
 	// https://github.com/sebbbi/perfindexInfo
 	// https://github.com/microsoft/DirectXShaderCompiler/issues/2193 	
- 	MyVertexStructure myVertex = BufferTable.Load<MyVertexStructure>((VERTEXOFFSET + VertexIndex) * sizeof(MyVertexStructure));
+ 	VertexData myVertex = BufferTable.Load<VertexData>((VERTEXOFFSET + VertexIndex) * sizeof(VertexData));
 #endif
     float4 vertPos = positions[VertexIndex];
-vertPos.a = 1.0;
-    objectData ubo = uboarr[InstanceIndex];
+    vertPos.a = 1.0;
+    ObjectData ubo = PerObjectData[InstanceIndex];
     VSOutput output = (VSOutput)0;
-    float4x4 modelView = mul(globals.view, ubo.Model);
-    float4x4 mvp = mul(globals.projection, modelView);
+    float4x4 modelView = mul(ShaderGlobals.viewMatrix,GetTransform().Model);
+    float4x4 mvp = mul(ShaderGlobals.projMatrix, modelView);
 
     output.Pos = mul(mvp, vertPos);
     output.Texture_ST = myVertex.uv0.xy;
     output.Color = myVertex.normal.xyz;
     output.Normal = myVertex.normal.xyz;
-    output.worldPos = mul(ubo.Model, vertPos);
+    output.worldPos = mul(GetTransform().Model, vertPos);
 
-    float3x3 normalMatrix = ubo.NormalMat; // ?????
+    float3x3 normalMatrix =GetTransform().NormalMat; // ?????
     //bitangent = fSign * cross(vN, tangent);
     //Not sure if the mul here is correct? would need something baked
     float3 worldNormal = normalize(mul(normalMatrix, float4(output.Normal.x, output.Normal.y, output.Normal.z, 0.0)));
     float3 worldTangent = normalize(
-        mul(ubo.Model, float4(myVertex.Tangent.x, myVertex.Tangent.y, myVertex.Tangent.z, 1.0)));
+        mul(GetTransform().Model, float4(myVertex.Tangent.x, myVertex.Tangent.y, myVertex.Tangent.z, 1.0)));
     worldTangent = (worldTangent - dot(worldNormal, worldTangent) * worldNormal);
     float3 worldBinormal = (cross((worldNormal), (worldTangent))) * (myVertex.Tangent.w);
 
@@ -80,7 +81,7 @@ vertPos.a = 1.0;
 
 bool getMode()
 {
-    return globals.lightcount_mode_shadowct_padding.g;
+    return ShaderGlobals.lightcount_mode_shadowct_padding.g;
 }
 
 struct FSInput
@@ -117,9 +118,9 @@ FSOutput Frag(VSOutput input)
     InstanceIndex = input.InstanceID;
     FSOutput output;
 
-    objectData ubo = uboarr[OBJECTINDEX];
+    ObjectData ubo = PerObjectData[InstanceIndex];
 
-    
+
     float3 diff = saturate(
         bindless_textures[DIFFUSE_INDEX].Sample(bindless_samplers[TEXTURESAMPLERINDEX], input.Texture_ST));
     float3 albedo = pow(diff, 2.2);
@@ -134,7 +135,7 @@ FSOutput Frag(VSOutput input)
 
 
     normalMap = normalize(mul(input.TBN, ((2.0 * normalMap) - 1.0)));
-    float3 V = normalize(globals.viewPos - input.worldPos);
+    float3 V = normalize(ShaderGlobals.eyePos - input.worldPos);
     float3 reflected = reflect(V, normalMap);
 
     float3 F0 = 0.04;
@@ -170,7 +171,6 @@ FSOutput Frag(VSOutput input)
     }
     //
 
-    output.Color = output.Color / (output.Color + 1.0);
     //	output.Color = pow(output.Color, 1.0/2.2); 
     // output.Color = reflected;
     return output;

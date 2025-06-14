@@ -1,12 +1,12 @@
 #pragma once
 #include <span>
-#include <glm/glm.hpp>
+#include <General/GLM_impl.h>
 #include <mikktspace.h>
 struct Vertex;
 
 namespace MemoryArena
 {
-    struct memoryArena;
+    struct Allocator;
 }
 
 struct MeshForMikkt
@@ -17,7 +17,7 @@ struct MeshForMikkt
     std::span<glm::vec4> tan;
     std::span<glm::vec3> uv;
 
-    MeshForMikkt(MemoryArena::memoryArena* alloc, std::span<Vertex> verts, std::span<uint32_t> indices);
+    MeshForMikkt(MemoryArena::Allocator* alloc, std::span<Vertex> verts, std::span<uint32_t> indices);
 };
 
 
@@ -25,7 +25,6 @@ struct MikktImpl
 {
     MikktImpl();
     void calculateTangents(MeshForMikkt* mesh);
-
 
 private:
     SMikkTSpaceInterface interace{};

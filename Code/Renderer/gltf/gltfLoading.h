@@ -1,57 +1,20 @@
-
 #pragma once
-
-#define GLM_FORCE_RADIANS	
-#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <span>
-#include <glm/glm.hpp>
-#include<glm/gtc/quaternion.hpp>
+#include <General/GLM_impl.h>
 
+#include <Renderer/ObjectImport.h>
+#include <Renderer/TextureCreation/TextureData.h>
+#include <Renderer/MeshCreation/MeshData.h>
+struct PerThreadRenderContext;
+struct InterchangeMesh;
+struct TextureMetaData;
 
-struct RendererContext;
-struct TextureData;
-struct MeshData;
-
-struct gltfMesh
-{
-     std::span<MeshData> submeshes;
-     std::span<uint32_t> materialIndices;
-};
-struct gltfNode
-{
-    int meshidx;
-
-    // glm::mat4 placeholder;
-    std::span<int> children;
-    glm::vec3 scale;
-        glm::quat rotation;
-        glm::vec3 translation;
-};
-
-struct material
-{
-    glm::vec3 baseColorFactor;  
-    glm::float32_t metallicFactor;   
-    glm::float32_t roughnessFactor;
-    glm::float32_t normalStrength;
-    glm::float32_t occlusionStrength;
-    int diffIndex;
-    int specIndex;
-    int normIndex;
-    int occlusionIndex;
-    //texture indices?
-    //roughness/metal?
-};
-struct gltfdata
-{
-    //TODO JS: to span of spans for submeshes 
-    std::span<gltfMesh> meshes;
-
-    std::span<TextureData> textures;
-    std::span<material> materials;
-    std::span<gltfNode> objects;
-    //std::span<tinygltf::Light> lights;
-};
-
-gltfdata GltfLoadMeshes(RendererContext handles, const char* gltfpath);
+//This is an "asset loading" step, might get separated from the main runtime at some point.
+//Wraps tinygltf, does gltf mesh/texture import,
+//Uploads data to assetmanager.
+//The 'gltfdata' result is the data required for ObjectImport::CreateObjectAssetsAndAddToScene
+using gltfNode = ObjectImport::MeshObject;
+using gltfMaterial = ObjectImport::Material ;
+using GltfMesh = ObjectImport::Mesh ;
+using GltfData = ObjectImport::ImportedObjectData ;
+GltfData GltfLoadMeshes(PerThreadRenderContext handles,   AssetManager& rendererData, const char* gltfpath);

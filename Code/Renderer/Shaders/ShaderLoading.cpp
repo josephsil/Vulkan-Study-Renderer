@@ -14,6 +14,8 @@
 #include <General/Array.h>
 #include <General/FileCaching.h>
 #include <General/MemoryArena.h>
+
+#include "Renderer/rendererGlobals.h"
 #ifndef WIN32
 #include <unistd.h>
 #endif
@@ -33,91 +35,87 @@ ShaderLoader::ShaderLoader(VkDevice device)
     device_ = device;
 }
 
-std::span<std::span<wchar_t>> parseShaderIncludeStrings(MemoryArena::memoryArena* tempArena, std::wstring shaderPath)
+std::span<std::span<wchar_t>> parseShaderIncludeStrings(MemoryArena::Allocator* tempArena, std::wstring shaderPath)
 {
     uint32_t MAX_INCLUDES = 10; //arbitrary
     FILE* f;
     _wfopen_s(&f, shaderPath.c_str(), L"r");
-    
+
     std::span<std::span<wchar_t>> strings = MemoryArena::AllocSpan<std::span<wchar_t>>(tempArena, MAX_INCLUDES);
     std::span<wchar_t> includeTest = MemoryArena::AllocSpan<wchar_t>(tempArena, 7);
 
-    const char includeTemplate[] = "#include";
+    constexpr char includeTemplate[] = "#include";
     char c;
-    
+
     int i = 0;
     int stringsCt = 0;
-    bool scanningInclude = false;
+    int scanningInclude = 0;
     int quotesCount = 0;
     int includeLength = 0;
-    while ((c =  fgetc(f))  != EOF)
+    while ((c = fgetc(f)) != EOF)
     {
         switch (scanningInclude)
         {
-        case false:
-                    if (c == '#' || i != 0)
-                    {
-                        //failed 
-                        if (c != includeTemplate[i])
-                        {
-                            i = 0;
-                            continue;
-                        }
-                        includeTest[i] = c;
-                        i++;
-
-                        //passed
-                        if (i == 7)
-                        {
-                            scanningInclude = true; 
-                            //match -- we're reading an include pragma 
-                        }
-                    }
-                continue;
-            case true:
-                    if (c == '"')
-                    {
-                        quotesCount ++;
-                        if (quotesCount == 2)
-                        {
-                            //at end quote
-                            strings[stringsCt++] = MemoryArena::AllocSpan<wchar_t>(tempArena, includeLength);
-                            fseek(f, -(includeLength +1), SEEK_CUR);
-                            for (int j = 0; j < includeLength; j++)
-                            {
-                                strings[stringsCt -1][j] = fgetc(f);
-                            }
-                            quotesCount = 0;
-                            scanningInclude = false;
-                            includeLength = 0;
-                        }
-                        continue;
-                    }
-                    if (c == '\n')
-                    {
-                        //Reset and continue 
-                        quotesCount = 0;
-                        scanningInclude = false;
-                        includeLength = 0;
-                    }
-                    if (quotesCount > 0)
-                    {
-                        includeLength ++;
-                        //inside quotes
-                        
-                    }
+        case 0:
+            if (c == '#' || i != 0)
+            {
+                //failed 
+                if (c != includeTemplate[i])
+                {
+                    i = 0;
                     continue;
-                
+                }
+                includeTest[i] = c;
+                i++;
+
+                //passed
+                if (i == 7)
+                {
+                    scanningInclude = 1;
+                    //match -- we're reading an include pragma 
+                }
             }
-        
+            continue;
+        case 1:
+            if (c == '"')
+            {
+                quotesCount++;
+                if (quotesCount == 2)
+                {
+                    //at end quote
+                    strings[stringsCt++] = MemoryArena::AllocSpan<wchar_t>(tempArena, includeLength);
+                    fseek(f, -(includeLength + 1), SEEK_CUR);
+                    for (int j = 0; j < includeLength; j++)
+                    {
+                        strings[stringsCt - 1][j] = fgetc(f);
+                    }
+                    quotesCount = 0;
+                    scanningInclude = 0;
+                    includeLength = 0;
+                }
+                continue;
+            }
+            if (c == '\n')
+            {
+                //Reset and continue 
+                quotesCount = 0;
+                scanningInclude = 0;
+                includeLength = 0;
+            }
+            if (quotesCount > 0)
+            {
+                includeLength++;
+                //inside quotes
+            }
+        }
     }
     fclose(f);
     return strings.subspan(0, stringsCt); // truncate unused space
-
 }
+
 void copySubstring(std::span<wchar_t> sourceA, std::span<wchar_t> sourceB, std::span<wchar_t> tgt)
 {
-    assert (tgt.size() <= sourceA.size() + sourceB.size());
+    assert(tgt.size() <= sourceA.size() + sourceB.size());
     size_t headLength = sourceA.size();
     //Copy head
     for (int j = 0; j < headLength; j++)
@@ -129,7 +127,6 @@ void copySubstring(std::span<wchar_t> sourceA, std::span<wchar_t> sourceB, std::
     {
         tgt[headLength + j] = sourceB[j];
     }
-        
 }
 
 struct shaderIncludeInfo
@@ -138,11 +135,10 @@ struct shaderIncludeInfo
     bool visited;
 };
 
-std::span<std::span<wchar_t>>  findShaderIncludes(MemoryArena::memoryArena* allocator, std::wstring shaderPath)
+std::span<std::span<wchar_t>> findShaderIncludes(MemoryArena::Allocator* allocator, std::wstring shaderPath)
 {
-   
     size_t filenameStart = 0;
-    for(int i = (int)shaderPath.length();i > 0; i --)
+    for (int i = static_cast<int>(shaderPath.length()); i > 0; i--)
     {
         if (shaderPath[i] == L'\\' || shaderPath[i] == L'/') //At last delimeter
         {
@@ -150,25 +146,26 @@ std::span<std::span<wchar_t>>  findShaderIncludes(MemoryArena::memoryArena* allo
             {
                 break; //ends in a slash -- no valid slash
             }
-        filenameStart = i + 1;
+            filenameStart = i + 1;
             break;
         }
     }
-    const int MAX_INCLUDES = 30;
-    std::span<std::span<wchar_t>>  outputIncludes = MemoryArena::AllocSpan<std::span<wchar_t>>(allocator, MAX_INCLUDES);
-    Array<shaderIncludeInfo> allIncludes = Array(MemoryArena::AllocSpan<shaderIncludeInfo>(allocator, MAX_INCLUDES));
+    constexpr int MAX_INCLUDES = 30;
+    std::span<std::span<wchar_t>> outputIncludes = MemoryArena::AllocSpan<std::span<wchar_t>>(allocator, MAX_INCLUDES);
+    auto allIncludes = Array(MemoryArena::AllocSpan<shaderIncludeInfo>(allocator, MAX_INCLUDES));
     allIncludes.push_back({shaderPath, false});
     int idx = 0;
 
     //Recursively gather includes 
-    while(idx < allIncludes.ct && allIncludes[idx].visited == false)
+    while (idx < allIncludes.ct && allIncludes[idx].visited == false)
     {
         std::span<std::span<wchar_t>> includes = parseShaderIncludeStrings(allocator, allIncludes[idx].path.data());
         idx++;
-        for(int i =0; i < includes.size(); i++)
+        for (int i = 0; i < includes.size(); i++)
         {
             bool alreadyVisited = false;
 
+            auto cursor = MemoryArena::GetCurrentOffset(allocator);
             std::span<wchar_t> newPath = MemoryArena::AllocSpan<wchar_t>(allocator, filenameStart + includes[i].size());
 
             copySubstring(std::span<wchar_t>(shaderPath).subspan(0, filenameStart), includes[i], newPath);
@@ -183,53 +180,54 @@ std::span<std::span<wchar_t>>  findShaderIncludes(MemoryArena::memoryArena* allo
             }
             if (alreadyVisited)
             {
-                MemoryArena::freeLast(allocator);
+                MemoryArena::FreeToOffset(allocator,cursor);
                 continue;
             }
             allIncludes.push_back({includes[i], false});
         }
     }
-    for(int i = 0; i < allIncludes.ct; i++)
+    for (int i = 0; i < allIncludes.ct; i++)
     {
-       outputIncludes[i] = allIncludes[i].path;
+        outputIncludes[i] = allIncludes[i].path;
         //we have includes, now we need to look up files by them
     }
-    return outputIncludes.subspan(1,allIncludes.size() - 1); //clip off the first one -- it's the shader itself
+    return outputIncludes.subspan(1, allIncludes.size() - 1); //clip off the first one -- it's the shader itself
 }
+
 //TODO JS: Do includes -- parse includes and check modifieds for them too
 bool ShaderNeedsReciompiled(shaderPaths shaderPath)
 {
     //was this shader modified?
-    if (FileCaching::assetOutOfDate(shaderPath.path))
+    if (FileCaching::IsAssetOutOfDate(shaderPath.path))
     {
         return true;
     }
 
     //were its includes?
-    for (int i = 0; i <  shaderPath.includePaths.size(); i++)
+    for (int i = 0; i < shaderPath.includePaths.size(); i++)
     {
-        if (FileCaching::assetOutOfDate( shaderPath.includePaths[i].data()))
+        if (FileCaching::IsAssetOutOfDate(shaderPath.includePaths[i].data()))
         {
-            FileCaching::saveAssetChangedTime(shaderPath.includePaths[i].data()); //TODO JS: recursively walk includes
+            FileCaching::SaveAssetChangedTime(shaderPath.includePaths[i].data()); //TODO JS: recursively walk includes
             //TODO JS: would be way easier just to hoist the includes over and hash the file ???
         }
     }
-    for (int i = 0; i <  shaderPath.includePaths.size(); i++)
+    for (int i = 0; i < shaderPath.includePaths.size(); i++)
     {
-        if (!FileCaching::compareAssetAge(shaderPath.path.data(), shaderPath.includePaths[i].data()))
+        if (!FileCaching::CompareAssetAge(shaderPath.path.data(), shaderPath.includePaths[i].data()))
         {
-            printf("Compiling shader %ls -- #include %ls updated \n", shaderPath.path.data(), shaderPath.includePaths[i].data());
-            
+            printf("Compiling shader %ls -- #include %ls updated \n", shaderPath.path.data(),
+                   shaderPath.includePaths[i].data());
+
             //touch shader to update time
-            FileCaching::touchFile(shaderPath.path);
-            
+            FileCaching::UpdateModified(shaderPath.path);
+
             return true;
         }
     }
 
     //all good
     return false;
-   
 }
 
 bool SaveBlobToDisk(std::wstring shaderPath, SIZE_T size, uint32_t* buffer)
@@ -253,7 +251,7 @@ struct loadedBlob
 
     loadedBlob(SIZE_T size, std::unique_ptr<uint32_t[]> _buffer)
     {
-        this->size = (uint32_t)size; //TODO JS: magic number i dont understand
+        this->size = static_cast<uint32_t>(size); //TODO JS: magic number i dont understand
         this->buffer = std::move(_buffer);
     }
 };
@@ -287,18 +285,15 @@ loadedBlob LoadBlobFromDisk(std::wstring shaderPath)
 
 void ShaderLoader::AddShader(const char* name, std::wstring shaderPath, bool compute)
 {
-    MemoryArena::memoryArena scratch;
-    MemoryArena::initialize(&scratch, 80000);
+    MemoryArena::Allocator scratch;
+    MemoryArena::Initialize(&scratch, 80000);
 
     //TODO JS: get all includes recursively 
     shaderPaths shaderPaths = {.path = shaderPath, .includePaths = findShaderIncludes(&scratch, shaderPath)};
     bool needsCompiled = ShaderNeedsReciompiled(shaderPaths);
-    needsCompiled = true;
     //TODO JS: if no, load a cached version
     
-    switch (compute)
-    {
-    case false:
+    if (!compute)
         {
             VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
             vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -307,17 +302,24 @@ void ShaderLoader::AddShader(const char* name, std::wstring shaderPath, bool com
             vertShaderStageInfo.module = shaderLoad(shaderPaths.path, vert);
             vertShaderStageInfo.pName = "Vert"; //Entry point name 
             VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
+            if (vertShaderStageInfo.module != VK_NULL_HANDLE)
+            {
+                SetDebugObjectNameS(device_, VK_OBJECT_TYPE_SHADER_MODULE, name, (uint64_t)(vertShaderStageInfo.module));
+            }
             fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
             fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
             if (needsCompiled) { shaderCompile(shaderPaths.path, frag); }
             fragShaderStageInfo.module = shaderLoad(shaderPaths.path, frag);
             fragShaderStageInfo.pName = "Frag"; //Entry point name   
             std::vector shaderStages = {vertShaderStageInfo, fragShaderStageInfo};
-            // VkPipelineShaderStageCreateInfo test[] = { vertShaderStageInfo, fragShaderStageInfo };
+            if (fragShaderStageInfo.module != VK_NULL_HANDLE)
+            {//
+                SetDebugObjectNameS(device_, VK_OBJECT_TYPE_SHADER_MODULE, name, (uint64_t)fragShaderStageInfo.module);
+            }
+            VkPipelineShaderStageCreateInfo test[] = {vertShaderStageInfo, fragShaderStageInfo};
             compiledShaders.insert({name, shaderStages});
-            break;
         }
-    case true:
+    else
         {
             VkPipelineShaderStageCreateInfo computeShaderStage{};
             computeShaderStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -327,15 +329,16 @@ void ShaderLoader::AddShader(const char* name, std::wstring shaderPath, bool com
             computeShaderStage.pName = "Main"; //Entry point name
             std::vector shaderStages = {computeShaderStage};
             compiledShaders.insert({name, shaderStages});
-            break;
+            if (computeShaderStage.module != VK_NULL_HANDLE)
+            {
+                SetDebugObjectNameS(device_, VK_OBJECT_TYPE_SHADER_MODULE, name, (uint64_t)computeShaderStage.module);
+            }
         }
+    if (needsCompiled)
+    {
+        FileCaching::SaveAssetChangedTime(shaderPaths.path);
     }
-        if (needsCompiled)
-        {
-            FileCaching::saveAssetChangedTime(shaderPaths.path);
-        }
 }
-
 
 
 void ShaderLoader::shaderCompile(std::wstring shaderFilename, shaderType stagetype)
@@ -415,8 +418,13 @@ void ShaderLoader::shaderCompile(std::wstring shaderFilename, shaderType stagety
         L"-I", L"./Shaders/Includes",
         // Compile to SPIRV
         L"-spirv",
+#if _DEBUG
+        L"-D",
+        L"_DEBUG", //todo js: make sure to recompile shaders when this changes 
+#endif 
         L"-fvk-support-nonzero-base-instance",
-        L"-Zi"
+        L"-Zi",
+        L"-fspv-debug=vulkan-with-source"
     };
 
     // Compile shader
@@ -428,11 +436,11 @@ void ShaderLoader::shaderCompile(std::wstring shaderFilename, shaderType stagety
     IDxcIncludeHandler* includeHandler;
     utils->CreateDefaultIncludeHandler(&includeHandler);
     CComPtr<IDxcResult> result{nullptr};
-        hres = compiler->Compile(
+    hres = compiler->Compile(
         &buffer,
         arguments.data(),
         static_cast<uint32_t>(arguments.size()),
-        includeHandler ,
+        includeHandler,
         IID_PPV_ARGS(&result));
 
     if (SUCCEEDED(hres))
@@ -462,7 +470,7 @@ void ShaderLoader::shaderCompile(std::wstring shaderFilename, shaderType stagety
                    static_cast<uint32_t*>(code->GetBufferPointer()));
 }
 
-VkShaderModule ShaderLoader::shaderLoad(std::wstring shaderFilename, shaderType  stagetype)
+VkShaderModule ShaderLoader::shaderLoad(std::wstring shaderFilename, shaderType stagetype)
 {
     LPCWSTR suffix{};
     if (stagetype == frag)
@@ -477,7 +485,7 @@ VkShaderModule ShaderLoader::shaderLoad(std::wstring shaderFilename, shaderType 
     {
         suffix = L".comp";
     }
-    
+
     loadedBlob blob = LoadBlobFromDisk(shaderFilename + (suffix));
 
     // Create a Vulkan shader module from the compilation result

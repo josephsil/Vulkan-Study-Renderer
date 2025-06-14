@@ -1,3 +1,4 @@
+#include "structs.hlsl"
 struct VSInput
 {
     [[vk::location(0)]] float3 Position : POSITION0;
@@ -5,28 +6,16 @@ struct VSInput
     [[vk::location(2)]] float2 Texture_ST : TEXCOORD0;
 };
 
-struct ShaderGlobals
-{
-    float4x4 view;
-    float4x4 projection;
-    float4 viewPos;
-    float4 lightcount_mode_shadowct_padding;
-    float4 lutIDX_lutSamplerIDX_padding_padding;
-};
-cbuffer globals : register(b0) { ShaderGlobals globals; }
 
 
-struct pconstant
+cbuffer ShaderGlobals : register(b0, space1)
 {
-    float4x4 m; // always identity
-    float4 pos1;
-    float4 pos2;
-    float4 color;
-};
+    ShaderGlobals ShaderGlobals;
+}
+
 
 [[vk::push_constant]]
-pconstant pc;
-
+DebugLinePushConstants pc;
 
 
 struct FSOutput
@@ -43,14 +32,12 @@ struct VSOutput
 
 VSOutput Vert(VSInput input, uint VertexIndex : SV_VertexID)
 {
- 
-
     VSOutput output = (VSOutput)0;
 
 
     float4 vertex = VertexIndex == 0 ? pc.pos1 : pc.pos2;
-    float4x4 modelView = mul(globals.view, pc.m);
-    float4x4 mvp = mul(globals.projection, modelView);
+    float4x4 modelView = mul(ShaderGlobals.viewMatrix, pc.m);
+    float4x4 mvp = mul(ShaderGlobals.projMatrix, modelView);
     output.Pos = mul(mvp, half4(vertex.xyz, 1.0));
     return output;
 }
@@ -66,7 +53,7 @@ struct FSInput
 
 FSOutput Frag(VSOutput input)
 {
- FSOutput output = (FSOutput)0;
-    output.Color =  pc.color.xyz;
+    FSOutput output = (FSOutput)0;
+    output.Color = pc.color.xyz;
     return output;
 }

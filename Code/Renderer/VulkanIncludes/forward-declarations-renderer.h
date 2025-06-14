@@ -1,6 +1,7 @@
 #pragma once
+#include <glm/fwd.hpp>
 
-using VkPipeline = struct VkPipeline_T*; 
+using VkPipeline = struct VkPipeline_T*;
 struct VkVertexInputBindingDescription;
 struct VkVertexInputAttributeDescription;
 
@@ -12,6 +13,8 @@ using VkCommandBuffer = struct VkCommandBuffer_T*;
 using VkInstance = struct VkInstance_T*;
 
 using VkSemaphore = struct VkSemaphore_T*;
+
+using VkFence = struct VkFence_T*;
 
 using VmaAllocator = struct VmaAllocator_T*;
 using VmaAllocation = struct VmaAllocation_T*;
@@ -36,26 +39,17 @@ using VkDescriptorPool = struct VkDescriptorPool_T*;
 using VkDescriptorSet = struct VkDescriptorSet_T*;
 
 using VkPipelineLayout = struct VkPipelineLayout_T*;
-enum VkSamplerAddressMode :  int; ;
-enum VkImageViewType :  int; ; 
-
 using VkQueue = struct VkQueue_T*;
- enum VkFormat :  int; ;
- enum VkImageLayout :  int; ;
- enum VkDescriptorType :  int; ;
- enum VkImageTiling :  int; ;
-typedef uint32_t VkFlags;
-typedef VkFlags VkFormatFeatureFlags;
-typedef VkFlags VkMemoryPropertyFlags;
-typedef VkFlags VkImageAspectFlags;
-typedef VkFlags VkBufferUsageFlags;
-typedef VkFlags VkBufferViewCreateFlags;
-typedef VkFlags VkShaderStageFlags;
-typedef uint64_t VkDeviceSize;
+using VkFlags = glm::uint32_t;
+using VkFormatFeatureFlags = VkFlags;
+using VkMemoryPropertyFlags = VkFlags;
+using VkImageAspectFlags = VkFlags;
+using VkBufferUsageFlags = VkFlags;
+using VkBufferViewCreateFlags = VkFlags;
+using VkShaderStageFlags = VkFlags;
+using VkDeviceSize = uint64_t;
 
- struct VkDescriptorBufferInfo ;
+struct VkDescriptorBufferInfo;
 
 
- struct VkDescriptorImageInfo;
-
- struct VkWriteDescriptorSet;
+struct VkWriteDescriptorSet;

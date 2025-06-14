@@ -12,25 +12,20 @@ using VkShaderModule = struct VkShaderModule_T*;
 
 struct ShaderLoader
 {
-    
-public:
-
-
-
     ShaderLoader(VkDevice device);
 
     std::unordered_map<std::string_view, std::vector<VkPipelineShaderStageCreateInfo>> compiledShaders;
 
     void AddShader(const char* name, std::wstring shaderPath, bool compute = false);
-private:
 
-        
+private:
     enum shaderType
     {
         frag,
         vert,
         comp
     };
+
     void shaderCompile(std::wstring shaderFilename, shaderType stagetype);
     VkShaderModule shaderLoad(std::wstring shaderFilename, shaderType stagetype);
     VkDevice device_;

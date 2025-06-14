@@ -16,6 +16,12 @@
 **.ktx.modified
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
+*.modified
+*.compiled
+*.RaddbgWorkspace
+*workspace.xml
+.idea/*
+*.ktx.cached
 
 # Mono auto generated files
 mono_crash.*

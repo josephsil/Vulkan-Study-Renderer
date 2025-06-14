@@ -1,62 +1,74 @@
-
 #include "MemoryArena.h"
 #include <windows.h>
-MemoryArena::memoryArena::~memoryArena()
+
+MemoryArena::Allocator::~Allocator()
 {
+	assert(base != nullptr);
     VirtualFree(base, 0,MEM_RELEASE);
 }
 
-void MemoryArena::initialize(memoryArena* arena, uint32_t size)
+void MemoryArena::Initialize(Allocator* arena, uint32_t size)
 {
-    arena->base = VirtualAlloc(0, size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    arena->base = VirtualAlloc(nullptr, size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     arena->head = 0;
     arena->size = size;
 }
 
-void* MemoryArena::alloc(memoryArena* a, ptrdiff_t allocSize, ptrdiff_t allocAlignment)
+void* MemoryArena::allocbytes(Allocator* a, ptrdiff_t allocSize, ptrdiff_t allocAlignment)
 {
     // allocSize = max(allocSize, allocAlignment); //TODO JS: we repeatedly alloc same place if size < alignment
     // assert(allocSize >= allocAlignment);
-    void* headPtr = (char *)a->base + a->head;
+    void* headPtr = static_cast<char*>(a->base) + a->head;
     size_t sizeLeft = a->size - a->head;
     void* res = std::align(allocAlignment, allocSize, headPtr, sizeLeft);
     assert(res);
     a->last = a->head;
-    a->head = ((char *)res + allocSize) - (char *)a->base; //bleh
+    a->head = (static_cast<char*>(res) + allocSize) - static_cast<char*>(a->base); //bleh
     return res;
 }
 
-void MemoryArena::free(memoryArena* a)
+void ZeroInitializeRegion(ArenaAllocator a, ptrdiff_t start, ptrdiff_t size)
 {
+	memset((void*)((char*)a->base + start), 0, size);
+}
+
+void MemoryArena::FreeZeroInitialize(Allocator* a)
+{
+	ZeroInitializeRegion(a, 0, a->last);
     a->head = 0;
     a->last = 0;
 }
 
-void* MemoryArena::copy(memoryArena* a, void* ptr, size_t size_in_bytes)
+void MemoryArena::Free(Allocator* a)
 {
-    void* tgt = MemoryArena::alloc(a, size_in_bytes);
+    //Should probably just always do this
+#if _DEBUG
+    FreeZeroInitialize(a);
+    return;
+#endif
+    a->head = 0;
+    a->last = 0;
+}
+
+void* MemoryArena::alloccopybytes(Allocator* a, void* ptr, size_t size_in_bytes)
+{
+    void* tgt = allocbytes(a, size_in_bytes);
     memcpy(tgt, ptr, size_in_bytes);
     return tgt;
 }
 
-void MemoryArena::setCursor(memoryArena* a)
+ptrdiff_t MemoryArena::GetCurrentOffset(Allocator* a)
 {
+    auto out = a->head;
     a->cursor = a->head;
+    return out;
 }
 
-void MemoryArena::freeToCursor(memoryArena* a)
+void MemoryArena::FreeToOffset(Allocator* a, ptrdiff_t cursor)
 {
-    assert(a->cursor >= 0 && a->cursor < a->head);
-    a->head = a->cursor;
+	#if _DEBUG
+	ZeroInitializeRegion(a, cursor, a->last - cursor);
+	#endif 
+    a->head = cursor;
 }
 
-
-void MemoryArena::freeLast(memoryArena* a)
-{
-    a->head = a->last;   
-}
-
-void MemoryArena::RELEASE(memoryArena* a)
-{
-    VirtualFree(a->base, 0, MEM_RELEASE);
-}

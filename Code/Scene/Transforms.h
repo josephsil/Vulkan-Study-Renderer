@@ -1,20 +1,19 @@
 #pragma once
-#define GLM_FORCE_RADIANS	
-#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#define GLM_GTC_quaternion
+
 #include <memory>
 #include <queue>
 #include <span>
 #include <string>
 #include <vector>
-#include <glm/glm.hpp>
+#include <General/GLM_impl.h>
 
 #include "General/Array.h"
 #include "General/MemoryArena.h"
 
 
-class RendererLoadedAssetData;
+//Naieve/prototype transform logic
+//Needs rewrite
+class AssetManager;
 //Basic idea: loop over each level of the hiearchy and compute all the matrices
 //In theory each level could be done in parallel
 //so like
@@ -29,14 +28,16 @@ class RendererLoadedAssetData;
 struct localTransform
 {
     glm::mat4 matrix;
+    float uniformScale;
     std::string name;
-    uint64_t ID;
+    size_t ID;
     uint8_t depth;
-    std::vector<localTransform*> children; 
+    std::vector<localTransform*> children;
 };
 
-std::shared_ptr<localTransform> DEBUG_CREATE_CHILD(localTransform* tgt, std::string childName, uint64_t ID, glm::mat4 childMat);
-void addChild(localTransform* tgt,localTransform* child);
+std::shared_ptr<localTransform> DEBUG_CREATE_CHILD(localTransform* tgt, std::string childName, uint64_t ID,
+                                                   glm::mat4 childMat);
+void addChild(localTransform* tgt, localTransform* child);
 void rmChild(localTransform* tgt, localTransform* remove);
 
 
@@ -52,9 +53,11 @@ struct flT_lookup
 struct flatlocalTransform
 {
     glm::mat4 matrix;
+    float uniformScale;
     std::string name;
     uint8_t parent; // Parent is always one level up 
 };
+
 //Data the scene uses for transforms
 struct objectTransforms
 {
@@ -62,22 +65,23 @@ struct objectTransforms
     //Split out? Remove?
     std::vector<localTransform> transformNodes;
     Array<localTransform*> rootTransformsView;
-        
+
 
     //world matrices we upload to gpu
     //Add validation to make sure they've been updated?
     Array<std::span<glm::mat4>> worldMatrices;
+    Array<std::span<float>> worldUniformScales;
 
     //Representation we use every frame to calc transforms
     //TODO: Flatten more, use contiguous memory
     std::vector<std::vector<flatlocalTransform>> _local_transform_hiearchy; // [depth][object]
 
 
-    flatlocalTransform* get(uint64_t ID);
+    flatlocalTransform* GetTransform(uint64_t ID);
     //used by get
     std::vector<flT_lookup> _transform_lookup;
-    
-    void set (uint64_t ID, glm::mat4 mat);
+
+    void set(uint64_t ID, glm::mat4 mat);
     void UpdateWorldTransforms();
-    void RebuildTransformDataFromNodes(MemoryArena::memoryArena* arena);
+    void RebuildTransformDataFromNodes(MemoryArena::Allocator* arena);
 };

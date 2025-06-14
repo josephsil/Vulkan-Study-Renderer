@@ -4,9 +4,9 @@
 struct VSInput
 {
     [[vk::location(0)]] float3 Position : POSITION0;
-    [[vk::location(1)]] float3 Color : COLOR0;
-    [[vk::location(2)]] float2 Texture_ST : TEXCOORD0;
-   };
+    // [[vk::location(1)]] float3 Color : COLOR0;
+    // [[vk::location(2)]] float2 Texture_ST : TEXCOORD0;
+};
 
 
 struct FSOutput
@@ -14,16 +14,8 @@ struct FSOutput
     [[vk::location(0)]] float3 Color : SV_Target;
 };
 
-
-
-struct pconstant
-{
-    float indexInfo_2;
-    float4x4 mat;
-};
-
 [[vk::push_constant]]
-pconstant pc;
+shadowPushConstant pc;
 
 struct VSOutput
 {
@@ -37,19 +29,16 @@ struct VSOutput
     // [[vk::location(7)]] float3x3 TBN : TEXCOORD4;
 };
 
-#ifdef SHADOWPASS
-#define MATRIXOFFSET pc.indexInfo_2
-#endif
-
-VSOutput Vert(VSInput input,  [[vk::builtin("BaseInstance")]]  uint InstanceIndex : BaseInstance, uint VertexIndex : SV_VertexID)
+VSOutput Vert(VSInput input, [[vk::builtin("BaseInstance")]] uint InstanceIndex : BaseInstance,
+              uint VertexIndex : SV_VertexID)
 {
-    objectData ubo = uboarr[InstanceIndex];
+    Transform transformUBO =  GetTransform();
     VSOutput output = (VSOutput)0;
     float4x4 viewProjection;
-///
-    viewProjection = mul(shadowMatrices[MATRIXOFFSET].proj, shadowMatrices[MATRIXOFFSET].view);
-    
-    float4x4 mvp2 = mul(viewProjection, ubo.Model);
+    ///
+    viewProjection = pc.mat;
+
+    float4x4 mvp2 = mul(viewProjection, transformUBO.Model);
 
     float4 vertPos = positions[VertexIndex];
     vertPos.a = 1.0;
@@ -73,5 +62,4 @@ struct FSInput
 
 void Frag()
 {
- 
 }
