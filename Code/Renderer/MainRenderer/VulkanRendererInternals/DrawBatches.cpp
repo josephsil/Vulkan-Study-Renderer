@@ -8,8 +8,6 @@
 #include <Scene/AssetManager.h>
 #include <Scene/Scene.h>
 
-#pragma region draw batch TODO MOVE
-
 struct pipelineBucket
 {
     uint32_t pipelineIDX;
@@ -100,5 +98,3 @@ RenderBatch CreateRenderBatch(CommonRenderPassData* context,
       .depthBiasSetting =!shadow ?depthBiasSettng{.use =false, .depthBias = 0, .slopeBias = 0} : depthBiasSettng{.use = true, .depthBias = -8.0, .slopeBias = -10.0} 
           };
 }
-
-#pragma endregion

@@ -51,9 +51,10 @@ struct InterchangeMesh
    std::span<glm::vec3> boundsCorners;
 };
 
+//Mesh import functionality
 namespace MeshDataCreation
 {
-    GPU_BoundingSphere boundingSphereFromMeshBounds(std::span<glm::vec3> boundsCorners);
+    GPU_BoundingSphere CreateBoundingSphereFromMeshBounds(std::span<glm::vec3> boundsCorners);
     InterchangeMesh MeshDataFromSpans(std::span<Vertex> vertices,
                                std::span<uint32_t> indices);
     InterchangeMesh MeshDataFromObjFile(PerThreadRenderContext rendererHandles, const char* path);

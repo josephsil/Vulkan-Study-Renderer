@@ -2,6 +2,8 @@
 
 #include "forward-declarations-renderer.h"
 
+//Helpers for allocation
+//Very naieve allocation patterns atm
 namespace VulkanMemory
 {
     VmaAllocator GetAllocator(VkDevice device, VkPhysicalDevice

@@ -12,6 +12,21 @@ class AssetManager;
 struct Scene;
 struct RenderBatch;
  
+//RenderBatches are used to gather and submit sets of objects (divided by pipeline) for rendering
+//This is a little convoluted, and happens in two parts. 
+//Initially, RenderPassDrawData and CommonRenderPassData objects are created in VulkanRenderer.cpp
+//Those contain the basic information about a 'render pass', which is like:
+// 'this list of objects need to be submitted to be drawn in this frame' (for some pipeline layout and commandbuffer)
+
+//Those objects are provided to CreateRenderBatch() along with the pipeline group and attatchment/target info, 
+// and the list of shaderIDs in the draw 
+//CreateRenderBatch then organizes and buckets the relevant draws by shader, 
+//and bundles up all of the necessary data for each batch to build the drawindirect commands and submit the draws.
+//This is fairly brittle and bug prone, there are a few layers of indirection between pass data, batches, and draw commands, 
+// which all depend on indices being perfectly in sync
+
+//This is another part of the renderer that was started when I initially began learning vulkan, and has been halfway refactored and extended. 
+//Needs a real rework.
 struct RenderPassDrawData
 {
     uint32_t drawCount;

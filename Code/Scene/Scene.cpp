@@ -193,7 +193,7 @@ int lightOrder(LightType t)
 
 
 
-void Scene::lightSort()
+void Scene::SortLights()
 {
 
 	auto cursor = MemoryArena::GetCurrentOffset(&scratchMemory);
@@ -228,7 +228,7 @@ int Scene::AddLight(glm::vec3 position, glm::vec3 dir, glm::vec3 color, float ra
     lightDir.push_back(glm::vec4(dir, -1.0));
     lightTypes.push_back(type);
     lightCount++;
-    lightSort(); //Currently lights are always sorted
+    SortLights(); 
     return 0;
 }
 

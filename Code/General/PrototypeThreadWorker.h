@@ -8,7 +8,7 @@ struct testThreadWorkData
     int requestdata;
 };
 
-
+//See ThreadPool.h
 struct PrototypeThreadWorker
 {
     std::span<testThreadWorkData> JobData;

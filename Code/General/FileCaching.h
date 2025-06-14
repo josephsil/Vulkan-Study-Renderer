@@ -9,6 +9,9 @@
 //The caching strategy for textures is also not great -- should be directly caching kvbuffer/vkimages
 namespace FileCaching
 {
+	constexpr char cacheImageSuffix[13] = ".ktx.cached\0";
+	uint32_t GetCacheImageSuffixLen();
+	std::span<char> GetImagePathWithCacheSuffix(char* sourcePath, std::span<char> target);
     bool TryGetKTXCachedPath(ArenaAllocator arena, const char* path, std::span<char>& ktxPath);
     void SaveAssetChangedTime(std::string_view assetPath);
     bool FileExists(std::string_view assetPath);

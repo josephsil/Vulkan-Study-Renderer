@@ -11,12 +11,12 @@ struct GPU_perShadowData;
 namespace LightAndCameraHelpers
 {
     
- Transform getCameraTransform(cameraData camera);
+ Transform GetCameraTransform(cameraData camera);
 
- glm::vec4 maxComponentsFromSpan(std::span<glm::vec4> input);
+ glm::vec4 MaxComponentsFromSpan(std::span<glm::vec4> input);
 
 
- glm::vec4 minComponentsFromSpan(std::span<glm::vec4> input);
+ glm::vec4 MinComponentsFromSpan(std::span<glm::vec4> input);
 
 
 std::span<glm::vec4> FillFrustumCornersForSpace(std::span<glm::vec4> output_span, glm::mat4 matrix);

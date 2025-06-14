@@ -82,7 +82,7 @@ struct Scene
 private:
     int AddLight(glm::vec3 position, glm::vec3 dir = glm::vec3(-1), glm::vec3 color = glm::vec3(1), float radius = 1,
                  float intensity = 1, LightType type = LIGHT_POINT);
-    void lightSort();
+    void SortLights();
     void UpdateCamera(inputData input);
     void UpdateRotations();
 };

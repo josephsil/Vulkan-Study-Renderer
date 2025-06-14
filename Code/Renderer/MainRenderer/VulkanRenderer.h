@@ -28,6 +28,9 @@ struct SDL_Window;
 //Include last //
 
 
+//Main renderer initialization and update code
+//Two implementation files: VulkanRenderer.cpp and VulkanRendererInitialization.cpp
+
 
 
 
@@ -82,7 +85,7 @@ public:
     void Cleanup();
     void initializeDearIMGUI();
     VkDescriptorSet GetOrRegisterImguiTextureHandle(VkSampler sampler, VkImageView imageView);
-    static uint32_t StaticCalculateTotalDrawCount(Scene* scene, std::span<PerSubmeshData> submeshData);
+    static uint32_t CalculateTotalDrawCount(Scene* scene, std::span<PerSubmeshData> submeshData);
 
 private:
     std::unordered_map<VkImageView, VkDescriptorSet> imguiRegisteredTextures;
@@ -133,7 +136,7 @@ private:
 
     void UpdateShadowImageViews(int frame, SceneSizeData lightData);
     
-    void createDescriptorSetPool(PerThreadRenderContext handles, VkDescriptorPool* pool);
+    void CreateDescriptorSetPool(PerThreadRenderContext handles, VkDescriptorPool* pool);
     std::span<DescriptorUpdateData> CreatePerSceneDescriptorUpdates(uint32_t frame,
                                                                     MemoryArena::Allocator* arena,
                                                                     std::span<VkDescriptorSetLayoutBinding>
@@ -144,7 +147,7 @@ private:
                                                                     layoutBindings);
 
 
-    uint32_t CalculateTotalDrawCount(Scene* scene);
+    uint32_t GetDrawCountForFrame(Scene* scene);
 
 
 
@@ -197,15 +200,15 @@ private:
     void CreateUniformBuffers(size_t subMeshCount, size_t objectsCount, size_t lightCount);
 
     //Globals per pass, ubos, and lights are updated every frame
-    void updatePerFrameBuffers(unsigned currentFrame, Array<std::span<glm::mat4>> models, Scene* scene);
+    void UpdatePerFrameBuffers(unsigned currentFrame, Array<std::span<glm::mat4>> models, Scene* scene);
 
 
     void RecordMipChainCompute(ActiveRenderStepData commandBufferContext, MemoryArena::Allocator* arena,
                                DepthPyramidInfo& pyramidInfo, VkImageView srcView);
     void updateBindingsComputeCullingPreCull(ActiveRenderStepData commandBufferContext,
                                              ArenaAllocator arena);
-    void updateBindingsDrawCopy(ActiveRenderStepData commandBufferContext, ArenaAllocator arena);
-    void updateBindingsComputeCulling(ActiveRenderStepData commandBufferContext, Scene* scene, MemoryArena::Allocator* arena, bool latecull);
+    void UpdateDrawCommandCopyComputeBindings(ActiveRenderStepData commandBufferContext, ArenaAllocator arena);
+    void UpdateComputeCullingBindings(ActiveRenderStepData commandBufferContext, Scene* scene, MemoryArena::Allocator* arena, bool latecull);
 
 
     void RecordUtilityPasses(VkCommandBuffer commandBuffer, size_t imageIndex);

@@ -192,7 +192,7 @@ InterchangeMesh MeshDataCreation::MeshDataFromObjFile(PerThreadRenderContext ren
     return mesh;
 }
 
-GPU_BoundingSphere MeshDataCreation::boundingSphereFromMeshBounds(std::span<glm::vec3> boundsCorners)
+GPU_BoundingSphere MeshDataCreation::CreateBoundingSphereFromMeshBounds(std::span<glm::vec3> boundsCorners)
 {
     return {{(boundsCorners[0] + boundsCorners[1]) / 2.0f, 0.0}, distance(boundsCorners[0], boundsCorners[1]) * 0.5f};
 }

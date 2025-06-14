@@ -6,6 +6,7 @@
 //Forward declaration
 struct Vertex;
 
+//Helpers for creating vullkan buffers
 namespace BufferUtilities
 {
     void CreateDeviceBuffer(VmaAllocator allocator, const char* name, VkDeviceSize size,

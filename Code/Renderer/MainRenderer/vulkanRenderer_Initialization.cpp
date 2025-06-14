@@ -8,12 +8,7 @@
 #include "Renderer/VulkanIncludes/VulkanMemory.h"
 #include "VulkanRendererInternals/RendererHelpers.h"
 
-
-
-
-
-
-
+//Split off from VulkanRenderer.cpp, code related to vulkan initialization
 void VulkanRenderer::initializeWindow()
 {
     // We initialize SDL and create a window with it. 
@@ -43,7 +38,7 @@ vkb::PhysicalDevice getPhysicalDevice(vkb::Instance instance, VkSurfaceKHR surfa
 #endif
         //for image copy:
         // VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, VK_KHR_COPY_COMMANDS_2_EXTENSION_NAME, VK_KHR_FORMAT_FEATURE_FLAGS_2_EXTENSION_NAME,
-    };
+    }; // 
 VkPhysicalDeviceFeatures features{};
 VkPhysicalDeviceVulkan11Features features11{};
 VkPhysicalDeviceVulkan12Features features12{};

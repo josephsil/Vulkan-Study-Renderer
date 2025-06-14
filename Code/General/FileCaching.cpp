@@ -31,15 +31,44 @@ std::wstring WidenString(std::string s)
 {
     return std::wstring(CA2W(std::string(s).c_str()));
 }
+uint32_t FileCaching::GetCacheImageSuffixLen()
+{
+	return sizeof(FileCaching::cacheImageSuffix);
+
+}
+std::span<char> FileCaching::GetImagePathWithCacheSuffix(char* sourcePath, std::span<char> targetMemory)
+{
+	auto str_chars = (strnlen_s(sourcePath, 1024) / sizeof(char)); //-1 for null terminator 
+	auto oldPathSpan = fmt::basic_string_view(sourcePath, str_chars);
+	uint32_t _size = (uint32_t)fmt::format_to_n(targetMemory.begin(), targetMemory.size(), "{}{}", 
+												oldPathSpan, cacheImageSuffix).size;
+    return targetMemory.subspan(0, _size); 
+}
+
+bool IsCachedKTX(std::span<char> sourcePath)
+{
+	auto suffixlen = FileCaching::GetCacheImageSuffixLen();
+	auto subspan = sourcePath.subspan(sourcePath.size() - suffixlen);
+	if (std::string_view(subspan.data(),subspan.size()) == std::string_view(FileCaching::cacheImageSuffix, suffixlen))
+	{
+		return true;
+	}
+	return false;
+}
 
 bool FileCaching::TryGetKTXCachedPath(ArenaAllocator arena, const char* path, std::span<char>& ktxPath)
 {
-    auto str_chars = strnlen_s(path, 1024) / sizeof(char);
-	auto scratchMemory = GetScratchStringMemory();
-    auto oldPathSubSpan = fmt::basic_string_view(path, str_chars - 4);
-	fmt::format_to_n(scratchMemory.begin(), scratchMemory.size(), "{}.ktx\0", oldPathSubSpan);
-    ktxPath = scratchMemory.subspan(0, str_chars); 
-    return FileCaching::FileExists(std::string_view(ktxPath.data()));
+	char* _path = const_cast<char*>(path);
+	auto str_chars = strnlen_s(_path, 1024) / sizeof(char);
+	std::span<char> cachedKTXPath =  std::span(_path, str_chars);
+	if (!IsCachedKTX({_path, str_chars}))
+	{
+		auto newPath = FileCaching::GetImagePathWithCacheSuffix(_path, std::span<char>(&GetScratchStringMemory()[0], 256));
+		cachedKTXPath = MemoryArena::AllocCopySpan(arena, newPath);
+	}
+	assert(cachedKTXPath.size() != 0);
+	ktxPath = cachedKTXPath;
+    return FileCaching::FileExists(std::string_view(cachedKTXPath.data()));
     
     
 }

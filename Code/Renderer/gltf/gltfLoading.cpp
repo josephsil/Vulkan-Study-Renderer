@@ -10,6 +10,8 @@
 #include <glm/gtx/matrix_decompose.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #define TINYGLTF_NO_STB_IMAGE
+#include <fmt/base.h>
+
 #include "gltf_impl.h"
 #include <Renderer/CommandPoolManager.h>
 #include <Renderer/PerThreadRenderContext.h>
@@ -401,13 +403,14 @@ void GltfLoadTextures(size_t imageCt, std::span<TextureData> textures,  std::spa
 
 
         //Get image name 
-        auto gltfPathSpan = std::span(gltfpath, strlen(gltfpath));
-        std::span<const char> textureNameSpan = std::span(name.data(), strlen(name.data()));
-        size_t len = gltfPathSpan.size() + textureNameSpan.size() + 5; //4 for ".ktx" and 1 for null terminated
-        auto newName = MemoryArena::AllocSpan<char>(handles.tempArena, len);
-        memcpy(newName.data(), gltfPathSpan.data(), gltfPathSpan.size_bytes());
-        memcpy(newName.data() + gltfPathSpan.size_bytes(), textureNameSpan.data(), textureNameSpan.size_bytes());
-        memcpy(newName.data() + gltfPathSpan.size_bytes() + textureNameSpan.size_bytes(), ".ktx\0", 5 * sizeof(char));
+        auto gltfPathSpan = std::span(gltfpath, strlen(gltfpath) / sizeof(char));
+        auto imageNameMemory = MemoryArena::AllocSpan<char>(handles.tempArena, gltfPathSpan.size() + name.length());
+        fmt::format_to_n(imageNameMemory.begin(),
+            imageNameMemory.size(), "{}{}", gltfPathSpan.data(), name);
+
+        auto newNameMemory = MemoryArena::AllocSpan<char>(handles.tempArena, gltfPathSpan.size()
+                  + FileCaching::GetCacheImageSuffixLen() + name.length());
+        auto newName = FileCaching::GetImagePathWithCacheSuffix(imageNameMemory.data(), newNameMemory);
         auto cachedImagePath = std::string_view(newName.data(), newName.size());
         imagePaths.push_back(cachedImagePath);
     }

@@ -1,6 +1,8 @@
 ﻿#pragma once
 #include <Renderer/VulkanIncludes/Vulkan_Includes.h>
 #include <General/Array.h>
+
+//See PipelineLayoutManager.h
 namespace MemoryArena
 {
     struct Allocator;

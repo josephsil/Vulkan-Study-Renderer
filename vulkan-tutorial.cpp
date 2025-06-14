@@ -38,7 +38,7 @@ int main()
 
     Add_Scene_Content(renderer.GetMainRendererContext(), renderer.AssetDataAndMemory, &scene);
 
-    auto meshletCt = VulkanRenderer::StaticCalculateTotalDrawCount(&scene, renderer.AssetDataAndMemory->meshData.perSubmeshData.getSpan());
+    auto meshletCt = VulkanRenderer::CalculateTotalDrawCount(&scene, renderer.AssetDataAndMemory->meshData.perSubmeshData.getSpan());
     
 	SceneSizeData sceneData = {.objectCount = scene.GetObjectsCount(), .totalDrawCt = meshletCt, .lightCount = scene.lightCount, .lightTypes = scene.lightTypes.getSpan()};
     renderer.InitializeRendererForScene(sceneData );
