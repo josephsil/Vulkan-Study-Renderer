@@ -79,18 +79,18 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
 
     //spot light
     //rendererContext JS: paramaterize better -- hard to set power and radius currently
-    scene->AddDirLight(glm::vec3(0.00, 0.9, 0.1), glm::vec3(1, 1, 1), 1);
+    //scene->AddDirLight(glm::vec3(0.00, 0.9, 0.1), glm::vec3(1, 1, 1), 1);
     scene->AddSpotLight(glm::vec3(2.5, 2, 3.3), glm::vec3(0, 0, -1), glm::vec3(0.5, 0.5, 1), 45, 260);
 
 
     //point lights    
     // scene->AddPointLight(glm::vec3(1, 1, 0), glm::vec3(0.3, 0.8, 1), 2);
   
-    scene->AddPointLight(glm::vec3(-2, 2, 0), glm::vec3(1, 0, 0), 999 / 2);
+    //scene->AddPointLight(glm::vec3(-2, 2, 0), glm::vec3(1, 0, 0), 999 / 2);
     // scene->AddPointLight(glm::vec3(0, 0, 0), glm::vec3(0, 1, 1), 999 / 2);
 
     GltfData gltf;
-#define SPONZA
+//#define SPONZA
 #ifdef SPONZA
     //rendererContext: gltf load fn that gets back struct, then append its contents to scene 
     gltf = GltfLoadMeshes(rendererContext,*rendererData, "Meshes/sponza.glb");
@@ -137,7 +137,7 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
         rendererData->subMeshGroups[randomMeshes[rand() % randomMeshes.size()]].getSpan(), MemoryArena::AllocSpanConstructEntries<uint32_t>(rendererContext.arena, 1, (uint32_t) (uint32_t)randomMaterials[1]), glm::vec4(0, 0, 0, 0) * 1.2f, MyQuaternion,
         glm::vec3(0.5));
 
-    int ict = 20;
+    int ict = 6;
     int jct = ict;
     localTransform* tform = &scene->transforms.transformNodes[root];
     for (int i = 0; i < ict; i++)
@@ -152,11 +152,15 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
             auto randColor = glm::ballRand(0.5) + 0.5;
             auto randColorLinear = randColor*randColor;
             auto newRandomColorMaterial = rendererData->AddMaterial(
-            sourceMaterial.roughness, sourceMaterial.metallic, randColorLinear, {sourceMaterial.diffuseIndex, sourceMaterial.specIndex, sourceMaterial.normalIndex}, sourceMaterial.shaderGroupIndex);
+            sourceMaterial.roughness, sourceMaterial.metallic, 
+				randColorLinear, {sourceMaterial.diffuseIndex, sourceMaterial.specIndex, sourceMaterial.normalIndex},
+				sourceMaterial.shaderGroupIndex);
     
             scene->AddObject(
                 rendererData->subMeshGroups[randomMeshes[rand() % randomMeshes.size()]].getSpan(), 
-               MemoryArena::AllocSpanConstructEntries<uint32_t>(rendererContext.arena, 1, (uint32_t)newRandomColorMaterial), glm::vec4((j), (i / (ict / 5)) * 1.0, -(i % (ict / 5)), 1) * 1.2f, MyQuaternion,
+               MemoryArena::AllocSpanConstructEntries<uint32_t>(rendererContext.arena, 1, 
+				   (uint32_t)newRandomColorMaterial), glm::vec4((j), (i / (ict / 5)) * 1.0, -(i % (ict / 5)), 1) * 1.2f, 
+				MyQuaternion,
                 glm::vec3(0.5));
             matIDX = rand() % randomMaterials.size();
         }

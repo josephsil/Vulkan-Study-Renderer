@@ -36,6 +36,7 @@ struct RenderPassDrawData
     glm::mat4 view;
     float farPlane;
     float nearPlane;
+	uint32_t passIndex;
 };
 
 struct RenderPassConfig
@@ -84,6 +85,7 @@ struct RenderBatch
     void* pushConstants; 
     uint32_t pushConstantsSize;
     depthBiasSettng depthBiasSetting;
+	uint32_t passIndex;
     
    
 };

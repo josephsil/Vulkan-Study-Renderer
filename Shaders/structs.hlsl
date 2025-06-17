@@ -8,6 +8,7 @@ static const uint CULL_WORKGROUP_X = 64;
 static const uint COPY_WORKGROUP_X = CULL_WORKGROUP_X;
 static const uint MIP_WORKGROUP_X = 16;
 static const uint MIP_WORKGROUP_Y = MIP_WORKGROUP_X;
+static const uint MAX_RENDER_PASSES = 6; //should be dynamic, will fix later
 struct Transform
 {
     float4x4 Model;

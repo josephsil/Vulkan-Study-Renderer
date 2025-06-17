@@ -172,6 +172,7 @@ private:
         HostMappedDataBuffer<GPU_ObjectData> perMeshbuffers;
         HostMappedDataBuffer<GPU_Transform> perObjectBuffers;
         HostMappedDataBuffer<GPU_VertexData> hostMesh;
+		HostMappedDataBuffer<uint32_t> drawIndexBuffers;
         GpuDataBuffer deviceMesh;
 
         //Basic data about the light used in all passes 

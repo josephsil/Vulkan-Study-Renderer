@@ -13,6 +13,7 @@ static constexpr uint32_t CULL_WORKGROUP_X = 64;
 static constexpr uint32_t COPY_WORKGROUP_X = CULL_WORKGROUP_X;
 static constexpr uint32_t MIP_WORKGROUP_X = 16;
 static constexpr uint32_t MIP_WORKGROUP_Y = MIP_WORKGROUP_X;
+static constexpr uint32_t MAX_RENDER_PASSES = 6; //should be dynamic, will fix later
 struct GPU_Transform
 {
     glm::mat4 Model;

@@ -22,6 +22,8 @@ RWStructuredBuffer<VertexData> BufferTable;
 #else
 ByteAddressBuffer BufferTable;
 #endif
+[[vk::binding(5, 0)]]
+RWStructuredBuffer<float4> positions;
 
 
 //[[vk::binding(0, 1)]]
@@ -38,10 +40,10 @@ RWStructuredBuffer<LightData> lights;
 RWStructuredBuffer<ObjectData> PerObjectData;
 [[vk::binding(5, 1)]]
 RWStructuredBuffer<perShadowData> shadowMatrices;
-[[vk::binding(5, 0)]]
-RWStructuredBuffer<float4> positions;
 [[vk::binding(6, 1)]]
 RWStructuredBuffer<Transform> Transforms;
+[[vk::binding(7, 1)]]
+RWStructuredBuffer<uint32_t> DrawIndices; //draw remap table - in progress
 
 #define  DIFFUSE_INDEX  PerObjectData[InstanceIndex].props.textureIndexInfo.r
 #define  SPECULAR_INDEX  PerObjectData[InstanceIndex].props.textureIndexInfo.g
