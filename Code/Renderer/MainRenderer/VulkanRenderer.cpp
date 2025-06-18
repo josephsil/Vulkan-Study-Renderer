@@ -259,7 +259,7 @@ void VulkanRenderer::InitializePipelines(size_t shadowCasterCount)
     auto perSceneBindlessDescriptorData = DescriptorSets::CreateDescriptorDataForPipeline(GetMainRendererContext(), perSceneBindlessDescriptorLayout, false, sceneLayoutBindings, "Per Scene Bindless Set", descriptorPool);
     perSceneDescriptorUpdates = CreatePerSceneDescriptorUpdates(0, &rendererArena, perSceneBindlessDescriptorData.layoutBindings);
 
-    VkDescriptorSetLayoutBinding frameLayoutBindings[8] = {};
+    VkDescriptorSetLayoutBinding frameLayoutBindings[7] = {};
     frameLayoutBindings[0] = VkDescriptorSetLayoutBinding{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL, VK_NULL_HANDLE}; //Globals  0 // per frame
     frameLayoutBindings[1] = VkDescriptorSetLayoutBinding{1, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, MAX_SHADOWMAPS, VK_SHADER_STAGE_FRAGMENT_BIT  }; //SHADOW//  //shadow images 3 //per scene
     frameLayoutBindings[2] = VkDescriptorSetLayoutBinding{2, VK_DESCRIPTOR_TYPE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE}  ; // shadow iamges  6  // perscene
@@ -267,7 +267,7 @@ void VulkanRenderer::InitializePipelines(size_t shadowCasterCount)
     frameLayoutBindings[4] = VkDescriptorSetLayoutBinding{4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1,  VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE} ;  //9 Object info -- per frame
     frameLayoutBindings[5] = VkDescriptorSetLayoutBinding{5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE} ; //10 shadow buffer info -- per frame
     frameLayoutBindings[6] = VkDescriptorSetLayoutBinding{6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1,  VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE} ;  //transform info -- per frame
-    frameLayoutBindings[7] = VkDescriptorSetLayoutBinding{7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1,  VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE} ;  //draw index table -- per frame
+    //frameLayoutBindings[7] = VkDescriptorSetLayoutBinding{7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1,  VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE} ;  //draw index table -- per frame
 
 	perFrameBindlessLayout = DescriptorSets::createVkDescriptorSetLayout(GetMainRendererContext(), frameLayoutBindings, "Per Frame Bindlses Layout");
     auto perFrameBindlessDescriptorData = DescriptorSets::CreateDescriptorDataForPipeline(GetMainRendererContext(), perFrameBindlessLayout,  true, frameLayoutBindings, "Per Frame Bindless Set", descriptorPool);
@@ -625,8 +625,8 @@ std::span<DescriptorUpdateData> VulkanRenderer::CreatePerFrameDescriptorUpdates(
     *perMeshBufferInfo =GetFrameData(frame).perMeshbuffers.buffer.getBufferInfo();
     VkDescriptorBufferInfo* transformBufferInfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
     *transformBufferInfo =GetFrameData(frame).perObjectBuffers.buffer.getBufferInfo();
-	VkDescriptorBufferInfo* drawIndexBufferInfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
-    *drawIndexBufferInfo =GetFrameData(frame).drawCompactionDataBuffer.buffer.getBufferInfo();
+	//VkDescriptorBufferInfo* drawIndexBufferInfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
+    //*drawIndexBufferInfo =GetFrameData(frame).drawCompactionDataBuffer.buffer.getBufferInfo();
     VkDescriptorBufferInfo* shaderglobalsinfo =  MemoryArena::Alloc<VkDescriptorBufferInfo>(arena);
     *shaderglobalsinfo =GetFrameData(frame).opaqueShaderGlobalsBuffer.buffer.getBufferInfo();
     VkDescriptorBufferInfo* shadowBuffersInfo = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena); 
@@ -649,7 +649,7 @@ std::span<DescriptorUpdateData> VulkanRenderer::CreatePerFrameDescriptorUpdates(
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, perMeshBufferInfo}); //frame
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, shadowBuffersInfo}); //frame 
     descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, transformBufferInfo}); //frame
-	descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, drawIndexBufferInfo}); //frame
+	//descriptorUpdates.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, drawIndexBufferInfo}); //frame
 
 
     assert(descriptorUpdates.ct == layoutBindings.size());
@@ -1351,31 +1351,31 @@ void SubmitRenderPassesForBatches( std::span<RenderBatch> Batches, std::span<uin
             uint32_t drawIndirectOffset = offset_base + offset_into_struct;
 
 			uint32_t passIndex = passInfo.passIndex; //TODO JS: use this to index into the offset buffer to get offset and count
-			uint32_t drawOffset = offsetsBuffer[1 + 6 + passIndex -1];
+			uint32_t drawOffset = offsetsBuffer[MAX_RENDER_PASSES + passIndex ];
 			uint32_t drawCount = offsetsBuffer[1 + passIndex ]; //wont work for the bucketed draws yet
 
 			uint32_t offset_into_struct2 = offsetof(drawCommandData, command);
             uint32_t offset_base2 =  drawOffset  *  sizeof(drawCommandData);
             uint32_t drawIndirectOffset2 = offset_base2 + offset_into_struct2;
 
-			printf("== %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u,  \n", offsetsBuffer[0],
-				   offsetsBuffer[1],
-				   offsetsBuffer[2],
-				   offsetsBuffer[3],
-				   offsetsBuffer[4],
-				   offsetsBuffer[5],
-				   offsetsBuffer[6],
-				   offsetsBuffer[7],
-				   offsetsBuffer[8],
-				   offsetsBuffer[9],
-				   offsetsBuffer[10],
-				   offsetsBuffer[11],
-				   offsetsBuffer[12]
-				
-				   
-				   
-				   );
-			printf("%u, %u, %u \n",passIndex, drawOffset, drawCount);
+			//printf("== %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u,  \n", offsetsBuffer[0],
+			//	   offsetsBuffer[1],
+			//	   offsetsBuffer[2],
+			//	   offsetsBuffer[3],
+			//	   offsetsBuffer[4],
+			//	   offsetsBuffer[5],
+			//	   offsetsBuffer[6],
+			//	   offsetsBuffer[7],
+			//	   offsetsBuffer[8],
+			//	   offsetsBuffer[9],
+			//	   offsetsBuffer[10],
+			//	   offsetsBuffer[11],
+			//	   offsetsBuffer[12]
+			//	
+			//	   
+			//	   
+			//	   );
+			//printf("%u, %u, %u \n",passIndex, drawOffset, drawCount);
             vkCmdDrawIndexedIndirect(renderStepContext->commandBuffer,  indirectCommandsBuffer, drawIndirectOffset2,  drawCount, sizeof(drawCommandData));
         }
         vkCmdEndRendering(renderStepContext->commandBuffer);
@@ -1608,7 +1608,7 @@ uint32_t GetNextFirstIndex(RenderBatchQueue* q)
 }
 //Poorly named -- need to refactor this to generalize anyway
 void SubmitCopyWork(ArenaAllocator alloc, ActiveRenderStepData* context, std::span<RenderPassDrawData> passes, 
-					VkPipelineLayout layout, std::span<VkBufferMemoryBarrier2> beforeBarriers, 
+					VkPipelineLayout layout, std::span<VkBufferMemoryBarrier2> beforeBarriers, std::span<VkBufferMemoryBarrier2> loopBarriers,
 					std::span<VkBufferMemoryBarrier2> afterbarriers)
 {
 
@@ -1622,6 +1622,7 @@ void SubmitCopyWork(ArenaAllocator alloc, ActiveRenderStepData* context, std::sp
         RecordDrawCommandCopyCompute(alloc, layout, *context,
 									 copyOffset, passes[j].drawCount, copyPassIndex++);
         copyOffset += passes[j].drawCount;
+		SetPipelineBarrier(context->commandBuffer, loopBarriers, {});
     }
 	SetPipelineBarrier(context->commandBuffer, afterbarriers, {});
 }
@@ -1712,6 +1713,8 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     VkBufferMemoryBarrier2 earlyDrawListBarrier = GetIndirectComputeBarrierForBuffer(thisFrameData->earlyDrawList.buffer.data);
     
 	VkBufferMemoryBarrier2 earlyDrawListFirstBarrier = GetIndirectComputeBarrierForBuffer(thisFrameData->earlyDrawList.buffer.data);
+
+	VkBufferMemoryBarrier2 compactionDataLoopBarrier = GetIndirectComputeBarrierForBuffer(thisFrameData->drawCompactionDataBuffer.buffer.data);
 
     VkBufferMemoryBarrier2 indirectBarriers[3] = {indirectCommandsBarrier, earlyDrawListBarrier, compactIndirectsCommandBarrier};
 
@@ -2020,7 +2023,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
 				   EarlyStep,
 				   passesCopyForCompute,
 				   pipelineLayoutManager.GetLayout(cullDataCopyLayoutIDX),
-				   { &earlyDrawListFirstBarrier, 1 },
+				   { &earlyDrawListFirstBarrier, 1 }, {},
 				   indirectBarriers);
 	//Bind compact compute
 	vkCmdBindPipeline(EarlyStep->commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,  pipelineLayoutManager.GetPipeline(draw_compact_handle));
@@ -2029,6 +2032,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
 				   passesCopyForCompute,
 				   pipelineLayoutManager.GetLayout(cullDataCopyLayoutIDX),
 				   { &earlyDrawListFirstBarrier, 1 },
+				   {&compactionDataLoopBarrier, 1},
 				   indirectBarriers);
 
 	EndCommandBufferForStep(EarlyStep);
@@ -2041,18 +2045,19 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     //Shadows (improve)
 	if (haveInitializedFrame[currentFrame])
     {
+		//printf("about to wait for fence 1 %u\n", currentFrame);
 		//Wait for culling fence so we can read drawindirect data
-        vkWaitForFences(vulkanObjects.vkbdevice.device, 1, &GetFrameData(priorFrame).perFrameSemaphores.earlyDrawComputeFence, VK_TRUE, UINT64_MAX);
-        vkResetFences(vulkanObjects.vkbdevice.device, 1, &GetFrameData(priorFrame).perFrameSemaphores.earlyDrawComputeFence);
+        vkWaitForFences(vulkanObjects.vkbdevice.device, 1, &GetFrameData().perFrameSemaphores.earlyDrawComputeFence, VK_TRUE, UINT64_MAX);
+        vkResetFences(vulkanObjects.vkbdevice.device, 1, &GetFrameData().perFrameSemaphores.earlyDrawComputeFence);
     }
 	//Submit the early prepass draws
 	std::span<uint32_t> dataview = GetFrameData().drawCompactionDataBuffer.GetMappedView();
 	std::span<uint32_t> offsetsBuffer =  MemoryArena::AllocCopySpan(&perFrameArenas[currentFrame], dataview);
     SubmitRenderPassesForBatches(prepassBatches.subspan(0, prepassBatches.size() -1),offsetsBuffer,
-								 thisFrameData->deviceIndices.data, BeforeCullingStep, &pipelineLayoutManager, thisFrameData->drawBuffers.buffer.data, currentFrame);
+								 thisFrameData->deviceIndices.data, BeforeCullingStep, &pipelineLayoutManager, thisFrameData->compactDrawBuffers.buffer.data, currentFrame);
 	SetPipelineBarrier(BeforeCullingStep->commandBuffer, {}, {&shadowToOpaqueBarrier, 1} );
     SubmitRenderPassesForBatches(prepassBatches.subspan(prepassBatches.size() -1),offsetsBuffer,
-								 thisFrameData->deviceIndices.data, BeforeCullingStep, &pipelineLayoutManager, thisFrameData->drawBuffers.buffer.data, currentFrame);
+								 thisFrameData->deviceIndices.data, BeforeCullingStep, &pipelineLayoutManager, thisFrameData->compactDrawBuffers.buffer.data, currentFrame);
 
     SetPipelineBarrier(BeforeCullingStep->commandBuffer, {}, {&depthtoCompute, 1} );
     SetPipelineBarrier(BeforeCullingStep->commandBuffer, {}, {&shadowToCompute, 1} );
@@ -2110,7 +2115,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
 				   CullingStep,
 				   passesCopyForCompute,
 				   pipelineLayoutManager.GetLayout(cullDataCopyLayoutIDX),
-				   { &earlyDrawListFirstBarrier, 1 },
+				   { &earlyDrawListFirstBarrier, 1 },  {&compactionDataLoopBarrier, 1},
 				   indirectBarriers);
 
     // //Submit commandbuffers
@@ -2121,19 +2126,20 @@ void VulkanRenderer::RenderFrame(Scene* scene)
 
 	if (haveInitializedFrame[currentFrame])
     {
+		//printf("about to wait for fence 2 %u\n", currentFrame);
 		//Wait for culling fence so we can read drawindirect data
-        vkWaitForFences(vulkanObjects.vkbdevice.device, 1, &GetFrameData(priorFrame).perFrameSemaphores.lateDrawComputeFence, VK_TRUE, UINT64_MAX);
-        vkResetFences(vulkanObjects.vkbdevice.device, 1, &GetFrameData(priorFrame).perFrameSemaphores.lateDrawComputeFence);
+        vkWaitForFences(vulkanObjects.vkbdevice.device, 1, &GetFrameData().perFrameSemaphores.lateDrawComputeFence, VK_TRUE, UINT64_MAX);
+        vkResetFences(vulkanObjects.vkbdevice.device, 1, &GetFrameData().perFrameSemaphores.lateDrawComputeFence);
     }
-	std::span<uint32_t> offsetsBuffer2 =  MemoryArena::AllocCopySpan(&perFrameArenas[currentFrame], dataview);
+	std::span<uint32_t> offsetsBuffer2 =  MemoryArena::AllocCopySpan(&perFrameArenas[currentFrame],  GetFrameData().drawCompactionDataBuffer.GetMappedView());
     //shadows
     SubmitRenderPassesForBatches(shadowBatches, offsetsBuffer2,
-								 thisFrameData->deviceIndices.data, OpaqueStep, &pipelineLayoutManager, thisFrameData->drawBuffers.buffer.data, currentFrame);
+								 thisFrameData->deviceIndices.data, OpaqueStep, &pipelineLayoutManager, thisFrameData->compactDrawBuffers.buffer.data, currentFrame);
 
     SetPipelineBarrier(OpaqueStep->commandBuffer, {}, {&shadowToOpaqueBarrier, 1} );
     //opaque
     SubmitRenderPassesForBatches(opaqueBatches, offsetsBuffer2,
-								 thisFrameData->deviceIndices.data, OpaqueStep, &pipelineLayoutManager, thisFrameData->drawBuffers.buffer.data, currentFrame);
+								 thisFrameData->deviceIndices.data, OpaqueStep, &pipelineLayoutManager, thisFrameData->compactDrawBuffers.buffer.data, currentFrame);
   
     //After render steps
     //
