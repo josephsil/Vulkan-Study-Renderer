@@ -39,6 +39,7 @@ void PipelineMemoryBarrier(VkCommandBuffer commandBuffer, VkPipelineStageFlags2 
 VkImageMemoryBarrier2 AllTextureAccessBarrier(CommandBufferData bandp, VkImage image,
     VkImageLayout oldLayout,
     VkImageLayout newLayout, uint32_t mipLevel, uint32_t levelCount = 1);
+VkBufferMemoryBarrier2 GetDebugFullBufferBarrier(VkBuffer buffer);
 VkBufferMemoryBarrier2 GetBufferBarrier(VkBuffer buffer, VkPipelineStageFlags2 srcStageMask, VkAccessFlags2 srcAccessMask,
                                      VkPipelineStageFlags2 dstStageMask, VkAccessFlags2 dstAccessMask);
 VkImageMemoryBarrier2 GetImageBarrier(VkImage image, VkPipelineStageFlags2 srcStageMask, VkAccessFlags2 srcAccessMask,

@@ -9,6 +9,9 @@ RWStructuredBuffer<uint> EarlyDrawList; //Index in with objIndex
 [[vk::binding(17, 0)]]
 RWStructuredBuffer<uint> drawIndices; //Draw remap table -- in progress -- not needed here?
 
+[[vk::binding(18, 0)]]
+RWStructuredBuffer<drawCommandData> compactDrawData; 
+
 struct  PushConstants
 {
     uint drawOffset;

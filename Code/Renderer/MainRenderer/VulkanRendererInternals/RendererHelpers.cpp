@@ -276,6 +276,16 @@ VkImageMemoryBarrier2 GetImageBarrier(VkImage image, VkPipelineStageFlags2 srcSt
 
     return result;
 }
+//From Niagara https://github.com/zeux/niagara/tree/master?tab=readme-ov-file 
+VkBufferMemoryBarrier2 GetDebugFullBufferBarrier(VkBuffer buffer)
+{
+	return  GetBufferBarrier(
+		buffer,
+		VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+		VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
+		VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+		VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT);
+}
 
 //From Niagara https://github.com/zeux/niagara/tree/master?tab=readme-ov-file 
 VkBufferMemoryBarrier2 GetBufferBarrier(VkBuffer buffer, VkPipelineStageFlags2 srcStageMask, VkAccessFlags2 srcAccessMask,

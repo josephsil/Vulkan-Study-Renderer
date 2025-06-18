@@ -85,7 +85,8 @@ struct FrameSemaphores
     VkSemaphore opaqueSemaphore{};
     VkSemaphore presentSemaphore{};
     VkSemaphore cullingSemaphore{};
-    VkFence cullingFence{};
+    VkFence lateDrawComputeFence{};
+	VkFence earlyDrawComputeFence{};
 };
 
 

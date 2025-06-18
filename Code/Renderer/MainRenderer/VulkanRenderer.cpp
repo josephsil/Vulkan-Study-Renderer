@@ -110,8 +110,10 @@ VulkanRenderer::VulkanRenderer()
         CreateSemaphore(vulkanObjects.vkbdevice.device, &(perFrameData[i].perFrameSemaphores.presentSemaphore), "Per Frame ready to present semaphore", deletionQueue);
         CreateSemaphore(vulkanObjects.vkbdevice.device, &(perFrameData[i].perFrameSemaphores.cullingSemaphore), "Per Frame finished culling semaphore", deletionQueue);
         CreateFence(vulkanObjects.vkbdevice.device,  &perFrameData[i].inFlightFence, "Per Frame finished rendering Fence", deletionQueue);
-        CreateFence(vulkanObjects.vkbdevice.device,  &perFrameData[i].perFrameSemaphores.cullingFence, "Per frame culling fence", deletionQueue );
-        vkResetFences(vulkanObjects.vkbdevice.device,  1, &perFrameData[i].perFrameSemaphores.cullingFence);
+        CreateFence(vulkanObjects.vkbdevice.device,  &perFrameData[i].perFrameSemaphores.lateDrawComputeFence, "Per frame late culling fence", deletionQueue );
+        vkResetFences(vulkanObjects.vkbdevice.device,  1, &perFrameData[i].perFrameSemaphores.lateDrawComputeFence);
+		CreateFence(vulkanObjects.vkbdevice.device,  &perFrameData[i].perFrameSemaphores.earlyDrawComputeFence, "Per frame early culling fence", deletionQueue );
+        vkResetFences(vulkanObjects.vkbdevice.device,  1, &perFrameData[i].perFrameSemaphores.earlyDrawComputeFence);
 		InitRendererDeletionQueue(&perFrameDeletionQueuse[i], vulkanObjects.vkbdevice, vulkanObjects.vmaAllocator);
     }
 
@@ -506,8 +508,8 @@ void VulkanRenderer::CreateUniformBuffers( size_t drawCount, size_t objectsCount
 		GetFrameData(i).frustumsForCullBuffers = CreateHostDataBuffer<glm::vec4>(&context, (MAX_SHADOWMAPS + MAX_CAMERAS) * 6, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 
 		GetFrameData(i).drawCompactionDataBuffer = CreateHostDataBuffer<uint32_t>(&context, 
-			1 + (MAX_RENDER_PASSES *2), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-		SetDebugObjectNameS(context.device, VK_OBJECT_TYPE_BUFFER, "Data for compaction", (uint64_t)GetFrameData(i).drawCompactionDataBuffer.buffer.data);
+			1 + (MAX_RENDER_PASSES *2), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+		SetDebugObjectNameS(context.device, VK_OBJECT_TYPE_BUFFER , "Data for compaction", (uint64_t)GetFrameData(i).drawCompactionDataBuffer.buffer.data);
 
 
         GetFrameData(i).earlyDrawList = CreateHostDataBuffer<uint32_t>(&context, MAX_DRAWINDIRECT_COMMANDS, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
@@ -1356,7 +1358,24 @@ void SubmitRenderPassesForBatches( std::span<RenderBatch> Batches, std::span<uin
             uint32_t offset_base2 =  drawOffset  *  sizeof(drawCommandData);
             uint32_t drawIndirectOffset2 = offset_base2 + offset_into_struct2;
 
-			//printf("%u, %u, %u \n",passIndex, drawOffset, drawCount);
+			printf("== %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u,  \n", offsetsBuffer[0],
+				   offsetsBuffer[1],
+				   offsetsBuffer[2],
+				   offsetsBuffer[3],
+				   offsetsBuffer[4],
+				   offsetsBuffer[5],
+				   offsetsBuffer[6],
+				   offsetsBuffer[7],
+				   offsetsBuffer[8],
+				   offsetsBuffer[9],
+				   offsetsBuffer[10],
+				   offsetsBuffer[11],
+				   offsetsBuffer[12]
+				
+				   
+				   
+				   );
+			printf("%u, %u, %u \n",passIndex, drawOffset, drawCount);
             vkCmdDrawIndexedIndirect(renderStepContext->commandBuffer,  indirectCommandsBuffer, drawIndirectOffset2,  drawCount, sizeof(drawCommandData));
         }
         vkCmdEndRendering(renderStepContext->commandBuffer);
@@ -1654,16 +1673,28 @@ VkBufferMemoryBarrier2 GetIndirectComputeBarrierForBuffer(VkBuffer buffer)
 							VK_ACCESS_MEMORY_WRITE_BIT,
 							VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT |
 							VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT,
-							VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT |
-							VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT |
-							VK_ACCESS_2_SHADER_READ_BIT |
-							VK_ACCESS_2_SHADER_STORAGE_READ_BIT);
+							VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT);
+
+}
+
+void SubmitClearBufferCommand(VkCommandBuffer cmdbuffer, GpuDataBuffer gpuBuffer)
+{
+	//TODO: Better barriers
+	VkBufferMemoryBarrier2 beforeBarrier =  GetDebugFullBufferBarrier(gpuBuffer.data);
+	SetPipelineBarrier(cmdbuffer, {&beforeBarrier, 1}, {});
+	
+	vkCmdFillBuffer(cmdbuffer,gpuBuffer.data, 0,gpuBuffer.size, 0);
+	
+	VkBufferMemoryBarrier2 afterBarrier =  GetDebugFullBufferBarrier(
+		gpuBuffer.data);
+	SetPipelineBarrier(cmdbuffer, {&afterBarrier, 1}, {});
 
 }
 void VulkanRenderer::RenderFrame(Scene* scene)
 {
     superLuminalAdd("RenderFrame");
-    vkResetFences(vulkanObjects.vkbdevice.device, 1, &GetFrameData().perFrameSemaphores.cullingFence);
+    vkResetFences(vulkanObjects.vkbdevice.device, 1, &GetFrameData().perFrameSemaphores.lateDrawComputeFence);
+	vkResetFences(vulkanObjects.vkbdevice.device, 1, &GetFrameData().perFrameSemaphores.earlyDrawComputeFence);
     auto priorFrame = currentFrame  == 0? MAX_FRAMES_IN_FLIGHT-1 : currentFrame -1;
     auto nextFrame = (currentFrame  + 1) % MAX_FRAMES_IN_FLIGHT;
     if (debug_cull_override_index != internal_debug_cull_override_index)
@@ -1820,7 +1851,8 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     /////////
     auto EarlyStep = renderSteps.PushAndInitializeRenderStep(
     "EarlyStep", &perFrameArenas[currentFrame],
-		commandPoolmanager, &thisFrameData->perFrameSemaphores.swapchainSemaphore, &thisFrameData->perFrameSemaphores.earlyStepSemaphore);
+		commandPoolmanager, &thisFrameData->perFrameSemaphores.swapchainSemaphore, &thisFrameData->perFrameSemaphores.earlyStepSemaphore,  
+		&thisFrameData->perFrameSemaphores.earlyDrawComputeFence);
     
     auto BeforeCullingStep = renderSteps.PushAndInitializeRenderStep(
         "BeforeCullingStep", &perFrameArenas[currentFrame],
@@ -1828,7 +1860,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     
     auto CullingStep = renderSteps.PushAndInitializeRenderStep(
        "CullingStep", &perFrameArenas[currentFrame],
-		commandPoolmanager, &thisFrameData->perFrameSemaphores.prepassSemaphore,  &thisFrameData->perFrameSemaphores.cullingSemaphore,  &thisFrameData->perFrameSemaphores.cullingFence);
+		commandPoolmanager, &thisFrameData->perFrameSemaphores.prepassSemaphore,  &thisFrameData->perFrameSemaphores.cullingSemaphore,  &thisFrameData->perFrameSemaphores.lateDrawComputeFence);
 
     auto OpaqueStep =renderSteps.PushAndInitializeRenderStep("OpaqueStep", &perFrameArenas[currentFrame],
 															 commandPoolmanager,  &thisFrameData->perFrameSemaphores.cullingSemaphore, &thisFrameData->perFrameSemaphores.opaqueSemaphore);
@@ -1972,60 +2004,62 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     auto prepassBatches = renderBatches.getSpan().subspan(existingRenderBatches.size());
     prepassBatches = MemoryArena::AllocCopySpan<RenderBatch>(&perFrameArenas[currentFrame], prepassBatches);
 
-    if (haveInitializedFrame[currentFrame])
-    {
-        vkWaitForFences(vulkanObjects.vkbdevice.device, 1, &GetFrameData(priorFrame).perFrameSemaphores.cullingFence, VK_TRUE, UINT64_MAX);
-        vkResetFences(vulkanObjects.vkbdevice.device, 1, &GetFrameData(priorFrame).perFrameSemaphores.cullingFence);
-
-		//Zero out the drawindexbuffers for next frame (the compact compute shader will write to them momentarily)
-		auto nextFrameRemapBuffer = GetFrameData(( currentFrame + 1) % MAX_FRAMES_IN_FLIGHT).drawCompactionDataBuffer.GetMappedView();
-		for(int i = 0; i <nextFrameRemapBuffer.size(); i++)
-		{
-
-			nextFrameRemapBuffer[i] = 0;
-		}
-    }
+ 
 //
+	//ZERO OUT THE DRAW COMPACTION BUFFER BEFORE WE USE IT
+	SubmitClearBufferCommand(EarlyStep->commandBuffer, GetFrameData().drawCompactionDataBuffer.buffer);
+
 	//"Copy compute" step
-    UpdateDrawCommandCopyComputeBindings(*BeforeCullingStep, &perFrameArenas[currentFrame]);
+    UpdateDrawCommandCopyComputeBindings(*EarlyStep, &perFrameArenas[currentFrame]);
 	//Bind copy compute 
-	vkCmdBindPipeline(BeforeCullingStep->commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,  pipelineLayoutManager.GetPipeline(cull_copy_handle));
+	vkCmdBindPipeline(EarlyStep->commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,  pipelineLayoutManager.GetPipeline(cull_copy_handle));
 	std::span<RenderPassDrawData> passesCopyForCompute = 
 		MemoryArena::AllocCopySpan(&perFrameArenas[currentFrame], shadowPassesData.getSpan(), 1);
 	passesCopyForCompute[passesCopyForCompute.size() -1] = opaquePassData;
 	SubmitCopyWork(&perFrameArenas[currentFrame],
-				   BeforeCullingStep,
+				   EarlyStep,
 				   passesCopyForCompute,
 				   pipelineLayoutManager.GetLayout(cullDataCopyLayoutIDX),
 				   { &earlyDrawListFirstBarrier, 1 },
 				   indirectBarriers);
 	//Bind compact compute
-	vkCmdBindPipeline(BeforeCullingStep->commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,  pipelineLayoutManager.GetPipeline(draw_compact_handle));
+	vkCmdBindPipeline(EarlyStep->commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,  pipelineLayoutManager.GetPipeline(draw_compact_handle));
 	SubmitCopyWork(&perFrameArenas[currentFrame],
-				   BeforeCullingStep,
+				   EarlyStep,
 				   passesCopyForCompute,
 				   pipelineLayoutManager.GetLayout(cullDataCopyLayoutIDX),
 				   { &earlyDrawListFirstBarrier, 1 },
 				   indirectBarriers);
 
+	EndCommandBufferForStep(EarlyStep);
+    SubmitCommandBuffer(EarlyStep);
+
     
     UpdateComputeCullingBindings(*CullingStep,scene,  &perFrameArenas[currentFrame], false);
-    //Submit the early prepass draws
+  
     // auto& lastFrameCommands =  GetFrameData(priorFrame).drawBuffers.buffer.data;
     //Shadows (improve)
-	std::span<uint32_t> offsetsBuffer =  GetFrameData().drawCompactionDataBuffer.GetMappedView();
+	if (haveInitializedFrame[currentFrame])
+    {
+		//Wait for culling fence so we can read drawindirect data
+        vkWaitForFences(vulkanObjects.vkbdevice.device, 1, &GetFrameData(priorFrame).perFrameSemaphores.earlyDrawComputeFence, VK_TRUE, UINT64_MAX);
+        vkResetFences(vulkanObjects.vkbdevice.device, 1, &GetFrameData(priorFrame).perFrameSemaphores.earlyDrawComputeFence);
+    }
+	//Submit the early prepass draws
+	std::span<uint32_t> dataview = GetFrameData().drawCompactionDataBuffer.GetMappedView();
+	std::span<uint32_t> offsetsBuffer =  MemoryArena::AllocCopySpan(&perFrameArenas[currentFrame], dataview);
     SubmitRenderPassesForBatches(prepassBatches.subspan(0, prepassBatches.size() -1),offsetsBuffer,
 								 thisFrameData->deviceIndices.data, BeforeCullingStep, &pipelineLayoutManager, thisFrameData->drawBuffers.buffer.data, currentFrame);
 	SetPipelineBarrier(BeforeCullingStep->commandBuffer, {}, {&shadowToOpaqueBarrier, 1} );
     SubmitRenderPassesForBatches(prepassBatches.subspan(prepassBatches.size() -1),offsetsBuffer,
 								 thisFrameData->deviceIndices.data, BeforeCullingStep, &pipelineLayoutManager, thisFrameData->drawBuffers.buffer.data, currentFrame);
 
-   
-    
     SetPipelineBarrier(BeforeCullingStep->commandBuffer, {}, {&depthtoCompute, 1} );
-
- 
     SetPipelineBarrier(BeforeCullingStep->commandBuffer, {}, {&shadowToCompute, 1} );
+
+   
+
+   
     uint32_t shadowmapIndex = 0;
 	//TODO: Use a more bindless structure for mipchain compute, bind resources once and index in to textures
     for(int i =0; i < scene->lightCount; i++)
@@ -2043,9 +2077,16 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     RecordMipChainCompute(*BeforeCullingStep, &perFrameArenas[currentFrame], depthBufferPyramidData,
 						  globalResources.depthBufferInfoPerFrame[currentFrame].view);
 
+	//ZERO OUT THE DRAW COMPACTION BUFFER NOW THAT WE'VE USED IT -- reset it for late draw 
+	SubmitClearBufferCommand(BeforeCullingStep->commandBuffer, GetFrameData().drawCompactionDataBuffer.buffer);
+
+	EndCommandBufferForStep(BeforeCullingStep);
+    SubmitCommandBuffer(BeforeCullingStep);
+
  
     SetPipelineBarrier(OpaqueStep->commandBuffer, {}, afterShadowRenderBarriers );
     SetPipelineBarrier(OpaqueStep->commandBuffer, {}, {&afterDepthDrawBarrier, 1});
+
 
     //Early cull
     uint32_t cullPassIndex = 0;
@@ -2056,16 +2097,43 @@ void VulkanRenderer::RenderFrame(Scene* scene)
 					 {},
 				   indirectBarriers, false);
 
+	
+	SetPipelineBarrier(CullingStep->commandBuffer,indirectBarriers,{} );
+
+	//"Copy compute" step
+	//TODO JS
+    UpdateDrawCommandCopyComputeBindings(*CullingStep	, &perFrameArenas[currentFrame]);
+
+	//Bind compact compute
+	vkCmdBindPipeline(CullingStep->commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,  pipelineLayoutManager.GetPipeline(draw_compact_handle));
+	SubmitCopyWork(&perFrameArenas[currentFrame],
+				   CullingStep,
+				   passesCopyForCompute,
+				   pipelineLayoutManager.GetLayout(cullDataCopyLayoutIDX),
+				   { &earlyDrawListFirstBarrier, 1 },
+				   indirectBarriers);
+
+    // //Submit commandbuffers
+
+      
+    EndCommandBufferForStep(CullingStep);
+    SubmitCommandBuffer(CullingStep);
+
+	if (haveInitializedFrame[currentFrame])
+    {
+		//Wait for culling fence so we can read drawindirect data
+        vkWaitForFences(vulkanObjects.vkbdevice.device, 1, &GetFrameData(priorFrame).perFrameSemaphores.lateDrawComputeFence, VK_TRUE, UINT64_MAX);
+        vkResetFences(vulkanObjects.vkbdevice.device, 1, &GetFrameData(priorFrame).perFrameSemaphores.lateDrawComputeFence);
+    }
+	std::span<uint32_t> offsetsBuffer2 =  MemoryArena::AllocCopySpan(&perFrameArenas[currentFrame], dataview);
     //shadows
-    SubmitRenderPassesForBatches(shadowBatches, offsetsBuffer,
+    SubmitRenderPassesForBatches(shadowBatches, offsetsBuffer2,
 								 thisFrameData->deviceIndices.data, OpaqueStep, &pipelineLayoutManager, thisFrameData->drawBuffers.buffer.data, currentFrame);
 
     SetPipelineBarrier(OpaqueStep->commandBuffer, {}, {&shadowToOpaqueBarrier, 1} );
     //opaque
-    SubmitRenderPassesForBatches(opaqueBatches, offsetsBuffer,
+    SubmitRenderPassesForBatches(opaqueBatches, offsetsBuffer2,
 								 thisFrameData->deviceIndices.data, OpaqueStep, &pipelineLayoutManager, thisFrameData->drawBuffers.buffer.data, currentFrame);
-
-
   
     //After render steps
     //
@@ -2113,29 +2181,9 @@ void VulkanRenderer::RenderFrame(Scene* scene)
 					 {},
 					 indirectBarriers, true);
 
-	//"Copy compute" step
-	//TODO JS
-    UpdateDrawCommandCopyComputeBindings(*PostRenderStep	, &perFrameArenas[currentFrame]);
 
-	//Bind compact compute
-	vkCmdBindPipeline(PostRenderStep->commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,  pipelineLayoutManager.GetPipeline(draw_compact_handle));
-	SubmitCopyWork(&perFrameArenas[currentFrame],
-				   PostRenderStep,
-				   passesCopyForCompute,
-				   pipelineLayoutManager.GetLayout(cullDataCopyLayoutIDX),
-				   { &earlyDrawListFirstBarrier, 1 },
-				   indirectBarriers);
 
-	SetPipelineBarrier(CullingStep->commandBuffer,indirectBarriers,{} );
-    // //Submit commandbuffers
-    EndCommandBufferForStep(EarlyStep);
-    SubmitCommandBuffer(EarlyStep);
-    
-    EndCommandBufferForStep(BeforeCullingStep);
-    SubmitCommandBuffer(BeforeCullingStep);
-    
-    EndCommandBufferForStep(CullingStep);
-    SubmitCommandBuffer(CullingStep);
+  
 
     EndCommandBufferForStep(OpaqueStep);
     SubmitCommandBuffer(OpaqueStep);

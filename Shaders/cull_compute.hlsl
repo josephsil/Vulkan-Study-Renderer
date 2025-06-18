@@ -27,6 +27,9 @@ RWStructuredBuffer<uint> EarlyDrawList; //Index in with objIndex
 [[vk::binding(17, 0)]]
 RWStructuredBuffer<uint> drawIndices; //Draw remap table -- in progress
 
+[[vk::binding(18, 0)]]
+RWStructuredBuffer<drawCommandData> compactDrawData; //Not sure this is going to be used in this shader 
+
 // 2D Polyhedral Bounds of a Clipped, Perspective-Projected 3D Sphere. Michael Mara, Morgan McGuire. 2013
 bool projectSphere(float3 c, float r, float znear, float P00, float P11, out float4 aabb)
 {
@@ -172,46 +175,12 @@ void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
         }
     }
 
-	if (visible) 
-	{ 
-		uint32_t globalIndex;
-		uint32_t forPassIndex;
-		// the first MAX_RENDER_PASSES + 1entries in drawIndices are counters
-		//The first index is a global counter 
-		//The rest are per pass counters 
-		//The NEXT MAX_RENDER_PASSES entries are offsets, written using the counters
-		uint32_t counterIdx = passIndex +1; 
-		uint32_t offsetCounterForPassIdx = counterIdx + MAX_RENDER_PASSES;
-		
-		//Update the counters s
-		InterlockedAdd(drawIndices[0], 1, globalIndex);
-		InterlockedAdd(drawIndices[counterIdx], 1, forPassIndex);
-
-		//Update the offset 
-		uint32_t unused;
-		InterlockedMax(drawIndices[offsetCounterForPassIdx], globalIndex +1, unused);
-
-		uint32_t drawIndicesIdx = globalIndex + (MAX_RENDER_PASSES *2)+1;
-		//NEXT STEPS: DrawIndices aren't needed -- what I actually need from that buffer is just the MAX_RENDER_PASSES *2 portion
-		//This will hold the necessary data to get OFFSETS.
-		//Then, I can compact the drawdatas (see below). That's all I need from the compute side.
-		//Then, on the cpu side, I need to make some changes. DrawIndirect takes a first draw offset -- 
-		// I need to use my offsets from here for that (since passes will be variable size) 
-		//That should work relatively easily (aside from possible readback perf) for all of the shadowpasses
-		//However, the bucketing thing for opaque will be a problem. Not obvious at first glance how to fix that. Invoke compute per bucket?
-
-		//drawIndices[drawIndicesIdx] = InstanceIndex; 
-		//drawData[globalIndex] = drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x]; //compact draws to the front
-		//drawData[globalIndex].instanceCount = 1;//visible ? 1 : 0;
-		//This gets us our draws and offsets, but we still need to pass the relevant info to the main shaders 
-		//I think it should go in their push constants. They need 
-	}
     if (LATE_CULL) //On late draw, update the early draw list.
     {
         EarlyDrawList[ShaderGlobals.drawOffset + InstanceIndex] = visible;
     }
     else
     {
-        drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].instanceCount = 1;//visible ? 1 : 0;
+        drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].instanceCount = visible ? 1 : 0;
     }
 }
