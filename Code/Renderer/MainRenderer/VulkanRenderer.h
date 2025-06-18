@@ -172,15 +172,17 @@ private:
         HostMappedDataBuffer<GPU_ObjectData> perMeshbuffers;
         HostMappedDataBuffer<GPU_Transform> perObjectBuffers;
         HostMappedDataBuffer<GPU_VertexData> hostMesh;
-		HostMappedDataBuffer<uint32_t> drawIndexBuffers;
+		HostMappedDataBuffer<uint32_t> drawCompactionDataBuffer;  //Stores data for compacting and (eventually) sorting draws
         GpuDataBuffer deviceMesh;
 
         //Basic data about the light used in all passes 
         HostMappedDataBuffer<GPU_LightData> lightBuffers;
         HostMappedDataBuffer<GPU_perShadowData> shadowDataBuffers;
 
-        //Draw indirect
+        //Draw indirect -- TODO, these uncompacetd buffers could be a different, smaller struct
         HostMappedDataBuffer<drawCommandData> drawBuffers;
+		//Draw indirect
+        HostMappedDataBuffer<drawCommandData> compactDrawBuffers;
 
         //Draw early draw list
         HostMappedDataBuffer<uint32_t> earlyDrawList;

@@ -196,32 +196,27 @@ void PipelineMemoryBarrier(VkCommandBuffer commandBuffer, VkPipelineStageFlags2 
 
 void AddBufferTrasnfer(VkBuffer sourceBuffer, VkBuffer targetBuffer, size_t copySize, VkCommandBuffer cmdBuffer)
 {
-    VkBufferMemoryBarrier bufMemBarrier = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER};
-    bufMemBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
-    bufMemBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-    bufMemBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    bufMemBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    bufMemBarrier.buffer = sourceBuffer;
-    bufMemBarrier.offset = 0;
-    bufMemBarrier.size = VK_WHOLE_SIZE;
-    vkCmdPipelineBarrier(cmdBuffer, VK_PIPELINE_STAGE_HOST_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
-                         0, 0, nullptr, 1, &bufMemBarrier, 0, nullptr);
 
+	VkBufferMemoryBarrier2 bufMembarrier = GetBufferBarrier(sourceBuffer,
+															VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+															VK_ACCESS_2_TRANSFER_READ_BIT,
+															VK_PIPELINE_STAGE_2_COPY_BIT,
+															VK_ACCESS_2_TRANSFER_READ_BIT);
+
+	VkBufferMemoryBarrier2 bufMembarrier2 = GetBufferBarrier(targetBuffer,
+															 VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT | VK_PIPELINE_STAGE_2_COPY_BIT,
+															 VK_ACCESS_2_TRANSFER_WRITE_BIT,
+															 VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
+															 VK_ACCESS_2_INDEX_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT );
+	VkBufferMemoryBarrier2 barriers[] = {bufMembarrier, bufMembarrier2};
+
+	SetPipelineBarrier(cmdBuffer, barriers, {});
 
     //Copy vertex data over
     BufferUtilities::CopyBuffer(cmdBuffer, sourceBuffer,
                                                  targetBuffer, copySize);
-    
-    VkBufferMemoryBarrier bufMemBarrier2 = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER};
-    bufMemBarrier2.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    bufMemBarrier2.dstAccessMask =  VK_ACCESS_INDEX_READ_BIT | VK_ACCESS_2_TRANSFER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_UNIFORM_READ_BIT | VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT; // We created a uniform buffer
-    bufMemBarrier2.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    bufMemBarrier2.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    bufMemBarrier2.buffer = targetBuffer;
-    bufMemBarrier2.offset = 0;
-    bufMemBarrier2.size = VK_WHOLE_SIZE;
-    vkCmdPipelineBarrier(cmdBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
-                         0, 0, nullptr, 1, &bufMemBarrier2, 0, nullptr);
+
+	SetPipelineBarrier(cmdBuffer, {&bufMembarrier2, 1}, {});
 }
 
 void SetPipelineBarrier(VkCommandBuffer commandBuffer,  

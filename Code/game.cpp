@@ -140,6 +140,13 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
     int ict = 6;
     int jct = ict;
     localTransform* tform = &scene->transforms.transformNodes[root];
+
+
+	for(ID::MaterialID& m : randomMaterials)
+	{
+		rendererData->materials[m].shaderGroupIndex = 1; //TODO JS temporarily making everything one shader, for compaction work
+	}
+
     for (int i = 0; i < ict; i++)
     {
         for (int j = i == 0 ? 1 : 0; j < jct; j++)
