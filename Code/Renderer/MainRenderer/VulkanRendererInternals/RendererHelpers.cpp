@@ -194,16 +194,16 @@ void PipelineMemoryBarrier(VkCommandBuffer commandBuffer, VkPipelineStageFlags2 
 
 
 
-void AddBufferTrasnfer(VkBuffer sourceBuffer, VkBuffer targetBuffer, size_t copySize, VkCommandBuffer cmdBuffer)
+void AddBufferTrasnfer(VkCommandBuffer cmdBuffer, GpuDataBuffer sourceBuffer, GpuDataBuffer targetBuffer)
 {
 
-	VkBufferMemoryBarrier2 bufMembarrier = GetBufferBarrier(sourceBuffer,
+	VkBufferMemoryBarrier2 bufMembarrier = GetBufferBarrier(sourceBuffer.data,
 															VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
 															VK_ACCESS_2_TRANSFER_READ_BIT,
 															VK_PIPELINE_STAGE_2_COPY_BIT,
 															VK_ACCESS_2_TRANSFER_READ_BIT);
 
-	VkBufferMemoryBarrier2 bufMembarrier2 = GetBufferBarrier(targetBuffer,
+	VkBufferMemoryBarrier2 bufMembarrier2 = GetBufferBarrier(targetBuffer.data,
 															 VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT | VK_PIPELINE_STAGE_2_COPY_BIT,
 															 VK_ACCESS_2_TRANSFER_WRITE_BIT,
 															 VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
@@ -213,8 +213,7 @@ void AddBufferTrasnfer(VkBuffer sourceBuffer, VkBuffer targetBuffer, size_t copy
 	SetPipelineBarrier(cmdBuffer, barriers, {});
 
     //Copy vertex data over
-    BufferUtilities::CopyBuffer(cmdBuffer, sourceBuffer,
-                                                 targetBuffer, copySize);
+    BufferUtilities::CopyBuffer(cmdBuffer, sourceBuffer.data, targetBuffer.data, targetBuffer.size);
 
 	SetPipelineBarrier(cmdBuffer, {&bufMembarrier2, 1}, {});
 }

@@ -47,7 +47,7 @@ struct RenderPassConfig
     VkExtent2D extents;
 };
 
-struct CommonRenderPassData 
+struct CommonObjectPassData 
 {
     //name <- not common
     ArenaAllocator tempAllocator;
@@ -89,7 +89,7 @@ struct RenderBatch
     
    
 };
-RenderBatch CreateRenderBatch( CommonRenderPassData* context,
+RenderBatch CreateRenderBatch( CommonObjectPassData* context,
    RenderPassConfig config, RenderPassDrawData passInfo, bool shadow,
                                     PipelineLayoutHandle pipelineGroup,
                                    std::span<FullShaderHandle> shaderIDs, const char* name);

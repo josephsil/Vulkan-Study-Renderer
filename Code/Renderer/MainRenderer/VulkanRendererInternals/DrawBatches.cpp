@@ -17,7 +17,7 @@ struct pipelineBucket
 
 
 
-RenderBatch CreateRenderBatch(CommonRenderPassData* context,
+RenderBatch CreateRenderBatch(CommonObjectPassData* context,
     RenderPassConfig config, RenderPassDrawData passInfo, bool shadow,
                                      PipelineLayoutHandle pipelineGroup,
                                     std::span<FullShaderHandle> shaderIDs, const char* name)

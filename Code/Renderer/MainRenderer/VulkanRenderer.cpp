@@ -1677,6 +1677,65 @@ VkBufferMemoryBarrier2 GetIndirectComputeBarrierForBuffer(VkBuffer buffer)
 							VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT);
 
 }
+VkImageMemoryBarrier2 ColorAttatchmentTransitionOutBarrier(VkImage image)
+{
+	return GetImageBarrier(image,
+						   VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, 
+						   VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+						   VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+						   VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+						   VK_ACCESS_MEMORY_READ_BIT,
+						   VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+						   VK_IMAGE_ASPECT_COLOR_BIT,
+						   0,
+						   VK_REMAINING_MIP_LEVELS);
+}
+VkImageMemoryBarrier2 ColorAttatchmentTransitionInBarrier(VkImage image)
+{
+	return GetImageBarrier(image,
+						   VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT, 
+						   VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
+						   VK_IMAGE_LAYOUT_UNDEFINED,
+						   VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT ,
+						   VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT|VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+						   VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+						   VK_IMAGE_ASPECT_COLOR_BIT,
+						   0,
+						   VK_REMAINING_MIP_LEVELS);
+}
+VkImageMemoryBarrier2 GetDepthShaderWriteToReadBarrier(VkImage image, uint32_t mipLevels=VK_REMAINING_MIP_LEVELS, uint32_t baseLayer = 0)
+{
+	return GetImageBarrier(image,
+						   VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+							VK_ACCESS_2_SHADER_WRITE_BIT,
+							VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+							VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT |
+							VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+							VK_ACCESS_2_SHADER_WRITE_BIT |
+							VK_ACCESS_2_SHADER_READ_BIT |
+							VK_ACCESS_2_SHADER_SAMPLED_READ_BIT,
+							VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+							VK_IMAGE_ASPECT_DEPTH_BIT,
+							0,
+						   mipLevels, baseLayer);
+
+}
+
+VkImageMemoryBarrier2 GetDepthDrawToComputeBarrier(VkImage image)
+{
+	return GetImageBarrier(image,
+						   VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+						   VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+						   VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+						   VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT |
+						   VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_ACCESS_2_SHADER_SAMPLED_READ_BIT, 
+						   VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_MEMORY_READ_BIT,
+						   VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+						   VK_IMAGE_ASPECT_DEPTH_BIT,
+						   0,
+						   VK_REMAINING_MIP_LEVELS);
+
+}
 
 void SubmitClearBufferCommand(VkCommandBuffer cmdbuffer, GpuDataBuffer gpuBuffer)
 {
@@ -1691,13 +1750,135 @@ void SubmitClearBufferCommand(VkCommandBuffer cmdbuffer, GpuDataBuffer gpuBuffer
 	SetPipelineBarrier(cmdbuffer, {&afterBarrier, 1}, {});
 
 }
+
+void VulkanRenderer::ResetStartOfFrameFences()
+{
+	vkResetFences(vulkanObjects.vkbdevice.device, 1, &GetFrameData().perFrameSemaphores.lateDrawComputeFence);
+	vkResetFences(vulkanObjects.vkbdevice.device, 1, &GetFrameData().perFrameSemaphores.earlyDrawComputeFence);
+
+}
+
+
+VulkanRenderer::objectPassData VulkanRenderer::GetObjectDrawData(ArenaAllocator allocator, Scene* scene, 
+												 VkRenderingAttachmentInfoKHR* depthDrawAttatchment, 
+												 VkRenderingAttachmentInfoKHR* initialColorRenderTarget,
+												 VkRenderingAttachmentInfoKHR* ColorRenderTargetNoClear)
+{
+
+	//set up all our  draws
+    CommonObjectPassData objectDrawPassContext =
+	{
+        .tempAllocator =  &perFrameArenas[currentFrame],
+        .scenePtr = scene,
+        .assetDataPtr =  AssetDataAndMemory,
+	};
+
+
+	uint32_t drawOffset = 0;
+    uint32_t submeshperPass =  (uint32_t)scene->objects.subMeshesCount;
+    uint32_t drawPerPass = CalculateTotalDrawCount(scene,AssetDataAndMemory->meshData.perSubmeshData.getSpan());
+
+    //Create the shadow data that shadow render passes will read from. This could happen anywhere in the frame
+    Array flatShadowData = MemoryArena::AllocSpan<GPU_perShadowData>(allocator, MAX_SHADOWMAPS);
+    for(size_t i = 0; i < glm::min(scene->lightCount, MAX_SHADOWCASTERS); i ++)
+    {
+        LightType type = scene->lightTypes[i];
+        flatShadowData.push_copy_span( perLightShadowData[i]);
+    }
+
+    //Create shadow info for passes
+    Array shadowPassesData = MemoryArena::AllocSpan<RenderPassDrawData>(allocator, MAX_RENDER_PASSES);
+    uint32_t batchIndex =0;
+    for (auto& shadowData : flatShadowData.getSpan())
+    {
+        shadowPassesData.push_back({.drawCount = drawPerPass,
+		.drawOffset = drawOffset,
+		.subMeshcount = submeshperPass,
+		.proj = shadowData.projMatrix,
+		.view = shadowData.viewMatrix,
+		.farPlane = shadowData.farPlane,
+		.nearPlane = shadowData.nearPlane,
+		.passIndex = batchIndex});
+        DebugCullingData[batchIndex++] = (shadowPassesData.back());
+        drawOffset += drawPerPass;
+    }
+   
+    //Culling debug stuff
+    viewProj viewProjMatricesForCulling = LightAndCameraHelpers::CalcViewProjFromCamera(scene->sceneCamera);
+    GPU_perShadowData* data = MemoryArena::Alloc<GPU_perShadowData>(allocator);
+    if ( debug_cull_override && GetFlattenedShadowDataForIndex(debug_cull_override_index,perLightShadowData, data))
+    {
+        viewProjMatricesForCulling = { data->viewMatrix,  data->projMatrix};
+        glm::vec4 frustumCornersWorldSpace[8] = {};
+        LightAndCameraHelpers::FillFrustumCornersForSpace(frustumCornersWorldSpace,glm::inverse(viewProjMatricesForCulling.proj * viewProjMatricesForCulling.view));
+        debugLinesManager.AddDebugFrustum(frustumCornersWorldSpace);
+    }
+
+    //Opaque info for pass
+    RenderPassDrawData opaquePassData = {
+        .drawCount = drawPerPass,
+        .drawOffset = drawOffset,
+        .subMeshcount = submeshperPass,
+        .proj = viewProjMatricesForCulling.proj,
+        .view = viewProjMatricesForCulling.view,
+        .farPlane = 0.0,
+        .nearPlane =  CAMERA_NEAR_PLANE,
+		.passIndex = batchIndex};
+    drawOffset += drawPerPass;
+    DebugCullingData[batchIndex++] = (opaquePassData);
+    
+    Array<RenderBatch> renderBatches = MemoryArena::AllocSpan<RenderBatch>(allocator, MAX_RENDER_PASSES);
+    auto ShadowPassConfigs = CreateShadowPassConfigs(allocator, shadowPassesData.getSpan(), shadowResources.shadowMapSingleLayerViews[currentFrame]);
+    for (int i =0; i < ShadowPassConfigs.size(); i++)
+    {
+        renderBatches.push_back(CreateRenderBatch( &objectDrawPassContext, ShadowPassConfigs[i],  shadowPassesData[i], true, shadowLayoutIDX, opaqueObjectShaderSets.shadowShaders.getSpan(), "shadow"));
+    }
+    
+    //This "add batches" concept was an earlier misguided design choice. Right now it's still here, but I'm hackily getting subspans out of it so I cna submit them independantly in order, separated by barriers.
+    auto shadowBatches = renderBatches.getSpan();
+
+    auto opaqueconfig = CreateOpaquePassConfig(allocator,opaquePassData,ColorRenderTargetNoClear, depthDrawAttatchment,  vulkanObjects.swapchain.extent);
+    renderBatches.push_back(CreateRenderBatch(  &objectDrawPassContext, opaqueconfig, opaquePassData,false,  opaqueLayoutIDX, opaqueObjectShaderSets.opaqueShaders.getSpan(), "opaque"));
+    auto opaqueBatches  = renderBatches.getSpan().subspan(renderBatches.size() -1, 1);
+
+	//Add early draws 
+    auto existingRenderBatches = renderBatches.getSpan();
+
+ 
+    for(size_t i = 0; i < existingRenderBatches.size(); i++)
+    {
+        auto newBatch =  renderBatches[i];
+        newBatch.colorattatchment = newBatch.colorattatchment  == ColorRenderTargetNoClear ?  initialColorRenderTarget : VK_NULL_HANDLE; //hack todo
+        std::span<simpleMeshPassInfo> oldPasses = renderBatches[i].perPipelinePasses;
+        std::span<simpleMeshPassInfo> newPasses = MemoryArena::AllocCopySpan<simpleMeshPassInfo>(allocator, oldPasses);
+        newBatch.debugName = "early pass";
+        newBatch.perPipelinePasses = newPasses;
+        newBatch.depthAttatchment = MemoryArena::AllocCopy<VkRenderingAttachmentInfoKHR>(allocator, *renderBatches[i].depthAttatchment);
+        renderBatches.push_back(newBatch);
+        renderBatches[i].depthAttatchment->loadOp = VK_ATTACHMENT_LOAD_OP_LOAD; 
+    }
+	auto prepassBatches = renderBatches.getSpan().subspan(existingRenderBatches.size());
+	return VulkanRenderer::objectPassData {
+		.shadowBatches = shadowBatches,
+		.opaqueBatches = opaqueBatches,
+		.postPassbatches = existingRenderBatches,
+		.prepassBatches = prepassBatches,
+		.opaquePassData = opaquePassData,
+		.shadowPassesData = shadowPassesData.getSpan()
+	};
+
+	
+	
+}
+
 void VulkanRenderer::RenderFrame(Scene* scene)
 {
     superLuminalAdd("RenderFrame");
-    vkResetFences(vulkanObjects.vkbdevice.device, 1, &GetFrameData().perFrameSemaphores.lateDrawComputeFence);
-	vkResetFences(vulkanObjects.vkbdevice.device, 1, &GetFrameData().perFrameSemaphores.earlyDrawComputeFence);
+	ResetStartOfFrameFences();
+
     auto priorFrame = currentFrame  == 0? MAX_FRAMES_IN_FLIGHT-1 : currentFrame -1;
     auto nextFrame = (currentFrame  + 1) % MAX_FRAMES_IN_FLIGHT;
+
     if (debug_cull_override_index != internal_debug_cull_override_index)
     {
         debug_cull_override_index %= Scene::getShadowDataIndex(glm::min(scene->lightCount, MAX_SHADOWCASTERS), scene->lightTypes.getSpan());
@@ -1710,84 +1891,28 @@ void VulkanRenderer::RenderFrame(Scene* scene)
 
     VkBufferMemoryBarrier2 indirectCommandsBarrier = GetIndirectComputeBarrierForBuffer(thisFrameData->drawBuffers.buffer.data);
 	VkBufferMemoryBarrier2 compactIndirectsCommandBarrier = GetIndirectComputeBarrierForBuffer(thisFrameData->compactDrawBuffers.buffer.data);
-    VkBufferMemoryBarrier2 earlyDrawListBarrier = GetIndirectComputeBarrierForBuffer(thisFrameData->earlyDrawList.buffer.data);
-    
-	VkBufferMemoryBarrier2 earlyDrawListFirstBarrier = GetIndirectComputeBarrierForBuffer(thisFrameData->earlyDrawList.buffer.data);
-
+	VkBufferMemoryBarrier2 earlyDrawListBarrier = GetIndirectComputeBarrierForBuffer(thisFrameData->earlyDrawList.buffer.data);
 	VkBufferMemoryBarrier2 compactionDataLoopBarrier = GetIndirectComputeBarrierForBuffer(thisFrameData->drawCompactionDataBuffer.buffer.data);
 
     VkBufferMemoryBarrier2 indirectBarriers[3] = {indirectCommandsBarrier, earlyDrawListBarrier, compactIndirectsCommandBarrier};
 
-    VkImageMemoryBarrier2 shadowToOpaqueBarrier = GetImageBarrier(shadowResources.shadowImages[currentFrame],
-                                                                  VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-                                                                  VK_ACCESS_2_SHADER_WRITE_BIT,
-                                                                  VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-                                                                  VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT |
-                                                                  VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-                                                                  VK_ACCESS_2_SHADER_WRITE_BIT |
-                                                                  VK_ACCESS_2_SHADER_READ_BIT |
-                                                                  VK_ACCESS_2_SHADER_SAMPLED_READ_BIT,
-                                                                  VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-                                                                  VK_IMAGE_ASPECT_DEPTH_BIT,
-                                                                  0,
-                                                                  VK_REMAINING_MIP_LEVELS);
+    VkImageMemoryBarrier2 shadowToOpaqueBarrier = GetDepthShaderWriteToReadBarrier(shadowResources.shadowImages[currentFrame]);
 
-    auto afterShadowRenderBarriers = MemoryArena::AllocSpan<VkImageMemoryBarrier2>(&perFrameArenas[currentFrame], MAX_SHADOWMAPS);
-    for (int i = 0; i < MAX_SHADOWMAPS; i++)
-    {
-        VkImageMemoryBarrier2 b = GetImageBarrier(shadowResources.shadowImages[currentFrame],
-                                                                     VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                                                                     VK_ACCESS_2_SHADER_WRITE_BIT,
-                                                                     VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-                                                                     VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-                                                                     VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_SAMPLED_READ_BIT,
-                                                                     VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-                                                                     VK_IMAGE_ASPECT_DEPTH_BIT ,
-                                                                     0,
-                                                                     1, i);
-        afterShadowRenderBarriers[i] = b;
-    }
+	VkImageMemoryBarrier2 afterShadowRenderBarriers =  	GetDepthShaderWriteToReadBarrier(shadowResources.shadowImages[currentFrame]);
+
     
-	VkImageMemoryBarrier2 afterDepthDrawBarrier = GetImageBarrier(globalResources.depthBufferInfoPerFrame[currentFrame].image,
-                                                           VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                                                           VK_ACCESS_2_SHADER_WRITE_BIT,
-                                                           VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-                                                           VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-                                                           VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_MEMORY_READ_BIT,
-                                                           VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-                                                           VK_IMAGE_ASPECT_DEPTH_BIT,
-                                                           0,
-                                                           VK_REMAINING_MIP_LEVELS);
+	VkImageMemoryBarrier2 afterDepthDrawBarrier = GetDepthShaderWriteToReadBarrier(globalResources.depthBufferInfoPerFrame[currentFrame].image);
+    VkImageMemoryBarrier2 depthtoCompute = GetDepthDrawToComputeBarrier(globalResources.depthBufferInfoPerFrame[currentFrame].image);
+    VkImageMemoryBarrier2 shadowToCompute = GetDepthDrawToComputeBarrier(shadowResources.shadowImages[currentFrame]);
 
-    VkImageMemoryBarrier2 depthtoCompute = GetImageBarrier(globalResources.depthBufferInfoPerFrame[currentFrame].image,
-                                                           VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
-                                                           VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-                                                           VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-                                                           VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT |
-                                                           VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
-                                                           VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_2_SHADER_SAMPLED_READ_BIT,
-                                                           VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-                                                           VK_IMAGE_ASPECT_DEPTH_BIT,
-                                                           0,
-                                                           VK_REMAINING_MIP_LEVELS);
 
-    //barrier for shadows to compute
-    VkImageMemoryBarrier2 shadowToCompute = GetImageBarrier(shadowResources.shadowImages[currentFrame],
-                                                            VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
-                                                            VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-                                                            VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-                                                            VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT |
-                                                            VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_ACCESS_2_SHADER_SAMPLED_READ_BIT, 
-                                                            VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_MEMORY_READ_BIT,
-                                                            VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-                                                            VK_IMAGE_ASPECT_DEPTH_BIT,
-                                                            0,
-                                                            VK_REMAINING_MIP_LEVELS);
-    //Get swapchain image and depth attatchment
-    VkRenderingAttachmentInfoKHR* depthDrawAttatchment = MemoryArena::Alloc<VkRenderingAttachmentInfoKHR>(&perFrameArenas[currentFrame]);
-    *depthDrawAttatchment = CreateRenderingAttatchmentStruct( globalResources.depthBufferInfoPerFrame[currentFrame].view, 0.0, true);
+
+
     vkAcquireNextImageKHR(vulkanObjects.vkbdevice.device, vulkanObjects.swapchain,
         60000,thisFrameData->perFrameSemaphores.swapchainSemaphore, VK_NULL_HANDLE,&thisFrameData->swapChainIndex);
+
+
+
     //Sync data updated from the engine
     UpdateShadowData(&perFrameArenas[currentFrame], perLightShadowData, scene, scene->sceneCamera);
     //Update per frame descriptor sets
@@ -1853,177 +1978,101 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     //////////
     /////////
     auto EarlyStep = renderSteps.PushAndInitializeRenderStep(
-    "EarlyStep", &perFrameArenas[currentFrame],
-		commandPoolmanager, &thisFrameData->perFrameSemaphores.swapchainSemaphore, &thisFrameData->perFrameSemaphores.earlyStepSemaphore,  
+    	"EarlyStep", 
+		&perFrameArenas[currentFrame],
+		commandPoolmanager, 
+		&thisFrameData->perFrameSemaphores.swapchainSemaphore, 
+		&thisFrameData->perFrameSemaphores.earlyStepSemaphore,  
 		&thisFrameData->perFrameSemaphores.earlyDrawComputeFence);
     
     auto BeforeCullingStep = renderSteps.PushAndInitializeRenderStep(
-        "BeforeCullingStep", &perFrameArenas[currentFrame],
-        commandPoolmanager, &thisFrameData->perFrameSemaphores.earlyStepSemaphore, &thisFrameData->perFrameSemaphores.prepassSemaphore);
+        "BeforeCullingStep",
+		&perFrameArenas[currentFrame],
+        commandPoolmanager,
+		&thisFrameData->perFrameSemaphores.earlyStepSemaphore,
+		&thisFrameData->perFrameSemaphores.prepassSemaphore);
     
     auto CullingStep = renderSteps.PushAndInitializeRenderStep(
-       "CullingStep", &perFrameArenas[currentFrame],
-		commandPoolmanager, &thisFrameData->perFrameSemaphores.prepassSemaphore,  &thisFrameData->perFrameSemaphores.cullingSemaphore,  &thisFrameData->perFrameSemaphores.lateDrawComputeFence);
+       "CullingStep", 
+		&perFrameArenas[currentFrame],
+		commandPoolmanager, 
+		&thisFrameData->perFrameSemaphores.prepassSemaphore, 
+		&thisFrameData->perFrameSemaphores.cullingSemaphore,  
+		&thisFrameData->perFrameSemaphores.lateDrawComputeFence);
 
-    auto OpaqueStep =renderSteps.PushAndInitializeRenderStep("OpaqueStep", &perFrameArenas[currentFrame],
-															 commandPoolmanager,  &thisFrameData->perFrameSemaphores.cullingSemaphore, &thisFrameData->perFrameSemaphores.opaqueSemaphore);
+    auto OpaqueStep =renderSteps.PushAndInitializeRenderStep(
+		"OpaqueStep", 
+		&perFrameArenas[currentFrame],
+		commandPoolmanager,  
+		&thisFrameData->perFrameSemaphores.cullingSemaphore, 
+		&thisFrameData->perFrameSemaphores.opaqueSemaphore);
 
-    auto PostRenderStep =renderSteps.PushAndInitializeRenderStep("PostRenderStep", &perFrameArenas[currentFrame], //todo js: this shouldn't need to happen before presenting, and shouldnt need to signal the same fence
-    commandPoolmanager, &thisFrameData->perFrameSemaphores.opaqueSemaphore, &thisFrameData->perFrameSemaphores.presentSemaphore,
-    &GetFrameData().inFlightFence);
+    auto PostRenderStep =renderSteps.PushAndInitializeRenderStep(
+		"PostRenderStep", 
+		&perFrameArenas[currentFrame], //todo js: this shouldn't need to happen before presenting, and shouldnt need to signal the same fence
+   		commandPoolmanager, 
+		&thisFrameData->perFrameSemaphores.opaqueSemaphore, 
+		&thisFrameData->perFrameSemaphores.presentSemaphore,
+    	&GetFrameData().inFlightFence);
 
-    VkImageMemoryBarrier2 swapChainTransitionInBarrier = GetImageBarrier(globalResources.swapchainImages[thisFrameData->swapChainIndex],
-       VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT, 
-        VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
-       VK_IMAGE_LAYOUT_UNDEFINED,
-       VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT ,
-        VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT|VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-       VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-       VK_IMAGE_ASPECT_COLOR_BIT,
-       0,
-       VK_REMAINING_ARRAY_LAYERS);
+    VkImageMemoryBarrier2 swapChainTransitionInBarrier = ColorAttatchmentTransitionInBarrier(globalResources.swapchainImages[thisFrameData->swapChainIndex]);
 
     
 	SetPipelineBarrier(BeforeCullingStep->commandBuffer, {}, { &swapChainTransitionInBarrier, 1 });
 
     
-
     //Transferring cpu -> gpu data -- should improve
-    AddBufferTrasnfer(thisFrameData->hostVerts.buffer.data, thisFrameData->deviceVerts.data,
-                      thisFrameData->deviceVerts.size, EarlyStep->commandBuffer);
-    AddBufferTrasnfer(thisFrameData->hostMesh.buffer.data, thisFrameData->deviceMesh.data,
-                      thisFrameData->deviceMesh.size, EarlyStep->commandBuffer);
-    AddBufferTrasnfer(thisFrameData->hostIndices.buffer.data, thisFrameData->deviceIndices.data,
-                      thisFrameData->deviceIndices.size, EarlyStep->commandBuffer);
+    AddBufferTrasnfer(EarlyStep->commandBuffer, thisFrameData->hostVerts.buffer, 
+					  thisFrameData->deviceVerts);
+    AddBufferTrasnfer(EarlyStep->commandBuffer, thisFrameData->hostMesh.buffer,
+					  thisFrameData->deviceMesh);
+    AddBufferTrasnfer(EarlyStep->commandBuffer, thisFrameData->hostIndices.buffer, 
+					  thisFrameData->deviceIndices);
 
-    //Set up draws
   
-    //Create the renderpass
-     auto* initialColorRenderTarget = MemoryArena::Alloc<VkRenderingAttachmentInfoKHR>(&perFrameArenas[currentFrame]);
-     *initialColorRenderTarget =  CreateRenderingAttatchmentStruct(globalResources.swapchainImageViews[thisFrameData->swapChainIndex], 0.0, true);
-    
+
+	
+	//Set up draws
+    //Targets
+	auto* initialColorRenderTarget = MemoryArena::Alloc<VkRenderingAttachmentInfoKHR>(&perFrameArenas[currentFrame]);
+	*initialColorRenderTarget =  CreateRenderingAttatchmentStruct(globalResources.swapchainImageViews[thisFrameData->swapChainIndex], 0.0, true);
     auto* ColorRenderTargetNoClear = MemoryArena::Alloc<VkRenderingAttachmentInfoKHR>(&perFrameArenas[currentFrame]);
     *ColorRenderTargetNoClear =  CreateRenderingAttatchmentStruct(globalResources.swapchainImageViews[thisFrameData->swapChainIndex], 0.0, false);
-
-    //set up all our  draws
-    
-
-    CommonRenderPassData renderPassContext =
-        {
-        .tempAllocator =  &perFrameArenas[currentFrame],
-        .scenePtr = scene,
-        .assetDataPtr =  AssetDataAndMemory,
-        };
+    VkRenderingAttachmentInfoKHR* depthDrawAttatchment = MemoryArena::Alloc<VkRenderingAttachmentInfoKHR>(&perFrameArenas[currentFrame]);
+    *depthDrawAttatchment = CreateRenderingAttatchmentStruct( globalResources.depthBufferInfoPerFrame[currentFrame].view, 0.0, true);
 
 
-    uint32_t drawOffset = 0;
-    uint32_t submeshperPass =  (uint32_t)scene->objects.subMeshesCount;
-    uint32_t drawPerPass = CalculateTotalDrawCount(scene,AssetDataAndMemory->meshData.perSubmeshData.getSpan());
+	//Get the bindless object draw/passes data
+	VulkanRenderer::objectPassData passData = GetObjectDrawData(&perFrameArenas[currentFrame], scene, depthDrawAttatchment, initialColorRenderTarget, ColorRenderTargetNoClear);
+	auto shadowBatches = passData.shadowBatches;
+	auto opaqueBatches = passData.opaqueBatches;
+	auto prepassBatches = passData.prepassBatches;
+	auto postPassbatches = passData.postPassbatches;
+	auto opaquePassData = passData.opaquePassData;
+	auto shadowPassesData = passData.shadowPassesData;
 
-    //Create the shadow data that shadow render passes will read from. This could happen anywhere in the frame
-    Array flatShadowData = MemoryArena::AllocSpan<GPU_perShadowData>(&perFrameArenas[currentFrame], MAX_SHADOWMAPS);
-    for(size_t i = 0; i < glm::min(scene->lightCount, MAX_SHADOWCASTERS); i ++)
-    {
-        LightType type = scene->lightTypes[i];
-        flatShadowData.push_copy_span( perLightShadowData[i]);
-    }
-
-    //Create shadow info for passes
-    Array shadowPassesData = MemoryArena::AllocSpan<RenderPassDrawData>(&perFrameArenas[currentFrame], MAX_RENDER_PASSES);
-    uint32_t batchIndex =0;
-    for (auto& shadowData : flatShadowData.getSpan())
-    {
-        shadowPassesData.push_back({.drawCount = drawPerPass,
-            .drawOffset = drawOffset,
-            .subMeshcount = submeshperPass,
-            .proj = shadowData.projMatrix,
-            .view = shadowData.viewMatrix,
-            .farPlane = shadowData.farPlane,
-            .nearPlane = shadowData.nearPlane,
-		.passIndex = batchIndex});
-        DebugCullingData[batchIndex++] = (shadowPassesData.back());
-        drawOffset += drawPerPass;
-    }
-   
-    //Culling debug stuff
-    viewProj viewProjMatricesForCulling = LightAndCameraHelpers::CalcViewProjFromCamera(scene->sceneCamera);
-    GPU_perShadowData* data = MemoryArena::Alloc<GPU_perShadowData>(&perFrameArenas[currentFrame]);
-    if ( debug_cull_override && GetFlattenedShadowDataForIndex(debug_cull_override_index,perLightShadowData, data))
-    {
-        viewProjMatricesForCulling = { data->viewMatrix,  data->projMatrix};
-        glm::vec4 frustumCornersWorldSpace[8] = {};
-        LightAndCameraHelpers::FillFrustumCornersForSpace(frustumCornersWorldSpace,glm::inverse(viewProjMatricesForCulling.proj * viewProjMatricesForCulling.view));
-        debugLinesManager.AddDebugFrustum(frustumCornersWorldSpace);
-    }
-
-    //Opaque info for pass
-    RenderPassDrawData opaquePassData = {
-        .drawCount = drawPerPass,
-        .drawOffset = drawOffset,
-        .subMeshcount = submeshperPass,
-        .proj = viewProjMatricesForCulling.proj,
-        .view = viewProjMatricesForCulling.view,
-        .farPlane = 0.0,
-        .nearPlane =  CAMERA_NEAR_PLANE,
-		.passIndex = batchIndex};
-    drawOffset += drawPerPass;
-    DebugCullingData[batchIndex++] = (opaquePassData);
-    
-    Array<RenderBatch> renderBatches = MemoryArena::AllocSpan<RenderBatch>(&perFrameArenas[currentFrame], MAX_RENDER_PASSES);
-    auto ShadowPassConfigs = CreateShadowPassConfigs(&perFrameArenas[currentFrame], shadowPassesData.getSpan(), shadowResources.shadowMapSingleLayerViews[currentFrame]);
-    for (int i =0; i < ShadowPassConfigs.size(); i++)
-    {
-        renderBatches.push_back(CreateRenderBatch( &renderPassContext, ShadowPassConfigs[i],  shadowPassesData[i], true, shadowLayoutIDX, opaqueObjectShaderSets.shadowShaders.getSpan(), "shadow"));
-    }
-    
-    //This "add batches" concept was an earlier misguided design choice. Right now it's still here, but I'm hackily getting subspans out of it so I cna submit them independantly in order, separated by barriers.
-    auto shadowBatches = renderBatches.getSpan();
-
-    auto opaqueconfig = CreateOpaquePassConfig(&perFrameArenas[currentFrame],opaquePassData,ColorRenderTargetNoClear, depthDrawAttatchment,  vulkanObjects.swapchain.extent);
-    renderBatches.push_back(CreateRenderBatch(  &renderPassContext, opaqueconfig, opaquePassData,false,  opaqueLayoutIDX, opaqueObjectShaderSets.opaqueShaders.getSpan(), "opaque"));
-    auto opaqueBatches  = renderBatches.getSpan().subspan(renderBatches.size() -1, 1);
 
     //Indirect command buffer
-    UpdateIndirectCommandBufferForPasses(scene, AssetDataAndMemory, &perFrameArenas[currentFrame], thisFrameData->drawBuffers.GetMappedView(), renderBatches.getSpan());
+	//TODO JS: Updated this to only use prepass batches -- not *100%* sure this is right, it may need to run on the full set
+    UpdateIndirectCommandBufferForPasses(scene, AssetDataAndMemory, &perFrameArenas[currentFrame], thisFrameData->drawBuffers.GetMappedView(), prepassBatches);
 
-
-    
- 
-	//Add early draws 
-    auto existingRenderBatches = renderBatches.getSpan();
-    for(size_t i = 0; i < existingRenderBatches.size(); i++)
-    {
-        auto newBatch =  renderBatches[i];
-        newBatch.colorattatchment = newBatch.colorattatchment  == ColorRenderTargetNoClear ?  initialColorRenderTarget : VK_NULL_HANDLE; //hack todo
-        std::span<simpleMeshPassInfo> oldPasses = renderBatches[i].perPipelinePasses;
-        std::span<simpleMeshPassInfo> newPasses = MemoryArena::AllocCopySpan<simpleMeshPassInfo>(&perFrameArenas[currentFrame], oldPasses);
-        newBatch.debugName = "early pass";
-        newBatch.perPipelinePasses = newPasses;
-        newBatch.depthAttatchment = MemoryArena::AllocCopy<VkRenderingAttachmentInfoKHR>(&perFrameArenas[currentFrame], *renderBatches[i].depthAttatchment);
-        renderBatches.push_back(newBatch);
-        renderBatches[i].depthAttatchment->loadOp = VK_ATTACHMENT_LOAD_OP_LOAD; 
-    }
-    
-    auto prepassBatches = renderBatches.getSpan().subspan(existingRenderBatches.size());
-    prepassBatches = MemoryArena::AllocCopySpan<RenderBatch>(&perFrameArenas[currentFrame], prepassBatches);
-
- 
-//
+	////< Early step
 	//ZERO OUT THE DRAW COMPACTION BUFFER BEFORE WE USE IT
 	SubmitClearBufferCommand(EarlyStep->commandBuffer, GetFrameData().drawCompactionDataBuffer.buffer);
 
 	//"Copy compute" step
     UpdateDrawCommandCopyComputeBindings(*EarlyStep, &perFrameArenas[currentFrame]);
+
 	//Bind copy compute 
 	vkCmdBindPipeline(EarlyStep->commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,  pipelineLayoutManager.GetPipeline(cull_copy_handle));
 	std::span<RenderPassDrawData> passesCopyForCompute = 
-		MemoryArena::AllocCopySpan(&perFrameArenas[currentFrame], shadowPassesData.getSpan(), 1);
+	MemoryArena::AllocCopySpan(&perFrameArenas[currentFrame], shadowPassesData, 1);
 	passesCopyForCompute[passesCopyForCompute.size() -1] = opaquePassData;
 	SubmitCopyWork(&perFrameArenas[currentFrame],
 				   EarlyStep,
 				   passesCopyForCompute,
 				   pipelineLayoutManager.GetLayout(cullDataCopyLayoutIDX),
-				   { &earlyDrawListFirstBarrier, 1 }, {},
+				   { &earlyDrawListBarrier, 1 }, {},
 				   indirectBarriers);
 	//Bind compact compute
 	vkCmdBindPipeline(EarlyStep->commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,  pipelineLayoutManager.GetPipeline(draw_compact_handle));
@@ -2031,25 +2080,25 @@ void VulkanRenderer::RenderFrame(Scene* scene)
 				   EarlyStep,
 				   passesCopyForCompute,
 				   pipelineLayoutManager.GetLayout(cullDataCopyLayoutIDX),
-				   { &earlyDrawListFirstBarrier, 1 },
+				   { &earlyDrawListBarrier, 1 },
 				   {&compactionDataLoopBarrier, 1},
 				   indirectBarriers);
 
 	EndCommandBufferForStep(EarlyStep);
     SubmitCommandBuffer(EarlyStep);
-
+	///// Early Step />
     
+	
     UpdateComputeCullingBindings(*CullingStep,scene,  &perFrameArenas[currentFrame], false);
   
-    // auto& lastFrameCommands =  GetFrameData(priorFrame).drawBuffers.buffer.data;
-    //Shadows (improve)
 	if (haveInitializedFrame[currentFrame])
     {
-		//printf("about to wait for fence 1 %u\n", currentFrame);
 		//Wait for culling fence so we can read drawindirect data
         vkWaitForFences(vulkanObjects.vkbdevice.device, 1, &GetFrameData().perFrameSemaphores.earlyDrawComputeFence, VK_TRUE, UINT64_MAX);
         vkResetFences(vulkanObjects.vkbdevice.device, 1, &GetFrameData().perFrameSemaphores.earlyDrawComputeFence);
     }
+
+	////< Before Cull Step
 	//Submit the early prepass draws
 	std::span<uint32_t> dataview = GetFrameData().drawCompactionDataBuffer.GetMappedView();
 	std::span<uint32_t> offsetsBuffer =  MemoryArena::AllocCopySpan(&perFrameArenas[currentFrame], dataview);
@@ -2087,12 +2136,11 @@ void VulkanRenderer::RenderFrame(Scene* scene)
 
 	EndCommandBufferForStep(BeforeCullingStep);
     SubmitCommandBuffer(BeforeCullingStep);
-
- 
-    SetPipelineBarrier(OpaqueStep->commandBuffer, {}, afterShadowRenderBarriers );
-    SetPipelineBarrier(OpaqueStep->commandBuffer, {}, {&afterDepthDrawBarrier, 1});
+	///// Before cull Step />
 
 
+
+	////< Culling step
     //Early cull
     uint32_t cullPassIndex = 0;
 	SubmitCullCopute(&perFrameArenas[currentFrame],
@@ -2115,7 +2163,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
 				   CullingStep,
 				   passesCopyForCompute,
 				   pipelineLayoutManager.GetLayout(cullDataCopyLayoutIDX),
-				   { &earlyDrawListFirstBarrier, 1 },  {&compactionDataLoopBarrier, 1},
+				   { &earlyDrawListBarrier, 1 },  {&compactionDataLoopBarrier, 1},
 				   indirectBarriers);
 
     // //Submit commandbuffers
@@ -2123,7 +2171,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
       
     EndCommandBufferForStep(CullingStep);
     SubmitCommandBuffer(CullingStep);
-
+	///// Culling Step />
 	if (haveInitializedFrame[currentFrame])
     {
 		//printf("about to wait for fence 2 %u\n", currentFrame);
@@ -2132,7 +2180,13 @@ void VulkanRenderer::RenderFrame(Scene* scene)
         vkResetFences(vulkanObjects.vkbdevice.device, 1, &GetFrameData().perFrameSemaphores.lateDrawComputeFence);
     }
 	std::span<uint32_t> offsetsBuffer2 =  MemoryArena::AllocCopySpan(&perFrameArenas[currentFrame],  GetFrameData().drawCompactionDataBuffer.GetMappedView());
-    //shadows
+    
+	 
+	////< Main Draw Step
+	SetPipelineBarrier(OpaqueStep->commandBuffer, {}, {&afterShadowRenderBarriers, 1});
+    SetPipelineBarrier(OpaqueStep->commandBuffer, {}, {&afterDepthDrawBarrier, 1});
+
+	//shadows
     SubmitRenderPassesForBatches(shadowBatches, offsetsBuffer2,
 								 thisFrameData->deviceIndices.data, OpaqueStep, &pipelineLayoutManager, thisFrameData->compactDrawBuffers.buffer.data, currentFrame);
 
@@ -2145,23 +2199,18 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     //
     //
     RecordUtilityPasses(OpaqueStep->commandBuffer, currentFrame);
-    VkImageMemoryBarrier2 swapchainToPresent = GetImageBarrier(globalResources.swapchainImages[thisFrameData->swapChainIndex],
-         VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, 
-         VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-         VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-         VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
-         VK_ACCESS_MEMORY_READ_BIT,
-         VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-         VK_IMAGE_ASPECT_COLOR_BIT,
-         0,
-         VK_REMAINING_MIP_LEVELS);
+    VkImageMemoryBarrier2 swapchainToPresent = ColorAttatchmentTransitionOutBarrier(globalResources.swapchainImages[thisFrameData->swapChainIndex]);
 
+	VkImageMemoryBarrier2 finishedRenderingImageBarriers[3] = {swapchainToPresent,depthtoCompute,shadowToCompute};
     //Drawing -> final mipchain sync
-    SetPipelineBarrier(OpaqueStep->commandBuffer, {}, {&swapchainToPresent, 1} );
-    SetPipelineBarrier(OpaqueStep->commandBuffer, {}, {&depthtoCompute, 1} );
-	SetPipelineBarrier(OpaqueStep->commandBuffer, {}, { &shadowToCompute, 1 });
-	SetPipelineBarrier(OpaqueStep->commandBuffer, indirectBarriers,{} );
+    SetPipelineBarrier(OpaqueStep->commandBuffer, indirectBarriers, finishedRenderingImageBarriers );
 
+	EndCommandBufferForStep(OpaqueStep);
+    SubmitCommandBuffer(OpaqueStep);
+	///// Main draw Step/>
+
+
+	////< Post Render Step
     //Mip for late cull!
     uint32_t lateShadowMapIndex = 0;
     for(int i =0; i < scene->lightCount; i++)
@@ -2189,15 +2238,10 @@ void VulkanRenderer::RenderFrame(Scene* scene)
 
 
 
-  
-
-    EndCommandBufferForStep(OpaqueStep);
-    SubmitCommandBuffer(OpaqueStep);
-
     EndCommandBufferForStep(PostRenderStep);
     SubmitCommandBuffer(PostRenderStep);
 
-    
+	///// Post Render Step/>
     //Present 
     VkPresentInfoKHR presentInfo{};
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;

@@ -17,6 +17,7 @@
 #include <Scene/Scene.h>
 
 #include "Scene/AssetManager.h"
+#include <Renderer/MainRenderer/VulkanRendererInternals/DrawBatches.h>
 // My stuff 
 struct GPU_LightData;
 struct GPU_VertexData;
@@ -25,6 +26,7 @@ struct InterchangeMesh; //Forward Declaration
 struct Vertex; //Forward Declaration
 using VmaAllocator = struct VmaAllocator_T*;
 struct SDL_Window;
+struct RenderBatch;
 //Include last //
 
 
@@ -221,6 +223,22 @@ private:
 
 
     void RenderFrame(Scene* scene);
+	void ResetStartOfFrameFences();
+
+	struct objectPassData 
+	{
+		std::span<RenderBatch> shadowBatches;
+		std::span<RenderBatch> opaqueBatches;
+		std::span<RenderBatch> postPassbatches;
+		std::span<RenderBatch> prepassBatches;
+		RenderPassDrawData opaquePassData;
+		std::span<RenderPassDrawData> shadowPassesData;
+	};
+
+	objectPassData GetObjectDrawData(ArenaAllocator allocator, Scene* scene, 
+									 VkRenderingAttachmentInfoKHR* depthDrawAttatchment, 
+									 VkRenderingAttachmentInfoKHR* initialColorRenderTarget,
+									 VkRenderingAttachmentInfoKHR* ColorRenderTargetNoClear);
 
 };
 

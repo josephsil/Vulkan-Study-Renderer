@@ -50,4 +50,4 @@ VkImageMemoryBarrier2 GetImageBarrier(VkImage image, VkPipelineStageFlags2 srcSt
 //rendering submisison
 
 
-void AddBufferTrasnfer(VkBuffer sourceBuffer, VkBuffer targetBuffer, size_t copySize, VkCommandBuffer cmdBuffer);
+void AddBufferTrasnfer(VkCommandBuffer cmdBuffer, GpuDataBuffer sourceBuffer, GpuDataBuffer targetBuffer);
