@@ -7,7 +7,7 @@ RWStructuredBuffer<ObjectData> PerObjectData;
 [[vk::binding(16, 0)]]
 RWStructuredBuffer<uint> EarlyDrawList; //Index in with objIndex
 [[vk::binding(17, 0)]]
-RWStructuredBuffer<uint> drawIndices; //Draw remap table -- in progress -- not needed here?
+RWStructuredBuffer<uint> drawIndices; 
 
 [[vk::binding(18, 0)]]
 RWStructuredBuffer<drawCommandData> compactDrawData; 
@@ -37,8 +37,9 @@ void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
 	//The first index is a global counter 
 	//The rest are per pass counters 
 	//The NEXT MAX_RENDER_PASSES entries are offsets, written using the counters
-	uint32_t counterIdx = PC.passIndex +1; 
-	uint32_t offsetCounterForPassIdx = counterIdx + MAX_RENDER_PASSES;
+	uint32_t counterIdx = PC.passIndex +1;  //1-16 
+											
+	uint32_t offsetCounterForPassIdx = (PC.passIndex +1 + MAX_RENDER_PASSES); //17-34 -- these are the offsets for the NEXT index. 
 		
 	//Update the counters s
 	InterlockedAdd(drawIndices[0], 1, globalOffset);

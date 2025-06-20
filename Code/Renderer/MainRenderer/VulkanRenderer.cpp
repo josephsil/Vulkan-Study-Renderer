@@ -1351,31 +1351,14 @@ void SubmitRenderPassesForBatches( std::span<RenderBatch> Batches, std::span<uin
             uint32_t drawIndirectOffset = offset_base + offset_into_struct;
 
 			uint32_t passIndex = passInfo.passIndex; //TODO JS: use this to index into the offset buffer to get offset and count
-			uint32_t drawOffset = offsetsBuffer[MAX_RENDER_PASSES + passIndex ];
+			//The cell at the 0th spot is already in use as (as the last drawct)
+			uint32_t drawOffset = passIndex == 0 ? 0 : offsetsBuffer[(MAX_RENDER_PASSES)+(passIndex) ]; 
 			uint32_t drawCount = offsetsBuffer[1 + passIndex ]; //wont work for the bucketed draws yet
 
 			uint32_t offset_into_struct2 = offsetof(drawCommandData, command);
             uint32_t offset_base2 =  drawOffset  *  sizeof(drawCommandData);
             uint32_t drawIndirectOffset2 = offset_base2 + offset_into_struct2;
 
-			//printf("== %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u,  \n", offsetsBuffer[0],
-			//	   offsetsBuffer[1],
-			//	   offsetsBuffer[2],
-			//	   offsetsBuffer[3],
-			//	   offsetsBuffer[4],
-			//	   offsetsBuffer[5],
-			//	   offsetsBuffer[6],
-			//	   offsetsBuffer[7],
-			//	   offsetsBuffer[8],
-			//	   offsetsBuffer[9],
-			//	   offsetsBuffer[10],
-			//	   offsetsBuffer[11],
-			//	   offsetsBuffer[12]
-			//	
-			//	   
-			//	   
-			//	   );
-			//printf("%u, %u, %u \n",passIndex, drawOffset, drawCount);
             vkCmdDrawIndexedIndirect(renderStepContext->commandBuffer,  indirectCommandsBuffer, drawIndirectOffset2,  drawCount, sizeof(drawCommandData));
         }
         vkCmdEndRendering(renderStepContext->commandBuffer);
@@ -1827,7 +1810,7 @@ VulkanRenderer::objectPassData VulkanRenderer::GetObjectDrawData(ArenaAllocator 
     drawOffset += drawPerPass;
     DebugCullingData[batchIndex++] = (opaquePassData);
     
-    Array<RenderBatch> renderBatches = MemoryArena::AllocSpan<RenderBatch>(allocator, MAX_RENDER_PASSES);
+    Array<RenderBatch> renderBatches = MemoryArena::AllocSpan<RenderBatch>(allocator, MAX_RENDER_PASSES * 2);
     auto ShadowPassConfigs = CreateShadowPassConfigs(allocator, shadowPassesData.getSpan(), shadowResources.shadowMapSingleLayerViews[currentFrame]);
     for (int i =0; i < ShadowPassConfigs.size(); i++)
     {
@@ -1873,6 +1856,7 @@ VulkanRenderer::objectPassData VulkanRenderer::GetObjectDrawData(ArenaAllocator 
 
 void VulkanRenderer::RenderFrame(Scene* scene)
 {
+	std::this_thread::sleep_for(std::chrono::milliseconds(44)); //artifically lower framerate for debugging
     superLuminalAdd("RenderFrame");
 	ResetStartOfFrameFences();
 
@@ -1944,17 +1928,19 @@ void VulkanRenderer::RenderFrame(Scene* scene)
             }
             
             renderstepDatas.push_back({
-                .commandBufferActive = true,
-             .boundIndexBuffer = VK_NULL_HANDLE,
-              .boundPipeline = VK_NULL_HANDLE,
-                .commandBuffer = commandBuffer,
-                 .Queue = transferQueue? GET_QUEUES()->transferQueue : GET_QUEUES()->graphicsQueue,
-                  .waitSemaphore = WaitSemaphore,
-                  .waitSemaphoreCt = (uint32_t)(WaitSemaphore == nullptr ? 0 : 1),
-                   .signalSempahore = SignalSemaphore,
-                   .signalSemaphoreCt = (uint32_t)(SignalSemaphore == nullptr ? 0 : 1),
-                .boundDescriptorSets = boundDescriptorSets,
-            .fence =  CbufferSignalFence});
+				.commandBufferActive = true,
+				.boundIndexBuffer = VK_NULL_HANDLE,
+				.boundPipeline = VK_NULL_HANDLE,
+				.commandBuffer = commandBuffer,
+				.Queue = transferQueue 
+					? GET_QUEUES()->transferQueue 
+					: GET_QUEUES()->graphicsQueue,
+				.waitSemaphore = WaitSemaphore,
+				.waitSemaphoreCt = (uint32_t)(WaitSemaphore == nullptr ? 0 : 1),
+				.signalSempahore = SignalSemaphore,
+				.signalSemaphoreCt = (uint32_t)(SignalSemaphore == nullptr ? 0 : 1),
+				.boundDescriptorSets = boundDescriptorSets,
+				.fence = CbufferSignalFence });
 
             return &renderstepDatas.back();
         }
@@ -2043,7 +2029,10 @@ void VulkanRenderer::RenderFrame(Scene* scene)
 
 
 	//Get the bindless object draw/passes data
-	VulkanRenderer::objectPassData passData = GetObjectDrawData(&perFrameArenas[currentFrame], scene, depthDrawAttatchment, initialColorRenderTarget, ColorRenderTargetNoClear);
+	VulkanRenderer::objectPassData passData = GetObjectDrawData(&perFrameArenas[currentFrame], 
+																scene, depthDrawAttatchment, 
+																initialColorRenderTarget, 
+																ColorRenderTargetNoClear);
 	auto shadowBatches = passData.shadowBatches;
 	auto opaqueBatches = passData.opaqueBatches;
 	auto prepassBatches = passData.prepassBatches;
@@ -2054,7 +2043,11 @@ void VulkanRenderer::RenderFrame(Scene* scene)
 
     //Indirect command buffer
 	//TODO JS: Updated this to only use prepass batches -- not *100%* sure this is right, it may need to run on the full set
-    UpdateIndirectCommandBufferForPasses(scene, AssetDataAndMemory, &perFrameArenas[currentFrame], thisFrameData->drawBuffers.GetMappedView(), prepassBatches);
+    UpdateIndirectCommandBufferForPasses(scene, 
+										 AssetDataAndMemory, 
+										 &perFrameArenas[currentFrame], 
+										 thisFrameData->drawBuffers.GetMappedView(), 
+										 prepassBatches);
 
 	////< Early step
 	//ZERO OUT THE DRAW COMPACTION BUFFER BEFORE WE USE IT
@@ -2102,11 +2095,20 @@ void VulkanRenderer::RenderFrame(Scene* scene)
 	//Submit the early prepass draws
 	std::span<uint32_t> dataview = GetFrameData().drawCompactionDataBuffer.GetMappedView();
 	std::span<uint32_t> offsetsBuffer =  MemoryArena::AllocCopySpan(&perFrameArenas[currentFrame], dataview);
-    SubmitRenderPassesForBatches(prepassBatches.subspan(0, prepassBatches.size() -1),offsetsBuffer,
-								 thisFrameData->deviceIndices.data, BeforeCullingStep, &pipelineLayoutManager, thisFrameData->compactDrawBuffers.buffer.data, currentFrame);
+    SubmitRenderPassesForBatches(prepassBatches.subspan(0, prepassBatches.size() -1),
+								 offsetsBuffer,
+								 thisFrameData->deviceIndices.data, 
+								 BeforeCullingStep, 
+								 &pipelineLayoutManager, 
+								 thisFrameData->compactDrawBuffers.buffer.data, 
+								 currentFrame);
 	SetPipelineBarrier(BeforeCullingStep->commandBuffer, {}, {&shadowToOpaqueBarrier, 1} );
-    SubmitRenderPassesForBatches(prepassBatches.subspan(prepassBatches.size() -1),offsetsBuffer,
-								 thisFrameData->deviceIndices.data, BeforeCullingStep, &pipelineLayoutManager, thisFrameData->compactDrawBuffers.buffer.data, currentFrame);
+    SubmitRenderPassesForBatches(prepassBatches.subspan(prepassBatches.size() -1),
+								 offsetsBuffer,
+								 thisFrameData->deviceIndices.data,
+								 BeforeCullingStep, &pipelineLayoutManager, 
+								 thisFrameData->compactDrawBuffers.buffer.data, 
+								 currentFrame);
 
     SetPipelineBarrier(BeforeCullingStep->commandBuffer, {}, {&depthtoCompute, 1} );
     SetPipelineBarrier(BeforeCullingStep->commandBuffer, {}, {&shadowToCompute, 1} );
