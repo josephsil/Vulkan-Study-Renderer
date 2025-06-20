@@ -4,6 +4,7 @@
 #define SDL_MAIN_HANDLED 
 #include <SDL2/SDL.h>
 ////
+#include <engineGlobals.h>
 #include <cstdlib>
 #include <span>
 #include <Renderer/Vertex.h>
@@ -63,8 +64,8 @@ PerSceneShadowResources AllocateShadowMemory(rendererObjects initializedrenderer
 VkDescriptorSet UpdateAndGetBindlessDescriptorSetForFrame(PerThreadRenderContext context,
                                                           DescriptorDataForPipeline descriptorData, int currentFrame,
                                                           std::span<descriptorUpdates> updates);
-size_t UpdateDrawCommandData(AssetManager* rendererData,
-                                                 std::span<drawCommandData> targetDrawCommandSpan,
+size_t UpdateCullingData(AssetManager* rendererData,
+                                                 std::span<GPU_cullData> targetDrawCommandSpan,
                                                  std::span<uint32_t> submeshIndex,
                                                  std::span<uint32_t> submeshFirstDrawIndex);
 
@@ -284,7 +285,8 @@ void VulkanRenderer::InitializePipelines(size_t shadowCasterCount)
     copyBindings[2] = VkDescriptorSetLayoutBinding{16, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}; //Early darw buffer
 	copyBindings[3] = VkDescriptorSetLayoutBinding{17, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}; //drawIndexBuffer
 	copyBindings[4] = VkDescriptorSetLayoutBinding{18, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}; //compacted draws 
-    
+    copyBindings[5] = VkDescriptorSetLayoutBinding{19, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, VK_NULL_HANDLE}; //meshlt data
+
     VkDescriptorSetLayout copyLayout = DescriptorSets::createVkDescriptorSetLayout(GetMainRendererContext(), copyBindings, "Copy DraIndirect Layout");
     DescriptorDataForPipeline copyDescriptorData = DescriptorSets::CreateDescriptorDataForPipeline(GetMainRendererContext(), copyLayout, true, copyBindings, "Copy DraIndirect Set", descriptorPool, 2);
    
@@ -497,13 +499,16 @@ void VulkanRenderer::CreateUniformBuffers( size_t drawCount, size_t objectsCount
         GetFrameData(i).shadowDataBuffers = CreateHostDataBuffer<GPU_perShadowData>(&context,lightCount * 10, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
       
         
-        GetFrameData(i).drawBuffers = CreateHostDataBuffer<drawCommandData>(&context, MAX_DRAWINDIRECT_COMMANDS, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
+        GetFrameData(i).drawBuffers = CreateHostDataBuffer<GPU_cullData>(&context, MAX_DRAWINDIRECT_COMMANDS, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
         SetDebugObjectNameS(context.device, VK_OBJECT_TYPE_BUFFER, "draw indirect buffer", (uint64_t)GetFrameData(i).drawBuffers.buffer.data);
 
 		 
         GetFrameData(i).compactDrawBuffers = CreateHostDataBuffer<drawCommandData>(&context, MAX_DRAWINDIRECT_COMMANDS, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
         SetDebugObjectNameS(context.device, VK_OBJECT_TYPE_BUFFER, "draw indirect buffer -- compacted", (uint64_t)GetFrameData(i).compactDrawBuffers.buffer.data);
         
+		GetFrameData(i).meshletDataBuffers = CreateHostDataBuffer<GPU_meshletData>(&context,  MESHLET_MAX_PER * ASSET_MAX, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
+        SetDebugObjectNameS(context.device, VK_OBJECT_TYPE_BUFFER, "meshletData", (uint64_t)GetFrameData(i).meshletDataBuffers.buffer.data);
+
 		
 		GetFrameData(i).frustumsForCullBuffers = CreateHostDataBuffer<glm::vec4>(&context, (MAX_SHADOWMAPS + MAX_CAMERAS) * 6, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 
@@ -917,15 +922,18 @@ void VulkanRenderer::UpdateDrawCommandCopyComputeBindings(ActiveRenderStepData c
 
 	VkDescriptorBufferInfo* compactedDrawBuffer = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena, 1); 
     *compactedDrawBuffer = GetDescriptorBufferInfo(GetFrameData().compactDrawBuffers);
+	VkDescriptorBufferInfo* meshletDataBuffer = MemoryArena::Alloc<VkDescriptorBufferInfo>(arena, 1); 
+    *meshletDataBuffer = GetDescriptorBufferInfo(GetFrameData().meshletDataBuffers);
 
     
-    std::span<DescriptorUpdateData> descriptorUpdates = MemoryArena::AllocSpan<DescriptorUpdateData>(arena, 5);
+    std::span<DescriptorUpdateData> descriptorUpdates = MemoryArena::AllocSpan<DescriptorUpdateData>(arena, 6);
 
-    descriptorUpdates[0] = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, computeDrawBuffer}; //draws 
-    descriptorUpdates[1] = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, objectBufferInfo}; //ObjectData  //
-    descriptorUpdates[2] = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, earlyDrawBuffer}; //ObjectData  //
-	descriptorUpdates[3] = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, compactionDataBuffer}; //ObjectData  //
-	descriptorUpdates[4] = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, compactedDrawBuffer}; //ObjectData  //
+    descriptorUpdates[0] = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, computeDrawBuffer}; 
+    descriptorUpdates[1] = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, objectBufferInfo};
+    descriptorUpdates[2] = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, earlyDrawBuffer};
+	descriptorUpdates[3] = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, compactionDataBuffer};
+	descriptorUpdates[4] = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, compactedDrawBuffer};
+	descriptorUpdates[5] = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, meshletDataBuffer};
 
     auto descriptorData = pipelineLayoutManager.
         GetDescriptordata(cullDataCopyLayoutIDX, 0);
@@ -1127,14 +1135,19 @@ void RecordCullingCompute(ArenaAllocator allocator, VkPipelineLayout layout,
 
 }
 
-void VulkanRenderer::RecordMipChainCompute(ActiveRenderStepData commandBufferContext,
+void VulkanRenderer::RecordMipChainCompute(ActiveRenderStepData* commandBufferContext,
     ArenaAllocator arena, DepthPyramidInfo& pyramidInfo,
     VkImageView srcView
     )
 {
-    assert(commandBufferContext.commandBufferActive);
-    vkCmdBindPipeline(commandBufferContext.commandBuffer,
-        VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayoutManager.GetPipeline(mipChainLayoutIDX, 0));
+    assert(commandBufferContext->commandBufferActive);
+	VkPipeline mipPipeline = pipelineLayoutManager.GetPipeline(mipChainLayoutIDX, 0);
+	if (commandBufferContext->boundPipeline !=  mipPipeline)
+	{    
+		commandBufferContext->boundPipeline =  mipPipeline;
+		vkCmdBindPipeline(commandBufferContext->commandBuffer,
+        VK_PIPELINE_BIND_POINT_COMPUTE, mipPipeline);
+	}
 
     int i = 0;
    auto dstImage = pyramidInfo.image;
@@ -1157,7 +1170,7 @@ void VulkanRenderer::RecordMipChainCompute(ActiveRenderStepData commandBufferCon
         HIZDEPTH);
 
     
-	SetPipelineBarrier(commandBufferContext.commandBuffer, {}, { &barrier12, 1 });
+	SetPipelineBarrier(commandBufferContext->commandBuffer, {}, { &barrier12, 1 });
 
    
     auto mipChainDescriptorConfig =  pipelineLayoutManager.GetDescriptordata(mipChainLayoutIDX, 0);
@@ -1187,17 +1200,8 @@ void VulkanRenderer::RecordMipChainCompute(ActiveRenderStepData commandBufferCon
         descriptorUpdates[1] = {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, destinationInfo};  //dst view
         descriptorUpdates[2] = {VK_DESCRIPTOR_TYPE_SAMPLER, spyramidSamplerInfo}; //draws 
 
-        //Memory barrier for compute access
-        //Probably not ideal perf
-        PipelineMemoryBarrier(commandBufferContext.commandBuffer,
-            VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT_KHR,
-             VK_ACCESS_2_SHADER_WRITE_BIT_KHR,
-             VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT_KHR,
-             VK_ACCESS_2_SHADER_READ_BIT_KHR
-              );
-        
         DescriptorSets::UpdateDescriptorSet(GetMainRendererContext(),mipChainDescriptorCache->getNextDescriptorSet(), mipChainDescriptorConfig->layoutBindings,  descriptorUpdates); //Update desciptor sets for the compute bindings
-        pipelineLayoutManager.BindRequiredSetsToCommandBuffer(mipChainLayoutIDX,commandBufferContext.commandBuffer, commandBufferContext.boundDescriptorSets, currentFrame, VK_PIPELINE_BIND_POINT_COMPUTE);
+        pipelineLayoutManager.BindRequiredSetsToCommandBuffer(mipChainLayoutIDX,commandBufferContext->commandBuffer, commandBufferContext->boundDescriptorSets, currentFrame, VK_PIPELINE_BIND_POINT_COMPUTE);
         
         uint32_t outputWidth= pyramidWidth >> i;
         uint32_t outputHeight = pyramidHeight >> i;
@@ -1207,11 +1211,11 @@ void VulkanRenderer::RecordMipChainCompute(ActiveRenderStepData commandBufferCon
         uint32_t dispatchY =  1 + (size_y - 1) / MIP_WORKGROUP_Y;
         auto pushConstants = MemoryArena::Alloc<glm::vec2>(arena);
         *pushConstants = {size_x, size_y};
-        vkCmdPushConstants(commandBufferContext.commandBuffer, pipelineLayoutManager.GetLayout(mipChainLayoutIDX),VK_SHADER_STAGE_COMPUTE_BIT, 0,
+        vkCmdPushConstants(commandBufferContext->commandBuffer, pipelineLayoutManager.GetLayout(mipChainLayoutIDX),VK_SHADER_STAGE_COMPUTE_BIT, 0,
                           sizeof(glm::vec2),pushConstants);
 
         //Dispatch for all the pixels?
-        vkCmdDispatch(commandBufferContext.commandBuffer, dispatchX, dispatchY, 1);
+        vkCmdDispatch(commandBufferContext->commandBuffer, dispatchX, dispatchY, 1);
 
         VkImageMemoryBarrier2 barrier = GetImageBarrier(dstImage,
             VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
@@ -1224,7 +1228,7 @@ void VulkanRenderer::RecordMipChainCompute(ActiveRenderStepData commandBufferCon
             i,
             1);
 
-		SetPipelineBarrier(commandBufferContext.commandBuffer, {}, { &barrier, 1 });
+		SetPipelineBarrier(commandBufferContext->commandBuffer, {}, { &barrier, 1 });
     }
 
 }
@@ -1269,13 +1273,12 @@ void VulkanRenderer::RecordUtilityPasses( VkCommandBuffer commandBuffer, size_t 
 
 }
 
-//This function maps all of our candidate draws to draw indirect buffers
-//We end up with the gpu mapped DrawCommands populated with a unique list of drawcommanddata for each object for each draw
-//I think I did it this way so I can easily set index count to zero later on to skip a draw
-//Would be better to only have one list of objects to draw?
+//This function builds the cull data list which is used by the culling compute shader
+//This has the necessary information to do culling, and also to generate draw indirect commands when combined with the meshlet buffer
+//The compaction shader reads these to produce those commands 
 //(See DrawBatches.h)
-void UpdateIndirectCommandBufferForPasses(Scene* scene, AssetManager* rendererData, MemoryArena::Allocator* allocator, 
-										  std::span<drawCommandData> drawCommands, std::span<RenderBatch> passes)
+void UpdateCullingDataBufferForPasses(Scene* scene, AssetManager* rendererData, MemoryArena::Allocator* allocator, 
+										  std::span<GPU_cullData> drawCommands, std::span<RenderBatch> passes)
 {
 
     //indirect draw commands
@@ -1286,7 +1289,7 @@ void UpdateIndirectCommandBufferForPasses(Scene* scene, AssetManager* rendererDa
         for (int j = 0; j < _pass.perPipelinePasses.size(); j++)
         {
             auto pass = _pass.perPipelinePasses[j];
-            UpdateDrawCommandData(rendererData,
+            UpdateCullingData(rendererData,
                                  drawCommands.subspan(pass.offset.firstDrawIndex, pass.drawCount),
                                  pass.sortedSubmeshes, pass.sortedfirstIndices);
             pipelinePassOffset += (uint32_t)pass.drawCount;
@@ -1538,8 +1541,8 @@ std::span<RenderPassConfig> CreateShadowPassConfigs(ArenaAllocator arena, std::s
 }
 
 
-size_t UpdateDrawCommandData(AssetManager* rendererData,
-                                                 std::span<drawCommandData> targetDrawCommandSpan,
+size_t UpdateCullingData(AssetManager* rendererData,
+							 std::span<GPU_cullData> targetDrawCommandSpan,
                                                  std::span<uint32_t> submeshIndex, //Objects are drawn out of order compared to the underlying submesh buffer
                                                  std::span<uint32_t> submeshFirstDrawIndex //Draws are further out of order due to bucketing
                                                  )
@@ -1555,14 +1558,9 @@ size_t UpdateDrawCommandData(AssetManager* rendererData,
             auto meshletIndex = rendererData->meshData.perSubmeshData[subMeshIndex].firstMeshletIndex + j;
             targetDrawCommandSpan[drawCommandIndex++] = {
                 // {},{}, {},
-                (uint32_t)firstDraw + j,
-                {
-                    .indexCount = (uint32_t)rendererData->meshData.meshletInfo[meshletIndex].meshletIndexCount,
-                    .instanceCount = 1,
-                    .firstIndex = (uint32_t)rendererData->meshData.meshletInfo[meshletIndex].meshletIndexOffset,
-                    .vertexOffset = (int32_t)rendererData->meshData.meshletInfo[meshletIndex].meshletVertexOffset ,
-                    .firstInstance = firstDraw + j,
-                }
+				.objectIndex = (uint32_t)meshletIndex,
+                .cull = 1,
+                .firstInstance = firstDraw + j,
             };
         }
     }
@@ -1611,7 +1609,7 @@ void SubmitCopyWork(ArenaAllocator alloc, ActiveRenderStepData* context, std::sp
 }
 
 //TODO: Generalize this and submit copy work (above
-void SubmitCullCopute(ArenaAllocator alloc, ActiveRenderStepData* context, std::span<RenderPassDrawData> passes, 
+void SubmitCullCompute(ArenaAllocator alloc, ActiveRenderStepData* context, std::span<RenderPassDrawData> passes, 
 					VkPipelineLayout layout, std::span<VkBufferMemoryBarrier2> beforeBarriers, 
 					std::span<VkBufferMemoryBarrier2> afterbarriers, bool lateCull)
 {
@@ -1854,9 +1852,13 @@ VulkanRenderer::objectPassData VulkanRenderer::GetObjectDrawData(ArenaAllocator 
 	
 }
 
+//This has some fairly bad perf problems. 
+//There's a great deal of synchronization on the gpu around the cull/copy steps, and mipchain compute is very slow.
+//I shouldn't need to wait (at least not so long) on the two fences during the frame -- I should be able to move the first copy/compact to the prior frame,
+//And I should be able to reduce how much readback I do.
+
 void VulkanRenderer::RenderFrame(Scene* scene)
 {
-	std::this_thread::sleep_for(std::chrono::milliseconds(44)); //artifically lower framerate for debugging
     superLuminalAdd("RenderFrame");
 	ResetStartOfFrameFences();
 
@@ -1877,17 +1879,14 @@ void VulkanRenderer::RenderFrame(Scene* scene)
 	VkBufferMemoryBarrier2 compactIndirectsCommandBarrier = GetIndirectComputeBarrierForBuffer(thisFrameData->compactDrawBuffers.buffer.data);
 	VkBufferMemoryBarrier2 earlyDrawListBarrier = GetIndirectComputeBarrierForBuffer(thisFrameData->earlyDrawList.buffer.data);
 	VkBufferMemoryBarrier2 compactionDataLoopBarrier = GetIndirectComputeBarrierForBuffer(thisFrameData->drawCompactionDataBuffer.buffer.data);
-
     VkBufferMemoryBarrier2 indirectBarriers[3] = {indirectCommandsBarrier, earlyDrawListBarrier, compactIndirectsCommandBarrier};
-
-    VkImageMemoryBarrier2 shadowToOpaqueBarrier = GetDepthShaderWriteToReadBarrier(shadowResources.shadowImages[currentFrame]);
-
+    
+	VkImageMemoryBarrier2 shadowToOpaqueBarrier = GetDepthShaderWriteToReadBarrier(shadowResources.shadowImages[currentFrame]);
 	VkImageMemoryBarrier2 afterShadowRenderBarriers =  	GetDepthShaderWriteToReadBarrier(shadowResources.shadowImages[currentFrame]);
 
-    
 	VkImageMemoryBarrier2 afterDepthDrawBarrier = GetDepthShaderWriteToReadBarrier(globalResources.depthBufferInfoPerFrame[currentFrame].image);
-    VkImageMemoryBarrier2 depthtoCompute = GetDepthDrawToComputeBarrier(globalResources.depthBufferInfoPerFrame[currentFrame].image);
-    VkImageMemoryBarrier2 shadowToCompute = GetDepthDrawToComputeBarrier(shadowResources.shadowImages[currentFrame]);
+    VkImageMemoryBarrier2 depthToCullComputeBarrier = GetDepthDrawToComputeBarrier(globalResources.depthBufferInfoPerFrame[currentFrame].image);
+    VkImageMemoryBarrier2 shadowToCullComputeBarrier = GetDepthDrawToComputeBarrier(shadowResources.shadowImages[currentFrame]);
 
 
 
@@ -2041,13 +2040,15 @@ void VulkanRenderer::RenderFrame(Scene* scene)
 	auto shadowPassesData = passData.shadowPassesData;
 
 
-    //Indirect command buffer
-	//TODO JS: Updated this to only use prepass batches -- not *100%* sure this is right, it may need to run on the full set
-    UpdateIndirectCommandBufferForPasses(scene, 
+    //Culling buffer
+    UpdateCullingDataBufferForPasses(scene, 
 										 AssetDataAndMemory, 
 										 &perFrameArenas[currentFrame], 
 										 thisFrameData->drawBuffers.GetMappedView(), 
 										 prepassBatches);
+	//Meshlet buffer -- compaction shader uses culling buffer to index in to this to build drawindirect commands
+	//Don't need to set this every frame
+	thisFrameData->meshletDataBuffers.UpdateMappedMemory(AssetDataAndMemory->meshData.meshletInfo.getSubSpan(0, thisFrameData->meshletDataBuffers.Count()));
 
 	////< Early step
 	//ZERO OUT THE DRAW COMPACTION BUFFER BEFORE WE USE IT
@@ -2065,7 +2066,8 @@ void VulkanRenderer::RenderFrame(Scene* scene)
 				   EarlyStep,
 				   passesCopyForCompute,
 				   pipelineLayoutManager.GetLayout(cullDataCopyLayoutIDX),
-				   { &earlyDrawListBarrier, 1 }, {},
+				   {&earlyDrawListBarrier, 1 }, 
+				   {},
 				   indirectBarriers);
 	//Bind compact compute
 	vkCmdBindPipeline(EarlyStep->commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,  pipelineLayoutManager.GetPipeline(draw_compact_handle));
@@ -2073,7 +2075,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
 				   EarlyStep,
 				   passesCopyForCompute,
 				   pipelineLayoutManager.GetLayout(cullDataCopyLayoutIDX),
-				   { &earlyDrawListBarrier, 1 },
+				   {&earlyDrawListBarrier, 1 },
 				   {&compactionDataLoopBarrier, 1},
 				   indirectBarriers);
 
@@ -2110,12 +2112,9 @@ void VulkanRenderer::RenderFrame(Scene* scene)
 								 thisFrameData->compactDrawBuffers.buffer.data, 
 								 currentFrame);
 
-    SetPipelineBarrier(BeforeCullingStep->commandBuffer, {}, {&depthtoCompute, 1} );
-    SetPipelineBarrier(BeforeCullingStep->commandBuffer, {}, {&shadowToCompute, 1} );
+    SetPipelineBarrier(BeforeCullingStep->commandBuffer, {}, {&depthToCullComputeBarrier, 1} );
+    SetPipelineBarrier(BeforeCullingStep->commandBuffer, {}, {&shadowToCullComputeBarrier, 1} );
 
-   
-
-   
     uint32_t shadowmapIndex = 0;
 	//TODO: Use a more bindless structure for mipchain compute, bind resources once and index in to textures
     for(int i =0; i < scene->lightCount; i++)
@@ -2124,13 +2123,13 @@ void VulkanRenderer::RenderFrame(Scene* scene)
 		for (int j = 0; j < shadowCountFromLightType(scene->lightTypes[i]); j++)
 		{
 		auto& shadowPyramidData = shadowResources.WIP_shadowDepthPyramidInfos[currentFrame][shadowmapIndex];
-		RecordMipChainCompute(*BeforeCullingStep, &perFrameArenas[currentFrame], shadowPyramidData,
+		RecordMipChainCompute(BeforeCullingStep, &perFrameArenas[currentFrame], shadowPyramidData,
 							shadowResources.shadowMapSingleLayerViews[currentFrame][shadowmapIndex]);
 		shadowmapIndex++;
 		}
     }
 	DepthPyramidInfo& depthBufferPyramidData =   globalResources.depthPyramidInfoPerFrame[currentFrame];
-    RecordMipChainCompute(*BeforeCullingStep, &perFrameArenas[currentFrame], depthBufferPyramidData,
+    RecordMipChainCompute(BeforeCullingStep, &perFrameArenas[currentFrame], depthBufferPyramidData,
 						  globalResources.depthBufferInfoPerFrame[currentFrame].view);
 
 	//ZERO OUT THE DRAW COMPACTION BUFFER NOW THAT WE'VE USED IT -- reset it for late draw 
@@ -2145,7 +2144,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
 	////< Culling step
     //Early cull
     uint32_t cullPassIndex = 0;
-	SubmitCullCopute(&perFrameArenas[currentFrame],
+	SubmitCullCompute(&perFrameArenas[currentFrame],
 					 CullingStep, //
 				   passesCopyForCompute,
 					 pipelineLayoutManager.GetLayout(cullingLayoutIDX),
@@ -2203,7 +2202,7 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     RecordUtilityPasses(OpaqueStep->commandBuffer, currentFrame);
     VkImageMemoryBarrier2 swapchainToPresent = ColorAttatchmentTransitionOutBarrier(globalResources.swapchainImages[thisFrameData->swapChainIndex]);
 
-	VkImageMemoryBarrier2 finishedRenderingImageBarriers[3] = {swapchainToPresent,depthtoCompute,shadowToCompute};
+	VkImageMemoryBarrier2 finishedRenderingImageBarriers[3] = {swapchainToPresent,depthToCullComputeBarrier,shadowToCullComputeBarrier};
     //Drawing -> final mipchain sync
     SetPipelineBarrier(OpaqueStep->commandBuffer, indirectBarriers, finishedRenderingImageBarriers );
 
@@ -2221,17 +2220,17 @@ void VulkanRenderer::RenderFrame(Scene* scene)
         for (int j = 0; j < shadowCountFromLightType(scene->lightTypes[i]); j++)
         {
             auto& shadowPyramidData = shadowResources.WIP_shadowDepthPyramidInfos[currentFrame][lateShadowMapIndex];
-            RecordMipChainCompute(*PostRenderStep, &perFrameArenas[currentFrame], shadowPyramidData,
+            RecordMipChainCompute(PostRenderStep, &perFrameArenas[currentFrame], shadowPyramidData,
                                 shadowResources.shadowMapSingleLayerViews[currentFrame][lateShadowMapIndex]);
             lateShadowMapIndex++;
         }
     }
-    RecordMipChainCompute(*PostRenderStep, &perFrameArenas[currentFrame], depthBufferPyramidData,
+    RecordMipChainCompute(PostRenderStep, &perFrameArenas[currentFrame], depthBufferPyramidData,
                           globalResources.depthBufferInfoPerFrame[currentFrame].view);
 
     //Late cull!
     UpdateComputeCullingBindings(*PostRenderStep,scene,  &perFrameArenas[currentFrame], true);
-	SubmitCullCopute(&perFrameArenas[currentFrame],
+	SubmitCullCompute(&perFrameArenas[currentFrame],
 					 PostRenderStep,
 					 passesCopyForCompute,
 					 pipelineLayoutManager.GetLayout(cullingLayoutIDX),

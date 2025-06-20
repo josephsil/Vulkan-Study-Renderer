@@ -15,7 +15,7 @@ CullPushConstants cullPC;
 RWStructuredBuffer<float4> frustumData;
 
 [[vk::binding(13, 0)]]
-RWStructuredBuffer<drawCommandData> drawData;
+RWStructuredBuffer<cullData> drawData;
 [[vk::binding(14, 0)]]
 RWStructuredBuffer<ObjectData> PerObjectData;
 [[vk::binding(15, 0)]]
@@ -69,7 +69,7 @@ Bounds GetWorldSpaceBounds(float3 center, Bounds inB)
 
 
 #define ShaderGlobals cullPC //To make macros work 
-#define InstanceIndex drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].objectIndex //To make macros work
+#define InstanceIndex drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].firstInstance //To make macros work
 [numthreads(CULL_WORKGROUP_X, 1, 1)]
 void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
 {
@@ -131,8 +131,8 @@ void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
         {
             if (projectSphere(ViewCenter, scaledRadius, nearPlane,  ShaderGlobals.projMatrix[0][0], ShaderGlobals.projMatrix[1][1], aabb))
             {
-                float width = ((aabb.x - aabb.z) ) *  1024.0;
-                float height = ((aabb.w - aabb.y )) *  1024.0;
+                float width = ((aabb.x - aabb.z) ) *  DEPTH_PYRAMID_SIZE;
+                float height = ((aabb.w - aabb.y )) *  DEPTH_PYRAMID_SIZE;
 
                 int level = ceil(log2(max(width, height)));
                 float2 hiZSamplePoint1 =  (aabb.xy);
@@ -159,8 +159,8 @@ void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
             {
                 float2 aabbmax = (NDCToUV(WorldToClip(worldCenter - float4(scaledRadius,scaledRadius,scaledRadius,1.0)))).xy; //todo, could do this without the matrix multiplies
                 float2 aabbmin = (NDCToUV(WorldToClip(worldCenter + float4(scaledRadius,scaledRadius,scaledRadius,1.0)))).xy; //todo, could do this without the matrix multiplies
-                float width = ((aabbmax.x - aabbmin.x) ) *  1024.0;
-                float height = ((aabbmax.y - aabbmin.y )) *  1024.0;
+                float width = ((aabbmax.x - aabbmin.x) ) *  DEPTH_PYRAMID_SIZE;
+                float height = ((aabbmax.y - aabbmin.y )) *  DEPTH_PYRAMID_SIZE;
                 float uvRadius =distance(aabbmax, aabbmin);
                 int level = ceil(log2(max(width, height)));
                 float hiZValue = bindless_textures[passIndex].SampleLevel(bindless_samplers[passIndex], float3(uv.x, uv.y,(int)0), level);
@@ -181,6 +181,6 @@ void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
     }
     else
     {
-        drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].instanceCount = visible ? 1 : 0;
+        drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].cull = visible ? 1 : 0;
     }
 }

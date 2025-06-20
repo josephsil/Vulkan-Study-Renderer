@@ -137,7 +137,7 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
         rendererData->subMeshGroups[randomMeshes[rand() % randomMeshes.size()]].getSpan(), MemoryArena::AllocSpanConstructEntries<uint32_t>(rendererContext.arena, 1, (uint32_t) (uint32_t)randomMaterials[1]), glm::vec4(0, 0, 0, 0) * 1.2f, MyQuaternion,
         glm::vec3(0.5));
 
-    int ict = 6;
+    int ict = 12;
     int jct = ict;
     localTransform* tform = &scene->transforms.transformNodes[root];
 

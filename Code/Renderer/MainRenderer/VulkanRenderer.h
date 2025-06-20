@@ -182,9 +182,10 @@ private:
         HostMappedDataBuffer<GPU_perShadowData> shadowDataBuffers;
 
         //Draw indirect -- TODO, these uncompacetd buffers could be a different, smaller struct
-        HostMappedDataBuffer<drawCommandData> drawBuffers;
+        HostMappedDataBuffer<GPU_cullData> drawBuffers;
 		//Draw indirect
         HostMappedDataBuffer<drawCommandData> compactDrawBuffers;
+		HostMappedDataBuffer<GPU_meshletData> meshletDataBuffers;
 
         //Draw early draw list
         HostMappedDataBuffer<uint32_t> earlyDrawList;
@@ -208,7 +209,7 @@ private:
     void UpdatePerFrameBuffers(unsigned currentFrame, Array<std::span<glm::mat4>> models, Scene* scene);
 
 
-    void RecordMipChainCompute(ActiveRenderStepData commandBufferContext, MemoryArena::Allocator* arena,
+    void RecordMipChainCompute(ActiveRenderStepData* commandBufferContext, MemoryArena::Allocator* arena,
                                DepthPyramidInfo& pyramidInfo, VkImageView srcView);
     void updateBindingsComputeCullingPreCull(ActiveRenderStepData commandBufferContext,
                                              ArenaAllocator arena);

@@ -15,12 +15,6 @@ struct textureSetIDs
     ID::TextureID normIndex;
 };
 
-struct MeshletData
-{
-    size_t meshletVertexOffset; //Offset for this meshlet's verts within the global vertex buffer
-    size_t meshletIndexOffset;//Offset for this meshlet within the global index buffer
-    size_t meshletIndexCount;//Index count for this meshlet
-};
 struct PerSubmeshData
 {
     uint32_t meshletCt;

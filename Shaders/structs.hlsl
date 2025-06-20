@@ -1,5 +1,5 @@
 static const uint SHADOW_MAP_SIZE = 1024;
-static const uint DEPTH_PYRAMID_SIZE = SHADOW_MAP_SIZE;
+static const uint DEPTH_PYRAMID_SIZE = SHADOW_MAP_SIZE ;
 static const float POINT_LIGHT_FAR_PLANE = 10.0;
 static const float POINT_LIGHT_NEAR_PLANE = 0.01f;
 static const float CAMERA_NEAR_PLANE = 0.01f;
@@ -130,4 +130,18 @@ struct drawCommandData
     uint firstIndex;
     int vertexOffset;
     uint firstInstance;
+};
+
+struct cullData 
+{
+    uint objectIndex;
+    uint cull;
+    uint firstInstance;
+};
+
+struct meshletData
+{
+    uint32_t meshletVertexOffset; //Offset for this meshlet's verts within the global vertex buffer
+    uint32_t meshletIndexOffset;//Offset for this meshlet within the global index buffer
+    uint32_t meshletIndexCount;//Index count for this meshlet
 };

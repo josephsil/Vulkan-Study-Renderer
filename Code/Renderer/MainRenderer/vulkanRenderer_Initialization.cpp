@@ -23,13 +23,13 @@ void VulkanRenderer::initializeWindow()
         WIDTH, //window width in pixels
         HEIGHT, //window height in pixels
         window_flags
-    );
+    );	
 }
 
 
 vkb::PhysicalDevice getPhysicalDevice(vkb::Instance instance, VkSurfaceKHR surface)
 {
-	#define RENDERDOC_COMPATIBILITY
+	//#define RENDERDOC_COMPATIBILITY
     const std::vector<const char*> deviceExtensions = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_MAINTENANCE_4_EXTENSION_NAME, VK_KHR_MAINTENANCE_3_EXTENSION_NAME,
         VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME, VK_EXT_MUTABLE_DESCRIPTOR_TYPE_EXTENSION_NAME

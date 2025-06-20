@@ -1,6 +1,6 @@
 ﻿#include "structs.hlsl"
 [[vk::binding(13, 0)]]
-RWStructuredBuffer<drawCommandData> drawData;
+RWStructuredBuffer<cullData> drawData;
 [[vk::binding(14, 0)]]
 RWStructuredBuffer<ObjectData> PerObjectData; 
 
@@ -21,10 +21,10 @@ struct  PushConstants
 [[vk::push_constant]]
 PushConstants PC;
 
-#define InstanceIndex drawData[PC.drawOffset + GlobalInvocationID.x].objectIndex
+#define InstanceIndex drawData[PC.drawOffset + GlobalInvocationID.x].firstInstance
 [numthreads(COPY_WORKGROUP_X, 1, 1)]
 void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
 {
     if (GlobalInvocationID.x >= PC.objectCount) return;
-    drawData[PC.drawOffset + GlobalInvocationID.x].instanceCount = EarlyDrawList[PC.drawOffset + InstanceIndex] ? 1 : 0;
+    drawData[PC.drawOffset + GlobalInvocationID.x].cull = EarlyDrawList[PC.drawOffset + InstanceIndex] ? 1 : 0;
 }

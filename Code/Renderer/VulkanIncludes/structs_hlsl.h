@@ -2,7 +2,7 @@
 //EDIT structs.hlsl TO UPDATE
 #pragma once
 #include <Renderer/VulkanIncludes/forward-declarations-renderer.h>
-#include <General/GLM_impl.h>
+#include <General/GLM_IMPL.h>
 static constexpr uint32_t SHADOW_MAP_SIZE = 1024;
 static constexpr uint32_t DEPTH_PYRAMID_SIZE = SHADOW_MAP_SIZE;
 static constexpr float POINT_LIGHT_FAR_PLANE = 10.0f;
@@ -135,4 +135,22 @@ struct GPU_drawCommandData
     uint32_t firstIndex;
     int vertexOffset;
     uint32_t firstInstance;
+};
+
+struct GPU_cullData 
+{
+    uint32_t objectIndex;
+    uint32_t cull;
+
+	//TODO: This part isn't needed for culling, only for reading to produce draws
+	//Need to split this somewhere else for perf
+
+    uint32_t firstInstance;
+};
+
+struct GPU_meshletData
+{
+    uint32_t meshletVertexOffset; //Offset for this meshlet's verts within the global vertex buffer
+    uint32_t meshletIndexOffset;//Offset for this meshlet within the global index buffer
+    uint32_t meshletIndexCount;//Index count for this meshlet
 };
