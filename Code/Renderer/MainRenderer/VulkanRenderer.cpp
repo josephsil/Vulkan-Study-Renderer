@@ -1072,35 +1072,7 @@ void VulkanRenderer::UpdateComputeCullingBindings(ActiveRenderStepData commandBu
 #pragma endregion
 
 #pragma region draw
-void RecordDrawCommandCopyCompute(ArenaAllocator allocator, VkPipelineLayout layout, 
-								  ActiveRenderStepData commandBufferContext, 
-								  uint32_t offset, uint32_t count, uint32_t passIndex)
-{
-    struct GPU_CullCopyPushConstants
-    {
-        uint32_t drawOffset;
-        uint32_t objectCount;
-		uint32_t passIndex;
-    };
-    GPU_CullCopyPushConstants* pc = MemoryArena::Alloc<GPU_CullCopyPushConstants>(allocator);
-    *pc = {
-        .drawOffset = offset,
-        .objectCount = count,
-		.passIndex = passIndex
-        };
 
-    assert(commandBufferContext.commandBufferActive);
-
-    auto& drawCount = count;
-
-    vkCmdPushConstants(commandBufferContext.commandBuffer,  layout, VK_SHADER_STAGE_COMPUTE_BIT, 0,
-                       sizeof(GPU_CullPushConstants), pc);
-
-    const uint32_t dispatch_x = drawCount != 0
-                                    ? 1 + static_cast<uint32_t>((drawCount - 1) / COPY_WORKGROUP_X)
-                                    : 1;
-    vkCmdDispatch(commandBufferContext.commandBuffer, dispatch_x, 1, 1);
-}
 
 void RecordCullingCompute(ArenaAllocator allocator, VkPipelineLayout layout, 
 						  ActiveRenderStepData commandBufferContext,uint32_t passIndex, 
@@ -1256,8 +1228,8 @@ void VulkanRenderer::RecordMipChainCompute(ActiveRenderStepData* commandBufferCo
 }
 void VulkanRenderer::RecordUtilityPasses( VkCommandBuffer commandBuffer, size_t imageIndex)
 {
-    auto opaqueBindlessLayoutGroup =  pipelineLayoutManager.GetPipeline(DEBUG_LINE_SHADER_INDEX);
     VkPipelineLayout layout = pipelineLayoutManager.GetLayout(opaqueLayoutIDX);
+    auto opaqueBindlessLayoutGroup =  pipelineLayoutManager.GetPipeline(DEBUG_LINE_SHADER_INDEX);
     VkRenderingAttachmentInfoKHR dynamicRenderingColorAttatchment = CreateRenderingAttatchmentStruct(globalResources.swapchainImageViews[imageIndex], 0.0, false);
     VkRenderingAttachmentInfoKHR utilityDepthAttatchment =    CreateRenderingAttatchmentStruct( globalResources.depthBufferInfoPerFrame[currentFrame].view, 0.0, false);
     BeginRendering(
@@ -1639,47 +1611,126 @@ uint32_t GetNextFirstIndex(RenderBatchQueue* q)
     auto& pass =  q->batchConfigs.back().perPipelinePasses.back();
     return pass.offset.firstDrawIndex + pass.drawCount;
 }
-//Poorly named -- need to refactor this to generalize anyway
-void SubmitCopyWork(ArenaAllocator alloc, ActiveRenderStepData* context, std::span<RenderPassDrawData> passes, 
-					VkPipelineLayout layout, std::span<VkBufferMemoryBarrier2> beforeBarriers, std::span<VkBufferMemoryBarrier2> loopBarriers,
-					std::span<VkBufferMemoryBarrier2> afterbarriers)
+
+struct CompactComputeStep
+{
+	bool lateCull;
+	std::span<RenderPassDrawData> passes;
+
+	void Record(ArenaAllocator allocator, VkPipelineLayout layout, 
+				ActiveRenderStepData commandBufferContext, 
+				uint32_t offset, uint32_t count, uint32_t passIndex)
+	{
+		//Culling override code
+		uint32_t cullFrustumIndex = passIndex * 6; 
+		auto& conf = this->passes[passIndex];
+		float nearPlane = conf.nearPlane;
+		float farPlane = conf.farPlane;
+		glm::mat4& proj = conf.proj;
+		glm::mat4& view = conf.view;
+		if (debug_cull_override)
+		{
+			cullFrustumIndex =  debug_cull_override_index * 6;
+			passIndex =  debug_cull_override_index;
+			nearPlane = DebugCullingData[passIndex].nearPlane;
+			farPlane = DebugCullingData[passIndex].farPlane;
+			proj = DebugCullingData[passIndex].proj;
+			proj = DebugCullingData[passIndex].proj;
+        
+		}
+
+		GPU_CullPushConstants* cullconstants = MemoryArena::Alloc<GPU_CullPushConstants>(allocator);
+		*cullconstants = {
+			.viewMatrix = conf.view,
+			.projMatrix =  conf.proj,
+			.drawOffset = conf.drawOffset,
+			.passOffset =passIndex,
+			.frustumOffset = cullFrustumIndex,
+			.objectCount = conf.drawCount,
+			.LATE_CULL = this->lateCull,
+			.disable = (uint32_t)debug_shader_bool_2,
+			.farPlane =  farPlane,
+			.nearPlane = nearPlane
+        };
+
+		assert(commandBufferContext.commandBufferActive);
+
+		auto& drawCount = conf.drawCount;
+
+		vkCmdPushConstants(commandBufferContext.commandBuffer,  layout, VK_SHADER_STAGE_COMPUTE_BIT, 0,
+						   sizeof(GPU_CullPushConstants), cullconstants);
+
+		const uint32_t dispatch_x = drawCount != 0
+			? 1 + static_cast<uint32_t>((drawCount - 1) / CULL_WORKGROUP_X)
+		: 1;
+		vkCmdDispatch(commandBufferContext.commandBuffer, dispatch_x, 1, 1);
+     
+	}
+};
+
+struct CopyComputeStep
 {
 
-	SetPipelineBarrier(context->commandBuffer,  beforeBarriers, {});
+	void Record(ArenaAllocator allocator, VkPipelineLayout layout, 
+				 ActiveRenderStepData commandBufferContext, 
+				 uint32_t offset, uint32_t count, uint32_t passIndex)
+	{
+		struct GPU_CullCopyPushConstants
+		{
+			uint32_t drawOffset;
+			uint32_t objectCount;
+			uint32_t passIndex;
+		};
+		GPU_CullCopyPushConstants* pc = MemoryArena::Alloc<GPU_CullCopyPushConstants>(allocator);
+		*pc = {
+			.drawOffset = offset,
+			.objectCount = count,
+			.passIndex = passIndex
+        };
+
+		assert(commandBufferContext.commandBufferActive);
+
+		auto& drawCount = count;
+
+		vkCmdPushConstants(commandBufferContext.commandBuffer,  layout, VK_SHADER_STAGE_COMPUTE_BIT, 0,
+						   sizeof(GPU_CullPushConstants), pc);
+
+		const uint32_t dispatch_x = drawCount != 0
+			? 1 + static_cast<uint32_t>((drawCount - 1) / COPY_WORKGROUP_X)
+		: 1;
+		vkCmdDispatch(commandBufferContext.commandBuffer, dispatch_x, 1, 1);
+
+	}
+};
+
+template <class T> 
+void SubmitComputeWorkForPasses(ArenaAllocator alloc, ActiveRenderStepData* commandBufferContext,
+								VkPipeline pipeline, std::span<RenderPassDrawData> passes, 
+VkPipelineLayout layout, std::span<VkBufferMemoryBarrier2> beforeBarriers,
+std::span<VkBufferMemoryBarrier2> loopBarriers,
+								std::span<VkBufferMemoryBarrier2> afterbarriers, T Step)
+{
+	if (commandBufferContext->boundPipeline !=  pipeline)
+	{
+		commandBufferContext->boundPipeline = pipeline;
+		vkCmdBindPipeline(commandBufferContext->commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
+	}
+	SetPipelineBarrier(commandBufferContext->commandBuffer,  beforeBarriers, {});
     //Pre-Cull copy (need to refactor, based on cull code atm)
 	uint32_t copyPassIndex = 0;
     uint32_t copyOffset = 0;
     for(int j = 0; j <passes.size(); j++)
     {
 
-        RecordDrawCommandCopyCompute(alloc, layout, *context,
+        Step.Record(alloc, layout, *commandBufferContext,
 									 copyOffset, passes[j].drawCount, copyPassIndex++);
         copyOffset += passes[j].drawCount;
-		SetPipelineBarrier(context->commandBuffer, loopBarriers, {});
+		SetPipelineBarrier(commandBufferContext->commandBuffer, loopBarriers, {});
     }
-	SetPipelineBarrier(context->commandBuffer, afterbarriers, {});
+	SetPipelineBarrier(commandBufferContext->commandBuffer, afterbarriers, {});
 }
 
-//TODO: Generalize this and submit copy work (above
-void SubmitCullCompute(ArenaAllocator alloc, ActiveRenderStepData* context, std::span<RenderPassDrawData> passes, 
-					   VkPipelineLayout layout, std::span<VkBufferMemoryBarrier2> beforeBarriers,   std::span<VkBufferMemoryBarrier2> loopBarriers,
-					std::span<VkBufferMemoryBarrier2> afterbarriers, bool lateCull)
-{
 
-	if (beforeBarriers.size() > 0)
-	{SetPipelineBarrier(context->commandBuffer,  beforeBarriers, {});}
-	uint32_t cullPassIndex = 0;
-    for(int j = 0; j <passes.size(); j++)
-    {
-        RecordCullingCompute(alloc,  
-							 layout, 
-							 *context, cullPassIndex++, passes[j], 
-							 lateCull);
-		SetPipelineBarrier(context->commandBuffer, loopBarriers, {});
-    }
-	if (afterbarriers.size() > 0)
-	{SetPipelineBarrier(context->commandBuffer, afterbarriers, {});}
-}
 
 VkCommandBuffer CreateAndBeginCommandBuffer(VkDevice device, CommandPoolManager* poolManager, bool transfer = false)
 {
@@ -2112,26 +2163,27 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     UpdateDrawCommandCopyComputeBindings(*EarlyStep, &perFrameArenas[currentFrame]);
 
 	//Bind copy compute 
-	vkCmdBindPipeline(EarlyStep->commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,  pipelineLayoutManager.GetPipeline(cull_copy_handle));
 	std::span<RenderPassDrawData> passesCopyForCompute = 
 	MemoryArena::AllocCopySpan(&perFrameArenas[currentFrame], shadowPassesData, 1);
+	CopyComputeStep copyStep ={};
 	passesCopyForCompute[passesCopyForCompute.size() -1] = opaquePassData;
-	SubmitCopyWork(&perFrameArenas[currentFrame],
+	SubmitComputeWorkForPasses(&perFrameArenas[currentFrame],
 				   EarlyStep,
+					pipelineLayoutManager.GetPipeline(cull_copy_handle),
 				   passesCopyForCompute,
 				   pipelineLayoutManager.GetLayout(cullDataCopyLayoutIDX),
 				   {&earlyDrawListBarrier, 1 }, 
 				   {&compactionDataLoopBarrier, 1},
-				   indirectBarriers);
+				   indirectBarriers, copyStep);
 	//Bind compact compute
-	vkCmdBindPipeline(EarlyStep->commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,  pipelineLayoutManager.GetPipeline(draw_compact_handle));
-	SubmitCopyWork(&perFrameArenas[currentFrame],
+	SubmitComputeWorkForPasses(&perFrameArenas[currentFrame],
 				   EarlyStep,
-				   passesCopyForCompute,
+				   pipelineLayoutManager.GetPipeline(draw_compact_handle),
+							   passesCopyForCompute,
 				   pipelineLayoutManager.GetLayout(cullDataCopyLayoutIDX),
 				   {&earlyDrawListBarrier, 1 },
 				   {&compactionDataLoopBarrier, 1},
-				   indirectBarriers);
+				   indirectBarriers, copyStep);
 
 	EndCommandBufferForStep(EarlyStep);
     SubmitCommandBuffer(EarlyStep);
@@ -2199,12 +2251,16 @@ void VulkanRenderer::RenderFrame(Scene* scene)
 	////< Culling step
     //Early cull
     uint32_t cullPassIndex = 0;
-	SubmitCullCompute(&perFrameArenas[currentFrame],
+	CompactComputeStep computeStep = CompactComputeStep{.lateCull = false, .passes = passesCopyForCompute};
+	SubmitComputeWorkForPasses(&perFrameArenas[currentFrame],
 					 CullingStep, //
-				   passesCopyForCompute,
-					 pipelineLayoutManager.GetLayout(cullingLayoutIDX),
-					  {&compactionDataLoopBarrier, 1}, {&compactionDataLoopBarrier, 1},
-				   indirectBarriers, false);
+					pipelineLayoutManager.GetPipeline(cullingLayoutIDX, 0),
+					passesCopyForCompute,
+					pipelineLayoutManager.GetLayout(cullingLayoutIDX),
+					{&compactionDataLoopBarrier, 1}, {&compactionDataLoopBarrier, 1},
+					indirectBarriers, computeStep);
+
+
 
 	
 	SetPipelineBarrier(CullingStep->commandBuffer,indirectBarriers,{} );
@@ -2214,13 +2270,14 @@ void VulkanRenderer::RenderFrame(Scene* scene)
     UpdateDrawCommandCopyComputeBindings(*CullingStep	, &perFrameArenas[currentFrame]);
 
 	//Bind compact compute
-	vkCmdBindPipeline(CullingStep->commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,  pipelineLayoutManager.GetPipeline(draw_compact_handle));
-	SubmitCopyWork(&perFrameArenas[currentFrame],
-				   CullingStep,
-				   passesCopyForCompute,
-				   pipelineLayoutManager.GetLayout(cullDataCopyLayoutIDX),
-				   { &earlyDrawListBarrier, 1 },  {&compactionDataLoopBarrier, 1},
-				   indirectBarriers);
+	SubmitComputeWorkForPasses(&perFrameArenas[currentFrame],
+							   CullingStep,
+							   pipelineLayoutManager.GetPipeline(draw_compact_handle),
+							   passesCopyForCompute,
+							   pipelineLayoutManager.GetLayout(cullDataCopyLayoutIDX),
+							   {&earlyDrawListBarrier, 1 },
+							   {&compactionDataLoopBarrier, 1},
+							   indirectBarriers, copyStep);
 
     // //Submit commandbuffers
 
@@ -2287,12 +2344,16 @@ void VulkanRenderer::RenderFrame(Scene* scene)
 	SubmitClearBufferCommand(PostRenderStep->commandBuffer, GetFrameData(nextFrame).compactDrawBuffers.buffer);
 	//Late cull!
     UpdateComputeCullingBindings(*PostRenderStep,scene,  &perFrameArenas[currentFrame], true);
-	SubmitCullCompute(&perFrameArenas[currentFrame],
-					 PostRenderStep,
-					 passesCopyForCompute,
-					  pipelineLayoutManager.GetLayout(cullingLayoutIDX), {},
-					 {},
-					 indirectBarriers, true);
+	CompactComputeStep lateComputeStep = CompactComputeStep{.lateCull = true, .passes = passesCopyForCompute};
+	SubmitComputeWorkForPasses(&perFrameArenas[currentFrame],
+					PostRenderStep,
+					pipelineLayoutManager.GetPipeline(cullingLayoutIDX, 0),
+					passesCopyForCompute,
+					pipelineLayoutManager.GetLayout(cullingLayoutIDX),
+					{&compactionDataLoopBarrier, 1}, {&compactionDataLoopBarrier, 1},
+					indirectBarriers, lateComputeStep);
+
+
 
 
 
