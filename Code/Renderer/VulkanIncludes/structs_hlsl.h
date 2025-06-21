@@ -14,6 +14,7 @@ static constexpr uint32_t COPY_WORKGROUP_X = CULL_WORKGROUP_X;
 static constexpr uint32_t MIP_WORKGROUP_X = 16;
 static constexpr uint32_t MIP_WORKGROUP_Y = MIP_WORKGROUP_X;
 static constexpr uint32_t MAX_RENDER_PASSES = 16; //should be dynamic, will fix later
+static constexpr uint32_t MAX_PIPELINES = 12; //whatever, probably could be dynamic, will fix later
 struct GPU_Transform
 {
     glm::mat4 Model;
@@ -141,10 +142,6 @@ struct GPU_cullData
 {
     uint32_t objectIndex;
     uint32_t cull;
-
-	//TODO: This part isn't needed for culling, only for reading to produce draws
-	//Need to split this somewhere else for perf
-
     uint32_t firstInstance;
 };
 

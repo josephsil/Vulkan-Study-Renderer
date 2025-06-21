@@ -1,4 +1,7 @@
-﻿#define SKYBOXLUTINDEX ShaderGlobals.lutIDX_lutSamplerIDX_padding_padding.x
+﻿#ifndef GENERALSHADERINCLUDES
+#define GENERALSHADERINCLUDES
+
+#define SKYBOXLUTINDEX ShaderGlobals.lutIDX_lutSamplerIDX_padding_padding.x
 #define SKYBOXLUTSAMPLERINDEX ShaderGlobals.lutIDX_lutSamplerIDX_padding_padding.y
 #define SHADOWCOUNT ShaderGlobals.lightcount_mode_shadowct_padding.z
 #define LIGHTCOUNT   ShaderGlobals.lightcount_mode_shadowct_padding.r
@@ -24,3 +27,5 @@ float NDCToDepth(float3 input)
 {
    return input.z;
 }
+
+#endif //GENERALSHADERINCLUDES

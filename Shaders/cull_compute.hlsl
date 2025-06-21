@@ -1,6 +1,7 @@
 #include "structs.hlsl"
 #include "GeneralIncludes.hlsl"
 #include "ObjectDataMacros.hlsl"
+#include "culling_includes.hlsl"
 
 
 [[vk::binding(0, 0)]]
@@ -177,10 +178,29 @@ void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
 
     if (LATE_CULL) //On late draw, update the early draw list.
     {
-        EarlyDrawList[ShaderGlobals.drawOffset + InstanceIndex] = visible;
+        EarlyDrawList[cullPC.drawOffset + InstanceIndex] = visible;
     }
     else
     {
-        drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].cull = visible ? 1 : 0;
+       
+
+		uint32_t offsetCounterForPassIdx = (GetPassOffsetIndex(cullPC.passOffset)); //17-34 -- these are the offsets for the NEXT index. 
+		drawData[cullPC.drawOffset + GlobalInvocationID.x].cull = visible;
+		if (visible)
+		{
+			drawData[cullPC.drawOffset + GlobalInvocationID.x].cull = 1;
+			uint shaderBucketIndex = GetPassSubpassIndex(cullPC.passOffset, SHADERINDEX);
+			InterlockedAdd(drawIndices[shaderBucketIndex], 1);
+
+			uint32_t globalOffset;
+			uint32_t forPassOffset;
+			//Update the counters s
+			InterlockedAdd(drawIndices[GetGlobalDrawCountIndex()], 1, globalOffset);
+		}
+
+
+		//Update the offset -- TODO JS, I'm sure this is very slow, I should just build this buffer after the compute	
+		uint32_t _discard;
+		InterlockedMax(drawIndices[offsetCounterForPassIdx],drawIndices[0], _discard);
     }
 }

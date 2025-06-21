@@ -84,9 +84,9 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
 
 
     //point lights    
-    // scene->AddPointLight(glm::vec3(1, 1, 0), glm::vec3(0.3, 0.8, 1), 2);
+    scene->AddPointLight(glm::vec3(1, 1, 0), glm::vec3(0.3, 0.8, 1), 2);
   
-    scene->AddPointLight(glm::vec3(-2, 2, 0), glm::vec3(1, 0, 0), 999 / 2);
+    //scene->AddPointLight(glm::vec3(-2, 2, 0), glm::vec3(1, 0, 0), 999 / 2);
     // scene->AddPointLight(glm::vec3(0, 0, 0), glm::vec3(0, 1, 1), 999 / 2);
 
     GltfData gltf;
@@ -134,18 +134,25 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
     auto MyQuaternion = glm::quat(EulerAngles);
     
     auto root = scene->AddObject(
-        rendererData->subMeshGroups[randomMeshes[rand() % randomMeshes.size()]].getSpan(), MemoryArena::AllocSpanConstructEntries<uint32_t>(rendererContext.arena, 1, (uint32_t) (uint32_t)randomMaterials[1]), glm::vec4(0, 0, 0, 0) * 1.2f, MyQuaternion,
+        rendererData->subMeshGroups[randomMeshes[rand() % randomMeshes.size()]].getSpan(), 
+		MemoryArena::AllocSpanConstructEntries<uint32_t>(rendererContext.arena, 1,
+			(uint32_t) (uint32_t)randomMaterials[1]), glm::vec4(0, 0, 0, 0) * 1.2f, MyQuaternion,
+        glm::vec3(0.5));
+	auto root2 = scene->AddObject(
+        rendererData->subMeshGroups[randomMeshes[rand() % randomMeshes.size()]].getSpan(),
+		MemoryArena::AllocSpanConstructEntries<uint32_t>(rendererContext.arena, 1, 
+			(uint32_t) (uint32_t)randomMaterials[0]), glm::vec4(1, 0, 0, 0) * 1.2f, MyQuaternion,
         glm::vec3(0.5));
 
-    int ict = 12;
+    int ict = 20;
     int jct = ict;
     localTransform* tform = &scene->transforms.transformNodes[root];
 
 
-	for(ID::MaterialID& m : randomMaterials)
-	{
-		rendererData->materials[m].shaderGroupIndex = 1; //TODO JS temporarily making everything one shader, for compaction work
-	}
+	//for(ID::MaterialID& m : randomMaterials)
+	//{
+	//	rendererData->materials[m].shaderGroupIndex = 1; //TODO JS temporarily making everything one shader, for compaction work
+	//}
 
     for (int i = 0; i < ict; i++)
     {

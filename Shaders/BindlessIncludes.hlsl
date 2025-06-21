@@ -1,3 +1,9 @@
+#ifndef BINDLESSINCLUDES
+#define BINDLESSINCLUDES
+
+float x() { return 0; }
+
+
 #define USE_RW
 #include "structs.hlsl"
 #include "GeneralIncludes.hlsl"
@@ -342,3 +348,5 @@ float3x3 calculateNormal(float3 Normal, float3 Tangent)
 
     return TBN;
 }
+
+#endif // BINDLESSINCLUDES

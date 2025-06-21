@@ -1,3 +1,6 @@
+
+#ifndef HLSLSTRUCTS
+#define HLSLSTRUCTS
 static const uint SHADOW_MAP_SIZE = 1024;
 static const uint DEPTH_PYRAMID_SIZE = SHADOW_MAP_SIZE ;
 static const float POINT_LIGHT_FAR_PLANE = 10.0;
@@ -9,6 +12,7 @@ static const uint COPY_WORKGROUP_X = CULL_WORKGROUP_X;
 static const uint MIP_WORKGROUP_X = 16;
 static const uint MIP_WORKGROUP_Y = MIP_WORKGROUP_X;
 static const uint MAX_RENDER_PASSES = 16; //should be dynamic, will fix later
+static const uint MAX_PIPELINES = 12; //whatever, probably could be dynamic, will fix later
 struct Transform
 {
     float4x4 Model;
@@ -145,3 +149,5 @@ struct meshletData
     uint32_t meshletIndexOffset;//Offset for this meshlet within the global index buffer
     uint32_t meshletIndexCount;//Index count for this meshlet
 };
+
+#endif 

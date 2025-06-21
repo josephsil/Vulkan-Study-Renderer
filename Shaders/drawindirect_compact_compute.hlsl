@@ -1,4 +1,6 @@
 #include "structs.hlsl"
+#include "culling_includes.hlsl"
+#include "ObjectDataMacros.hlsl"
 [[vk::binding(13, 0)]]
 RWStructuredBuffer<cullData> drawData;
 [[vk::binding(14, 0)]]
@@ -29,38 +31,63 @@ PushConstants PC;
 void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
 {
     if (GlobalInvocationID.x >= PC.objectCount) return;
-	uint32_t counterIdx = PC.passIndex +1;  //1-16 
+	uint32_t counterIdx = GetPassCountIndex(PC.passIndex);  //1-16 
 											
-	uint32_t offsetCounterForPassIdx = (PC.passIndex +1 + MAX_RENDER_PASSES); //17-34 -- these are the offsets for the NEXT index. 
+	uint32_t offsetCounterForPassIdx = (GetPassOffsetIndex(PC.passIndex)); //17-34 -- these are the offsets for the NEXT index. 
 		
 	bool visible = drawData[PC.drawOffset + GlobalInvocationID.x].cull == 1;
+	uint shaderBucketCounterIndex = GetPassSubpassCounterIndex(PC.passIndex, SHADERINDEX);
+
+	cullData uncompactedDraw = drawData[PC.drawOffset + GlobalInvocationID.x];
 	if (visible)
 	{
-		uint32_t globalOffset;
-	uint32_t forPassOffset;
+	uint32_t globalOffset;
+	//uint32_t withinPassOffset;
+	uint32_t withinSubPassOffset;
 	// the first MAX_RENDER_PASSES + 1entries in drawIndices are counters
 	//The first index is a global counter 
 	//The rest are per pass counters 
 	//The NEXT MAX_RENDER_PASSES entries are offsets, written using the counters
 
+
+	
 	//Update the counters s
-	InterlockedAdd(drawIndices[0], 1, globalOffset);
-	InterlockedAdd(drawIndices[counterIdx], 1, forPassOffset);
+	//InterlockedAdd(drawIndices[counterIdx], 1, withinPassOffset);
+	InterlockedAdd(drawIndices[shaderBucketCounterIndex], 1, withinSubPassOffset);
 
 	cullData cullData = drawData[PC.drawOffset + GlobalInvocationID.x];
 	
+	uint passOffset = counterIdx == 0 ? 0 :  drawIndices[offsetCounterForPassIdx-1];
+	uint shader = SHADERINDEX;
+	uint subPassOffset = shader == 0? 0 : drawIndices[GetPassSubpassIndex(PC.passIndex, shader-1)];
+	//printf("= %d %d %d %d \n",subPassOffset, passOffset, withinSubPassOffset, subPassOffset + passOffset + withinSubPassOffset);
 	//compact draws to the front
-	compactDrawData[globalOffset].instanceCount = 1;
-	meshletData _meshlet = _meshletData[cullData.objectIndex];
-	compactDrawData[globalOffset].objectIndex = cullData.objectIndex;
-	compactDrawData[globalOffset].firstInstance = cullData.firstInstance;
-    compactDrawData[globalOffset].indexCount = _meshlet.meshletIndexCount;
-    compactDrawData[globalOffset].firstIndex = _meshlet.meshletIndexOffset;
-	compactDrawData[globalOffset].vertexOffset = _meshlet.meshletVertexOffset;
-	}
+	////////////////CURRENT STATUS //////////////////
+	//TODO JS: I now have these data all set up, I just need to update drawing code
 
-	//Update the offset -- TODO JS, I'm sure this is very slow, I should just build this buffer after the compute	
-	uint32_t _discard;
-	InterlockedMax(drawIndices[offsetCounterForPassIdx],drawIndices[0], _discard);
+	compactDrawData[subPassOffset + passOffset + withinSubPassOffset].instanceCount = 1;
+	meshletData _meshlet = _meshletData[cullData.objectIndex];
+	compactDrawData[subPassOffset + passOffset + withinSubPassOffset].objectIndex = cullData.objectIndex;
+	compactDrawData[subPassOffset + passOffset + withinSubPassOffset].firstInstance = cullData.firstInstance;
+    compactDrawData[subPassOffset + passOffset + withinSubPassOffset].indexCount = _meshlet.meshletIndexCount;
+    compactDrawData[subPassOffset + passOffset + withinSubPassOffset].firstIndex = _meshlet.meshletIndexOffset;
+	compactDrawData[subPassOffset + passOffset + withinSubPassOffset].vertexOffset = _meshlet.meshletVertexOffset;
+	}
+	else 
+	{
+		uint shader = SHADERINDEX;
+		uint subPassOffset =shader == 0? 0 : drawIndices[GetPassSubpassIndex(PC.passIndex, shader-1)] ; 
+		uint passOffset =  counterIdx == 0 ? 0 :  drawIndices[offsetCounterForPassIdx-1] ;
+		uint withinSubPassOffset =  drawIndices[shaderBucketCounterIndex];
+		//printf("skipping draw%d= %d %d %d %d \n",PC.drawOffset + GlobalInvocationID.x,subPassOffset, passOffset, withinSubPassOffset, subPassOffset + passOffset + withinSubPassOffset);
+
+		//compactDrawData[subPassOffset + passOffset + withinSubPassOffset].instanceCount = 10;
+		//compactDrawData[subPassOffset + passOffset + withinSubPassOffset].objectIndex = 0;
+		//compactDrawData[subPassOffset + passOffset + withinSubPassOffset].firstInstance = 0;
+		//compactDrawData[subPassOffset + passOffset + withinSubPassOffset].indexCount = 0;
+		//compactDrawData[subPassOffset + passOffset + withinSubPassOffset].firstIndex = 0;
+		//compactDrawData[subPassOffset + passOffset + withinSubPassOffset].vertexOffset = 0;
+
+	}
 
 }
