@@ -139,7 +139,7 @@ struct drawCommandData
 struct cullData 
 {
     uint objectIndex;
-    uint cull;
+    uint draw;
     uint firstInstance;
 };
 

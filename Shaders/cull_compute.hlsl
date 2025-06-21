@@ -92,7 +92,6 @@ void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
     float centerDepth = NDCToDepth(centerNDC);
 
     bool visible = true;
-    //Goal: This shader runs twice a frame. The first time, it is culling against the early draw. The early draw has already happened, and should have been supplied a correct list of draws.
     //During this first run, mark all objects from the early draw list to not be drawn during late draw.
     //The second run needs to get accurate culling information for the following frame.
     //It culls *everything* against the finished depth buffer for the frame.
@@ -177,6 +176,8 @@ void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
     }
 
     if (LATE_CULL) //On late draw, update the early draw list.
+				   //TODO: Want to get rid of the copy shader and always do culling logic here?
+					//Or vice versa, but vice versa is more invocations
     {
         EarlyDrawList[cullPC.drawOffset + InstanceIndex] = visible;
     }
@@ -184,23 +185,22 @@ void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
     {
        
 
-		uint32_t offsetCounterForPassIdx = (GetPassOffsetIndex(cullPC.passOffset)); //17-34 -- these are the offsets for the NEXT index. 
-		drawData[cullPC.drawOffset + GlobalInvocationID.x].cull = visible;
+		uint32_t passOffsetAccumulatorIDX = (GetPassOffsetIndex(cullPC.passOffset)); 
+		drawData[cullPC.drawOffset + GlobalInvocationID.x].draw = visible;
 		if (visible)
 		{
-			drawData[cullPC.drawOffset + GlobalInvocationID.x].cull = 1;
-			uint shaderBucketIndex = GetPassSubpassIndex(cullPC.passOffset, SHADERINDEX);
-			InterlockedAdd(drawIndices[shaderBucketIndex], 1);
+			drawData[cullPC.drawOffset + GlobalInvocationID.x].draw = 1;
+			uint shaderBucketDrawCountIDX = GetPassSubpassIndex(cullPC.passOffset, SHADERINDEX);
 
 			uint32_t globalOffset;
 			uint32_t forPassOffset;
-			//Update the counters s
+			//Update the counterss
 			InterlockedAdd(drawIndices[GetGlobalDrawCountIndex()], 1, globalOffset);
+			InterlockedAdd(drawIndices[shaderBucketDrawCountIDX], 1);
 		}
-
 
 		//Update the offset -- TODO JS, I'm sure this is very slow, I should just build this buffer after the compute	
 		uint32_t _discard;
-		InterlockedMax(drawIndices[offsetCounterForPassIdx],drawIndices[0], _discard);
+		InterlockedMax(drawIndices[passOffsetAccumulatorIDX],drawIndices[0], _discard);
     }
 }

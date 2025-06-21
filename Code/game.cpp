@@ -84,9 +84,9 @@ void Add_Scene_Content(PerThreadRenderContext rendererContext, AssetManager* ren
 
 
     //point lights    
-    scene->AddPointLight(glm::vec3(1, 1, 0), glm::vec3(0.3, 0.8, 1), 2);
+    //scene->AddPointLight(glm::vec3(1, 1, 0), glm::vec3(0.3, 0.8, 1), 2);
   
-    //scene->AddPointLight(glm::vec3(-2, 2, 0), glm::vec3(1, 0, 0), 999 / 2);
+    scene->AddPointLight(glm::vec3(-2, 2, 0), glm::vec3(1, 0, 0), 999 / 2);
     // scene->AddPointLight(glm::vec3(0, 0, 0), glm::vec3(0, 1, 1), 999 / 2);
 
     GltfData gltf;

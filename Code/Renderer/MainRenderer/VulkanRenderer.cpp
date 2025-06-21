@@ -534,7 +534,7 @@ void VulkanRenderer::CreateUniformBuffers( size_t drawCount, size_t objectsCount
 		GetFrameData(i).frustumsForCullBuffers = CreateHostDataBuffer<glm::vec4>(&context, (MAX_SHADOWMAPS + MAX_CAMERAS) * 6, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 
 		GetFrameData(i).drawCompactionDataBuffer = CreateHostDataBuffer<uint32_t>(&context, 
-			(1 + (MAX_RENDER_PASSES *2)) + (MAX_RENDER_PASSES *MAX_PIPELINES) + (MAX_RENDER_PASSES *MAX_PIPELINES), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+			(1 + ((MAX_RENDER_PASSES) *2)) + (MAX_RENDER_PASSES *(MAX_PIPELINES)) + (MAX_RENDER_PASSES *(MAX_PIPELINES)), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
 		SetDebugObjectNameS(context.device, VK_OBJECT_TYPE_BUFFER , fmtToScratchC("Data for compaction {}", i), (uint64_t)GetFrameData(i).drawCompactionDataBuffer.buffer.data);
 
 
@@ -1324,16 +1324,16 @@ void UpdateCullingDataBufferForPasses(Scene* scene, AssetManager* rendererData, 
 
 std::span<uint32_t> GetPassSubpassSpan(std::span<uint32_t> data, uint32_t passIndex) 
 {
-	uint32_t baseOffset = 1 + (MAX_RENDER_PASSES *2);
-	uint32_t passOffset = passIndex * MAX_PIPELINES;
-	return data.subspan(baseOffset + passOffset, MAX_PIPELINES);
+	uint32_t baseOffset = 1 + ((MAX_RENDER_PASSES) *2);
+	uint32_t passOffset = passIndex * (MAX_PIPELINES);
+	return data.subspan(baseOffset + passOffset, (MAX_PIPELINES));
 }
 uint32_t GetPassSubpassOffset(std::span<uint32_t> data, uint32_t passIndex, uint32_t shaderIndex) 
 {
 	uint32_t offset =0;
-	for(uint32_t i = 1; i-1 < shaderIndex; i++)
+	for(uint32_t i = 0; i < shaderIndex; i++)
 	{
-		offset += data[i-1];
+		offset += data[i];
 	}
 	return offset;
 }
@@ -1398,7 +1398,7 @@ void SubmitRenderPassesForBatches( std::span<RenderBatch> Batches,
             
 			uint32_t passIndex = passInfo.passIndex; //TODO JS: use this to index into the offset buffer to get offset and count
 			//The cell at the 0th spot is already in use as (as the last drawct)
-			uint32_t drawOffset = passIndex == 0 ? 0 : offsetsBuffer[(MAX_RENDER_PASSES)+(passIndex) ]; 
+			uint32_t drawOffset = offsetsBuffer[(MAX_RENDER_PASSES)+(passIndex) ]; 
 		
 			uint32_t subPassOffset = GetPassSubpassOffset(buckets, passIndex, i);
 			uint32_t drawCount = buckets[i]; 
@@ -1406,7 +1406,7 @@ void SubmitRenderPassesForBatches( std::span<RenderBatch> Batches,
 			uint32_t offset_into_struct2 = offsetof(drawCommandData, command);
             uint32_t offset_base2 =  (drawOffset + subPassOffset)  *  sizeof(drawCommandData);
             uint32_t drawIndirectOffset2 = offset_base2 + offset_into_struct2;
-			//printf("%u %u \n", drawIndirectOffset2, passIndex);
+			printf("%u %u %u \n", drawIndirectOffset2, passIndex, drawOffset);
 			if (indirectCommandsBuffer.buffer.size > 0 && drawCount > 0)
 			{
 
@@ -1611,7 +1611,7 @@ size_t UpdateCullingData(AssetManager* rendererData,
             targetDrawCommandSpan[drawCommandIndex++] = GPU_cullData{
                 // {},{}, {},
 				.objectIndex = (uint32_t)meshletIndex,
-                .cull = 1,
+                .draw = 1,
                 .firstInstance = firstDraw + j,
             };
         }

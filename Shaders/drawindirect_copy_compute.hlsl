@@ -28,27 +28,24 @@ PushConstants PC;
 void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
 {
 	if (GlobalInvocationID.x >= PC.objectCount) return;
-	uint32_t offsetCounterForPassIdx = (GetPassOffsetIndex(PC.passIndex)); //17-34 -- these are the offsets for the NEXT index. 
-	
+	uint32_t passOffsetAccumulatorIDX = (GetPassOffsetIndex(PC.passIndex));
+
 	bool visible = EarlyDrawList[PC.drawOffset + InstanceIndex] == 1;
+
+	drawData[PC.drawOffset + GlobalInvocationID.x].draw = visible;
 	if (visible)
 	{
-		drawData[PC.drawOffset + GlobalInvocationID.x].cull = 1;
-		uint shaderBucketIndex = GetPassSubpassIndex(PC.passIndex, SHADERINDEX);
-		InterlockedAdd(drawIndices[shaderBucketIndex], 1);
+		drawData[PC.drawOffset + GlobalInvocationID.x].draw = 1;
+		uint shaderBucketDrawCountIDX = GetPassSubpassIndex(PC.passIndex, SHADERINDEX);
 
 		uint32_t globalOffset;
 		uint32_t forPassOffset;
-		//Update the counters s
+		//Update the counters
 		InterlockedAdd(drawIndices[GetGlobalDrawCountIndex()], 1, globalOffset);
-	}
-	else 
-	{
-
-		drawData[PC.drawOffset + GlobalInvocationID.x].cull = 0;
+		InterlockedAdd(drawIndices[shaderBucketDrawCountIDX], 1);
 	}
 
 	//Update the offset -- TODO JS, I'm sure this is very slow, I should just build this buffer after the compute	
 	uint32_t _discard;
-	InterlockedMax(drawIndices[offsetCounterForPassIdx],drawIndices[0], _discard);
+	InterlockedMax(drawIndices[passOffsetAccumulatorIDX],drawIndices[0], _discard);
 }

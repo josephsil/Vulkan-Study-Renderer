@@ -141,7 +141,7 @@ struct GPU_drawCommandData
 struct GPU_cullData 
 {
     uint32_t objectIndex;
-    uint32_t cull;
+    uint32_t draw;
     uint32_t firstInstance;
 };
 
