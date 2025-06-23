@@ -3,7 +3,7 @@
 #include <General/GLM_impl.h>
 // #include "rendererGlobals.h"
 #include <functional>
-
+#include <General/LinearDictionary.h>
 #include <General/MemoryArena.h>
 #include <Renderer/PerThreadRenderContext.h>
 #include <Renderer/RendererDeletionQueue.h>
@@ -17,6 +17,7 @@
 #include <Scene/Scene.h>
 
 #include "Scene/AssetManager.h"
+#include <Renderer/MainRenderer/VulkanRendererInternals/DrawBatches.h>
 // My stuff 
 struct GPU_LightData;
 struct GPU_VertexData;
@@ -25,6 +26,7 @@ struct InterchangeMesh; //Forward Declaration
 struct Vertex; //Forward Declaration
 using VmaAllocator = struct VmaAllocator_T*;
 struct SDL_Window;
+struct RenderBatch;
 //Include last //
 
 
@@ -172,14 +174,18 @@ private:
         HostMappedDataBuffer<GPU_ObjectData> perMeshbuffers;
         HostMappedDataBuffer<GPU_Transform> perObjectBuffers;
         HostMappedDataBuffer<GPU_VertexData> hostMesh;
+		HostMappedDataBuffer<uint32_t> drawCompactionDataBuffer;  //Stores data for compacting and (eventually) sorting draws
         GpuDataBuffer deviceMesh;
 
         //Basic data about the light used in all passes 
         HostMappedDataBuffer<GPU_LightData> lightBuffers;
         HostMappedDataBuffer<GPU_perShadowData> shadowDataBuffers;
 
-        //Draw indirect
-        HostMappedDataBuffer<drawCommandData> drawBuffers;
+        //Draw indirect -- TODO, these uncompacetd buffers could be a different, smaller struct
+        HostMappedDataBuffer<GPU_cullData> drawBuffers;
+		//Draw indirect
+        HostMappedDataBuffer<drawCommandData> compactDrawBuffers;
+		HostMappedDataBuffer<GPU_meshletData> meshletDataBuffers;
 
         //Draw early draw list
         HostMappedDataBuffer<uint32_t> earlyDrawList;
@@ -203,8 +209,8 @@ private:
     void UpdatePerFrameBuffers(unsigned currentFrame, Array<std::span<glm::mat4>> models, Scene* scene);
 
 
-    void RecordMipChainCompute(ActiveRenderStepData commandBufferContext, MemoryArena::Allocator* arena,
-                               DepthPyramidInfo& pyramidInfo, VkImageView srcView);
+    void RecordMipChainCompute(ActiveRenderStepData* commandBufferContext, MemoryArena::Allocator* arena,
+                               DepthPyramidInfo& pyramidInfo, VkImageView srcView,  VkPipeline pipeline, DescriptorDataForPipeline* descriptorData);
     void updateBindingsComputeCullingPreCull(ActiveRenderStepData commandBufferContext,
                                              ArenaAllocator arena);
     void UpdateDrawCommandCopyComputeBindings(ActiveRenderStepData commandBufferContext, ArenaAllocator arena);
@@ -213,11 +219,32 @@ private:
 
     void RecordUtilityPasses(VkCommandBuffer commandBuffer, size_t imageIndex);
 
+	struct mipChainData 
+	{
+		uint32_t mipPassCt;
+		std::span<DepthPyramidInfo> depthInfos;
+		std::span<VkImageView> depthViews;
+	};
+	mipChainData GetMipChainPassData(ArenaAllocator allocator, Scene* scene);
+
 
     bool hasStencilComponent(VkFormat format);
 
 
     void RenderFrame(Scene* scene);
+	void ResetStartOfFrameFences();
+
+	struct objectPassData 
+	{
+		std::span<RenderBatch2> postPassbatches;
+		std::span<RenderBatch2> prepassBatches;
+		std::span<RenderPassDrawData> renderPassData;
+	};
+
+	objectPassData GetObjectDrawData(ArenaAllocator allocator, Scene* scene, 
+									 VkRenderingAttachmentInfoKHR* depthDrawAttatchment, 
+									 VkRenderingAttachmentInfoKHR* initialColorRenderTarget,
+									 VkRenderingAttachmentInfoKHR* ColorRenderTargetNoClear, Barriers sync);
 
 };
 

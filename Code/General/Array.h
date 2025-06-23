@@ -122,7 +122,7 @@ struct Array
     }
     std::span<T> getSubSpan(size_t offset, size_t length = 0)
     {
-		assert(offset + length < capacity);
+		assert(offset + length <= capacity);
         return std::span<T>(data + offset, length == 0 ? size() - offset :  length - offset);
     }
     

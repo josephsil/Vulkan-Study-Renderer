@@ -45,7 +45,7 @@ public:
 
         // Objects/Meshlets
         Array<uint8_t> vertIndices;
-        Array<MeshletData> meshletInfo;
+        Array<GPU_meshletData> meshletInfo;
         Array<GPU_BoundingSphere> boundingSpheres;
         Array<GPU_Bounds> GPU_Boundses; 
         Array<PerSubmeshData> perSubmeshData;

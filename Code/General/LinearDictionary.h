@@ -52,6 +52,13 @@ struct LinearDictionary
         assert(!"Key not found!");
         return values[0]; //Intentionally behind assert!
     }
+
+	void Clear()
+	{
+
+		memset(keys,0, sizeof(keys));
+		memset(values,0, sizeof(values));
+	}
 };
 
 

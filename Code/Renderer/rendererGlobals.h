@@ -15,8 +15,7 @@ static constexpr int MAX_FRAMES_IN_FLIGHT = 3;
 static constexpr int SWAPCHAIN_SIZE = 2;
 static constexpr int MAX_DRAWINDIRECT_COMMANDS = 1000000; //Draw commands per frmae
 static constexpr int MAX_DRAWS_PER_PIPELINE = 2000; //whatever, probably could be dynamic, will fix later 
-static constexpr int MAX_PIPELINES = 80; //whatever, probably could be dynamic, will fix later
-static constexpr int MAX_RENDER_PASSES = 120; //whatever, probably could be dynamic, will fix later
+
 constexpr VkFormat shadowFormat = VK_FORMAT_D32_SFLOAT;
 static constexpr size_t MESHLET_VERTICES = 64;
 static constexpr size_t MESHLET_TRIS = 124;

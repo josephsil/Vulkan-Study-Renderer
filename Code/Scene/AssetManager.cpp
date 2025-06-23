@@ -16,7 +16,7 @@ AssetManager::AssetManager()
     this->meshData.vertPositions = MemoryArena::AllocSpan<glm::vec4>(&this->allocator,350000); 
     this->meshData.vertData = MemoryArena::AllocSpan<GPU_VertexData>(&this->allocator,350000);     
     this->meshData.vertIndices = MemoryArena::AllocSpan<uint8_t>(&this->allocator, 950000);
-    this->meshData.meshletInfo =  MemoryArena::AllocSpan<MeshletData>(&this->allocator, MESHLET_MAX_PER * ASSET_MAX);
+    this->meshData.meshletInfo =  MemoryArena::AllocSpan<GPU_meshletData>(&this->allocator, MESHLET_MAX_PER * ASSET_MAX);
     this->meshData.boundingSpheres =  MemoryArena::AllocSpan<GPU_BoundingSphere>(&this->allocator, MESHLET_MAX_PER * ASSET_MAX);
     this->meshData.GPU_Boundses =  MemoryArena::AllocSpan<GPU_Bounds>(&this->allocator, MESHLET_MAX_PER * ASSET_MAX);
     this->meshData.perSubmeshData = Array(MemoryArena::AllocSpan<PerSubmeshData>(&this->allocator, MESHLET_MAX_PER * ASSET_MAX));
@@ -119,7 +119,7 @@ ID::SubMeshID AssetManager::AddMesh(ImportedMeshData importMesh)
         vecCenter+ (glm::vec4(1) * ( importMesh.meshletBounds[j].radius))
              });
         offsets.push_back({
-            importMesh.meshletVertexOffsets[j] + meshVertexOffset, globalIndexCount, importMesh.indexCounts[j]
+           (uint32_t)(importMesh.meshletVertexOffsets[j] + meshVertexOffset), (uint32_t)globalIndexCount, importMesh.indexCounts[j]
         });
         globalIndexCount += importMesh.indexCounts[j];
     }

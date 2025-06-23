@@ -9,7 +9,7 @@
 #include "Scene/Scene.h"
 #include "../rendererStructs.h"
 #include "Renderer/RendererDeletionQueue.h"
-
+#include <fmtInclude.h>
 
 struct ActiveRenderStepData;
 //Depth resources
@@ -23,9 +23,35 @@ DepthPyramidInfo CreateDepthPyramidResources(rendererObjects initializedrenderer
                                                     RendererDeletionQueue* deletionQueue,
                                                     CommandPoolManager* commandPoolmanager);
 
+template <typename... T> 
+std::span<char> fmtToScratch( fmt::format_string<T...> fmt,
+							 T&&... args)
+{
+
+	auto scratchMemory = GetScratchStringMemory();
+	auto fmtResult = fmt::format_to_n(scratchMemory.begin(), scratchMemory.size(), fmt, std::forward<T>(args)...);
+	assert(fmtResult.size < scratchMemory.size());
+	return std::span(scratchMemory).subspan(0, fmtResult.size);
+}
+
+template <typename... T> 
+char* fmtToScratchC( fmt::format_string<T...> fmt,
+					T&&... args)
+{
+	
+	auto scratchMemory = GetScratchStringMemory();
+	auto fmtResult = fmt::format_to_n(scratchMemory.begin(), scratchMemory.size(), fmt, std::forward<T>(args)...);
+	assert(fmtResult.size < scratchMemory.size() -1);
+	scratchMemory[ fmtResult.size] = '\0';
+	return scratchMemory.data();
+}
+
+
 //Sync objects
 void CreateFence(VkDevice device, VkFence* fencePtr, const char* debugName,
                         RendererDeletionQueue* deletionQueue);
+std::span<VkSemaphore> CreateSemaphores(VkDevice device,ArenaAllocator arena, uint32_t ct, const char* debugName,
+										RendererDeletionQueue* deletionQueue, bool pushToDeletionQueue);
 void CreateSemaphore(VkDevice device, VkSemaphore* semaphorePtr, const char* debugName,
                      RendererDeletionQueue* deletionQueue,  bool pushToDeletionQueue = true);
 
@@ -39,6 +65,7 @@ void PipelineMemoryBarrier(VkCommandBuffer commandBuffer, VkPipelineStageFlags2 
 VkImageMemoryBarrier2 AllTextureAccessBarrier(CommandBufferData bandp, VkImage image,
     VkImageLayout oldLayout,
     VkImageLayout newLayout, uint32_t mipLevel, uint32_t levelCount = 1);
+VkBufferMemoryBarrier2 GetDebugFullBufferBarrier(VkBuffer buffer);
 VkBufferMemoryBarrier2 GetBufferBarrier(VkBuffer buffer, VkPipelineStageFlags2 srcStageMask, VkAccessFlags2 srcAccessMask,
                                      VkPipelineStageFlags2 dstStageMask, VkAccessFlags2 dstAccessMask);
 VkImageMemoryBarrier2 GetImageBarrier(VkImage image, VkPipelineStageFlags2 srcStageMask, VkAccessFlags2 srcAccessMask,
@@ -49,4 +76,4 @@ VkImageMemoryBarrier2 GetImageBarrier(VkImage image, VkPipelineStageFlags2 srcSt
 //rendering submisison
 
 
-void AddBufferTrasnfer(VkBuffer sourceBuffer, VkBuffer targetBuffer, size_t copySize, VkCommandBuffer cmdBuffer);
+void AddBufferTrasnfer(VkCommandBuffer cmdBuffer, GpuDataBuffer sourceBuffer, GpuDataBuffer targetBuffer);

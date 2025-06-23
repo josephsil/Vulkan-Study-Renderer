@@ -17,7 +17,7 @@ struct pipelineBucket
 
 
 
-RenderBatch CreateRenderBatch(CommonRenderPassData* context,
+RenderBatch CreateRenderBatch(CommonObjectPassData* context,
     RenderPassConfig config, RenderPassDrawData passInfo, bool shadow,
                                      PipelineLayoutHandle pipelineGroup,
                                     std::span<FullShaderHandle> shaderIDs, const char* name)
@@ -28,15 +28,19 @@ RenderBatch CreateRenderBatch(CommonRenderPassData* context,
     for (uint32_t i = 0; i <shaderIDs.size(); i++)
     { //
         //Prepare a bucket for each shader
-        if (shaderIDs[i].shader >= batchedDrawBuckets.size())
-        {
+			//
+
             batchedDrawBuckets.push_back( {i, Array(MemoryArena::AllocSpan<uint32_t>(context->tempAllocator, MAX_DRAWS_PER_PIPELINE))});
             batchedDrawBuckets.back().subMeshIndices = MemoryArena::AllocSpan<uint32_t>(context->tempAllocator,  passInfo.subMeshcount);
             batchedDrawBuckets.back().firstDrawIndices = MemoryArena::AllocSpan<uint32_t>(context->tempAllocator,  passInfo.subMeshcount);
-        }
+
     }
     
-    //Bucket submeshes by shader 
+    //Bucket submeshes by 'shader' 
+	//This is not actually pipeline/shader, it's which like, 'opaque shader' the object has
+	//This means that for stuff like shadows, where probably each 'shadergroupindex' points to the same shader,
+	//We do extra draw calls (but no extra binding cuz of the way caching works)
+	//This makes the gpu driven part easier for now.
     uint32_t drawSubmeshIndex = 0;
     uint32_t drawIndex = 0;
     for (uint32_t i = 0; i < context->scenePtr->GetObjectsCount(); i++)
@@ -45,8 +49,8 @@ RenderBatch CreateRenderBatch(CommonRenderPassData* context,
         {
             uint32_t shaderGroupIndex = context->assetDataPtr->materials[context->scenePtr->objects.subMeshMaterials[i][j]].shaderGroupIndex; 
             uint32_t pipelineIndex = (uint32_t)shaderIDs[shaderGroupIndex].shader;
-            batchedDrawBuckets[pipelineIndex].subMeshIndices.push_back( context->scenePtr->allSubmeshes[drawSubmeshIndex]);
-            batchedDrawBuckets[pipelineIndex].firstDrawIndices.push_back(drawIndex);
+            batchedDrawBuckets[shaderGroupIndex].subMeshIndices.push_back( context->scenePtr->allSubmeshes[drawSubmeshIndex]);
+            batchedDrawBuckets[shaderGroupIndex].firstDrawIndices.push_back(drawIndex);
             drawIndex += (uint32_t)context->assetDataPtr->meshData.perSubmeshData[context->scenePtr->allSubmeshes[drawSubmeshIndex]].meshletCt;
             drawSubmeshIndex++;
         }
@@ -95,6 +99,7 @@ RenderBatch CreateRenderBatch(CommonRenderPassData* context,
       .pushConstants = config.PushConstants.ptr,
       .pushConstantsSize = config.PushConstants.size,
       //TODO JS: dynamically set bias per shadow caster, especially for cascades
-      .depthBiasSetting =!shadow ?depthBiasSettng{.use =false, .depthBias = 0, .slopeBias = 0} : depthBiasSettng{.use = true, .depthBias = -8.0, .slopeBias = -10.0} 
-          };
+      .depthBiasSetting =!shadow ?depthBiasSettng{.use =false, .depthBias = 0, .slopeBias = 0} : depthBiasSettng{.use = true, .depthBias = -8.0, .slopeBias = -10.0},
+	  .passIndex = passInfo.passIndex   
+ 	};
 }

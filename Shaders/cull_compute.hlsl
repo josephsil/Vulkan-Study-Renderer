@@ -1,6 +1,7 @@
 #include "structs.hlsl"
 #include "GeneralIncludes.hlsl"
 #include "ObjectDataMacros.hlsl"
+#include "culling_includes.hlsl"
 
 
 [[vk::binding(0, 0)]]
@@ -15,9 +16,7 @@ CullPushConstants cullPC;
 RWStructuredBuffer<float4> frustumData;
 
 [[vk::binding(13, 0)]]
-RWStructuredBuffer<drawCommandData> drawData;
-// [[vk::binding(13, 0)]]
-// RWStructuredBuffer<drawCommandData> lastFrameDrawData; //TODO JS: Should I just offset into one big buffer of all frames?
+RWStructuredBuffer<cullData> drawData;
 [[vk::binding(14, 0)]]
 RWStructuredBuffer<ObjectData> PerObjectData;
 [[vk::binding(15, 0)]]
@@ -25,6 +24,12 @@ RWStructuredBuffer<Transform> Transforms;
 
 [[vk::binding(16, 0)]]
 RWStructuredBuffer<uint> EarlyDrawList; //Index in with objIndex 
+
+[[vk::binding(17, 0)]]
+RWStructuredBuffer<uint> drawIndices; //Draw remap table -- in progress
+
+[[vk::binding(18, 0)]]
+RWStructuredBuffer<drawCommandData> compactDrawData; //Not sure this is going to be used in this shader 
 
 // 2D Polyhedral Bounds of a Clipped, Perspective-Projected 3D Sphere. Michael Mara, Morgan McGuire. 2013
 bool projectSphere(float3 c, float r, float znear, float P00, float P11, out float4 aabb)
@@ -65,7 +70,7 @@ Bounds GetWorldSpaceBounds(float3 center, Bounds inB)
 
 
 #define ShaderGlobals cullPC //To make macros work 
-#define InstanceIndex drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].objectIndex //To make macros work
+#define InstanceIndex drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].firstInstance //To make macros work
 [numthreads(CULL_WORKGROUP_X, 1, 1)]
 void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
 {
@@ -87,7 +92,6 @@ void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
     float centerDepth = NDCToDepth(centerNDC);
 
     bool visible = true;
-    //Goal: This shader runs twice a frame. The first time, it is culling against the early draw. The early draw has already happened, and should have been supplied a correct list of draws.
     //During this first run, mark all objects from the early draw list to not be drawn during late draw.
     //The second run needs to get accurate culling information for the following frame.
     //It culls *everything* against the finished depth buffer for the frame.
@@ -127,8 +131,8 @@ void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
         {
             if (projectSphere(ViewCenter, scaledRadius, nearPlane,  ShaderGlobals.projMatrix[0][0], ShaderGlobals.projMatrix[1][1], aabb))
             {
-                float width = ((aabb.x - aabb.z) ) *  1024.0;
-                float height = ((aabb.w - aabb.y )) *  1024.0;
+                float width = ((aabb.x - aabb.z) ) *  DEPTH_PYRAMID_SIZE;
+                float height = ((aabb.w - aabb.y )) *  DEPTH_PYRAMID_SIZE;
 
                 int level = ceil(log2(max(width, height)));
                 float2 hiZSamplePoint1 =  (aabb.xy);
@@ -155,8 +159,8 @@ void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
             {
                 float2 aabbmax = (NDCToUV(WorldToClip(worldCenter - float4(scaledRadius,scaledRadius,scaledRadius,1.0)))).xy; //todo, could do this without the matrix multiplies
                 float2 aabbmin = (NDCToUV(WorldToClip(worldCenter + float4(scaledRadius,scaledRadius,scaledRadius,1.0)))).xy; //todo, could do this without the matrix multiplies
-                float width = ((aabbmax.x - aabbmin.x) ) *  1024.0;
-                float height = ((aabbmax.y - aabbmin.y )) *  1024.0;
+                float width = ((aabbmax.x - aabbmin.x) ) *  DEPTH_PYRAMID_SIZE;
+                float height = ((aabbmax.y - aabbmin.y )) *  DEPTH_PYRAMID_SIZE;
                 float uvRadius =distance(aabbmax, aabbmin);
                 int level = ceil(log2(max(width, height)));
                 float hiZValue = bindless_textures[passIndex].SampleLevel(bindless_samplers[passIndex], float3(uv.x, uv.y,(int)0), level);
@@ -172,11 +176,31 @@ void Main(uint3 GlobalInvocationID : SV_DispatchThreadID)
     }
 
     if (LATE_CULL) //On late draw, update the early draw list.
+				   //TODO: Want to get rid of the copy shader and always do culling logic here?
+					//Or vice versa, but vice versa is more invocations
     {
-        EarlyDrawList[ShaderGlobals.drawOffset + InstanceIndex] = visible;
+        EarlyDrawList[cullPC.drawOffset + InstanceIndex] = visible;
     }
     else
     {
-        drawData[ShaderGlobals.drawOffset + GlobalInvocationID.x].instanceCount = visible ? 1 : 0;
+       
+
+		uint32_t passOffsetAccumulatorIDX = (GetPassOffsetIndex(cullPC.passOffset)); 
+		drawData[cullPC.drawOffset + GlobalInvocationID.x].draw = visible;
+		if (visible)
+		{
+			drawData[cullPC.drawOffset + GlobalInvocationID.x].draw = 1;
+			uint shaderBucketDrawCountIDX = GetPassSubpassIndex(cullPC.passOffset, SHADERINDEX);
+
+			uint32_t globalOffset;
+			uint32_t forPassOffset;
+			//Update the counterss
+			InterlockedAdd(drawIndices[GetGlobalDrawCountIndex()], 1, globalOffset);
+			InterlockedAdd(drawIndices[shaderBucketDrawCountIDX], 1);
+		}
+
+		//Update the offset -- TODO JS, I'm sure this is very slow, I should just build this buffer after the compute	
+		uint32_t _discard;
+		InterlockedMax(drawIndices[passOffsetAccumulatorIDX],drawIndices[0], _discard);
     }
 }

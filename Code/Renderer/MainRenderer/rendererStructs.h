@@ -80,11 +80,14 @@ struct DepthPyramidInfo
 struct FrameSemaphores
 {
     VkSemaphore swapchainSemaphore{};
+	VkSemaphore earlyStepSemaphore{};
     VkSemaphore prepassSemaphore{};
     VkSemaphore opaqueSemaphore{};
     VkSemaphore presentSemaphore{};
     VkSemaphore cullingSemaphore{};
-    VkFence cullingFence{};
+	VkSemaphore latecullingSemaphore{};
+    VkFence lateDrawComputeFence{};
+	VkFence earlyDrawComputeFence{};
 };
 
 
@@ -100,6 +103,7 @@ struct ActiveRenderStepData
     VkCommandBuffer commandBuffer;
     VkQueue Queue; 
     VkSemaphore* waitSemaphore;
+	VkPipelineStageFlags* semaphoreWaitStages;
     uint32_t waitSemaphoreCt;
     VkSemaphore* signalSempahore;
     uint32_t signalSemaphoreCt;

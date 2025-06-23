@@ -36,6 +36,7 @@ struct RenderPassDrawData
     glm::mat4 view;
     float farPlane;
     float nearPlane;
+	uint32_t passIndex;
 };
 
 struct RenderPassConfig
@@ -46,7 +47,7 @@ struct RenderPassConfig
     VkExtent2D extents;
 };
 
-struct CommonRenderPassData 
+struct CommonObjectPassData 
 {
     //name <- not common
     ArenaAllocator tempAllocator;
@@ -72,6 +73,8 @@ struct RenderBatchQueue
     std::vector<RenderBatch> batchConfigs;
 };
 
+
+
 struct RenderBatch
 {
     const char* debugName;
@@ -84,10 +87,33 @@ struct RenderBatch
     void* pushConstants; 
     uint32_t pushConstantsSize;
     depthBiasSettng depthBiasSetting;
+	uint32_t passIndex;
     
    
 };
-RenderBatch CreateRenderBatch( CommonRenderPassData* context,
+
+typedef enum {
+    RENDER_BATCH,
+    BETWEEN_BATCH_SYNCHRONIZATION,
+} DataType;
+
+struct Barriers 
+{
+	std::span<VkImageMemoryBarrier2> imageBarriers;
+	std::span<VkBufferMemoryBarrier2> bufferBarriers;
+};
+
+struct RenderBatch2	
+{
+	DataType type; // The tag
+	union {
+		RenderBatch batch;
+		Barriers sync;
+	} data;
+};
+
+
+RenderBatch CreateRenderBatch( CommonObjectPassData* context,
    RenderPassConfig config, RenderPassDrawData passInfo, bool shadow,
                                     PipelineLayoutHandle pipelineGroup,
                                    std::span<FullShaderHandle> shaderIDs, const char* name);

@@ -4,7 +4,7 @@
 #include <Renderer/PerThreadRenderContext.h>
 #include <Renderer/TextureCreation/Internal/TextureCreationUtilities.h>
 #include <Renderer/vulkan-utilities.h>
-
+#include <General/MemoryArena.h>
 #include <fmtInclude.h>
 #pragma region depth
 
@@ -127,6 +127,26 @@ DepthPyramidInfo CreateDepthPyramidResources(rendererObjects initializedrenderer
 
 #pragma endregion
 
+std::span<VkSemaphore> CreateSemaphores(VkDevice device,ArenaAllocator arena, uint32_t ct, const char* debugName,
+                     RendererDeletionQueue* deletionQueue, bool pushToDeletionQueue)
+{
+	std::span<VkSemaphore> s = MemoryArena::AllocSpan<VkSemaphore>(arena, ct);
+	for(int i = 0; i < s.size(); i++)
+	{
+		VkSemaphore* semaphprePtr = &s[i];
+		VkSemaphoreCreateInfo semaphoreInfo{};
+		semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+		VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, semaphprePtr));
+		SetDebugObjectName(device, VK_OBJECT_TYPE_SEMAPHORE, fmtToScratchC("{}{}", debugName, i), uint64_t(semaphprePtr));
+		if (!pushToDeletionQueue)
+		{
+			continue;
+		}
+		deletionQueue->push_backVk(deletionType::Semaphore, uint64_t(*semaphprePtr));
+	}
+	return s;
+}
+
 
 void CreateSemaphore(VkDevice device, VkSemaphore* semaphorePtr, const char* debugName,
                      RendererDeletionQueue* deletionQueue, bool pushToDeletionQueue)
@@ -194,34 +214,28 @@ void PipelineMemoryBarrier(VkCommandBuffer commandBuffer, VkPipelineStageFlags2 
 
 
 
-void AddBufferTrasnfer(VkBuffer sourceBuffer, VkBuffer targetBuffer, size_t copySize, VkCommandBuffer cmdBuffer)
+void AddBufferTrasnfer(VkCommandBuffer cmdBuffer, GpuDataBuffer sourceBuffer, GpuDataBuffer targetBuffer)
 {
-    VkBufferMemoryBarrier bufMemBarrier = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER};
-    bufMemBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
-    bufMemBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-    bufMemBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    bufMemBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    bufMemBarrier.buffer = sourceBuffer;
-    bufMemBarrier.offset = 0;
-    bufMemBarrier.size = VK_WHOLE_SIZE;
-    vkCmdPipelineBarrier(cmdBuffer, VK_PIPELINE_STAGE_HOST_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
-                         0, 0, nullptr, 1, &bufMemBarrier, 0, nullptr);
 
+	VkBufferMemoryBarrier2 bufMembarrier = GetBufferBarrier(sourceBuffer.data,
+															VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+															VK_ACCESS_2_TRANSFER_READ_BIT,
+															VK_PIPELINE_STAGE_2_COPY_BIT,
+															VK_ACCESS_2_TRANSFER_READ_BIT);
+
+	VkBufferMemoryBarrier2 bufMembarrier2 = GetBufferBarrier(targetBuffer.data,
+															 VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT | VK_PIPELINE_STAGE_2_COPY_BIT,
+															 VK_ACCESS_2_TRANSFER_WRITE_BIT,
+															 VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
+															 VK_ACCESS_2_INDEX_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT );
+	VkBufferMemoryBarrier2 barriers[] = {bufMembarrier, bufMembarrier2};
+
+	SetPipelineBarrier(cmdBuffer, barriers, {});
 
     //Copy vertex data over
-    BufferUtilities::CopyBuffer(cmdBuffer, sourceBuffer,
-                                                 targetBuffer, copySize);
-    
-    VkBufferMemoryBarrier bufMemBarrier2 = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER};
-    bufMemBarrier2.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    bufMemBarrier2.dstAccessMask =  VK_ACCESS_INDEX_READ_BIT | VK_ACCESS_2_TRANSFER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_UNIFORM_READ_BIT | VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT; // We created a uniform buffer
-    bufMemBarrier2.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    bufMemBarrier2.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    bufMemBarrier2.buffer = targetBuffer;
-    bufMemBarrier2.offset = 0;
-    bufMemBarrier2.size = VK_WHOLE_SIZE;
-    vkCmdPipelineBarrier(cmdBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
-                         0, 0, nullptr, 1, &bufMemBarrier2, 0, nullptr);
+    BufferUtilities::CopyBuffer(cmdBuffer, sourceBuffer.data, targetBuffer.data, targetBuffer.size);
+
+	SetPipelineBarrier(cmdBuffer, {&bufMembarrier2, 1}, {});
 }
 
 void SetPipelineBarrier(VkCommandBuffer commandBuffer,  
@@ -280,6 +294,16 @@ VkImageMemoryBarrier2 GetImageBarrier(VkImage image, VkPipelineStageFlags2 srcSt
     result.subresourceRange.layerCount = layerCount == UINT32_MAX ? VK_REMAINING_ARRAY_LAYERS : layerCount;
 
     return result;
+}
+//From Niagara https://github.com/zeux/niagara/tree/master?tab=readme-ov-file 
+VkBufferMemoryBarrier2 GetDebugFullBufferBarrier(VkBuffer buffer)
+{
+	return  GetBufferBarrier(
+		buffer,
+		VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_2_COPY_BIT,
+		VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_TRANSFER_READ_BIT | VK_ACCESS_2_TRANSFER_WRITE_BIT,
+		VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_2_COPY_BIT,
+		VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT  | VK_ACCESS_2_TRANSFER_READ_BIT| VK_ACCESS_2_TRANSFER_WRITE_BIT);
 }
 
 //From Niagara https://github.com/zeux/niagara/tree/master?tab=readme-ov-file 
