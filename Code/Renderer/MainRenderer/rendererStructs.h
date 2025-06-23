@@ -85,6 +85,7 @@ struct FrameSemaphores
     VkSemaphore opaqueSemaphore{};
     VkSemaphore presentSemaphore{};
     VkSemaphore cullingSemaphore{};
+	VkSemaphore latecullingSemaphore{};
     VkFence lateDrawComputeFence{};
 	VkFence earlyDrawComputeFence{};
 };
@@ -102,6 +103,7 @@ struct ActiveRenderStepData
     VkCommandBuffer commandBuffer;
     VkQueue Queue; 
     VkSemaphore* waitSemaphore;
+	VkPipelineStageFlags* semaphoreWaitStages;
     uint32_t waitSemaphoreCt;
     VkSemaphore* signalSempahore;
     uint32_t signalSemaphoreCt;

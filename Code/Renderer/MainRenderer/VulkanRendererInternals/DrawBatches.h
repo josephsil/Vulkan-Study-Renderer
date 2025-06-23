@@ -73,6 +73,8 @@ struct RenderBatchQueue
     std::vector<RenderBatch> batchConfigs;
 };
 
+
+
 struct RenderBatch
 {
     const char* debugName;
@@ -89,6 +91,28 @@ struct RenderBatch
     
    
 };
+
+typedef enum {
+    RENDER_BATCH,
+    BETWEEN_BATCH_SYNCHRONIZATION,
+} DataType;
+
+struct Barriers 
+{
+	std::span<VkImageMemoryBarrier2> imageBarriers;
+	std::span<VkBufferMemoryBarrier2> bufferBarriers;
+};
+
+struct RenderBatch2	
+{
+	DataType type; // The tag
+	union {
+		RenderBatch batch;
+		Barriers sync;
+	} data;
+};
+
+
 RenderBatch CreateRenderBatch( CommonObjectPassData* context,
    RenderPassConfig config, RenderPassDrawData passInfo, bool shadow,
                                     PipelineLayoutHandle pipelineGroup,

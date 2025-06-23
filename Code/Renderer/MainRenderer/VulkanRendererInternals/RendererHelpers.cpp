@@ -4,7 +4,7 @@
 #include <Renderer/PerThreadRenderContext.h>
 #include <Renderer/TextureCreation/Internal/TextureCreationUtilities.h>
 #include <Renderer/vulkan-utilities.h>
-
+#include <General/MemoryArena.h>
 #include <fmtInclude.h>
 #pragma region depth
 
@@ -126,6 +126,26 @@ DepthPyramidInfo CreateDepthPyramidResources(rendererObjects initializedrenderer
 }
 
 #pragma endregion
+
+std::span<VkSemaphore> CreateSemaphores(VkDevice device,ArenaAllocator arena, uint32_t ct, const char* debugName,
+                     RendererDeletionQueue* deletionQueue, bool pushToDeletionQueue)
+{
+	std::span<VkSemaphore> s = MemoryArena::AllocSpan<VkSemaphore>(arena, ct);
+	for(int i = 0; i < s.size(); i++)
+	{
+		VkSemaphore* semaphprePtr = &s[i];
+		VkSemaphoreCreateInfo semaphoreInfo{};
+		semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+		VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, semaphprePtr));
+		SetDebugObjectName(device, VK_OBJECT_TYPE_SEMAPHORE, fmtToScratchC("{}{}", debugName, i), uint64_t(semaphprePtr));
+		if (!pushToDeletionQueue)
+		{
+			continue;
+		}
+		deletionQueue->push_backVk(deletionType::Semaphore, uint64_t(*semaphprePtr));
+	}
+	return s;
+}
 
 
 void CreateSemaphore(VkDevice device, VkSemaphore* semaphorePtr, const char* debugName,

@@ -3,7 +3,7 @@
 #include <General/GLM_impl.h>
 // #include "rendererGlobals.h"
 #include <functional>
-
+#include <General/LinearDictionary.h>
 #include <General/MemoryArena.h>
 #include <Renderer/PerThreadRenderContext.h>
 #include <Renderer/RendererDeletionQueue.h>
@@ -210,7 +210,7 @@ private:
 
 
     void RecordMipChainCompute(ActiveRenderStepData* commandBufferContext, MemoryArena::Allocator* arena,
-                               DepthPyramidInfo& pyramidInfo, VkImageView srcView);
+                               DepthPyramidInfo& pyramidInfo, VkImageView srcView,  VkPipeline pipeline, DescriptorDataForPipeline* descriptorData);
     void updateBindingsComputeCullingPreCull(ActiveRenderStepData commandBufferContext,
                                              ArenaAllocator arena);
     void UpdateDrawCommandCopyComputeBindings(ActiveRenderStepData commandBufferContext, ArenaAllocator arena);
@@ -218,6 +218,14 @@ private:
 
 
     void RecordUtilityPasses(VkCommandBuffer commandBuffer, size_t imageIndex);
+
+	struct mipChainData 
+	{
+		uint32_t mipPassCt;
+		std::span<DepthPyramidInfo> depthInfos;
+		std::span<VkImageView> depthViews;
+	};
+	mipChainData GetMipChainPassData(ArenaAllocator allocator, Scene* scene);
 
 
     bool hasStencilComponent(VkFormat format);
@@ -228,18 +236,15 @@ private:
 
 	struct objectPassData 
 	{
-		std::span<RenderBatch> shadowBatches;
-		std::span<RenderBatch> opaqueBatches;
-		std::span<RenderBatch> postPassbatches;
-		std::span<RenderBatch> prepassBatches;
-		RenderPassDrawData opaquePassData;
-		std::span<RenderPassDrawData> shadowPassesData;
+		std::span<RenderBatch2> postPassbatches;
+		std::span<RenderBatch2> prepassBatches;
+		std::span<RenderPassDrawData> renderPassData;
 	};
 
 	objectPassData GetObjectDrawData(ArenaAllocator allocator, Scene* scene, 
 									 VkRenderingAttachmentInfoKHR* depthDrawAttatchment, 
 									 VkRenderingAttachmentInfoKHR* initialColorRenderTarget,
-									 VkRenderingAttachmentInfoKHR* ColorRenderTargetNoClear);
+									 VkRenderingAttachmentInfoKHR* ColorRenderTargetNoClear, Barriers sync);
 
 };
 

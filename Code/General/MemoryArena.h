@@ -136,5 +136,16 @@ namespace MemoryArena
 		std::copy(src.data(), src.data() + src.size(), dest.data());
         return dest;
     }
+
+	template <typename T>
+    std::span<T> CopySpanIfNotEmpty(Allocator* a, std::span<T> src)
+    {
+		if (src.size() == 0)
+		{
+			return src;
+		}
+		return AllocCopySpan(a, src, 0);
+     
+    }
 }
 typedef MemoryArena::Allocator* ArenaAllocator;

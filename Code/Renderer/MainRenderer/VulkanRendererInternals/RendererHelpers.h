@@ -9,7 +9,7 @@
 #include "Scene/Scene.h"
 #include "../rendererStructs.h"
 #include "Renderer/RendererDeletionQueue.h"
-
+#include <fmtInclude.h>
 
 struct ActiveRenderStepData;
 //Depth resources
@@ -23,9 +23,35 @@ DepthPyramidInfo CreateDepthPyramidResources(rendererObjects initializedrenderer
                                                     RendererDeletionQueue* deletionQueue,
                                                     CommandPoolManager* commandPoolmanager);
 
+template <typename... T> 
+std::span<char> fmtToScratch( fmt::format_string<T...> fmt,
+							 T&&... args)
+{
+
+	auto scratchMemory = GetScratchStringMemory();
+	auto fmtResult = fmt::format_to_n(scratchMemory.begin(), scratchMemory.size(), fmt, std::forward<T>(args)...);
+	assert(fmtResult.size < scratchMemory.size());
+	return std::span(scratchMemory).subspan(0, fmtResult.size);
+}
+
+template <typename... T> 
+char* fmtToScratchC( fmt::format_string<T...> fmt,
+					T&&... args)
+{
+	
+	auto scratchMemory = GetScratchStringMemory();
+	auto fmtResult = fmt::format_to_n(scratchMemory.begin(), scratchMemory.size(), fmt, std::forward<T>(args)...);
+	assert(fmtResult.size < scratchMemory.size() -1);
+	scratchMemory[ fmtResult.size] = '\0';
+	return scratchMemory.data();
+}
+
+
 //Sync objects
 void CreateFence(VkDevice device, VkFence* fencePtr, const char* debugName,
                         RendererDeletionQueue* deletionQueue);
+std::span<VkSemaphore> CreateSemaphores(VkDevice device,ArenaAllocator arena, uint32_t ct, const char* debugName,
+										RendererDeletionQueue* deletionQueue, bool pushToDeletionQueue);
 void CreateSemaphore(VkDevice device, VkSemaphore* semaphorePtr, const char* debugName,
                      RendererDeletionQueue* deletionQueue,  bool pushToDeletionQueue = true);
 
