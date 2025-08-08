@@ -1223,14 +1223,14 @@ VulkanRenderer::mipChainData  VulkanRenderer::GetMipChainPassData(ArenaAllocator
 
 	DepthPyramidInfo& depthBufferPyramidData =   globalResources.depthPyramidInfoPerFrame[currentFrame];
 	std::span<DepthPyramidInfo> currentFrameShadowDepths = shadowResources.WIP_shadowDepthPyramidInfos[currentFrame];
-	std::span<DepthPyramidInfo> depthInfos = MemoryArena::AllocSpan<DepthPyramidInfo>(&perFrameArenas[currentFrame], mipPassCt);
+	std::span<DepthPyramidInfo> depthInfos = MemoryArena::AllocSpan<DepthPyramidInfo>(&perFrameArenas[currentFrame], mipPassCt +1);
 	std::copy(currentFrameShadowDepths.data(), currentFrameShadowDepths.data() + mipPassCt, depthInfos.data());  //shadows
-	depthInfos[currentFrameShadowDepths.size()] = depthBufferPyramidData; //opaque
+	depthInfos[mipPassCt] = depthBufferPyramidData; //opaque
 
 	std::span<VkImageView> currentFrameShadowViews = shadowResources.shadowMapSingleLayerViews[currentFrame];
-	std::span<VkImageView> views = MemoryArena::AllocSpan<VkImageView>(&perFrameArenas[currentFrame], mipPassCt);
+	std::span<VkImageView> views = MemoryArena::AllocSpan<VkImageView>(&perFrameArenas[currentFrame], mipPassCt +1);
 	std::copy(currentFrameShadowViews.data(),currentFrameShadowViews.data() + mipPassCt, views.data());  //shadows
-	views[currentFrameShadowViews.size()] =  globalResources.depthBufferInfoPerFrame[currentFrame].view; //opaque
+	views[mipPassCt] =  globalResources.depthBufferInfoPerFrame[currentFrame].view; //opaque
 	return 
 	{
 		mipPassCt, 
