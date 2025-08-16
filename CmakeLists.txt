@@ -1,0 +1,13 @@
+cmake_minimum_required(VERSION 3.10)
+
+project(VulkanRenderer)
+
+add_executable(VulkanRenderer vulkan-tutorial.cpp)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED True)
+
+set_target_properties(VulkanRenderer PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY_DEBUG   "$x64/Debug"
+    RUNTIME_OUTPUT_DIRECTORY_RELEASE "$x64/Release"
+)
