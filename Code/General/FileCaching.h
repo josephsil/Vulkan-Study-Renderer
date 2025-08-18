@@ -3,20 +3,21 @@
 
 #include "MemoryArena.h"
 
-#include <sys/utime.h>
+
 
 #ifdef _WIN32
-
+    #include <sys/utime.h>
 	#include <atlbase.h>
 	#define stat _stat
 	using utimebuf = _utimbuf;
 	#define STAT(A,B)  _wstat(A,B)
 	#define UTIME(A,B)  _wutime(A,B)
+	
 
 #endif
 
 #ifdef __APPLE__ 
-
+	#include <utime.h>
 	#include <sys/stat.h> 
 	#include <errno.h>    
 	//#define stat stat

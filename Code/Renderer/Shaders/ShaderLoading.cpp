@@ -34,11 +34,28 @@ ShaderLoader::ShaderLoader(VkDevice device)
     device_ = device;
 }
 
+#ifdef _WIN32 
+
+void OPENFN(FILE** f, wchar_t* path, const wchar_t* mode)
+{
+	_wfopen_s(f, path, mode);
+	
+}
+#else // apple 
+void OPENFN(FILE** f, wchar_t* path, const wchar_t* mode)
+{
+	FILE* _f = fopen(path, mode);
+	f = &_f;
+}
+
+#endif 
+
 std::span<std::span<wchar_t>> parseShaderIncludeStrings(MemoryArena::Allocator* tempArena, std::wstring shaderPath)
 {
     uint32_t MAX_INCLUDES = 10; //arbitrary
     FILE* f;
-    _wfopen_s(&f, shaderPath.c_str(), L"r");
+	OPENFN(&f, (wchar_t*)shaderPath.c_str(), L"r");
+    
 
     std::span<std::span<wchar_t>> strings = MemoryArena::AllocSpan<std::span<wchar_t>>(tempArena, MAX_INCLUDES);
     std::span<wchar_t> includeTest = MemoryArena::AllocSpan<wchar_t>(tempArena, 7);
