@@ -1,13 +1,144 @@
+#Initial config 
+
 cmake_minimum_required(VERSION 3.10)
-
-project(VulkanRenderer)
-
-add_executable(VulkanRenderer vulkan-tutorial.cpp)
-
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
+message(STATUS "Requested C++ standard: ${CMAKE_CXX_STANDARD}")
+project(VulkanRenderer)
 
+#cpp sources
+    file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS
+    	vulkan-tutorial.cpp
+        Code/**.cpp
+       
+    )
+
+    file(GLOB DEPENDENCY_SOURCES 
+    	External/imgui/*.cpp
+        External/imgui/backends/imgui_impl_sdl2.cpp
+        External/imgui/backends/imgui_impl_vulkan.cpp
+        vkbootstrap/VkBootstrap.cpp
+        External/weldmesh.c
+        External/meshoptimizer/src/**.cpp
+        External/ImageLibraryImplementations.cpp
+        External/MeshLibraryImplementations.cpp
+        External/mikktspace.c
+    )
+
+add_executable(VulkanRenderer ${DEPENDENCY_SOURCES} ${SOURCES} )
+
+
+#Headers 
+    # Internal headers
+    # Collect all directories that contain headers
+    file(GLOB_RECURSE HEADER_DIRS
+        Code/**.h 
+        Code/**.hpp 
+    )
+
+    # Extract unique directories
+    set(INCLUDE_DIRS "")
+    foreach(header ${HEADER_DIRS})
+        get_filename_component(dir ${header} DIRECTORY)
+        list(APPEND INCLUDE_DIRS ${dir})
+    endforeach()
+    list(REMOVE_DUPLICATES INCLUDE_DIRS)
+
+    # External dependencies
+    set(DEPENDENCY_INCLUDE_ROOTS
+        ${CMAKE_SOURCE_DIR}/External
+        ${CMAKE_SOURCE_DIR}/vkbootstrap
+        ${CMAKE_SOURCE_DIR}/tinygltf
+        ${CMAKE_SOURCE_DIR}/External/imgui
+        ${CMAKE_SOURCE_DIR}/External/stb-master/stb_image.h
+        ${CMAKE_SOURCE_DIR}/External/imgui/backends/imgui_impl_sdl2.h
+        ${CMAKE_SOURCE_DIR}/External/imgui/backends/imgui_impl_vulkan.h
+        ${CMAKE_SOURCE_DIR}/External/imgui/misc/cpp/imgui_stdlib.h
+        ${CMAKE_SOURCE_DIR}/External/JolyPhysics
+        ${CMAKE_SOURCE_DIR}/External/fmt/include
+        ${CMAKE_SOURCE_DIR}/External/meshoptimizer
+        ${CMAKE_SOURCE_DIR}/External/meshoptimizer/src/meshoptimizer.h
+        ${CMAKE_SOURCE_DIR}/External/Superluminal
+        ${CMAKE_SOURCE_DIR}/External/KTX-software/include
+        ${CMAKE_SOURCE_DIR}/External/vulkansdk-1.3.239.0/Include/
+        ${CMAKE_SOURCE_DIR}/External/vulkansdk-1.3.239.0/Include/vma
+    )
+
+target_include_directories(VulkanRenderer PRIVATE ${INCLUDE_DIRS} ${DEPENDENCY_INCLUDE_ROOTS})
+
+#Libs
+    file(GLOB_RECURSE LIB_FILES 
+        ${CMAKE_SOURCE_DIR}/External/vulkansdk-1.3.239.0/lib/vulkan-1.lib
+        ${CMAKE_SOURCE_DIR}/External/vulkansdk-1.3.239.0/lib/SDL2.lib
+        ${CMAKE_SOURCE_DIR}/External/vulkansdk-1.3.239.0/lib/SDL2main.lib
+        ${CMAKE_SOURCE_DIR}/External/vulkansdk-1.3.239.0/lib/dxcompiler.lib
+        ${CMAKE_SOURCE_DIR}/External/KTX-Software/lib/*.lib
+    )
+
+target_link_libraries(VulkanRenderer PRIVATE ${LIB_FILES})
+
+#Debug/Release
 set_target_properties(VulkanRenderer PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY_DEBUG   "$x64/Debug"
-    RUNTIME_OUTPUT_DIRECTORY_RELEASE "$x64/Release"
+    RUNTIME_OUTPUT_DIRECTORY_DEBUG   "CMAKE_x64/Debug"
+    RUNTIME_OUTPUT_DIRECTORY_RELEASE "CMAKE_x64/Release"
 )
+
+
+
+
+
+#Copy Assets 
+    #Asset paths 
+
+    set(ASSET_PATHS 
+        "Shaders"
+        "Textures"
+        "Meshes"
+        "dll"
+    )
+foreach(dir ${ASSET_PATHS})
+        
+        #Clear paths
+        #add_custom_command(TARGET VulkanRenderer PRE_BUILD
+        #    COMMAND ${CMAKE_COMMAND} -E rm -rf 
+        #    $<$<CONFIG:Debug>:"${CMAKE_SOURCE_DIR}/CMAKE_x64/Debug/${dir}">
+        #    $<$<CONFIG:Release>:"${CMAKE_SOURCE_DIR}/CMAKE_x64/Release/${dir}">
+        #)
+
+        #Copy paths 
+        add_custom_command(TARGET VulkanRenderer POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different
+                "${CMAKE_SOURCE_DIR}/${dir}"
+                $<$<CONFIG:Debug>:${CMAKE_SOURCE_DIR}/CMAKE_x64/Debug/${dir}>
+                $<$<CONFIG:Release>:${CMAKE_SOURCE_DIR}/CMAKE_x64/Release/${dir}>
+            )
+
+endforeach()
+
+
+
+#compiler options
+    target_compile_options(VulkanRenderer PRIVATE
+        $<$<CONFIG:Debug>:/Zi /Od /MDd>
+    )
+
+    # Release flags
+    target_compile_options(VulkanRenderer PRIVATE
+        $<$<CONFIG:Release>:/O2 /MD>
+    )
+
+    # MSVC warning level 3
+        target_compile_options(VulkanRenderer PRIVATE
+            $<$<CXX_COMPILER_ID:MSVC>:/W3>
+        )
+
+    # GCC / Clang warnings
+        target_compile_options(VulkanRenderer PRIVATE
+            $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>:-Wall -Wextra>
+        )
+
+
+#How to use 
+
+# cmake -S . -B . -G "Visual Studio 17 2022"  # configure once
+# cmake --build . --config Release            # build Release
