@@ -1,15 +1,21 @@
 #include "MemoryArena.h"
+#ifdef _WIN32
 #include <windows.h>
+#endif 
 
 MemoryArena::Allocator::~Allocator()
 {
 	assert(base != nullptr);
+#ifdef _WIN32
     VirtualFree(base, 0,MEM_RELEASE);
+#endif 
 }
 
 void MemoryArena::Initialize(Allocator* arena, uint32_t size)
 {
+#ifdef _WIN32
     arena->base = VirtualAlloc(nullptr, size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+#endif 
     arena->head = 0;
     arena->size = size;
 }
