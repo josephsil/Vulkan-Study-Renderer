@@ -117,20 +117,23 @@ foreach(dir ${ASSET_PATHS})
 endforeach()
 
 
-
 #compiler options
     target_compile_options(VulkanRenderer PRIVATE
-        $<$<CONFIG:Debug>:/Zi /Od /MDd>
+         $<$<CXX_COMPILER_ID:MSVC>:$<$<CONFIG:Debug>:/Zi /Od /MDd>>
+         $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>:
     )
 
     # Release flags
     target_compile_options(VulkanRenderer PRIVATE
-        $<$<CONFIG:Release>:/O2 /MD>
+         $<$<CXX_COMPILER_ID:MSVC>:$<$<CONFIG:Release>:/O2 /MD>>
+         $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>:$<$<CONFIG:Release>:-O2>>
     )
+
 
     # MSVC warning level 3
         target_compile_options(VulkanRenderer PRIVATE
             $<$<CXX_COMPILER_ID:MSVC>:/W3>
+            $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>:$<$<CONFIG:Debug>:-O0 -g>>
         )
 
     # GCC / Clang warnings
@@ -143,3 +146,8 @@ endforeach()
 
 # cmake -S . -B . -G "Visual Studio 17 2022"  # configure once
 # cmake --build . --config Release            # build Release
+
+
+# cmake -S . -B build -G "Ninja Multi-Config" -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+
+#
