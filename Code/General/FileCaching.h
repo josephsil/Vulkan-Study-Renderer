@@ -3,6 +3,29 @@
 
 #include "MemoryArena.h"
 
+#include <sys/utime.h>
+
+#ifdef _WIN32
+
+	#include <atlbase.h>
+	#define stat _stat
+	using utimebuf = _utimbuf;
+	#define STAT(A,B)  _wstat(A,B)
+	#define UTIME(A,B)  _wutime(A,B)
+
+#endif
+
+#ifdef __APPLE__ 
+
+	#include <sys/stat.h> 
+	#include <errno.h>    
+	//#define stat stat
+	//#define utimebuf utimebuf;
+	#define STAT(A,B)  stat(A,B)
+	#define UTIME(A,B)  utime(A,B)
+
+#endif 
+
 //Used by asset importers, checks for cached versions of files and
 //Handles tracking when cached files are out of date
 //Older code, needs cleanup

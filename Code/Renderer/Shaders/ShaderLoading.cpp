@@ -1,6 +1,12 @@
 #include "ShaderLoading.h"
 #include <Renderer/VulkanIncludes/Vulkan_Includes.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+
+#ifdef _WIN32
 #include <Windows.h>
+#endif
+
 #include "dxcapi.h"
 #include <d3dcompiler.h>
 #include <atlbase.h>
@@ -8,21 +14,16 @@
 #include <iostream>
 #include <fstream>
 
-#include <sys/types.h>
-#include <sys/stat.h>
+
 
 #include <General/Array.h>
 #include <General/FileCaching.h>
 #include <General/MemoryArena.h>
 
-#include "Renderer/rendererGlobals.h"
-#ifndef WIN32
-#include <unistd.h>
-#endif
 
-#ifdef WIN32
-#define stat _stat
-#endif
+#include <Renderer/rendererGlobals.h>
+
+
 
 struct shaderPaths
 {
@@ -261,7 +262,7 @@ loadedBlob LoadBlobFromDisk(std::wstring shaderPath)
     std::wstring compiledShaderPath = shaderPath + L".compiled";
 
     struct stat result;
-    if (_wstat(compiledShaderPath.c_str(), &result) != 0)
+    if (STAT(compiledShaderPath.c_str(), &result) != 0)
     {
         throw std::runtime_error("Could not read shader file ");
     }

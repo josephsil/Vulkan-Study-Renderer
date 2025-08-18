@@ -5,8 +5,6 @@
 #include "../../../vulkan-utilities.h"
 #include "../../../VulkanIncludes/Vulkan_Includes.h"
 
-//TODO JS: break this dependency
-#include <atldef.h>
 #include <span>
 
 #include "../../../gpu-data-structs.h"

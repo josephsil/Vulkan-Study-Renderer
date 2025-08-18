@@ -1,8 +1,7 @@
-#define _AMD64_
+#define _AMD64_ //TODO JS platform independence
 #include "rendererGlobals.h"
 #include "VulkanIncludes/Vulkan_Includes.h"
 #include <Superluminal/PerformanceAPI_capi.h>
-#include "minwindef.h"
 #include "libloaderapi.h"
 PFN_vkSetDebugUtilsObjectNameEXT FP_vkSetDebugUtilsObjectNameEXT;
 char scratchMemory[256];

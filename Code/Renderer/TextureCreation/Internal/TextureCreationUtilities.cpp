@@ -1,6 +1,5 @@
 #include "TextureCreationUtilities.h"
 
-#include <atldef.h>
 #include <cassert>
 #include <cstdio>
 #include <cstdlib>

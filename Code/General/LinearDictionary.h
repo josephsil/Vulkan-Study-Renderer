@@ -2,7 +2,7 @@
 #include <cassert>
 #include <cstdint>
 #include <cstring>
-#include  <iostream>
+#include <iostream>
 
 //TODO: Grab a dictionary/hashset library and replace this
 const int dict_size = 2048;

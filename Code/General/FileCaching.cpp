@@ -1,16 +1,16 @@
 #include "FileCaching.h"
 
-#include <atlbase.h>
+
 #include <cassert>
 #include <fstream>
 #include <iostream>
-#include <sys/utime.h>
+
 #include <fmtInclude.h>
 #include <Renderer/rendererGlobals.h>//
 
-#ifdef WIN32
-#define stat _stat
-#endif
+//Platform specific time stuff. TODO: move somewhere and deduplicate
+
+
 
 
 //Needs rewrite, this was one of my first 'learning cpp' files
@@ -24,7 +24,7 @@ bool FileCaching::FileExists(std::string_view assetPath)
 bool FileCaching::FileExists(std::wstring_view assetPath)
 {
     struct stat buf;
-    return (_wstat(assetPath.data(), &buf) == 0);
+    return (STAT(assetPath.data(), &buf) == 0);
 }
 
 std::wstring WidenString(std::string s)
@@ -81,7 +81,7 @@ void FileCaching::SaveAssetChangedTime(std::string_view assetPath)
 void FileCaching::SaveAssetChangedTime(std::wstring_view assetPath)
 {
     struct stat result;
-    if (_wstat(assetPath.data(), &result) != 0)
+    if (STAT(assetPath.data(), &result) != 0)
     {
         assert(!"Could not read asset file date");
     }
@@ -111,12 +111,12 @@ long long ReadModifiedTime(std::wstring_view assetPath)
     //TODO: Better modified path, which we can copy separately in build step (rather than placing modified files adjacent to source files)
     std::wstring assetTimePath = std::wstring(assetPath) + L".modified";
     struct stat result;
-    if (_wstat(assetTimePath.data(), &result) != 0)
+    if (STAT(assetTimePath.data(), &result) != 0)
     {
         return true;
     }
 
-    int size = result.st_size / sizeof(byte);
+    int size = result.st_size / sizeof(unsigned char);
     std::ifstream myFile(assetTimePath.data(), std::ifstream::in | std::ifstream::out);
     if (!myFile.is_open())
     {
@@ -141,12 +141,12 @@ bool FileCaching::CompareAssetAge(std::wstring_view assetNewer, std::wstring_vie
 
 void FileCaching::UpdateModified(std::wstring_view path)
 {
-    _utimbuf new_times;
+    utimebuf new_times;
     struct stat result;
-    _wstat(path.data(), &result);
+    STAT(path.data(), &result);
     new_times.actime = result.st_atime;
     new_times.modtime = time(nullptr); //current time
-    _wutime(path.data(), &new_times);
+    UTIME(path.data(), &new_times);
 }
 
 bool FileCaching::IsAssetOutOfDate(std::wstring_view assetPath)
@@ -154,7 +154,7 @@ bool FileCaching::IsAssetOutOfDate(std::wstring_view assetPath)
     assert(assetPath.data() != nullptr);
     //Last changed check 
     struct stat result;
-    if (_wstat(assetPath.data(), &result) != 0)
+    if (STAT(assetPath.data(), &result) != 0)
     {
         printf("Could not read shader file date");
         assert(false);
