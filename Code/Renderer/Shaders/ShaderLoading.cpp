@@ -8,7 +8,6 @@
 #endif
 
 #include "dxcapi.h"
-#include <atlbase.h>
 #include <cassert>
 #include <iostream>
 #include <fstream>
