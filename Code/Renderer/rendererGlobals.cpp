@@ -1,9 +1,9 @@
 #ifdef _WIN32 
-#define _AMD64_ 
-#include <Superluminal/PerformanceAPI_capi.h>
-#include "libloaderapi.h"
+	#define _AMD64_ 
+	#include <Superluminal/PerformanceAPI_capi.h>
+	#include "libloaderapi.h"
 #else
-#define NO_SUPERLUMINAL
+	#define NO_SUPERLUMINAL
 #endif 
 #include "rendererGlobals.h"
 #include "VulkanIncludes/Vulkan_Includes.h"
@@ -107,7 +107,7 @@ struct PerformanceAPI_Functions {}; //empty struct on unsupported platforms
 PerformanceAPI_Functions SuperluminalFns;
 int PerformanceAPI_Load(const wchar_t* inPathToDLL, PerformanceAPI_Functions* outFunctions)
 {
-#ifdef NO_SUPERLUMINAL
+#ifndef NO_SUPERLUMINAL
     HMODULE module = LoadLibraryW(inPathToDLL);
     if (module == NULL)
         return 0;
@@ -132,7 +132,7 @@ int PerformanceAPI_Load(const wchar_t* inPathToDLL, PerformanceAPI_Functions* ou
 }
 void registerSuperluminal()
 {
-#if _DEBUG
+	#if defined(_DEBUG) && !defined(NO_SUPERLUMINAL)
     assert(PerformanceAPI_Load(L"./dll/PerformanceAPI.dll",&SuperluminalFns));
 #endif
     // PerformanceAPI_GetAPI_Func
@@ -141,14 +141,14 @@ void registerSuperluminal()
 
 void superLuminalEnd()
 {
-#if _DEBUG
+	#if defined(_DEBUG) && !defined(NO_SUPERLUMINAL)
     SuperluminalFns.EndEvent();
 #endif
 }
 
 void superLuminalAdd(const char* inID)
 {
-#if _DEBUG
+	#if defined(_DEBUG) && !defined(NO_SUPERLUMINAL)
    SuperluminalFns.BeginEvent(inID, NULL, PERFORMANCEAPI_MAKE_COLOR(128, 128, 255 ));
  #endif
 }
