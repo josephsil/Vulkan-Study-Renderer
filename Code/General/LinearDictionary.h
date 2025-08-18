@@ -2,6 +2,7 @@
 #include <cassert>
 #include <cstdint>
 #include <cstring>
+#include  <iostream>
 
 //TODO: Grab a dictionary/hashset library and replace this
 const int dict_size = 2048;
@@ -14,12 +15,17 @@ struct LinearDictionary
 
     bool comp(K key, K rhskey)
     {
-        return key == rhskey;
+		
+		if constexpr (std::is_same_v<char*, K>)
+		{
+			return std::strcmp(const_cast<char*>(key), const_cast<char*>(rhskey)) == 0;
+		}
+		else 
+		{
+			return key == rhskey;
+		}
     }
-    bool comp(const char* key, const char* rhskey)
-    {
-        return comp(const_cast<char*>(key), const_cast<char*>(rhskey));
-    }
+
 
   
     void Push(K key, V  v)

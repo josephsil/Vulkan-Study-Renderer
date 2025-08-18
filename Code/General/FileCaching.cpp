@@ -88,6 +88,8 @@ void FileCaching::SaveAssetChangedTime(std::wstring_view assetPath)
 
     auto modifiedTime = result.st_mtime;
 
+
+    //TODO: Better modified path, which we can copy separately in build step (rather than placing modified files adjacent to source files)
     std::wstring assetTimePath = std::wstring(assetPath) + L".modified";
 
     int size = result.st_size / sizeof(byte);
@@ -105,6 +107,8 @@ bool FileCaching::IsAssetOutOfDate(std::string_view assetPath)
 
 long long ReadModifiedTime(std::wstring_view assetPath)
 {
+
+    //TODO: Better modified path, which we can copy separately in build step (rather than placing modified files adjacent to source files)
     std::wstring assetTimePath = std::wstring(assetPath) + L".modified";
     struct stat result;
     if (_wstat(assetTimePath.data(), &result) != 0)
