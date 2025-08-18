@@ -1,8 +1,12 @@
-#define _AMD64_ //TODO JS platform independence
-#include "rendererGlobals.h"
-#include "VulkanIncludes/Vulkan_Includes.h"
+#ifdef _WIN32 
+#define _AMD64_ 
 #include <Superluminal/PerformanceAPI_capi.h>
 #include "libloaderapi.h"
+#else
+#define NO_SUPERLUMINAL
+#endif 
+#include "rendererGlobals.h"
+#include "VulkanIncludes/Vulkan_Includes.h"
 PFN_vkSetDebugUtilsObjectNameEXT FP_vkSetDebugUtilsObjectNameEXT;
 char scratchMemory[256];
 
@@ -97,12 +101,13 @@ void vkCopyImageToMemory(VkDevice device, void*targetHostPointer, VkImage source
     VK_CHECK(FP_vkCopyImageToMemoryEXT(device, &info));
 }
 
-
+#ifdef NO_SUPERLUMINAL
+struct PerformanceAPI_Functions {}; //empty struct on unsupported platforms
+#endif 
 PerformanceAPI_Functions SuperluminalFns;
-
 int PerformanceAPI_Load(const wchar_t* inPathToDLL, PerformanceAPI_Functions* outFunctions)
 {
-
+#ifdef NO_SUPERLUMINAL
     HMODULE module = LoadLibraryW(inPathToDLL);
     if (module == NULL)
         return 0;
@@ -121,12 +126,15 @@ int PerformanceAPI_Load(const wchar_t* inPathToDLL, PerformanceAPI_Functions* ou
     }
 
     return 1;
+#else 
+	return 0;
+#endif 
 }
 void registerSuperluminal()
 {
 #if _DEBUG
     assert(PerformanceAPI_Load(L"./dll/PerformanceAPI.dll",&SuperluminalFns));
-    #endif
+#endif
     // PerformanceAPI_GetAPI_Func
     // PerformanceAPI_LoadFrom(L"./dll/PerformanceAPI.dll",SuperluminalFns);
 }
@@ -135,12 +143,12 @@ void superLuminalEnd()
 {
 #if _DEBUG
     SuperluminalFns.EndEvent();
-    #endif
+#endif
 }
 
 void superLuminalAdd(const char* inID)
 {
 #if _DEBUG
    SuperluminalFns.BeginEvent(inID, NULL, PERFORMANCEAPI_MAKE_COLOR(128, 128, 255 ));
-   #endif
+ #endif
 }

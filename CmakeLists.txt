@@ -49,6 +49,7 @@ add_executable(VulkanRenderer ${DEPENDENCY_SOURCES} ${SOURCES} )
         ${CMAKE_SOURCE_DIR}/External
         ${CMAKE_SOURCE_DIR}/vkbootstrap
         ${CMAKE_SOURCE_DIR}/tinygltf
+		${CMAKE_SOURCE_DIR}/External/DXC/Include/dxc
         ${CMAKE_SOURCE_DIR}/External/imgui
         ${CMAKE_SOURCE_DIR}/External/stb-master/stb_image.h
         ${CMAKE_SOURCE_DIR}/External/imgui/backends/imgui_impl_sdl2.h
@@ -92,7 +93,7 @@ set_target_properties(VulkanRenderer PROPERTIES
 
     set(ASSET_PATHS 
         "Shaders"
-        "Textures"
+        "textures" #TODO: handle case better in code 
         "Meshes"
         "dll"
     )
