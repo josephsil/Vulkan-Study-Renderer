@@ -70,11 +70,12 @@ target_include_directories(VulkanRenderer PRIVATE ${INCLUDE_DIRS} ${DEPENDENCY_I
 #Libs
     file(GLOB_RECURSE LIB_FILES 
         ${CMAKE_SOURCE_DIR}/External/vulkansdk-1.3.239.0/lib/vulkan-1.lib
-        ${CMAKE_SOURCE_DIR}/External/vulkansdk-1.3.239.0/lib/SDL2.lib
-        ${CMAKE_SOURCE_DIR}/External/vulkansdk-1.3.239.0/lib/SDL2main.lib
         ${CMAKE_SOURCE_DIR}/External/vulkansdk-1.3.239.0/lib/dxcompiler.lib
         ${CMAKE_SOURCE_DIR}/External/KTX-Software/lib/*.lib
     )
+
+find_package(SDL2 REQUIRED)
+include_directories(VulkanRenderer ${SDL2_INCLUDE_DIRS})
 
 target_link_libraries(VulkanRenderer PRIVATE ${LIB_FILES})
 
@@ -120,7 +121,7 @@ endforeach()
 #compiler options
     target_compile_options(VulkanRenderer PRIVATE
          $<$<CXX_COMPILER_ID:MSVC>:$<$<CONFIG:Debug>:/Zi /Od /MDd>>
-         $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>:
+        $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>:$<$<CONFIG:Debug>:-O0 -g>>
     )
 
     # Release flags
@@ -130,16 +131,13 @@ endforeach()
     )
 
 
-    # MSVC warning level 3
+    # MSVC warning level 3 #clang warnings
         target_compile_options(VulkanRenderer PRIVATE
             $<$<CXX_COMPILER_ID:MSVC>:/W3>
-            $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>:$<$<CONFIG:Debug>:-O0 -g>>
+            # $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>:-Wall -Wextra>
+          
         )
 
-    # GCC / Clang warnings
-        target_compile_options(VulkanRenderer PRIVATE
-            $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>:-Wall -Wextra>
-        )
 
 
 #How to use 
@@ -150,4 +148,4 @@ endforeach()
 
 # cmake -S . -B build -G "Ninja Multi-Config" -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
 
-#
+#O
