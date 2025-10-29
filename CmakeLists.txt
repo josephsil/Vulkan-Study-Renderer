@@ -78,7 +78,6 @@ include_directories(VulkanRenderer ${SDL2_INCLUDE_DIRS})
 		${SDL2_LIBRARY}
     )
 
-
 target_link_libraries(VulkanRenderer PRIVATE ${LIB_FILES})
 
 
@@ -137,7 +136,7 @@ endforeach()
     # MSVC warning level 3 #clang warnings
         target_compile_options(VulkanRenderer PRIVATE
             $<$<CXX_COMPILER_ID:MSVC>:/W3>
-            #$<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>:-Wall -Wextra>
+            # $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>:-Wall -Wextra>
           
         )
 
