@@ -1,4 +1,18 @@
-// raddbg 0.9.19 project file
+// raddbg 0.9.20 project file
 
+recent_file: path: "Code/Renderer/Shaders/ShaderLoading.cpp"
+recent_file: path: "External/imgui/backends/imgui_impl_sdl2.cpp"
+recent_file: path: "Code/Renderer/rendererGlobals.cpp"
+recent_file: path: "Code/General/FileCaching.h"
 recent_file: path: "code/general/filecaching.cpp"
+recent_file: path: "Code/Renderer/VulkanBuffers/bufferCreation.cpp"
+recent_file: path: "Code/Renderer/TextureCreation/Internal/TextureCreationUtilities.cpp"
+recent_file: path: "code/general/lineardictionary.h"
+recent_file: path: "code/game.cpp"
+recent_file: path: "vulkan-tutorial.cpp"
 recent_file: path: "Code/Renderer/MainRenderer/VulkanRendererInternals/RendererHelpers.h"
+target:
+{
+  executable: "CMAKE_x64/Debug/VulkanRenderer.exe"
+  working_directory: "CMAKE_x64/Debug"
+}

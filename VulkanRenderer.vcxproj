@@ -1,0 +1,559 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <PreferredToolArchitecture>x64</PreferredToolArchitecture>
+  </PropertyGroup>
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="MinSizeRel|x64">
+      <Configuration>MinSizeRel</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="RelWithDebInfo|x64">
+      <Configuration>RelWithDebInfo</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{AFD5C736-7636-3164-AC46-4E78EE9BA319}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <WindowsTargetPlatformVersion>10.0.22621.0</WindowsTargetPlatformVersion>
+    <Platform>x64</Platform>
+    <ProjectName>VulkanRenderer</ProjectName>
+    <VCProjectUpgraderObjectName>NoUpgrade</VCProjectUpgraderObjectName>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_ProjectFileVersion>10.0.20506.1</_ProjectFileVersion>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\supsu\Documents\vulkan-tutorial\CMAKE_x64\Debug\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">VulkanRenderer.dir\Debug\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">VulkanRenderer</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">.exe</TargetExt>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</LinkIncremental>
+    <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</GenerateManifest>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\supsu\Documents\vulkan-tutorial\CMAKE_x64\Release\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">VulkanRenderer.dir\Release\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">VulkanRenderer</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='Release|x64'">.exe</TargetExt>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkIncremental>
+    <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</GenerateManifest>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\supsu\Documents\vulkan-tutorial\MinSizeRel\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">VulkanRenderer.dir\MinSizeRel\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">VulkanRenderer</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">.exe</TargetExt>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkIncremental>
+    <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">true</GenerateManifest>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\supsu\Documents\vulkan-tutorial\RelWithDebInfo\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">VulkanRenderer.dir\RelWithDebInfo\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">VulkanRenderer</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">.exe</TargetExt>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">true</LinkIncremental>
+    <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">true</GenerateManifest>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>C:\Users\supsu\Documents\vulkan-tutorial\Code\General;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\PipelineManager\Internal;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\PipelineManager;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\VulkanRendererInternals;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MeshCreation;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\Shaders;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\TextureCreation\Internal;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\TextureCreation;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\VulkanBuffers;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\VulkanIncludes;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\gltf;C:\Users\supsu\Documents\vulkan-tutorial\Code\Scene;C:\Users\supsu\Documents\vulkan-tutorial\Code;C:\Users\supsu\Documents\vulkan-tutorial\External;C:\Users\supsu\Documents\vulkan-tutorial\vkbootstrap;C:\Users\supsu\Documents\vulkan-tutorial\tinygltf;C:\Users\supsu\Documents\vulkan-tutorial\External\DXC\Include\dxc;C:\Users\supsu\Documents\vulkan-tutorial\External\imgui;C:\Users\supsu\Documents\vulkan-tutorial\External\stb-master\stb_image.h;C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\backends\imgui_impl_sdl2.h;C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\backends\imgui_impl_vulkan.h;C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\misc\cpp\imgui_stdlib.h;C:\Users\supsu\Documents\vulkan-tutorial\External\JolyPhysics;C:\Users\supsu\Documents\vulkan-tutorial\External\fmt\include;C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer;C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer\src\meshoptimizer.h;C:\Users\supsu\Documents\vulkan-tutorial\External\Superluminal;C:\Users\supsu\Documents\vulkan-tutorial\External\KTX-software\include;C:\Users\supsu\Documents\vulkan-tutorial\External\vulkansdk-1.3.239.0\Include;C:\Users\supsu\Documents\vulkan-tutorial\External\vulkansdk-1.3.239.0\Include\vma;C:\Users\supsu\Documents\vulkan-tutorial\VulkanRenderer;C:\Users\supsu\Documents\sdl2_from_vulkna\include;C:\Users\supsu\Documents\sdl2_from_vulkna\include\SDL2;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <Optimization>Disabled</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <UseFullPaths>false</UseFullPaths>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;CMAKE_INTDIR="Debug"</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_DEBUG;_WINDOWS;CMAKE_INTDIR=\"Debug\"</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>C:\Users\supsu\Documents\vulkan-tutorial\Code\General;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\PipelineManager\Internal;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\PipelineManager;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\VulkanRendererInternals;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MeshCreation;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\Shaders;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\TextureCreation\Internal;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\TextureCreation;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\VulkanBuffers;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\VulkanIncludes;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\gltf;C:\Users\supsu\Documents\vulkan-tutorial\Code\Scene;C:\Users\supsu\Documents\vulkan-tutorial\Code;C:\Users\supsu\Documents\vulkan-tutorial\External;C:\Users\supsu\Documents\vulkan-tutorial\vkbootstrap;C:\Users\supsu\Documents\vulkan-tutorial\tinygltf;C:\Users\supsu\Documents\vulkan-tutorial\External\DXC\Include\dxc;C:\Users\supsu\Documents\vulkan-tutorial\External\imgui;C:\Users\supsu\Documents\vulkan-tutorial\External\stb-master\stb_image.h;C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\backends\imgui_impl_sdl2.h;C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\backends\imgui_impl_vulkan.h;C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\misc\cpp\imgui_stdlib.h;C:\Users\supsu\Documents\vulkan-tutorial\External\JolyPhysics;C:\Users\supsu\Documents\vulkan-tutorial\External\fmt\include;C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer;C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer\src\meshoptimizer.h;C:\Users\supsu\Documents\vulkan-tutorial\External\Superluminal;C:\Users\supsu\Documents\vulkan-tutorial\External\KTX-software\include;C:\Users\supsu\Documents\vulkan-tutorial\External\vulkansdk-1.3.239.0\Include;C:\Users\supsu\Documents\vulkan-tutorial\External\vulkansdk-1.3.239.0\Include\vma;C:\Users\supsu\Documents\vulkan-tutorial\VulkanRenderer;C:\Users\supsu\Documents\sdl2_from_vulkna\include;C:\Users\supsu\Documents\sdl2_from_vulkna\include\SDL2;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>C:\Users\supsu\Documents\vulkan-tutorial\Code\General;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\PipelineManager\Internal;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\PipelineManager;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\VulkanRendererInternals;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MeshCreation;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\Shaders;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\TextureCreation\Internal;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\TextureCreation;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\VulkanBuffers;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\VulkanIncludes;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\gltf;C:\Users\supsu\Documents\vulkan-tutorial\Code\Scene;C:\Users\supsu\Documents\vulkan-tutorial\Code;C:\Users\supsu\Documents\vulkan-tutorial\External;C:\Users\supsu\Documents\vulkan-tutorial\vkbootstrap;C:\Users\supsu\Documents\vulkan-tutorial\tinygltf;C:\Users\supsu\Documents\vulkan-tutorial\External\DXC\Include\dxc;C:\Users\supsu\Documents\vulkan-tutorial\External\imgui;C:\Users\supsu\Documents\vulkan-tutorial\External\stb-master\stb_image.h;C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\backends\imgui_impl_sdl2.h;C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\backends\imgui_impl_vulkan.h;C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\misc\cpp\imgui_stdlib.h;C:\Users\supsu\Documents\vulkan-tutorial\External\JolyPhysics;C:\Users\supsu\Documents\vulkan-tutorial\External\fmt\include;C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer;C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer\src\meshoptimizer.h;C:\Users\supsu\Documents\vulkan-tutorial\External\Superluminal;C:\Users\supsu\Documents\vulkan-tutorial\External\KTX-software\include;C:\Users\supsu\Documents\vulkan-tutorial\External\vulkansdk-1.3.239.0\Include;C:\Users\supsu\Documents\vulkan-tutorial\External\vulkansdk-1.3.239.0\Include\vma;C:\Users\supsu\Documents\vulkan-tutorial\VulkanRenderer;C:\Users\supsu\Documents\sdl2_from_vulkna\include;C:\Users\supsu\Documents\sdl2_from_vulkna\include\SDL2;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <PostBuildEvent>
+      <Message>			</Message>
+      <Command>setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -E copy_directory_if_different C:/Users/supsu/Documents/vulkan-tutorial/Shaders C:/Users/supsu/Documents/vulkan-tutorial/CMAKE_x64/Debug/Shaders 
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -E copy_directory_if_different C:/Users/supsu/Documents/vulkan-tutorial/textures C:/Users/supsu/Documents/vulkan-tutorial/CMAKE_x64/Debug/textures 
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -E copy_directory_if_different C:/Users/supsu/Documents/vulkan-tutorial/Meshes C:/Users/supsu/Documents/vulkan-tutorial/CMAKE_x64/Debug/Meshes 
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -E copy_directory_if_different C:/Users/supsu/Documents/vulkan-tutorial/dll C:/Users/supsu/Documents/vulkan-tutorial/CMAKE_x64/Debug/dll 
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+    </PostBuildEvent>
+    <Link>
+      <AdditionalDependencies>External\KTX-Software\lib\ktx.lib;External\vulkansdk-1.3.239.0\lib\dxcompiler.lib;External\vulkansdk-1.3.239.0\lib\vulkan-1.lib;C:\VulkanSDK\1.3.261.1\Lib\SDL2.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <ImportLibrary>C:/Users/supsu/Documents/vulkan-tutorial/Debug/VulkanRenderer.lib</ImportLibrary>
+      <ProgramDataBaseFile>C:/Users/supsu/Documents/vulkan-tutorial/CMAKE_x64/Debug/VulkanRenderer.pdb</ProgramDataBaseFile>
+      <SubSystem>Console</SubSystem>
+    </Link>
+    <ProjectReference>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>C:\Users\supsu\Documents\vulkan-tutorial\Code\General;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\PipelineManager\Internal;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\PipelineManager;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\VulkanRendererInternals;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MeshCreation;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\Shaders;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\TextureCreation\Internal;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\TextureCreation;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\VulkanBuffers;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\VulkanIncludes;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\gltf;C:\Users\supsu\Documents\vulkan-tutorial\Code\Scene;C:\Users\supsu\Documents\vulkan-tutorial\Code;C:\Users\supsu\Documents\vulkan-tutorial\External;C:\Users\supsu\Documents\vulkan-tutorial\vkbootstrap;C:\Users\supsu\Documents\vulkan-tutorial\tinygltf;C:\Users\supsu\Documents\vulkan-tutorial\External\DXC\Include\dxc;C:\Users\supsu\Documents\vulkan-tutorial\External\imgui;C:\Users\supsu\Documents\vulkan-tutorial\External\stb-master\stb_image.h;C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\backends\imgui_impl_sdl2.h;C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\backends\imgui_impl_vulkan.h;C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\misc\cpp\imgui_stdlib.h;C:\Users\supsu\Documents\vulkan-tutorial\External\JolyPhysics;C:\Users\supsu\Documents\vulkan-tutorial\External\fmt\include;C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer;C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer\src\meshoptimizer.h;C:\Users\supsu\Documents\vulkan-tutorial\External\Superluminal;C:\Users\supsu\Documents\vulkan-tutorial\External\KTX-software\include;C:\Users\supsu\Documents\vulkan-tutorial\External\vulkansdk-1.3.239.0\Include;C:\Users\supsu\Documents\vulkan-tutorial\External\vulkansdk-1.3.239.0\Include\vma;C:\Users\supsu\Documents\vulkan-tutorial\VulkanRenderer;C:\Users\supsu\Documents\sdl2_from_vulkna\include;C:\Users\supsu\Documents\sdl2_from_vulkna\include\SDL2;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <Optimization>MaxSpeed</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <UseFullPaths>false</UseFullPaths>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;CMAKE_INTDIR="Release"</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <DebugInformationFormat>
+      </DebugInformationFormat>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;CMAKE_INTDIR=\"Release\"</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>C:\Users\supsu\Documents\vulkan-tutorial\Code\General;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\PipelineManager\Internal;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\PipelineManager;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\VulkanRendererInternals;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MeshCreation;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\Shaders;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\TextureCreation\Internal;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\TextureCreation;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\VulkanBuffers;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\VulkanIncludes;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\gltf;C:\Users\supsu\Documents\vulkan-tutorial\Code\Scene;C:\Users\supsu\Documents\vulkan-tutorial\Code;C:\Users\supsu\Documents\vulkan-tutorial\External;C:\Users\supsu\Documents\vulkan-tutorial\vkbootstrap;C:\Users\supsu\Documents\vulkan-tutorial\tinygltf;C:\Users\supsu\Documents\vulkan-tutorial\External\DXC\Include\dxc;C:\Users\supsu\Documents\vulkan-tutorial\External\imgui;C:\Users\supsu\Documents\vulkan-tutorial\External\stb-master\stb_image.h;C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\backends\imgui_impl_sdl2.h;C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\backends\imgui_impl_vulkan.h;C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\misc\cpp\imgui_stdlib.h;C:\Users\supsu\Documents\vulkan-tutorial\External\JolyPhysics;C:\Users\supsu\Documents\vulkan-tutorial\External\fmt\include;C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer;C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer\src\meshoptimizer.h;C:\Users\supsu\Documents\vulkan-tutorial\External\Superluminal;C:\Users\supsu\Documents\vulkan-tutorial\External\KTX-software\include;C:\Users\supsu\Documents\vulkan-tutorial\External\vulkansdk-1.3.239.0\Include;C:\Users\supsu\Documents\vulkan-tutorial\External\vulkansdk-1.3.239.0\Include\vma;C:\Users\supsu\Documents\vulkan-tutorial\VulkanRenderer;C:\Users\supsu\Documents\sdl2_from_vulkna\include;C:\Users\supsu\Documents\sdl2_from_vulkna\include\SDL2;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>C:\Users\supsu\Documents\vulkan-tutorial\Code\General;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\PipelineManager\Internal;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\PipelineManager;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\VulkanRendererInternals;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MeshCreation;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\Shaders;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\TextureCreation\Internal;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\TextureCreation;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\VulkanBuffers;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\VulkanIncludes;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\gltf;C:\Users\supsu\Documents\vulkan-tutorial\Code\Scene;C:\Users\supsu\Documents\vulkan-tutorial\Code;C:\Users\supsu\Documents\vulkan-tutorial\External;C:\Users\supsu\Documents\vulkan-tutorial\vkbootstrap;C:\Users\supsu\Documents\vulkan-tutorial\tinygltf;C:\Users\supsu\Documents\vulkan-tutorial\External\DXC\Include\dxc;C:\Users\supsu\Documents\vulkan-tutorial\External\imgui;C:\Users\supsu\Documents\vulkan-tutorial\External\stb-master\stb_image.h;C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\backends\imgui_impl_sdl2.h;C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\backends\imgui_impl_vulkan.h;C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\misc\cpp\imgui_stdlib.h;C:\Users\supsu\Documents\vulkan-tutorial\External\JolyPhysics;C:\Users\supsu\Documents\vulkan-tutorial\External\fmt\include;C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer;C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer\src\meshoptimizer.h;C:\Users\supsu\Documents\vulkan-tutorial\External\Superluminal;C:\Users\supsu\Documents\vulkan-tutorial\External\KTX-software\include;C:\Users\supsu\Documents\vulkan-tutorial\External\vulkansdk-1.3.239.0\Include;C:\Users\supsu\Documents\vulkan-tutorial\External\vulkansdk-1.3.239.0\Include\vma;C:\Users\supsu\Documents\vulkan-tutorial\VulkanRenderer;C:\Users\supsu\Documents\sdl2_from_vulkna\include;C:\Users\supsu\Documents\sdl2_from_vulkna\include\SDL2;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <PostBuildEvent>
+      <Message>			</Message>
+      <Command>setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -E copy_directory_if_different C:/Users/supsu/Documents/vulkan-tutorial/Shaders  C:/Users/supsu/Documents/vulkan-tutorial/CMAKE_x64/Release/Shaders
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -E copy_directory_if_different C:/Users/supsu/Documents/vulkan-tutorial/textures  C:/Users/supsu/Documents/vulkan-tutorial/CMAKE_x64/Release/textures
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -E copy_directory_if_different C:/Users/supsu/Documents/vulkan-tutorial/Meshes  C:/Users/supsu/Documents/vulkan-tutorial/CMAKE_x64/Release/Meshes
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -E copy_directory_if_different C:/Users/supsu/Documents/vulkan-tutorial/dll  C:/Users/supsu/Documents/vulkan-tutorial/CMAKE_x64/Release/dll
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+    </PostBuildEvent>
+    <Link>
+      <AdditionalDependencies>External\KTX-Software\lib\ktx.lib;External\vulkansdk-1.3.239.0\lib\dxcompiler.lib;External\vulkansdk-1.3.239.0\lib\vulkan-1.lib;C:\VulkanSDK\1.3.261.1\Lib\SDL2.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
+      <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <ImportLibrary>C:/Users/supsu/Documents/vulkan-tutorial/Release/VulkanRenderer.lib</ImportLibrary>
+      <ProgramDataBaseFile>C:/Users/supsu/Documents/vulkan-tutorial/CMAKE_x64/Release/VulkanRenderer.pdb</ProgramDataBaseFile>
+      <SubSystem>Console</SubSystem>
+    </Link>
+    <ProjectReference>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>C:\Users\supsu\Documents\vulkan-tutorial\Code\General;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\PipelineManager\Internal;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\PipelineManager;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\VulkanRendererInternals;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MeshCreation;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\Shaders;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\TextureCreation\Internal;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\TextureCreation;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\VulkanBuffers;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\VulkanIncludes;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\gltf;C:\Users\supsu\Documents\vulkan-tutorial\Code\Scene;C:\Users\supsu\Documents\vulkan-tutorial\Code;C:\Users\supsu\Documents\vulkan-tutorial\External;C:\Users\supsu\Documents\vulkan-tutorial\vkbootstrap;C:\Users\supsu\Documents\vulkan-tutorial\tinygltf;C:\Users\supsu\Documents\vulkan-tutorial\External\DXC\Include\dxc;C:\Users\supsu\Documents\vulkan-tutorial\External\imgui;C:\Users\supsu\Documents\vulkan-tutorial\External\stb-master\stb_image.h;C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\backends\imgui_impl_sdl2.h;C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\backends\imgui_impl_vulkan.h;C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\misc\cpp\imgui_stdlib.h;C:\Users\supsu\Documents\vulkan-tutorial\External\JolyPhysics;C:\Users\supsu\Documents\vulkan-tutorial\External\fmt\include;C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer;C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer\src\meshoptimizer.h;C:\Users\supsu\Documents\vulkan-tutorial\External\Superluminal;C:\Users\supsu\Documents\vulkan-tutorial\External\KTX-software\include;C:\Users\supsu\Documents\vulkan-tutorial\External\vulkansdk-1.3.239.0\Include;C:\Users\supsu\Documents\vulkan-tutorial\External\vulkansdk-1.3.239.0\Include\vma;C:\Users\supsu\Documents\vulkan-tutorial\VulkanRenderer;C:\Users\supsu\Documents\sdl2_from_vulkna\include;C:\Users\supsu\Documents\sdl2_from_vulkna\include\SDL2;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <Optimization>MinSpace</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <UseFullPaths>false</UseFullPaths>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;CMAKE_INTDIR="MinSizeRel"</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <DebugInformationFormat>
+      </DebugInformationFormat>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;CMAKE_INTDIR=\"MinSizeRel\"</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>C:\Users\supsu\Documents\vulkan-tutorial\Code\General;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\PipelineManager\Internal;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\PipelineManager;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\VulkanRendererInternals;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MeshCreation;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\Shaders;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\TextureCreation\Internal;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\TextureCreation;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\VulkanBuffers;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\VulkanIncludes;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\gltf;C:\Users\supsu\Documents\vulkan-tutorial\Code\Scene;C:\Users\supsu\Documents\vulkan-tutorial\Code;C:\Users\supsu\Documents\vulkan-tutorial\External;C:\Users\supsu\Documents\vulkan-tutorial\vkbootstrap;C:\Users\supsu\Documents\vulkan-tutorial\tinygltf;C:\Users\supsu\Documents\vulkan-tutorial\External\DXC\Include\dxc;C:\Users\supsu\Documents\vulkan-tutorial\External\imgui;C:\Users\supsu\Documents\vulkan-tutorial\External\stb-master\stb_image.h;C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\backends\imgui_impl_sdl2.h;C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\backends\imgui_impl_vulkan.h;C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\misc\cpp\imgui_stdlib.h;C:\Users\supsu\Documents\vulkan-tutorial\External\JolyPhysics;C:\Users\supsu\Documents\vulkan-tutorial\External\fmt\include;C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer;C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer\src\meshoptimizer.h;C:\Users\supsu\Documents\vulkan-tutorial\External\Superluminal;C:\Users\supsu\Documents\vulkan-tutorial\External\KTX-software\include;C:\Users\supsu\Documents\vulkan-tutorial\External\vulkansdk-1.3.239.0\Include;C:\Users\supsu\Documents\vulkan-tutorial\External\vulkansdk-1.3.239.0\Include\vma;C:\Users\supsu\Documents\vulkan-tutorial\VulkanRenderer;C:\Users\supsu\Documents\sdl2_from_vulkna\include;C:\Users\supsu\Documents\sdl2_from_vulkna\include\SDL2;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>C:\Users\supsu\Documents\vulkan-tutorial\Code\General;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\PipelineManager\Internal;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\PipelineManager;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\VulkanRendererInternals;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MeshCreation;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\Shaders;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\TextureCreation\Internal;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\TextureCreation;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\VulkanBuffers;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\VulkanIncludes;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\gltf;C:\Users\supsu\Documents\vulkan-tutorial\Code\Scene;C:\Users\supsu\Documents\vulkan-tutorial\Code;C:\Users\supsu\Documents\vulkan-tutorial\External;C:\Users\supsu\Documents\vulkan-tutorial\vkbootstrap;C:\Users\supsu\Documents\vulkan-tutorial\tinygltf;C:\Users\supsu\Documents\vulkan-tutorial\External\DXC\Include\dxc;C:\Users\supsu\Documents\vulkan-tutorial\External\imgui;C:\Users\supsu\Documents\vulkan-tutorial\External\stb-master\stb_image.h;C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\backends\imgui_impl_sdl2.h;C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\backends\imgui_impl_vulkan.h;C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\misc\cpp\imgui_stdlib.h;C:\Users\supsu\Documents\vulkan-tutorial\External\JolyPhysics;C:\Users\supsu\Documents\vulkan-tutorial\External\fmt\include;C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer;C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer\src\meshoptimizer.h;C:\Users\supsu\Documents\vulkan-tutorial\External\Superluminal;C:\Users\supsu\Documents\vulkan-tutorial\External\KTX-software\include;C:\Users\supsu\Documents\vulkan-tutorial\External\vulkansdk-1.3.239.0\Include;C:\Users\supsu\Documents\vulkan-tutorial\External\vulkansdk-1.3.239.0\Include\vma;C:\Users\supsu\Documents\vulkan-tutorial\VulkanRenderer;C:\Users\supsu\Documents\sdl2_from_vulkna\include;C:\Users\supsu\Documents\sdl2_from_vulkna\include\SDL2;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <PostBuildEvent>
+      <Message>			</Message>
+      <Command>setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -E copy_directory_if_different C:/Users/supsu/Documents/vulkan-tutorial/Shaders  
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -E copy_directory_if_different C:/Users/supsu/Documents/vulkan-tutorial/textures  
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -E copy_directory_if_different C:/Users/supsu/Documents/vulkan-tutorial/Meshes  
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -E copy_directory_if_different C:/Users/supsu/Documents/vulkan-tutorial/dll  
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+    </PostBuildEvent>
+    <Link>
+      <AdditionalDependencies>External\KTX-Software\lib\ktx.lib;External\vulkansdk-1.3.239.0\lib\dxcompiler.lib;External\vulkansdk-1.3.239.0\lib\vulkan-1.lib;C:\VulkanSDK\1.3.261.1\Lib\SDL2.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
+      <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <ImportLibrary>C:/Users/supsu/Documents/vulkan-tutorial/MinSizeRel/VulkanRenderer.lib</ImportLibrary>
+      <ProgramDataBaseFile>C:/Users/supsu/Documents/vulkan-tutorial/MinSizeRel/VulkanRenderer.pdb</ProgramDataBaseFile>
+      <SubSystem>Console</SubSystem>
+    </Link>
+    <ProjectReference>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>C:\Users\supsu\Documents\vulkan-tutorial\Code\General;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\PipelineManager\Internal;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\PipelineManager;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\VulkanRendererInternals;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MeshCreation;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\Shaders;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\TextureCreation\Internal;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\TextureCreation;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\VulkanBuffers;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\VulkanIncludes;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\gltf;C:\Users\supsu\Documents\vulkan-tutorial\Code\Scene;C:\Users\supsu\Documents\vulkan-tutorial\Code;C:\Users\supsu\Documents\vulkan-tutorial\External;C:\Users\supsu\Documents\vulkan-tutorial\vkbootstrap;C:\Users\supsu\Documents\vulkan-tutorial\tinygltf;C:\Users\supsu\Documents\vulkan-tutorial\External\DXC\Include\dxc;C:\Users\supsu\Documents\vulkan-tutorial\External\imgui;C:\Users\supsu\Documents\vulkan-tutorial\External\stb-master\stb_image.h;C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\backends\imgui_impl_sdl2.h;C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\backends\imgui_impl_vulkan.h;C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\misc\cpp\imgui_stdlib.h;C:\Users\supsu\Documents\vulkan-tutorial\External\JolyPhysics;C:\Users\supsu\Documents\vulkan-tutorial\External\fmt\include;C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer;C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer\src\meshoptimizer.h;C:\Users\supsu\Documents\vulkan-tutorial\External\Superluminal;C:\Users\supsu\Documents\vulkan-tutorial\External\KTX-software\include;C:\Users\supsu\Documents\vulkan-tutorial\External\vulkansdk-1.3.239.0\Include;C:\Users\supsu\Documents\vulkan-tutorial\External\vulkansdk-1.3.239.0\Include\vma;C:\Users\supsu\Documents\vulkan-tutorial\VulkanRenderer;C:\Users\supsu\Documents\sdl2_from_vulkna\include;C:\Users\supsu\Documents\sdl2_from_vulkna\include\SDL2;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <Optimization>MaxSpeed</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <UseFullPaths>false</UseFullPaths>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;CMAKE_INTDIR="RelWithDebInfo"</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;CMAKE_INTDIR=\"RelWithDebInfo\"</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>C:\Users\supsu\Documents\vulkan-tutorial\Code\General;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\PipelineManager\Internal;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\PipelineManager;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\VulkanRendererInternals;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MeshCreation;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\Shaders;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\TextureCreation\Internal;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\TextureCreation;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\VulkanBuffers;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\VulkanIncludes;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\gltf;C:\Users\supsu\Documents\vulkan-tutorial\Code\Scene;C:\Users\supsu\Documents\vulkan-tutorial\Code;C:\Users\supsu\Documents\vulkan-tutorial\External;C:\Users\supsu\Documents\vulkan-tutorial\vkbootstrap;C:\Users\supsu\Documents\vulkan-tutorial\tinygltf;C:\Users\supsu\Documents\vulkan-tutorial\External\DXC\Include\dxc;C:\Users\supsu\Documents\vulkan-tutorial\External\imgui;C:\Users\supsu\Documents\vulkan-tutorial\External\stb-master\stb_image.h;C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\backends\imgui_impl_sdl2.h;C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\backends\imgui_impl_vulkan.h;C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\misc\cpp\imgui_stdlib.h;C:\Users\supsu\Documents\vulkan-tutorial\External\JolyPhysics;C:\Users\supsu\Documents\vulkan-tutorial\External\fmt\include;C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer;C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer\src\meshoptimizer.h;C:\Users\supsu\Documents\vulkan-tutorial\External\Superluminal;C:\Users\supsu\Documents\vulkan-tutorial\External\KTX-software\include;C:\Users\supsu\Documents\vulkan-tutorial\External\vulkansdk-1.3.239.0\Include;C:\Users\supsu\Documents\vulkan-tutorial\External\vulkansdk-1.3.239.0\Include\vma;C:\Users\supsu\Documents\vulkan-tutorial\VulkanRenderer;C:\Users\supsu\Documents\sdl2_from_vulkna\include;C:\Users\supsu\Documents\sdl2_from_vulkna\include\SDL2;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>C:\Users\supsu\Documents\vulkan-tutorial\Code\General;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\PipelineManager\Internal;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\PipelineManager;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\VulkanRendererInternals;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MeshCreation;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\Shaders;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\TextureCreation\Internal;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\TextureCreation;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\VulkanBuffers;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\VulkanIncludes;C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\gltf;C:\Users\supsu\Documents\vulkan-tutorial\Code\Scene;C:\Users\supsu\Documents\vulkan-tutorial\Code;C:\Users\supsu\Documents\vulkan-tutorial\External;C:\Users\supsu\Documents\vulkan-tutorial\vkbootstrap;C:\Users\supsu\Documents\vulkan-tutorial\tinygltf;C:\Users\supsu\Documents\vulkan-tutorial\External\DXC\Include\dxc;C:\Users\supsu\Documents\vulkan-tutorial\External\imgui;C:\Users\supsu\Documents\vulkan-tutorial\External\stb-master\stb_image.h;C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\backends\imgui_impl_sdl2.h;C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\backends\imgui_impl_vulkan.h;C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\misc\cpp\imgui_stdlib.h;C:\Users\supsu\Documents\vulkan-tutorial\External\JolyPhysics;C:\Users\supsu\Documents\vulkan-tutorial\External\fmt\include;C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer;C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer\src\meshoptimizer.h;C:\Users\supsu\Documents\vulkan-tutorial\External\Superluminal;C:\Users\supsu\Documents\vulkan-tutorial\External\KTX-software\include;C:\Users\supsu\Documents\vulkan-tutorial\External\vulkansdk-1.3.239.0\Include;C:\Users\supsu\Documents\vulkan-tutorial\External\vulkansdk-1.3.239.0\Include\vma;C:\Users\supsu\Documents\vulkan-tutorial\VulkanRenderer;C:\Users\supsu\Documents\sdl2_from_vulkna\include;C:\Users\supsu\Documents\sdl2_from_vulkna\include\SDL2;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <PostBuildEvent>
+      <Message>			</Message>
+      <Command>setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -E copy_directory_if_different C:/Users/supsu/Documents/vulkan-tutorial/Shaders  
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -E copy_directory_if_different C:/Users/supsu/Documents/vulkan-tutorial/textures  
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -E copy_directory_if_different C:/Users/supsu/Documents/vulkan-tutorial/Meshes  
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -E copy_directory_if_different C:/Users/supsu/Documents/vulkan-tutorial/dll  
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+    </PostBuildEvent>
+    <Link>
+      <AdditionalDependencies>External\KTX-Software\lib\ktx.lib;External\vulkansdk-1.3.239.0\lib\dxcompiler.lib;External\vulkansdk-1.3.239.0\lib\vulkan-1.lib;C:\VulkanSDK\1.3.261.1\Lib\SDL2.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <ImportLibrary>C:/Users/supsu/Documents/vulkan-tutorial/RelWithDebInfo/VulkanRenderer.lib</ImportLibrary>
+      <ProgramDataBaseFile>C:/Users/supsu/Documents/vulkan-tutorial/RelWithDebInfo/VulkanRenderer.pdb</ProgramDataBaseFile>
+      <SubSystem>Console</SubSystem>
+    </Link>
+    <ProjectReference>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\supsu\Documents\vulkan-tutorial\CmakeLists.txt">
+      <UseUtf8Encoding>Always</UseUtf8Encoding>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Building Custom Rule C:/Users/supsu/Documents/vulkan-tutorial/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/supsu/Documents/vulkan-tutorial -BC:/Users/supsu/Documents/vulkan-tutorial --check-stamp-file C:/Users/supsu/Documents/vulkan-tutorial/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Program Files\CMake\share\cmake-3.28\Modules\CMakeCInformation.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\CMakeCXXInformation.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\CMakeCommonLanguageInclude.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\CMakeGenericSystem.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\CMakeInitializeConfigs.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\CMakeLanguageInformation.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\CMakeRCInformation.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\CMakeSystemSpecificInformation.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\CMakeSystemSpecificInitialize.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\Compiler\CMakeCommonCompilerMacros.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\Compiler\MSVC-C.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\Compiler\MSVC-CXX.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\Compiler\MSVC.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\FeatureSummary.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\Platform\Windows-Initialize.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\Platform\Windows-MSVC-C.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\Platform\Windows-MSVC-CXX.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\Platform\Windows-MSVC.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\Platform\Windows.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\Platform\WindowsPaths.cmake;C:\Users\supsu\Documents\sdl2_from_vulkna\cmake\SDL2Config.cmake;C:\Users\supsu\Documents\sdl2_from_vulkna\cmake\SDL2ConfigVersion.cmake;C:\Users\supsu\Documents\sdl2_from_vulkna\cmake\SDL2Targets-relwithdebinfo.cmake;C:\Users\supsu\Documents\sdl2_from_vulkna\cmake\SDL2Targets.cmake;C:\Users\supsu\Documents\sdl2_from_vulkna\cmake\SDL2mainTargets-relwithdebinfo.cmake;C:\Users\supsu\Documents\sdl2_from_vulkna\cmake\SDL2mainTargets.cmake;C:\Users\supsu\Documents\sdl2_from_vulkna\cmake\SDL2staticTargets-relwithdebinfo.cmake;C:\Users\supsu\Documents\sdl2_from_vulkna\cmake\SDL2staticTargets.cmake;C:\Users\supsu\Documents\sdl2_from_vulkna\cmake\SDL2testTargets-relwithdebinfo.cmake;C:\Users\supsu\Documents\sdl2_from_vulkna\cmake\SDL2testTargets.cmake;C:\Users\supsu\Documents\sdl2_from_vulkna\cmake\sdlfind.cmake;C:\Users\supsu\Documents\vulkan-tutorial\CMakeFiles\3.28.3\CMakeCCompiler.cmake;C:\Users\supsu\Documents\vulkan-tutorial\CMakeFiles\3.28.3\CMakeCXXCompiler.cmake;C:\Users\supsu\Documents\vulkan-tutorial\CMakeFiles\3.28.3\CMakeRCCompiler.cmake;C:\Users\supsu\Documents\vulkan-tutorial\CMakeFiles\3.28.3\CMakeSystem.cmake;C:\Users\supsu\Documents\vulkan-tutorial\CMakeFiles\cmake.verify_globs;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\supsu\Documents\vulkan-tutorial\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Building Custom Rule C:/Users/supsu/Documents/vulkan-tutorial/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/supsu/Documents/vulkan-tutorial -BC:/Users/supsu/Documents/vulkan-tutorial --check-stamp-file C:/Users/supsu/Documents/vulkan-tutorial/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Program Files\CMake\share\cmake-3.28\Modules\CMakeCInformation.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\CMakeCXXInformation.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\CMakeCommonLanguageInclude.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\CMakeGenericSystem.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\CMakeInitializeConfigs.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\CMakeLanguageInformation.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\CMakeRCInformation.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\CMakeSystemSpecificInformation.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\CMakeSystemSpecificInitialize.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\Compiler\CMakeCommonCompilerMacros.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\Compiler\MSVC-C.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\Compiler\MSVC-CXX.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\Compiler\MSVC.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\FeatureSummary.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\Platform\Windows-Initialize.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\Platform\Windows-MSVC-C.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\Platform\Windows-MSVC-CXX.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\Platform\Windows-MSVC.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\Platform\Windows.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\Platform\WindowsPaths.cmake;C:\Users\supsu\Documents\sdl2_from_vulkna\cmake\SDL2Config.cmake;C:\Users\supsu\Documents\sdl2_from_vulkna\cmake\SDL2ConfigVersion.cmake;C:\Users\supsu\Documents\sdl2_from_vulkna\cmake\SDL2Targets-relwithdebinfo.cmake;C:\Users\supsu\Documents\sdl2_from_vulkna\cmake\SDL2Targets.cmake;C:\Users\supsu\Documents\sdl2_from_vulkna\cmake\SDL2mainTargets-relwithdebinfo.cmake;C:\Users\supsu\Documents\sdl2_from_vulkna\cmake\SDL2mainTargets.cmake;C:\Users\supsu\Documents\sdl2_from_vulkna\cmake\SDL2staticTargets-relwithdebinfo.cmake;C:\Users\supsu\Documents\sdl2_from_vulkna\cmake\SDL2staticTargets.cmake;C:\Users\supsu\Documents\sdl2_from_vulkna\cmake\SDL2testTargets-relwithdebinfo.cmake;C:\Users\supsu\Documents\sdl2_from_vulkna\cmake\SDL2testTargets.cmake;C:\Users\supsu\Documents\sdl2_from_vulkna\cmake\sdlfind.cmake;C:\Users\supsu\Documents\vulkan-tutorial\CMakeFiles\3.28.3\CMakeCCompiler.cmake;C:\Users\supsu\Documents\vulkan-tutorial\CMakeFiles\3.28.3\CMakeCXXCompiler.cmake;C:\Users\supsu\Documents\vulkan-tutorial\CMakeFiles\3.28.3\CMakeRCCompiler.cmake;C:\Users\supsu\Documents\vulkan-tutorial\CMakeFiles\3.28.3\CMakeSystem.cmake;C:\Users\supsu\Documents\vulkan-tutorial\CMakeFiles\cmake.verify_globs;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\supsu\Documents\vulkan-tutorial\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Building Custom Rule C:/Users/supsu/Documents/vulkan-tutorial/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/supsu/Documents/vulkan-tutorial -BC:/Users/supsu/Documents/vulkan-tutorial --check-stamp-file C:/Users/supsu/Documents/vulkan-tutorial/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Program Files\CMake\share\cmake-3.28\Modules\CMakeCInformation.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\CMakeCXXInformation.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\CMakeCommonLanguageInclude.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\CMakeGenericSystem.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\CMakeInitializeConfigs.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\CMakeLanguageInformation.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\CMakeRCInformation.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\CMakeSystemSpecificInformation.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\CMakeSystemSpecificInitialize.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\Compiler\CMakeCommonCompilerMacros.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\Compiler\MSVC-C.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\Compiler\MSVC-CXX.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\Compiler\MSVC.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\FeatureSummary.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\Platform\Windows-Initialize.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\Platform\Windows-MSVC-C.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\Platform\Windows-MSVC-CXX.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\Platform\Windows-MSVC.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\Platform\Windows.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\Platform\WindowsPaths.cmake;C:\Users\supsu\Documents\sdl2_from_vulkna\cmake\SDL2Config.cmake;C:\Users\supsu\Documents\sdl2_from_vulkna\cmake\SDL2ConfigVersion.cmake;C:\Users\supsu\Documents\sdl2_from_vulkna\cmake\SDL2Targets-relwithdebinfo.cmake;C:\Users\supsu\Documents\sdl2_from_vulkna\cmake\SDL2Targets.cmake;C:\Users\supsu\Documents\sdl2_from_vulkna\cmake\SDL2mainTargets-relwithdebinfo.cmake;C:\Users\supsu\Documents\sdl2_from_vulkna\cmake\SDL2mainTargets.cmake;C:\Users\supsu\Documents\sdl2_from_vulkna\cmake\SDL2staticTargets-relwithdebinfo.cmake;C:\Users\supsu\Documents\sdl2_from_vulkna\cmake\SDL2staticTargets.cmake;C:\Users\supsu\Documents\sdl2_from_vulkna\cmake\SDL2testTargets-relwithdebinfo.cmake;C:\Users\supsu\Documents\sdl2_from_vulkna\cmake\SDL2testTargets.cmake;C:\Users\supsu\Documents\sdl2_from_vulkna\cmake\sdlfind.cmake;C:\Users\supsu\Documents\vulkan-tutorial\CMakeFiles\3.28.3\CMakeCCompiler.cmake;C:\Users\supsu\Documents\vulkan-tutorial\CMakeFiles\3.28.3\CMakeCXXCompiler.cmake;C:\Users\supsu\Documents\vulkan-tutorial\CMakeFiles\3.28.3\CMakeRCCompiler.cmake;C:\Users\supsu\Documents\vulkan-tutorial\CMakeFiles\3.28.3\CMakeSystem.cmake;C:\Users\supsu\Documents\vulkan-tutorial\CMakeFiles\cmake.verify_globs;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\supsu\Documents\vulkan-tutorial\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Building Custom Rule C:/Users/supsu/Documents/vulkan-tutorial/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/supsu/Documents/vulkan-tutorial -BC:/Users/supsu/Documents/vulkan-tutorial --check-stamp-file C:/Users/supsu/Documents/vulkan-tutorial/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Program Files\CMake\share\cmake-3.28\Modules\CMakeCInformation.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\CMakeCXXInformation.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\CMakeCommonLanguageInclude.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\CMakeGenericSystem.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\CMakeInitializeConfigs.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\CMakeLanguageInformation.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\CMakeRCInformation.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\CMakeSystemSpecificInformation.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\CMakeSystemSpecificInitialize.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\Compiler\CMakeCommonCompilerMacros.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\Compiler\MSVC-C.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\Compiler\MSVC-CXX.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\Compiler\MSVC.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\FeatureSummary.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\Platform\Windows-Initialize.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\Platform\Windows-MSVC-C.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\Platform\Windows-MSVC-CXX.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\Platform\Windows-MSVC.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\Platform\Windows.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\Platform\WindowsPaths.cmake;C:\Users\supsu\Documents\sdl2_from_vulkna\cmake\SDL2Config.cmake;C:\Users\supsu\Documents\sdl2_from_vulkna\cmake\SDL2ConfigVersion.cmake;C:\Users\supsu\Documents\sdl2_from_vulkna\cmake\SDL2Targets-relwithdebinfo.cmake;C:\Users\supsu\Documents\sdl2_from_vulkna\cmake\SDL2Targets.cmake;C:\Users\supsu\Documents\sdl2_from_vulkna\cmake\SDL2mainTargets-relwithdebinfo.cmake;C:\Users\supsu\Documents\sdl2_from_vulkna\cmake\SDL2mainTargets.cmake;C:\Users\supsu\Documents\sdl2_from_vulkna\cmake\SDL2staticTargets-relwithdebinfo.cmake;C:\Users\supsu\Documents\sdl2_from_vulkna\cmake\SDL2staticTargets.cmake;C:\Users\supsu\Documents\sdl2_from_vulkna\cmake\SDL2testTargets-relwithdebinfo.cmake;C:\Users\supsu\Documents\sdl2_from_vulkna\cmake\SDL2testTargets.cmake;C:\Users\supsu\Documents\sdl2_from_vulkna\cmake\sdlfind.cmake;C:\Users\supsu\Documents\vulkan-tutorial\CMakeFiles\3.28.3\CMakeCCompiler.cmake;C:\Users\supsu\Documents\vulkan-tutorial\CMakeFiles\3.28.3\CMakeCXXCompiler.cmake;C:\Users\supsu\Documents\vulkan-tutorial\CMakeFiles\3.28.3\CMakeRCCompiler.cmake;C:\Users\supsu\Documents\vulkan-tutorial\CMakeFiles\3.28.3\CMakeSystem.cmake;C:\Users\supsu\Documents\vulkan-tutorial\CMakeFiles\cmake.verify_globs;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\supsu\Documents\vulkan-tutorial\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\ImageLibraryImplementations.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\MeshLibraryImplementations.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\backends\imgui_impl_sdl2.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\backends\imgui_impl_vulkan.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\imgui.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\imgui_demo.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\imgui_draw.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\imgui_tables.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer\src\allocator.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer\src\clusterizer.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer\src\indexcodec.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer\src\indexgenerator.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer\src\overdrawanalyzer.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer\src\overdrawoptimizer.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer\src\quantization.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer\src\simplifier.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer\src\spatialorder.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer\src\stripifier.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer\src\vcacheanalyzer.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer\src\vcacheoptimizer.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer\src\vertexcodec.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer\src\vertexfilter.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer\src\vfetchanalyzer.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer\src\vfetchoptimizer.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\mikktspace.c" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\weldmesh.c" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\vkbootstrap\VkBootstrap.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\General\Algorithms.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\General\FileCaching.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\General\InputHandling.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\General\LinearDictionary.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\General\MemoryArena.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\General\PrototypeThreadWorker.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\General\ThreadPool.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\General\ThreadedTextureLoading.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\CommandPoolManager.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\PipelineManager\Internal\PipelineLayoutGroup.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\PipelineManager\PipelineLayoutManager.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\VulkanRenderer.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\VulkanRendererInternals\DebugLineData.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\VulkanRendererInternals\DrawBatches.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\VulkanRendererInternals\LightAndCameraHelpers.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\VulkanRendererInternals\RendererHelpers.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\vulkanRenderer_Initialization.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MeshCreation\MeshData.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MeshCreation\RunMeshOptimizer.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MikkTImpl.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\ObjectImport.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\RendererDeletionQueue.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\Shaders\ShaderLoading.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\TextureCreation\Internal\TextureCreationUtilities.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\TextureCreation\TextureData.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\Vertex.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\VulkanBuffers\bufferCreation.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\VulkanIncludes\VulkanMemory.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\VulkanIncludes\vmaImplementation.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\gltf\gltfLoading.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\gltf\gltf_impl.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\rendererGlobals.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\vulkan-utilities.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Scene\AssetManager.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Scene\Scene.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Scene\Transforms.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\game.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\glm_misc.cpp" />
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\vulkan-tutorial.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="C:\Users\supsu\Documents\vulkan-tutorial\ZERO_CHECK.vcxproj">
+      <Project>{F5DDB57E-7C44-3EBF-A23F-641825E01640}</Project>
+      <Name>ZERO_CHECK</Name>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

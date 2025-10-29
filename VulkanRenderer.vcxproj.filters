@@ -1,0 +1,214 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\ImageLibraryImplementations.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\MeshLibraryImplementations.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\backends\imgui_impl_sdl2.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\backends\imgui_impl_vulkan.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\imgui.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\imgui_demo.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\imgui_draw.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\imgui_tables.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\imgui\imgui_widgets.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer\src\allocator.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer\src\clusterizer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer\src\indexcodec.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer\src\indexgenerator.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer\src\overdrawanalyzer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer\src\overdrawoptimizer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer\src\quantization.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer\src\simplifier.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer\src\spatialorder.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer\src\stripifier.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer\src\vcacheanalyzer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer\src\vcacheoptimizer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer\src\vertexcodec.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer\src\vertexfilter.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer\src\vfetchanalyzer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\meshoptimizer\src\vfetchoptimizer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\mikktspace.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\External\weldmesh.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\vkbootstrap\VkBootstrap.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\General\Algorithms.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\General\FileCaching.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\General\InputHandling.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\General\LinearDictionary.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\General\MemoryArena.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\General\PrototypeThreadWorker.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\General\ThreadPool.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\General\ThreadedTextureLoading.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\CommandPoolManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\PipelineManager\Internal\PipelineLayoutGroup.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\PipelineManager\PipelineLayoutManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\VulkanRenderer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\VulkanRendererInternals\DebugLineData.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\VulkanRendererInternals\DrawBatches.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\VulkanRendererInternals\LightAndCameraHelpers.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\VulkanRendererInternals\RendererHelpers.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MainRenderer\vulkanRenderer_Initialization.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MeshCreation\MeshData.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MeshCreation\RunMeshOptimizer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\MikkTImpl.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\ObjectImport.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\RendererDeletionQueue.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\Shaders\ShaderLoading.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\TextureCreation\Internal\TextureCreationUtilities.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\TextureCreation\TextureData.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\Vertex.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\VulkanBuffers\bufferCreation.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\VulkanIncludes\VulkanMemory.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\VulkanIncludes\vmaImplementation.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\gltf\gltfLoading.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\gltf\gltf_impl.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\rendererGlobals.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Renderer\vulkan-utilities.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Scene\AssetManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Scene\Scene.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\Scene\Transforms.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\game.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\Code\glm_misc.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\supsu\Documents\vulkan-tutorial\vulkan-tutorial.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\supsu\Documents\vulkan-tutorial\CmakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{D67E69FA-22F3-3E60-84A0-8F45A3DED24B}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

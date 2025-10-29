@@ -1,0 +1,38 @@
+# CMake generation dependency list for this directory.
+C:/Program Files/CMake/share/cmake-3.28/Modules/CMakeCInformation.cmake
+C:/Program Files/CMake/share/cmake-3.28/Modules/CMakeCXXInformation.cmake
+C:/Program Files/CMake/share/cmake-3.28/Modules/CMakeCommonLanguageInclude.cmake
+C:/Program Files/CMake/share/cmake-3.28/Modules/CMakeGenericSystem.cmake
+C:/Program Files/CMake/share/cmake-3.28/Modules/CMakeInitializeConfigs.cmake
+C:/Program Files/CMake/share/cmake-3.28/Modules/CMakeLanguageInformation.cmake
+C:/Program Files/CMake/share/cmake-3.28/Modules/CMakeRCInformation.cmake
+C:/Program Files/CMake/share/cmake-3.28/Modules/CMakeSystemSpecificInformation.cmake
+C:/Program Files/CMake/share/cmake-3.28/Modules/CMakeSystemSpecificInitialize.cmake
+C:/Program Files/CMake/share/cmake-3.28/Modules/Compiler/CMakeCommonCompilerMacros.cmake
+C:/Program Files/CMake/share/cmake-3.28/Modules/Compiler/MSVC-C.cmake
+C:/Program Files/CMake/share/cmake-3.28/Modules/Compiler/MSVC-CXX.cmake
+C:/Program Files/CMake/share/cmake-3.28/Modules/Compiler/MSVC.cmake
+C:/Program Files/CMake/share/cmake-3.28/Modules/FeatureSummary.cmake
+C:/Program Files/CMake/share/cmake-3.28/Modules/Platform/Windows-Initialize.cmake
+C:/Program Files/CMake/share/cmake-3.28/Modules/Platform/Windows-MSVC-C.cmake
+C:/Program Files/CMake/share/cmake-3.28/Modules/Platform/Windows-MSVC-CXX.cmake
+C:/Program Files/CMake/share/cmake-3.28/Modules/Platform/Windows-MSVC.cmake
+C:/Program Files/CMake/share/cmake-3.28/Modules/Platform/Windows.cmake
+C:/Program Files/CMake/share/cmake-3.28/Modules/Platform/WindowsPaths.cmake
+C:/Users/supsu/Documents/sdl2_from_vulkna/cmake/SDL2Config.cmake
+C:/Users/supsu/Documents/sdl2_from_vulkna/cmake/SDL2ConfigVersion.cmake
+C:/Users/supsu/Documents/sdl2_from_vulkna/cmake/SDL2Targets-relwithdebinfo.cmake
+C:/Users/supsu/Documents/sdl2_from_vulkna/cmake/SDL2Targets.cmake
+C:/Users/supsu/Documents/sdl2_from_vulkna/cmake/SDL2mainTargets-relwithdebinfo.cmake
+C:/Users/supsu/Documents/sdl2_from_vulkna/cmake/SDL2mainTargets.cmake
+C:/Users/supsu/Documents/sdl2_from_vulkna/cmake/SDL2staticTargets-relwithdebinfo.cmake
+C:/Users/supsu/Documents/sdl2_from_vulkna/cmake/SDL2staticTargets.cmake
+C:/Users/supsu/Documents/sdl2_from_vulkna/cmake/SDL2testTargets-relwithdebinfo.cmake
+C:/Users/supsu/Documents/sdl2_from_vulkna/cmake/SDL2testTargets.cmake
+C:/Users/supsu/Documents/sdl2_from_vulkna/cmake/sdlfind.cmake
+C:/Users/supsu/Documents/vulkan-tutorial/CMakeFiles/3.28.3/CMakeCCompiler.cmake
+C:/Users/supsu/Documents/vulkan-tutorial/CMakeFiles/3.28.3/CMakeCXXCompiler.cmake
+C:/Users/supsu/Documents/vulkan-tutorial/CMakeFiles/3.28.3/CMakeRCCompiler.cmake
+C:/Users/supsu/Documents/vulkan-tutorial/CMakeFiles/3.28.3/CMakeSystem.cmake
+C:/Users/supsu/Documents/vulkan-tutorial/CMakeFiles/cmake.verify_globs
+C:/Users/supsu/Documents/vulkan-tutorial/CMakeLists.txt
