@@ -1,0 +1,19 @@
+#!/bin/sh
+set -e
+if test "$CONFIGURATION" = "Debug"; then :
+  cd /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build
+  make -f /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build/CMakeScripts/ReRunCMake.make
+fi
+if test "$CONFIGURATION" = "Release"; then :
+  cd /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build
+  make -f /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build/CMakeScripts/ReRunCMake.make
+fi
+if test "$CONFIGURATION" = "MinSizeRel"; then :
+  cd /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build
+  make -f /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build/CMakeScripts/ReRunCMake.make
+fi
+if test "$CONFIGURATION" = "RelWithDebInfo"; then :
+  cd /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build
+  make -f /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build/CMakeScripts/ReRunCMake.make
+fi
+

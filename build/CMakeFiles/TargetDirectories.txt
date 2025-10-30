@@ -1,0 +1,3 @@
+/Users/josephsilverman/Developer/Vulkan-Study-Renderer/build/CMakeFiles/VulkanRenderer.dir
+/Users/josephsilverman/Developer/Vulkan-Study-Renderer/build/CMakeFiles/ALL_BUILD.dir
+/Users/josephsilverman/Developer/Vulkan-Study-Renderer/build/CMakeFiles/ZERO_CHECK.dir

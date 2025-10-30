@@ -1,0 +1,43 @@
+#!/bin/sh
+set -e
+if test "$CONFIGURATION" = "Debug"; then :
+  cd /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build
+  /opt/homebrew/bin/cmake -E copy_directory_if_different /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Shaders /Users/josephsilverman/Developer/Vulkan-Study-Renderer/CMAKE_x64/Debug/Shaders 
+  cd /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build
+  /opt/homebrew/bin/cmake -E copy_directory_if_different /Users/josephsilverman/Developer/Vulkan-Study-Renderer/textures /Users/josephsilverman/Developer/Vulkan-Study-Renderer/CMAKE_x64/Debug/textures 
+  cd /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build
+  /opt/homebrew/bin/cmake -E copy_directory_if_different /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Meshes /Users/josephsilverman/Developer/Vulkan-Study-Renderer/CMAKE_x64/Debug/Meshes 
+  cd /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build
+  /opt/homebrew/bin/cmake -E copy_directory_if_different /Users/josephsilverman/Developer/Vulkan-Study-Renderer/dll /Users/josephsilverman/Developer/Vulkan-Study-Renderer/CMAKE_x64/Debug/dll 
+fi
+if test "$CONFIGURATION" = "Release"; then :
+  cd /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build
+  /opt/homebrew/bin/cmake -E copy_directory_if_different /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Shaders  /Users/josephsilverman/Developer/Vulkan-Study-Renderer/CMAKE_x64/Release/Shaders
+  cd /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build
+  /opt/homebrew/bin/cmake -E copy_directory_if_different /Users/josephsilverman/Developer/Vulkan-Study-Renderer/textures  /Users/josephsilverman/Developer/Vulkan-Study-Renderer/CMAKE_x64/Release/textures
+  cd /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build
+  /opt/homebrew/bin/cmake -E copy_directory_if_different /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Meshes  /Users/josephsilverman/Developer/Vulkan-Study-Renderer/CMAKE_x64/Release/Meshes
+  cd /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build
+  /opt/homebrew/bin/cmake -E copy_directory_if_different /Users/josephsilverman/Developer/Vulkan-Study-Renderer/dll  /Users/josephsilverman/Developer/Vulkan-Study-Renderer/CMAKE_x64/Release/dll
+fi
+if test "$CONFIGURATION" = "MinSizeRel"; then :
+  cd /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build
+  /opt/homebrew/bin/cmake -E copy_directory_if_different /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Shaders  
+  cd /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build
+  /opt/homebrew/bin/cmake -E copy_directory_if_different /Users/josephsilverman/Developer/Vulkan-Study-Renderer/textures  
+  cd /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build
+  /opt/homebrew/bin/cmake -E copy_directory_if_different /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Meshes  
+  cd /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build
+  /opt/homebrew/bin/cmake -E copy_directory_if_different /Users/josephsilverman/Developer/Vulkan-Study-Renderer/dll  
+fi
+if test "$CONFIGURATION" = "RelWithDebInfo"; then :
+  cd /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build
+  /opt/homebrew/bin/cmake -E copy_directory_if_different /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Shaders  
+  cd /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build
+  /opt/homebrew/bin/cmake -E copy_directory_if_different /Users/josephsilverman/Developer/Vulkan-Study-Renderer/textures  
+  cd /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build
+  /opt/homebrew/bin/cmake -E copy_directory_if_different /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Meshes  
+  cd /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build
+  /opt/homebrew/bin/cmake -E copy_directory_if_different /Users/josephsilverman/Developer/Vulkan-Study-Renderer/dll  
+fi
+

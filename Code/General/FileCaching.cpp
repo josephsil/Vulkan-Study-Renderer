@@ -15,22 +15,46 @@
 
 //Needs rewrite, this was one of my first 'learning cpp' files
 
-std::wstring WidenString(std::string s);
+std::string WidenString(std::string s);
+
 bool FileCaching::FileExists(std::string_view assetPath)
 {
     return FileExists(WidenString(std::string(assetPath)));
 }
 
-bool FileCaching::FileExists(std::wstring_view assetPath)
+bool FileCaching::FileExists(platform_string assetPath)
 {
     struct stat buf;
     return (STAT(assetPath.data(), &buf) == 0);
 }
 
+#ifdef _WIN32
+
+const wchar_t* suffix = L".modified";
+#else
+
+const char* suffix = ".modified";
+#endif
+
+size_t _strlen(char* p)
+{
+#ifdef _WIN32
+return strnlen_s(p, 1024) / sizeof(char); //-1 for null terminator
+#else
+return strnlen(p, 1024) / sizeof(char);
+#endif
+}
+#ifdef _WIN32
 std::wstring WidenString(std::string s)
 {
     return std::wstring(CA2W(std::string(s).c_str()));
 }
+#else
+std::string WidenString(std::string s)
+{
+    return std::string(s);
+}
+#endif
 uint32_t FileCaching::GetCacheImageSuffixLen()
 {
 	return sizeof(FileCaching::cacheImageSuffix);
@@ -38,7 +62,8 @@ uint32_t FileCaching::GetCacheImageSuffixLen()
 }
 std::span<char> FileCaching::GetImagePathWithCacheSuffix(char* sourcePath, std::span<char> targetMemory)
 {
-	auto str_chars = (strnlen_s(sourcePath, 1024) / sizeof(char)); //-1 for null terminator 
+    
+	auto str_chars = _strlen(sourcePath); //-1 for null terminator
 	auto oldPathSpan = fmt::basic_string_view(sourcePath, str_chars);
 	uint32_t _size = (uint32_t)fmt::format_to_n(targetMemory.begin(), targetMemory.size(), "{}{}", 
 												oldPathSpan, cacheImageSuffix).size;
@@ -59,7 +84,7 @@ bool IsCachedKTX(std::span<char> sourcePath)
 bool FileCaching::TryGetKTXCachedPath(ArenaAllocator arena, const char* path, std::span<char>& ktxPath)
 {
 	char* _path = const_cast<char*>(path);
-	auto str_chars = strnlen_s(_path, 1024) / sizeof(char);
+	auto str_chars = _strlen(_path);
 	std::span<char> cachedKTXPath =  std::span(_path, str_chars);
 	if (!IsCachedKTX({_path, str_chars}))
 	{
@@ -73,12 +98,12 @@ bool FileCaching::TryGetKTXCachedPath(ArenaAllocator arena, const char* path, st
     
 }
 
-void FileCaching::SaveAssetChangedTime(std::string_view assetPath)
+void FileCaching::SaveAssetChangedTime_Narrow(std::string assetPath)
 {
-    SaveAssetChangedTime(WidenString(std::string(assetPath)));
+    SaveAssetChangedTime(WidenString((assetPath)));
 }
 
-void FileCaching::SaveAssetChangedTime(std::wstring_view assetPath)
+void FileCaching::SaveAssetChangedTime(platform_stringview assetPath)
 {
     struct stat result;
     if (STAT(assetPath.data(), &result) != 0)
@@ -90,9 +115,9 @@ void FileCaching::SaveAssetChangedTime(std::wstring_view assetPath)
 
 
     //TODO: Better modified path, which we can copy separately in build step (rather than placing modified files adjacent to source files)
-    std::wstring assetTimePath = std::wstring(assetPath) + L".modified";
+    platform_string assetTimePath = platform_string(assetPath) + suffix;
 
-    int size = result.st_size / sizeof(byte);
+    size_t size = result.st_size / sizeof(std::byte);
     std::ofstream myFile(assetTimePath, std::ifstream::in | std::ifstream::out | std::ifstream::trunc);
     myFile << modifiedTime;
 
@@ -100,23 +125,23 @@ void FileCaching::SaveAssetChangedTime(std::wstring_view assetPath)
 }
 
 
-bool FileCaching::IsAssetOutOfDate(std::string_view assetPath)
+bool FileCaching::IsAssetOutOfDate_Narrow(std::string_view assetPath)
 {
     return IsAssetOutOfDate(WidenString(std::string(assetPath)));
 }
 
-long long ReadModifiedTime(std::wstring_view assetPath)
+long long ReadModifiedTime(platform_stringview assetPath)
 {
 
     //TODO: Better modified path, which we can copy separately in build step (rather than placing modified files adjacent to source files)
-    std::wstring assetTimePath = std::wstring(assetPath) + L".modified";
+    platform_string assetTimePath = platform_string(assetPath) + suffix;
     struct stat result;
     if (STAT(assetTimePath.data(), &result) != 0)
     {
         return true;
     }
 
-    int size = result.st_size / sizeof(unsigned char);
+    size_t size = result.st_size / sizeof(unsigned char);
     std::ifstream myFile(assetTimePath.data(), std::ifstream::in | std::ifstream::out);
     if (!myFile.is_open())
     {
@@ -134,14 +159,14 @@ long long ReadModifiedTime(std::wstring_view assetPath)
     return savedTime;
 }
 
-bool FileCaching::CompareAssetAge(std::wstring_view assetNewer, std::wstring_view assetOlder)
+bool FileCaching::CompareAssetAge(platform_stringview assetNewer, platform_stringview assetOlder)
 {
     return ReadModifiedTime(assetNewer) > ReadModifiedTime(assetOlder);
 }
 
-void FileCaching::UpdateModified(std::wstring_view path)
+void FileCaching::UpdateModified(platform_stringview path)
 {
-    utimebuf new_times;
+    utimbuf new_times;
     struct stat result;
     STAT(path.data(), &result);
     new_times.actime = result.st_atime;
@@ -149,7 +174,7 @@ void FileCaching::UpdateModified(std::wstring_view path)
     UTIME(path.data(), &new_times);
 }
 
-bool FileCaching::IsAssetOutOfDate(std::wstring_view assetPath)
+bool FileCaching::IsAssetOutOfDate(platform_stringview assetPath)
 {
     assert(assetPath.data() != nullptr);
     //Last changed check 

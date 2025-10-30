@@ -21,12 +21,15 @@
 
 #include <Renderer/rendererGlobals.h>
 
+#ifndef _WIN32 // apple
+#include <codecvt>
+#endif
 
 
 struct shaderPaths
 {
-    std::wstring path;
-    std::span<std::span<wchar_t>> includePaths;
+    platform_string path;
+    std::span<std::span<platform_char>> includePaths;
 };
 
 ShaderLoader::ShaderLoader(VkDevice device)
@@ -34,31 +37,83 @@ ShaderLoader::ShaderLoader(VkDevice device)
     device_ = device;
 }
 
-#ifdef _WIN32 
 
-void OPENFN(FILE** f, wchar_t* path, const wchar_t* mode)
+
+
+
+
+const struct Platform
 {
-	_wfopen_s(f, path, mode);
-	
-}
-#else // apple 
-void OPENFN(FILE** f, wchar_t* path, const wchar_t* mode)
-{
-	FILE* _f = fopen(path, mode);
-	f = &_f;
-}
+#ifdef _WIN32
+    static const platform_char* suffix;
+#else
+    static const char* suffix;
+#endif
 
-#endif 
+    static void OPEN_WSTRING(FILE** f,std::wstring shaderPath)
+    {
+#ifdef _WIN32
+    OPENFN(f, (platform_char*)shaderPath.c_str());
+    
+#else // apple
+        auto convertedStr =convert_platform_str(shaderPath);
+        char* _c = const_cast<char*>(convertedStr.c_str());
+        OPENFN(f, _c);
+#endif
+    }
+    
+#ifdef _WIN32
+    static void OPENFN(FILE** f, platform_char* path)
+    {
+        _wfopen_s(f, path, L"r");
+    }
+    
+    static std::wstring convert_platform_str(std::wstring path) {
+        return path;
+    }
+    
+#else
+    
+    static std::string convert_platform_str(std::wstring path) {
+        std::wstring_convert<std::codecvt_utf8<platform_char>,platform_char> convert;
 
-std::span<std::span<wchar_t>> parseShaderIncludeStrings(MemoryArena::Allocator* tempArena, std::wstring shaderPath)
+        std::string s = convert.to_bytes(path.c_str());
+        return s;
+    }
+    
+    static void OPENFN(FILE** f, platform_char* path)
+    {
+        FILE* _f = fopen(path, "r");
+        f = &_f;
+    }
+#endif
+    
+};
+
+#ifdef _WIN32
+    const platform_char* Platform::suffix =  L".compiled";
+#else
+    const char* Platform::suffix  =  ".compiled";
+#endif
+
+
+
+
+
+
+
+
+std::span<std::span<platform_char>> parseShaderIncludeStrings(MemoryArena::Allocator* tempArena, platform_string shaderPath)
 {
     uint32_t MAX_INCLUDES = 10; //arbitrary
     FILE* f;
-	OPENFN(&f, (wchar_t*)shaderPath.c_str(), L"r");
     
 
-    std::span<std::span<wchar_t>> strings = MemoryArena::AllocSpan<std::span<wchar_t>>(tempArena, MAX_INCLUDES);
-    std::span<wchar_t> includeTest = MemoryArena::AllocSpan<wchar_t>(tempArena, 7);
+    Platform::OPENFN(&f, const_cast<char*>(shaderPath.c_str()));
+
+
+    std::span<std::span<platform_char>> strings = MemoryArena::AllocSpan<std::span<platform_char>>(tempArena, MAX_INCLUDES);
+    std::span<platform_char> includeTest = MemoryArena::AllocSpan<platform_char>(tempArena, 7);
 
     constexpr char includeTemplate[] = "#include";
     char c;
@@ -99,7 +154,7 @@ std::span<std::span<wchar_t>> parseShaderIncludeStrings(MemoryArena::Allocator* 
                 if (quotesCount == 2)
                 {
                     //at end quote
-                    strings[stringsCt++] = MemoryArena::AllocSpan<wchar_t>(tempArena, includeLength);
+                    strings[stringsCt++] = MemoryArena::AllocSpan<platform_char>(tempArena, includeLength);
                     fseek(f, -(includeLength + 1), SEEK_CUR);
                     for (int j = 0; j < includeLength; j++)
                     {
@@ -129,7 +184,7 @@ std::span<std::span<wchar_t>> parseShaderIncludeStrings(MemoryArena::Allocator* 
     return strings.subspan(0, stringsCt); // truncate unused space
 }
 
-void copySubstring(std::span<wchar_t> sourceA, std::span<wchar_t> sourceB, std::span<wchar_t> tgt)
+void copySubstring(std::span<platform_char> sourceA, std::span<platform_char> sourceB, std::span<platform_char> tgt)
 {
     assert(tgt.size() <= sourceA.size() + sourceB.size());
     size_t headLength = sourceA.size();
@@ -147,11 +202,11 @@ void copySubstring(std::span<wchar_t> sourceA, std::span<wchar_t> sourceB, std::
 
 struct shaderIncludeInfo
 {
-    std::span<wchar_t> path;
+    std::span<platform_char> path;
     bool visited;
 };
 
-std::span<std::span<wchar_t>> findShaderIncludes(MemoryArena::Allocator* allocator, std::wstring shaderPath)
+std::span<std::span<platform_char>> findShaderIncludes(MemoryArena::Allocator* allocator, platform_string shaderPath)
 {
     size_t filenameStart = 0;
     for (int i = static_cast<int>(shaderPath.length()); i > 0; i--)
@@ -167,7 +222,7 @@ std::span<std::span<wchar_t>> findShaderIncludes(MemoryArena::Allocator* allocat
         }
     }
     constexpr int MAX_INCLUDES = 30;
-    std::span<std::span<wchar_t>> outputIncludes = MemoryArena::AllocSpan<std::span<wchar_t>>(allocator, MAX_INCLUDES);
+    std::span<std::span<platform_char>> outputIncludes = MemoryArena::AllocSpan<std::span<platform_char>>(allocator, MAX_INCLUDES);
     auto allIncludes = Array(MemoryArena::AllocSpan<shaderIncludeInfo>(allocator, MAX_INCLUDES));
     allIncludes.push_back({shaderPath, false});
     int idx = 0;
@@ -175,16 +230,16 @@ std::span<std::span<wchar_t>> findShaderIncludes(MemoryArena::Allocator* allocat
     //Recursively gather includes 
     while (idx < allIncludes.ct && allIncludes[idx].visited == false)
     {
-        std::span<std::span<wchar_t>> includes = parseShaderIncludeStrings(allocator, allIncludes[idx].path.data());
+        std::span<std::span<platform_char>> includes = parseShaderIncludeStrings(allocator, allIncludes[idx].path.data());
         idx++;
         for (int i = 0; i < includes.size(); i++)
         {
             bool alreadyVisited = false;
 
             auto cursor = MemoryArena::GetCurrentOffset(allocator);
-            std::span<wchar_t> newPath = MemoryArena::AllocSpan<wchar_t>(allocator, filenameStart + includes[i].size());
+            std::span<platform_char> newPath = MemoryArena::AllocSpan<platform_char>(allocator, filenameStart + includes[i].size());
 
-            copySubstring(std::span<wchar_t>(shaderPath).subspan(0, filenameStart), includes[i], newPath);
+            copySubstring(std::span<platform_char>(shaderPath).subspan(0, filenameStart), includes[i], newPath);
             includes[i] = newPath;
             for (int j = 0; j < allIncludes.ct; j++)
             {
@@ -248,7 +303,10 @@ bool ShaderNeedsReciompiled(shaderPaths shaderPath)
 
 bool SaveBlobToDisk(std::wstring shaderPath, SIZE_T size, uint32_t* buffer)
 {
-    std::wstring compiledShaderPath = shaderPath + L".compiled";
+    
+
+    auto compiledShaderPath = Platform::convert_platform_str(shaderPath)  + Platform::suffix;
+
 
     std::ofstream myFile(compiledShaderPath,
                          std::ifstream::in | std::ifstream::out | std::ifstream::trunc | std::ios::binary);
@@ -274,7 +332,7 @@ struct loadedBlob
 
 loadedBlob LoadBlobFromDisk(std::wstring shaderPath)
 {
-    std::wstring compiledShaderPath = shaderPath + L".compiled";
+    auto compiledShaderPath = Platform::convert_platform_str(shaderPath) + Platform::suffix;
 
     struct stat result;
     if (STAT(compiledShaderPath.c_str(), &result) != 0)
@@ -299,7 +357,7 @@ loadedBlob LoadBlobFromDisk(std::wstring shaderPath)
     return blob;
 }
 
-void ShaderLoader::AddShader(const char* name, std::wstring shaderPath, bool compute)
+void ShaderLoader::AddShader(const char* name, platform_string shaderPath, bool compute)
 {
     MemoryArena::Allocator scratch;
     MemoryArena::Initialize(&scratch, 80000);
@@ -357,7 +415,7 @@ void ShaderLoader::AddShader(const char* name, std::wstring shaderPath, bool com
 }
 
 
-void ShaderLoader::shaderCompile(std::wstring shaderFilename, shaderType stagetype)
+void ShaderLoader::shaderCompile(platform_string shaderFilename, shaderType stagetype)
 {
     HRESULT hres;
     auto filename = shaderFilename;

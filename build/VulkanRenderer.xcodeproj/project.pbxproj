@@ -1,0 +1,1059 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		2240937BF726477261919C83 /* ALL_BUILD */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = D616E084C9F445258EA923B3 /* Build configuration list for PBXAggregateTarget "ALL_BUILD" */;
+			buildPhases = (
+				83107F8B2914E025361628E8 /* Generate CMakeFiles/ALL_BUILD */,
+			);
+			dependencies = (
+				398B5C757D6A4BB3AC101583 /* PBXTargetDependency */,
+				306DA93C23B447CFAEA29682 /* PBXTargetDependency */,
+			);
+			name = ALL_BUILD;
+			productName = ALL_BUILD;
+		};
+		DB819F5F27FEF4E98FCB0B33 /* ZERO_CHECK */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 7DD5C4B1B7184F6B97473D53 /* Build configuration list for PBXAggregateTarget "ZERO_CHECK" */;
+			buildPhases = (
+				23ED3722F38987C290B57766 /* Generate CMakeFiles/ZERO_CHECK */,
+			);
+			dependencies = (
+			);
+			name = ZERO_CHECK;
+			productName = ZERO_CHECK;
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildFile section */
+		011EEDA577604711AB32426E /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MikkTImpl.cpp */ = {isa = PBXBuildFile; fileRef = 09D7BD0EC6E94322BC654298 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MikkTImpl.cpp */; };
+		04E7BDE3FCBF4823A978B3FF /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/TextureCreation/TextureData.cpp */ = {isa = PBXBuildFile; fileRef = 249708FAFE1C432DACA36FF1 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/TextureCreation/TextureData.cpp */; };
+		052B9BB66DCC41A7BC0125C6 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/vfetchoptimizer.cpp */ = {isa = PBXBuildFile; fileRef = 971D956FD7C04CCE9EF4AFD0 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/vfetchoptimizer.cpp */; };
+		061DB19D40034ECFA36E16A5 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui/imgui.cpp */ = {isa = PBXBuildFile; fileRef = EA6B4FEEA7314E9F902842B3 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui/imgui.cpp */; };
+		06551C78DEA54436B4250A30 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui/imgui_widgets.cpp */ = {isa = PBXBuildFile; fileRef = E64D9FC53A6D411EB45EB8A6 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui/imgui_widgets.cpp */; };
+		07F4CBE59E0B410286A02338 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/General/LinearDictionary.cpp */ = {isa = PBXBuildFile; fileRef = 553C31EAAD324003850F6CB5 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/General/LinearDictionary.cpp */; };
+		0B0EB36A956D401F8B9E86BD /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui/imgui_draw.cpp */ = {isa = PBXBuildFile; fileRef = 79C9D7C57FCC4645A2E376DB /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui/imgui_draw.cpp */; };
+		0CDEFE635AEA48D7A0B90CFA /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/General/Algorithms.cpp */ = {isa = PBXBuildFile; fileRef = 5CACDAB6B59141B38BE390E8 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/General/Algorithms.cpp */; };
+		0ED06CD5FCED43A6B6AC53AC /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/VulkanIncludes/VulkanMemory.cpp */ = {isa = PBXBuildFile; fileRef = C7CB2D4C8A004D508F88ECF5 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/VulkanIncludes/VulkanMemory.cpp */; };
+		12EF63D607FF4B06B0EA78C5 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/clusterizer.cpp */ = {isa = PBXBuildFile; fileRef = 148F8B24B00E46D28CE114DB /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/clusterizer.cpp */; };
+		132F77D920A54860B1DC14F6 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/General/MemoryArena.cpp */ = {isa = PBXBuildFile; fileRef = 8317A57096814387AC403721 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/General/MemoryArena.cpp */; };
+		172E633367BA47579DA52592 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/vcacheoptimizer.cpp */ = {isa = PBXBuildFile; fileRef = 1FA952E6ADBC4C3BB7A1F162 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/vcacheoptimizer.cpp */; };
+		260745BEB98C434DBAA8ACB1 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/VulkanRenderer.cpp */ = {isa = PBXBuildFile; fileRef = 9468F5502CC646AFBCCAF8B1 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/VulkanRenderer.cpp */; };
+		267F5003ACD0449CA7C74058 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/glm_misc.cpp */ = {isa = PBXBuildFile; fileRef = 7BB66FC18E7A456ABC053B82 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/glm_misc.cpp */; };
+		26FAC112B3F84AD98856328D /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/rendererGlobals.cpp */ = {isa = PBXBuildFile; fileRef = 3CE408ECB1CA4498A0858FE4 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/rendererGlobals.cpp */; };
+		29462144C1104B299C8DAF64 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/CMakeLists.txt */ = {isa = PBXBuildFile; fileRef = AF66C99B55404322A4FC3CF8 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/CMakeLists.txt */; };
+		2EB7BC65EC4A4F9C84FEDF11 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Scene/Scene.cpp */ = {isa = PBXBuildFile; fileRef = 15BFA455D69E49C7A6045250 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Scene/Scene.cpp */; };
+		3B663FC14DBD4EA29723B014 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MeshCreation/MeshData.cpp */ = {isa = PBXBuildFile; fileRef = 27FDD6E220464864A46ECC6B /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MeshCreation/MeshData.cpp */; };
+		3EA18AD2E06D4693B08BD218 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui/backends/imgui_impl_sdl2.cpp */ = {isa = PBXBuildFile; fileRef = D30045C590A74DD0B37F751F /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui/backends/imgui_impl_sdl2.cpp */; };
+		4024A9CEB47F45A68D8AC28E /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/Vertex.cpp */ = {isa = PBXBuildFile; fileRef = 071B4AF208194CBA85F48482 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/Vertex.cpp */; };
+		42174FE6CBD142E8BB0FF8F7 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/TextureCreation/Internal/TextureCreationUtilities.cpp */ = {isa = PBXBuildFile; fileRef = C8AE7CE50C1D4BA599441C6B /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/TextureCreation/Internal/TextureCreationUtilities.cpp */; };
+		465D8703C39A47AD9D168B6B /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/General/ThreadedTextureLoading.cpp */ = {isa = PBXBuildFile; fileRef = 6287B2A5434C4035946EAB0F /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/General/ThreadedTextureLoading.cpp */; };
+		4B389C17FF1E47F29E3FDACA /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/VulkanBuffers/bufferCreation.cpp */ = {isa = PBXBuildFile; fileRef = 3062184C1B2B46DAB2299AE3 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/VulkanBuffers/bufferCreation.cpp */; };
+		51927A529DCC4AE8835AB854 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/gltf/gltfLoading.cpp */ = {isa = PBXBuildFile; fileRef = F14F30508E8B46588588463E /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/gltf/gltfLoading.cpp */; };
+		5876ECCA7F654348B1BE2FF5 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/quantization.cpp */ = {isa = PBXBuildFile; fileRef = 515D480B8E51448F8BCD220E /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/quantization.cpp */; };
+		624E0F21E87C4A0CBC826F93 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/VulkanRendererInternals/DebugLineData.cpp */ = {isa = PBXBuildFile; fileRef = 114DD2D103C54E619B2AD423 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/VulkanRendererInternals/DebugLineData.cpp */; };
+		652A82FFA435433FA1638CAE /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Scene/AssetManager.cpp */ = {isa = PBXBuildFile; fileRef = 2306A942C3E8401D9077885F /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Scene/AssetManager.cpp */; };
+		652AF1A0EAA949DEA2376D37 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/weldmesh.c */ = {isa = PBXBuildFile; fileRef = E4B636BBA13B4CDFBCDEC3A5 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/weldmesh.c */; };
+		6CF76BF39CDC4C74BBC31E65 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/indexgenerator.cpp */ = {isa = PBXBuildFile; fileRef = 3BA9B9635A214955AD1D891A /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/indexgenerator.cpp */; };
+		6E65920BFFF947B9AEF1A083 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/vulkanRenderer_Initialization.cpp */ = {isa = PBXBuildFile; fileRef = 2028FD38A2614D938D5DC205 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/vulkanRenderer_Initialization.cpp */; };
+		71FBABDD7B3B45C5A5CCCD01 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui/imgui_tables.cpp */ = {isa = PBXBuildFile; fileRef = 3DEB711E926449198EBFCEA7 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui/imgui_tables.cpp */; };
+		798CB422C4474B14BE724D7C /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MeshCreation/RunMeshOptimizer.cpp */ = {isa = PBXBuildFile; fileRef = 5CBA401DA35847C7BDF6997E /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MeshCreation/RunMeshOptimizer.cpp */; };
+		84280B3A12C840998E31AE0E /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/RendererDeletionQueue.cpp */ = {isa = PBXBuildFile; fileRef = F5D4701F5CF04928959349E2 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/RendererDeletionQueue.cpp */; };
+		84A0A251C3E14C53AC652893 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/overdrawanalyzer.cpp */ = {isa = PBXBuildFile; fileRef = F2AE56A642944BEC85676957 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/overdrawanalyzer.cpp */; };
+		88C70828128B4E9CA8ABB16F /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/VulkanRendererInternals/LightAndCameraHelpers.cpp */ = {isa = PBXBuildFile; fileRef = 5BA25C808ADF46BAB34328E7 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/VulkanRendererInternals/LightAndCameraHelpers.cpp */; };
+		8B81790BE0B743D2B7CE4D95 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/ObjectImport.cpp */ = {isa = PBXBuildFile; fileRef = 9FA7BE859C884FD895EF1582 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/ObjectImport.cpp */; };
+		8C679E966B3B4F17B6D2624A /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/PipelineManager/Internal/PipelineLayoutGroup.cpp */ = {isa = PBXBuildFile; fileRef = BDF4DD0FAAD349699EB25FAD /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/PipelineManager/Internal/PipelineLayoutGroup.cpp */; };
+		8FF590E33D3247DBB65A4AE8 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/VulkanIncludes/vmaImplementation.cpp */ = {isa = PBXBuildFile; fileRef = DA4060E049E540F9A6720C85 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/VulkanIncludes/vmaImplementation.cpp */; };
+		93BA234C078C4A4AA3416E40 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/mikktspace.c */ = {isa = PBXBuildFile; fileRef = D4CBB923F0774AEBA52D27FA /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/mikktspace.c */; };
+		9A312DADE88E44C784599DD3 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/PipelineManager/PipelineLayoutManager.cpp */ = {isa = PBXBuildFile; fileRef = 6291D4D96BE8432CB7210896 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/PipelineManager/PipelineLayoutManager.cpp */; };
+		9F7340FB9A62477DB9CF7FCC /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/indexcodec.cpp */ = {isa = PBXBuildFile; fileRef = 15899C437C92471A94D090CD /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/indexcodec.cpp */; };
+		A3E02BACC1044AE68F83B198 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/General/FileCaching.cpp */ = {isa = PBXBuildFile; fileRef = 11C591DB5A55434CBF92C693 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/General/FileCaching.cpp */; };
+		A7A91715880042209471C529 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/VulkanRendererInternals/RendererHelpers.cpp */ = {isa = PBXBuildFile; fileRef = 0BAD00C5F25F43E7B9004408 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/VulkanRendererInternals/RendererHelpers.cpp */; };
+		A9A59671C3274312A525A39C /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/overdrawoptimizer.cpp */ = {isa = PBXBuildFile; fileRef = 7A9A86D9C59F4B80A5ED8570 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/overdrawoptimizer.cpp */; };
+		A9CC0EE87D0840C6A118CB68 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui/backends/imgui_impl_vulkan.cpp */ = {isa = PBXBuildFile; fileRef = 5F219FB163BA40E3A6E75655 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui/backends/imgui_impl_vulkan.cpp */; };
+		B22D4E8E090E4026B6671E19 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/simplifier.cpp */ = {isa = PBXBuildFile; fileRef = 4C81D56A7BFF4170858E35C4 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/simplifier.cpp */; };
+		B711ACFC65EB49A881DD6431 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/gltf/gltf_impl.cpp */ = {isa = PBXBuildFile; fileRef = 27BB202A4AE94BF8B900157D /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/gltf/gltf_impl.cpp */; };
+		BD2B905F6D874553A1D7504C /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui/imgui_demo.cpp */ = {isa = PBXBuildFile; fileRef = 8F58FDDA246344CF88085161 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui/imgui_demo.cpp */; };
+		BF3F2786A7704DA68FB8A0DB /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/allocator.cpp */ = {isa = PBXBuildFile; fileRef = 53E259F41A0C40BC8155D3BA /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/allocator.cpp */; };
+		BFA0E690151D426FB40A6848 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/vcacheanalyzer.cpp */ = {isa = PBXBuildFile; fileRef = F6B227D0915F49678ABB8F56 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/vcacheanalyzer.cpp */; };
+		C01880CFEA4248AD9AFC91C6 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/vkbootstrap/VkBootstrap.cpp */ = {isa = PBXBuildFile; fileRef = E1F4ECEDF32A4074B699BD11 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/vkbootstrap/VkBootstrap.cpp */; };
+		C434ED02F786465896173EBF /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/vertexcodec.cpp */ = {isa = PBXBuildFile; fileRef = 85D4EA4B755F4AAE881267A7 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/vertexcodec.cpp */; };
+		C943F2C28F6F4C9DAA9D142F /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/General/ThreadPool.cpp */ = {isa = PBXBuildFile; fileRef = CD807B1C3E4B42319F185476 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/General/ThreadPool.cpp */; };
+		CC65D2CEEC8047EEAD95E244 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/game.cpp */ = {isa = PBXBuildFile; fileRef = D3FE472B77E042F3BF222D65 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/game.cpp */; };
+		CE6FCD55E7CD4B5B843AE2A4 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/vfetchanalyzer.cpp */ = {isa = PBXBuildFile; fileRef = E1DBCDAE647E4193AD625993 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/vfetchanalyzer.cpp */; };
+		CE790711DD2A49598FDF12A0 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/ImageLibraryImplementations.cpp */ = {isa = PBXBuildFile; fileRef = B8E30C16EEAB45488373EB82 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/ImageLibraryImplementations.cpp */; };
+		D5DB4A63843A45679BAF0020 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/vulkan-utilities.cpp */ = {isa = PBXBuildFile; fileRef = A61C3F7B0D7240DCAD82FC01 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/vulkan-utilities.cpp */; };
+		DB9B2842E9D9448D99BD1263 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/Shaders/ShaderLoading.cpp */ = {isa = PBXBuildFile; fileRef = E102C609BE0D44FE98AE6C39 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/Shaders/ShaderLoading.cpp */; };
+		E3784A658DAE4B4D87C44B27 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/MeshLibraryImplementations.cpp */ = {isa = PBXBuildFile; fileRef = 54AF076E002D4A759F2B25CC /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/MeshLibraryImplementations.cpp */; };
+		E6437D14816C42BC8053E5FB /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/CommandPoolManager.cpp */ = {isa = PBXBuildFile; fileRef = B16796D6E62F48CCA2F748CE /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/CommandPoolManager.cpp */; };
+		E86AAB0CBEA34FC89746DAA1 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/VulkanRendererInternals/DrawBatches.cpp */ = {isa = PBXBuildFile; fileRef = 417D85974C3540059CCA480F /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/VulkanRendererInternals/DrawBatches.cpp */; };
+		E9CE45EF3A2B42FEB3043C30 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/General/InputHandling.cpp */ = {isa = PBXBuildFile; fileRef = F33B8BF019A545C3963F277F /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/General/InputHandling.cpp */; };
+		EEEDE47F01494095BE2AD49B /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/stripifier.cpp */ = {isa = PBXBuildFile; fileRef = 10C54140CE864F3CA11A3BC0 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/stripifier.cpp */; };
+		F25321813EF649CC8E7C668D /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/General/PrototypeThreadWorker.cpp */ = {isa = PBXBuildFile; fileRef = CC62EF19ADFE4C7381D4E3AC /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/General/PrototypeThreadWorker.cpp */; };
+		F405274A80A8479A95C4E569 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/vertexfilter.cpp */ = {isa = PBXBuildFile; fileRef = 81883E7B29B34F56AA89F192 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/vertexfilter.cpp */; };
+		F82F2F9F110F4F99B72BBD7F /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Scene/Transforms.cpp */ = {isa = PBXBuildFile; fileRef = DE284319EEED4A3D86EA5D69 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Scene/Transforms.cpp */; };
+		FD4DCCC65FBC4257AAF86C3F /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/spatialorder.cpp */ = {isa = PBXBuildFile; fileRef = 34856F5B88EE4DF4A59B8E03 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/spatialorder.cpp */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXBuildStyle section */
+		550C0BAB85AD4AE6A6D962B7 /* Release */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+			};
+			name = Release;
+		};
+		6AFD7B9F683F4AA2B2510581 /* RelWithDebInfo */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+			};
+			name = RelWithDebInfo;
+		};
+		75C3A0A49C8042F5B65F0F67 /* MinSizeRel */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+			};
+			name = MinSizeRel;
+		};
+		862A61650FB7454AB440762E /* Debug */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+			};
+			name = Debug;
+		};
+/* End PBXBuildStyle section */
+
+/* Begin PBXContainerItemProxy section */
+		20F0D3D003814500B5027D2D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4BBDEEB2CE9345CAB3C20B0B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = DB819F5F27FEF4E98FCB0B33;
+			remoteInfo = ZERO_CHECK;
+		};
+		8BA1EB4A8CAA425EAA606367 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4BBDEEB2CE9345CAB3C20B0B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = ABF330B21CAFE9819E36BB20;
+			remoteInfo = VulkanRenderer;
+		};
+		EA09D9BD3C03493B844F41D8 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4BBDEEB2CE9345CAB3C20B0B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = DB819F5F27FEF4E98FCB0B33;
+			remoteInfo = ZERO_CHECK;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		071B4AF208194CBA85F48482 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/Vertex.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = Vertex.cpp; path = Code/Renderer/Vertex.cpp; sourceTree = SOURCE_ROOT; };
+		09D7BD0EC6E94322BC654298 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MikkTImpl.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = MikkTImpl.cpp; path = Code/Renderer/MikkTImpl.cpp; sourceTree = SOURCE_ROOT; };
+		0BAD00C5F25F43E7B9004408 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/VulkanRendererInternals/RendererHelpers.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = RendererHelpers.cpp; path = Code/Renderer/MainRenderer/VulkanRendererInternals/RendererHelpers.cpp; sourceTree = SOURCE_ROOT; };
+		10C54140CE864F3CA11A3BC0 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/stripifier.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = stripifier.cpp; path = External/meshoptimizer/src/stripifier.cpp; sourceTree = SOURCE_ROOT; };
+		114DD2D103C54E619B2AD423 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/VulkanRendererInternals/DebugLineData.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = DebugLineData.cpp; path = Code/Renderer/MainRenderer/VulkanRendererInternals/DebugLineData.cpp; sourceTree = SOURCE_ROOT; };
+		11C591DB5A55434CBF92C693 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/General/FileCaching.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = FileCaching.cpp; path = Code/General/FileCaching.cpp; sourceTree = SOURCE_ROOT; };
+		12A6BC5A2B5341B4B8AE360D /* VulkanRenderer */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; path = VulkanRenderer; sourceTree = BUILT_PRODUCTS_DIR; };
+		148F8B24B00E46D28CE114DB /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/clusterizer.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = clusterizer.cpp; path = External/meshoptimizer/src/clusterizer.cpp; sourceTree = SOURCE_ROOT; };
+		15899C437C92471A94D090CD /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/indexcodec.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = indexcodec.cpp; path = External/meshoptimizer/src/indexcodec.cpp; sourceTree = SOURCE_ROOT; };
+		15BFA455D69E49C7A6045250 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Scene/Scene.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = Scene.cpp; path = Code/Scene/Scene.cpp; sourceTree = SOURCE_ROOT; };
+		1FA952E6ADBC4C3BB7A1F162 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/vcacheoptimizer.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = vcacheoptimizer.cpp; path = External/meshoptimizer/src/vcacheoptimizer.cpp; sourceTree = SOURCE_ROOT; };
+		2028FD38A2614D938D5DC205 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/vulkanRenderer_Initialization.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = vulkanRenderer_Initialization.cpp; path = Code/Renderer/MainRenderer/vulkanRenderer_Initialization.cpp; sourceTree = SOURCE_ROOT; };
+		2306A942C3E8401D9077885F /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Scene/AssetManager.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = AssetManager.cpp; path = Code/Scene/AssetManager.cpp; sourceTree = SOURCE_ROOT; };
+		249708FAFE1C432DACA36FF1 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/TextureCreation/TextureData.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = TextureData.cpp; path = Code/Renderer/TextureCreation/TextureData.cpp; sourceTree = SOURCE_ROOT; };
+		27BB202A4AE94BF8B900157D /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/gltf/gltf_impl.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = gltf_impl.cpp; path = Code/Renderer/gltf/gltf_impl.cpp; sourceTree = SOURCE_ROOT; };
+		27FDD6E220464864A46ECC6B /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MeshCreation/MeshData.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = MeshData.cpp; path = Code/Renderer/MeshCreation/MeshData.cpp; sourceTree = SOURCE_ROOT; };
+		3062184C1B2B46DAB2299AE3 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/VulkanBuffers/bufferCreation.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = bufferCreation.cpp; path = Code/Renderer/VulkanBuffers/bufferCreation.cpp; sourceTree = SOURCE_ROOT; };
+		34856F5B88EE4DF4A59B8E03 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/spatialorder.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = spatialorder.cpp; path = External/meshoptimizer/src/spatialorder.cpp; sourceTree = SOURCE_ROOT; };
+		3BA9B9635A214955AD1D891A /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/indexgenerator.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = indexgenerator.cpp; path = External/meshoptimizer/src/indexgenerator.cpp; sourceTree = SOURCE_ROOT; };
+		3CE408ECB1CA4498A0858FE4 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/rendererGlobals.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = rendererGlobals.cpp; path = Code/Renderer/rendererGlobals.cpp; sourceTree = SOURCE_ROOT; };
+		3DEB711E926449198EBFCEA7 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui/imgui_tables.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = imgui_tables.cpp; path = External/imgui/imgui_tables.cpp; sourceTree = SOURCE_ROOT; };
+		417D85974C3540059CCA480F /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/VulkanRendererInternals/DrawBatches.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = DrawBatches.cpp; path = Code/Renderer/MainRenderer/VulkanRendererInternals/DrawBatches.cpp; sourceTree = SOURCE_ROOT; };
+		42D28E205A2349A49CA21AC7 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/CMakeLists.txt */ = {isa = PBXFileReference; explicitFileType = sourcecode.text; fileEncoding = 4; name = CMakeLists.txt; path = CMakeLists.txt; sourceTree = SOURCE_ROOT; };
+		4C81D56A7BFF4170858E35C4 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/simplifier.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = simplifier.cpp; path = External/meshoptimizer/src/simplifier.cpp; sourceTree = SOURCE_ROOT; };
+		515D480B8E51448F8BCD220E /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/quantization.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = quantization.cpp; path = External/meshoptimizer/src/quantization.cpp; sourceTree = SOURCE_ROOT; };
+		53E259F41A0C40BC8155D3BA /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/allocator.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = allocator.cpp; path = External/meshoptimizer/src/allocator.cpp; sourceTree = SOURCE_ROOT; };
+		54AF076E002D4A759F2B25CC /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/MeshLibraryImplementations.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = MeshLibraryImplementations.cpp; path = External/MeshLibraryImplementations.cpp; sourceTree = SOURCE_ROOT; };
+		553C31EAAD324003850F6CB5 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/General/LinearDictionary.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = LinearDictionary.cpp; path = Code/General/LinearDictionary.cpp; sourceTree = SOURCE_ROOT; };
+		5BA25C808ADF46BAB34328E7 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/VulkanRendererInternals/LightAndCameraHelpers.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = LightAndCameraHelpers.cpp; path = Code/Renderer/MainRenderer/VulkanRendererInternals/LightAndCameraHelpers.cpp; sourceTree = SOURCE_ROOT; };
+		5CACDAB6B59141B38BE390E8 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/General/Algorithms.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = Algorithms.cpp; path = Code/General/Algorithms.cpp; sourceTree = SOURCE_ROOT; };
+		5CBA401DA35847C7BDF6997E /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MeshCreation/RunMeshOptimizer.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = RunMeshOptimizer.cpp; path = Code/Renderer/MeshCreation/RunMeshOptimizer.cpp; sourceTree = SOURCE_ROOT; };
+		5F219FB163BA40E3A6E75655 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui/backends/imgui_impl_vulkan.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = imgui_impl_vulkan.cpp; path = External/imgui/backends/imgui_impl_vulkan.cpp; sourceTree = SOURCE_ROOT; };
+		6287B2A5434C4035946EAB0F /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/General/ThreadedTextureLoading.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = ThreadedTextureLoading.cpp; path = Code/General/ThreadedTextureLoading.cpp; sourceTree = SOURCE_ROOT; };
+		6291D4D96BE8432CB7210896 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/PipelineManager/PipelineLayoutManager.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = PipelineLayoutManager.cpp; path = Code/Renderer/MainRenderer/PipelineManager/PipelineLayoutManager.cpp; sourceTree = SOURCE_ROOT; };
+		79C9D7C57FCC4645A2E376DB /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui/imgui_draw.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = imgui_draw.cpp; path = External/imgui/imgui_draw.cpp; sourceTree = SOURCE_ROOT; };
+		7A9A86D9C59F4B80A5ED8570 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/overdrawoptimizer.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = overdrawoptimizer.cpp; path = External/meshoptimizer/src/overdrawoptimizer.cpp; sourceTree = SOURCE_ROOT; };
+		7BB66FC18E7A456ABC053B82 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/glm_misc.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = glm_misc.cpp; path = Code/glm_misc.cpp; sourceTree = SOURCE_ROOT; };
+		81883E7B29B34F56AA89F192 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/vertexfilter.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = vertexfilter.cpp; path = External/meshoptimizer/src/vertexfilter.cpp; sourceTree = SOURCE_ROOT; };
+		8317A57096814387AC403721 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/General/MemoryArena.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = MemoryArena.cpp; path = Code/General/MemoryArena.cpp; sourceTree = SOURCE_ROOT; };
+		85D4EA4B755F4AAE881267A7 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/vertexcodec.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = vertexcodec.cpp; path = External/meshoptimizer/src/vertexcodec.cpp; sourceTree = SOURCE_ROOT; };
+		8F58FDDA246344CF88085161 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui/imgui_demo.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = imgui_demo.cpp; path = External/imgui/imgui_demo.cpp; sourceTree = SOURCE_ROOT; };
+		9468F5502CC646AFBCCAF8B1 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/VulkanRenderer.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = VulkanRenderer.cpp; path = Code/Renderer/MainRenderer/VulkanRenderer.cpp; sourceTree = SOURCE_ROOT; };
+		971D956FD7C04CCE9EF4AFD0 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/vfetchoptimizer.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = vfetchoptimizer.cpp; path = External/meshoptimizer/src/vfetchoptimizer.cpp; sourceTree = SOURCE_ROOT; };
+		9FA7BE859C884FD895EF1582 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/ObjectImport.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = ObjectImport.cpp; path = Code/Renderer/ObjectImport.cpp; sourceTree = SOURCE_ROOT; };
+		A61C3F7B0D7240DCAD82FC01 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/vulkan-utilities.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = "vulkan-utilities.cpp"; path = "Code/Renderer/vulkan-utilities.cpp"; sourceTree = SOURCE_ROOT; };
+		AF66C99B55404322A4FC3CF8 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/CMakeLists.txt */ = {isa = PBXFileReference; explicitFileType = sourcecode.text; fileEncoding = 4; name = CMakeLists.txt; path = CMakeLists.txt; sourceTree = SOURCE_ROOT; };
+		B16796D6E62F48CCA2F748CE /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/CommandPoolManager.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = CommandPoolManager.cpp; path = Code/Renderer/CommandPoolManager.cpp; sourceTree = SOURCE_ROOT; };
+		B8E30C16EEAB45488373EB82 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/ImageLibraryImplementations.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = ImageLibraryImplementations.cpp; path = External/ImageLibraryImplementations.cpp; sourceTree = SOURCE_ROOT; };
+		BDF4DD0FAAD349699EB25FAD /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/PipelineManager/Internal/PipelineLayoutGroup.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = PipelineLayoutGroup.cpp; path = Code/Renderer/MainRenderer/PipelineManager/Internal/PipelineLayoutGroup.cpp; sourceTree = SOURCE_ROOT; };
+		C7CB2D4C8A004D508F88ECF5 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/VulkanIncludes/VulkanMemory.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = VulkanMemory.cpp; path = Code/Renderer/VulkanIncludes/VulkanMemory.cpp; sourceTree = SOURCE_ROOT; };
+		C8AE7CE50C1D4BA599441C6B /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/TextureCreation/Internal/TextureCreationUtilities.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = TextureCreationUtilities.cpp; path = Code/Renderer/TextureCreation/Internal/TextureCreationUtilities.cpp; sourceTree = SOURCE_ROOT; };
+		CC62EF19ADFE4C7381D4E3AC /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/General/PrototypeThreadWorker.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = PrototypeThreadWorker.cpp; path = Code/General/PrototypeThreadWorker.cpp; sourceTree = SOURCE_ROOT; };
+		CD807B1C3E4B42319F185476 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/General/ThreadPool.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = ThreadPool.cpp; path = Code/General/ThreadPool.cpp; sourceTree = SOURCE_ROOT; };
+		D30045C590A74DD0B37F751F /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui/backends/imgui_impl_sdl2.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = imgui_impl_sdl2.cpp; path = External/imgui/backends/imgui_impl_sdl2.cpp; sourceTree = SOURCE_ROOT; };
+		D3FE472B77E042F3BF222D65 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/game.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = game.cpp; path = Code/game.cpp; sourceTree = SOURCE_ROOT; };
+		D4CBB923F0774AEBA52D27FA /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/mikktspace.c */ = {isa = PBXFileReference; explicitFileType = sourcecode.c.c; fileEncoding = 4; name = mikktspace.c; path = External/mikktspace.c; sourceTree = SOURCE_ROOT; };
+		DA4060E049E540F9A6720C85 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/VulkanIncludes/vmaImplementation.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = vmaImplementation.cpp; path = Code/Renderer/VulkanIncludes/vmaImplementation.cpp; sourceTree = SOURCE_ROOT; };
+		DE284319EEED4A3D86EA5D69 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Scene/Transforms.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = Transforms.cpp; path = Code/Scene/Transforms.cpp; sourceTree = SOURCE_ROOT; };
+		E102C609BE0D44FE98AE6C39 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/Shaders/ShaderLoading.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = ShaderLoading.cpp; path = Code/Renderer/Shaders/ShaderLoading.cpp; sourceTree = SOURCE_ROOT; };
+		E1DBCDAE647E4193AD625993 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/vfetchanalyzer.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = vfetchanalyzer.cpp; path = External/meshoptimizer/src/vfetchanalyzer.cpp; sourceTree = SOURCE_ROOT; };
+		E1F4ECEDF32A4074B699BD11 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/vkbootstrap/VkBootstrap.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = VkBootstrap.cpp; path = vkbootstrap/VkBootstrap.cpp; sourceTree = SOURCE_ROOT; };
+		E4B636BBA13B4CDFBCDEC3A5 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/weldmesh.c */ = {isa = PBXFileReference; explicitFileType = sourcecode.c.c; fileEncoding = 4; name = weldmesh.c; path = External/weldmesh.c; sourceTree = SOURCE_ROOT; };
+		E64D9FC53A6D411EB45EB8A6 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui/imgui_widgets.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = imgui_widgets.cpp; path = External/imgui/imgui_widgets.cpp; sourceTree = SOURCE_ROOT; };
+		EA6B4FEEA7314E9F902842B3 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui/imgui.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = imgui.cpp; path = External/imgui/imgui.cpp; sourceTree = SOURCE_ROOT; };
+		F14F30508E8B46588588463E /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/gltf/gltfLoading.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = gltfLoading.cpp; path = Code/Renderer/gltf/gltfLoading.cpp; sourceTree = SOURCE_ROOT; };
+		F2AE56A642944BEC85676957 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/overdrawanalyzer.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = overdrawanalyzer.cpp; path = External/meshoptimizer/src/overdrawanalyzer.cpp; sourceTree = SOURCE_ROOT; };
+		F33B8BF019A545C3963F277F /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/General/InputHandling.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = InputHandling.cpp; path = Code/General/InputHandling.cpp; sourceTree = SOURCE_ROOT; };
+		F5D4701F5CF04928959349E2 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/RendererDeletionQueue.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = RendererDeletionQueue.cpp; path = Code/Renderer/RendererDeletionQueue.cpp; sourceTree = SOURCE_ROOT; };
+		F6B227D0915F49678ABB8F56 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/vcacheanalyzer.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = vcacheanalyzer.cpp; path = External/meshoptimizer/src/vcacheanalyzer.cpp; sourceTree = SOURCE_ROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		51D019FDF4204FDBB5D7B784 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		02054EFEB4A74FD5AC9220A0 = {
+			isa = PBXGroup;
+			children = (
+				3A1CA2CB4B6C4AADB79674F4 /* VulkanRenderer */,
+				91AD3C3DC9EF4B2485D44FA6 /* ALL_BUILD */,
+				F21A19E2C8CE4664AD1EF265 /* Products */,
+				300221FEA9B448338ED085E2 /* Frameworks */,
+				2637342F664B4519917403FD /* Resources */,
+			);
+			sourceTree = "<group>";
+		};
+		2637342F664B4519917403FD /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Resources;
+			sourceTree = "<group>";
+		};
+		300221FEA9B448338ED085E2 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		330387A0B6474BEBB6AF6475 /* CMake Rules */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = "CMake Rules";
+			sourceTree = "<group>";
+		};
+		3A1CA2CB4B6C4AADB79674F4 /* VulkanRenderer */ = {
+			isa = PBXGroup;
+			children = (
+				EFAC1BC666154FC3900E51B1 /* Source Files */,
+				AF66C99B55404322A4FC3CF8 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/CMakeLists.txt */,
+			);
+			name = VulkanRenderer;
+			sourceTree = "<group>";
+		};
+		91AD3C3DC9EF4B2485D44FA6 /* ALL_BUILD */ = {
+			isa = PBXGroup;
+			children = (
+				330387A0B6474BEBB6AF6475 /* CMake Rules */,
+				42D28E205A2349A49CA21AC7 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/CMakeLists.txt */,
+			);
+			name = ALL_BUILD;
+			sourceTree = "<group>";
+		};
+		EFAC1BC666154FC3900E51B1 /* Source Files */ = {
+			isa = PBXGroup;
+			children = (
+				5CACDAB6B59141B38BE390E8 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/General/Algorithms.cpp */,
+				11C591DB5A55434CBF92C693 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/General/FileCaching.cpp */,
+				F33B8BF019A545C3963F277F /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/General/InputHandling.cpp */,
+				553C31EAAD324003850F6CB5 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/General/LinearDictionary.cpp */,
+				8317A57096814387AC403721 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/General/MemoryArena.cpp */,
+				CC62EF19ADFE4C7381D4E3AC /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/General/PrototypeThreadWorker.cpp */,
+				CD807B1C3E4B42319F185476 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/General/ThreadPool.cpp */,
+				6287B2A5434C4035946EAB0F /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/General/ThreadedTextureLoading.cpp */,
+				B16796D6E62F48CCA2F748CE /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/CommandPoolManager.cpp */,
+				BDF4DD0FAAD349699EB25FAD /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/PipelineManager/Internal/PipelineLayoutGroup.cpp */,
+				6291D4D96BE8432CB7210896 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/PipelineManager/PipelineLayoutManager.cpp */,
+				9468F5502CC646AFBCCAF8B1 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/VulkanRenderer.cpp */,
+				114DD2D103C54E619B2AD423 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/VulkanRendererInternals/DebugLineData.cpp */,
+				417D85974C3540059CCA480F /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/VulkanRendererInternals/DrawBatches.cpp */,
+				5BA25C808ADF46BAB34328E7 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/VulkanRendererInternals/LightAndCameraHelpers.cpp */,
+				0BAD00C5F25F43E7B9004408 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/VulkanRendererInternals/RendererHelpers.cpp */,
+				2028FD38A2614D938D5DC205 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/vulkanRenderer_Initialization.cpp */,
+				27FDD6E220464864A46ECC6B /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MeshCreation/MeshData.cpp */,
+				5CBA401DA35847C7BDF6997E /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MeshCreation/RunMeshOptimizer.cpp */,
+				09D7BD0EC6E94322BC654298 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MikkTImpl.cpp */,
+				9FA7BE859C884FD895EF1582 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/ObjectImport.cpp */,
+				F5D4701F5CF04928959349E2 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/RendererDeletionQueue.cpp */,
+				E102C609BE0D44FE98AE6C39 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/Shaders/ShaderLoading.cpp */,
+				C8AE7CE50C1D4BA599441C6B /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/TextureCreation/Internal/TextureCreationUtilities.cpp */,
+				249708FAFE1C432DACA36FF1 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/TextureCreation/TextureData.cpp */,
+				071B4AF208194CBA85F48482 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/Vertex.cpp */,
+				3062184C1B2B46DAB2299AE3 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/VulkanBuffers/bufferCreation.cpp */,
+				C7CB2D4C8A004D508F88ECF5 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/VulkanIncludes/VulkanMemory.cpp */,
+				DA4060E049E540F9A6720C85 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/VulkanIncludes/vmaImplementation.cpp */,
+				F14F30508E8B46588588463E /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/gltf/gltfLoading.cpp */,
+				27BB202A4AE94BF8B900157D /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/gltf/gltf_impl.cpp */,
+				3CE408ECB1CA4498A0858FE4 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/rendererGlobals.cpp */,
+				A61C3F7B0D7240DCAD82FC01 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/vulkan-utilities.cpp */,
+				2306A942C3E8401D9077885F /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Scene/AssetManager.cpp */,
+				15BFA455D69E49C7A6045250 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Scene/Scene.cpp */,
+				DE284319EEED4A3D86EA5D69 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Scene/Transforms.cpp */,
+				D3FE472B77E042F3BF222D65 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/game.cpp */,
+				7BB66FC18E7A456ABC053B82 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/glm_misc.cpp */,
+				B8E30C16EEAB45488373EB82 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/ImageLibraryImplementations.cpp */,
+				54AF076E002D4A759F2B25CC /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/MeshLibraryImplementations.cpp */,
+				D30045C590A74DD0B37F751F /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui/backends/imgui_impl_sdl2.cpp */,
+				5F219FB163BA40E3A6E75655 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui/backends/imgui_impl_vulkan.cpp */,
+				EA6B4FEEA7314E9F902842B3 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui/imgui.cpp */,
+				8F58FDDA246344CF88085161 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui/imgui_demo.cpp */,
+				79C9D7C57FCC4645A2E376DB /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui/imgui_draw.cpp */,
+				3DEB711E926449198EBFCEA7 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui/imgui_tables.cpp */,
+				E64D9FC53A6D411EB45EB8A6 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui/imgui_widgets.cpp */,
+				53E259F41A0C40BC8155D3BA /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/allocator.cpp */,
+				148F8B24B00E46D28CE114DB /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/clusterizer.cpp */,
+				15899C437C92471A94D090CD /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/indexcodec.cpp */,
+				3BA9B9635A214955AD1D891A /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/indexgenerator.cpp */,
+				F2AE56A642944BEC85676957 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/overdrawanalyzer.cpp */,
+				7A9A86D9C59F4B80A5ED8570 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/overdrawoptimizer.cpp */,
+				515D480B8E51448F8BCD220E /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/quantization.cpp */,
+				4C81D56A7BFF4170858E35C4 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/simplifier.cpp */,
+				34856F5B88EE4DF4A59B8E03 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/spatialorder.cpp */,
+				10C54140CE864F3CA11A3BC0 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/stripifier.cpp */,
+				F6B227D0915F49678ABB8F56 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/vcacheanalyzer.cpp */,
+				1FA952E6ADBC4C3BB7A1F162 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/vcacheoptimizer.cpp */,
+				85D4EA4B755F4AAE881267A7 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/vertexcodec.cpp */,
+				81883E7B29B34F56AA89F192 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/vertexfilter.cpp */,
+				E1DBCDAE647E4193AD625993 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/vfetchanalyzer.cpp */,
+				971D956FD7C04CCE9EF4AFD0 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/vfetchoptimizer.cpp */,
+				D4CBB923F0774AEBA52D27FA /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/mikktspace.c */,
+				E4B636BBA13B4CDFBCDEC3A5 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/weldmesh.c */,
+				E1F4ECEDF32A4074B699BD11 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/vkbootstrap/VkBootstrap.cpp */,
+			);
+			name = "Source Files";
+			sourceTree = "<group>";
+		};
+		F21A19E2C8CE4664AD1EF265 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				12A6BC5A2B5341B4B8AE360D /* VulkanRenderer */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		ABF330B21CAFE9819E36BB20 /* VulkanRenderer */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6E416CD3D23B4B768E4DA3C1 /* Build configuration list for PBXNativeTarget "VulkanRenderer" */;
+			buildPhases = (
+				E708EE30F4CE4A2EA39F6E4C /* Sources */,
+				51D019FDF4204FDBB5D7B784 /* Frameworks */,
+				95D7F4639B58B0157940B688 /* CMake PostBuild Rules */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				F9DFF65B46D946D1A81E8296 /* PBXTargetDependency */,
+			);
+			name = VulkanRenderer;
+			productName = VulkanRenderer;
+			productReference = 12A6BC5A2B5341B4B8AE360D /* VulkanRenderer */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		4BBDEEB2CE9345CAB3C20B0B /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 2600;
+			};
+			buildConfigurationList = 91A18C8D8B4E48CB926F9C0F /* Build configuration list for PBXProject "VulkanRenderer" */;
+			buildSettings = {
+			};
+			buildStyles = (
+				862A61650FB7454AB440762E /* Debug */,
+				550C0BAB85AD4AE6A6D962B7 /* Release */,
+				75C3A0A49C8042F5B65F0F67 /* MinSizeRel */,
+				6AFD7B9F683F4AA2B2510581 /* RelWithDebInfo */,
+			);
+			compatibilityVersion = "Xcode 3.2";
+			hasScannedForEncodings = 0;
+			mainGroup = 02054EFEB4A74FD5AC9220A0;
+			projectDirPath = "/Users/josephsilverman/Developer/Vulkan-Study-Renderer";
+			projectRoot = "";
+			targets = (
+				2240937BF726477261919C83 /* ALL_BUILD */,
+				ABF330B21CAFE9819E36BB20 /* VulkanRenderer */,
+				DB819F5F27FEF4E98FCB0B33 /* ZERO_CHECK */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		23ED3722F38987C290B57766 /* Generate CMakeFiles/ZERO_CHECK */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Generate CMakeFiles/ZERO_CHECK";
+			outputPaths = (
+"/Users/josephsilverman/Developer/Vulkan-Study-Renderer/build/CMakeFiles/ZERO_CHECK"			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e
+if test \"$CONFIGURATION\" = \"Debug\"; then :
+  cd /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build
+  make -f /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build/CMakeScripts/ReRunCMake.make
+fi
+if test \"$CONFIGURATION\" = \"Release\"; then :
+  cd /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build
+  make -f /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build/CMakeScripts/ReRunCMake.make
+fi
+if test \"$CONFIGURATION\" = \"MinSizeRel\"; then :
+  cd /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build
+  make -f /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build/CMakeScripts/ReRunCMake.make
+fi
+if test \"$CONFIGURATION\" = \"RelWithDebInfo\"; then :
+  cd /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build
+  make -f /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build/CMakeScripts/ReRunCMake.make
+fi
+";
+			showEnvVarsInLog = 0;
+		};
+		3C0110FC8322DE7E50886E21 = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# shell script goes here
+exit 0";
+			showEnvVarsInLog = 0;
+		};
+		83107F8B2914E025361628E8 /* Generate CMakeFiles/ALL_BUILD */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Generate CMakeFiles/ALL_BUILD";
+			outputPaths = (
+"/Users/josephsilverman/Developer/Vulkan-Study-Renderer/build/CMakeFiles/ALL_BUILD"			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e
+if test \"$CONFIGURATION\" = \"Debug\"; then :
+  cd /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build
+  echo Build\\ all\\ projects
+fi
+if test \"$CONFIGURATION\" = \"Release\"; then :
+  cd /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build
+  echo Build\\ all\\ projects
+fi
+if test \"$CONFIGURATION\" = \"MinSizeRel\"; then :
+  cd /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build
+  echo Build\\ all\\ projects
+fi
+if test \"$CONFIGURATION\" = \"RelWithDebInfo\"; then :
+  cd /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build
+  echo Build\\ all\\ projects
+fi
+";
+			showEnvVarsInLog = 0;
+		};
+		95D7F4639B58B0157940B688 /* CMake PostBuild Rules */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "CMake PostBuild Rules";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e
+if test \"$CONFIGURATION\" = \"Debug\"; then :
+  cd /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build
+  /opt/homebrew/bin/cmake -E copy_directory_if_different /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Shaders /Users/josephsilverman/Developer/Vulkan-Study-Renderer/CMAKE_x64/Debug/Shaders 
+  cd /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build
+  /opt/homebrew/bin/cmake -E copy_directory_if_different /Users/josephsilverman/Developer/Vulkan-Study-Renderer/textures /Users/josephsilverman/Developer/Vulkan-Study-Renderer/CMAKE_x64/Debug/textures 
+  cd /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build
+  /opt/homebrew/bin/cmake -E copy_directory_if_different /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Meshes /Users/josephsilverman/Developer/Vulkan-Study-Renderer/CMAKE_x64/Debug/Meshes 
+  cd /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build
+  /opt/homebrew/bin/cmake -E copy_directory_if_different /Users/josephsilverman/Developer/Vulkan-Study-Renderer/dll /Users/josephsilverman/Developer/Vulkan-Study-Renderer/CMAKE_x64/Debug/dll 
+fi
+if test \"$CONFIGURATION\" = \"Release\"; then :
+  cd /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build
+  /opt/homebrew/bin/cmake -E copy_directory_if_different /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Shaders  /Users/josephsilverman/Developer/Vulkan-Study-Renderer/CMAKE_x64/Release/Shaders
+  cd /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build
+  /opt/homebrew/bin/cmake -E copy_directory_if_different /Users/josephsilverman/Developer/Vulkan-Study-Renderer/textures  /Users/josephsilverman/Developer/Vulkan-Study-Renderer/CMAKE_x64/Release/textures
+  cd /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build
+  /opt/homebrew/bin/cmake -E copy_directory_if_different /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Meshes  /Users/josephsilverman/Developer/Vulkan-Study-Renderer/CMAKE_x64/Release/Meshes
+  cd /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build
+  /opt/homebrew/bin/cmake -E copy_directory_if_different /Users/josephsilverman/Developer/Vulkan-Study-Renderer/dll  /Users/josephsilverman/Developer/Vulkan-Study-Renderer/CMAKE_x64/Release/dll
+fi
+if test \"$CONFIGURATION\" = \"MinSizeRel\"; then :
+  cd /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build
+  /opt/homebrew/bin/cmake -E copy_directory_if_different /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Shaders  
+  cd /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build
+  /opt/homebrew/bin/cmake -E copy_directory_if_different /Users/josephsilverman/Developer/Vulkan-Study-Renderer/textures  
+  cd /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build
+  /opt/homebrew/bin/cmake -E copy_directory_if_different /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Meshes  
+  cd /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build
+  /opt/homebrew/bin/cmake -E copy_directory_if_different /Users/josephsilverman/Developer/Vulkan-Study-Renderer/dll  
+fi
+if test \"$CONFIGURATION\" = \"RelWithDebInfo\"; then :
+  cd /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build
+  /opt/homebrew/bin/cmake -E copy_directory_if_different /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Shaders  
+  cd /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build
+  /opt/homebrew/bin/cmake -E copy_directory_if_different /Users/josephsilverman/Developer/Vulkan-Study-Renderer/textures  
+  cd /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build
+  /opt/homebrew/bin/cmake -E copy_directory_if_different /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Meshes  
+  cd /Users/josephsilverman/Developer/Vulkan-Study-Renderer/build
+  /opt/homebrew/bin/cmake -E copy_directory_if_different /Users/josephsilverman/Developer/Vulkan-Study-Renderer/dll  
+fi
+";
+			showEnvVarsInLog = 0;
+		};
+		9B50530E35CC49C82C2FACCF = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# shell script goes here
+exit 0";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		E708EE30F4CE4A2EA39F6E4C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0CDEFE635AEA48D7A0B90CFA /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/General/Algorithms.cpp */,
+				A3E02BACC1044AE68F83B198 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/General/FileCaching.cpp */,
+				E9CE45EF3A2B42FEB3043C30 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/General/InputHandling.cpp */,
+				07F4CBE59E0B410286A02338 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/General/LinearDictionary.cpp */,
+				132F77D920A54860B1DC14F6 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/General/MemoryArena.cpp */,
+				F25321813EF649CC8E7C668D /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/General/PrototypeThreadWorker.cpp */,
+				C943F2C28F6F4C9DAA9D142F /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/General/ThreadPool.cpp */,
+				465D8703C39A47AD9D168B6B /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/General/ThreadedTextureLoading.cpp */,
+				E6437D14816C42BC8053E5FB /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/CommandPoolManager.cpp */,
+				8C679E966B3B4F17B6D2624A /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/PipelineManager/Internal/PipelineLayoutGroup.cpp */,
+				9A312DADE88E44C784599DD3 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/PipelineManager/PipelineLayoutManager.cpp */,
+				260745BEB98C434DBAA8ACB1 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/VulkanRenderer.cpp */,
+				624E0F21E87C4A0CBC826F93 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/VulkanRendererInternals/DebugLineData.cpp */,
+				E86AAB0CBEA34FC89746DAA1 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/VulkanRendererInternals/DrawBatches.cpp */,
+				88C70828128B4E9CA8ABB16F /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/VulkanRendererInternals/LightAndCameraHelpers.cpp */,
+				A7A91715880042209471C529 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/VulkanRendererInternals/RendererHelpers.cpp */,
+				6E65920BFFF947B9AEF1A083 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/vulkanRenderer_Initialization.cpp */,
+				3B663FC14DBD4EA29723B014 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MeshCreation/MeshData.cpp */,
+				798CB422C4474B14BE724D7C /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MeshCreation/RunMeshOptimizer.cpp */,
+				011EEDA577604711AB32426E /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MikkTImpl.cpp */,
+				8B81790BE0B743D2B7CE4D95 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/ObjectImport.cpp */,
+				84280B3A12C840998E31AE0E /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/RendererDeletionQueue.cpp */,
+				DB9B2842E9D9448D99BD1263 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/Shaders/ShaderLoading.cpp */,
+				42174FE6CBD142E8BB0FF8F7 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/TextureCreation/Internal/TextureCreationUtilities.cpp */,
+				04E7BDE3FCBF4823A978B3FF /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/TextureCreation/TextureData.cpp */,
+				4024A9CEB47F45A68D8AC28E /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/Vertex.cpp */,
+				4B389C17FF1E47F29E3FDACA /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/VulkanBuffers/bufferCreation.cpp */,
+				0ED06CD5FCED43A6B6AC53AC /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/VulkanIncludes/VulkanMemory.cpp */,
+				8FF590E33D3247DBB65A4AE8 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/VulkanIncludes/vmaImplementation.cpp */,
+				51927A529DCC4AE8835AB854 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/gltf/gltfLoading.cpp */,
+				B711ACFC65EB49A881DD6431 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/gltf/gltf_impl.cpp */,
+				26FAC112B3F84AD98856328D /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/rendererGlobals.cpp */,
+				D5DB4A63843A45679BAF0020 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/vulkan-utilities.cpp */,
+				652A82FFA435433FA1638CAE /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Scene/AssetManager.cpp */,
+				2EB7BC65EC4A4F9C84FEDF11 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Scene/Scene.cpp */,
+				F82F2F9F110F4F99B72BBD7F /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Scene/Transforms.cpp */,
+				CC65D2CEEC8047EEAD95E244 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/game.cpp */,
+				267F5003ACD0449CA7C74058 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/glm_misc.cpp */,
+				CE790711DD2A49598FDF12A0 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/ImageLibraryImplementations.cpp */,
+				E3784A658DAE4B4D87C44B27 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/MeshLibraryImplementations.cpp */,
+				3EA18AD2E06D4693B08BD218 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui/backends/imgui_impl_sdl2.cpp */,
+				A9CC0EE87D0840C6A118CB68 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui/backends/imgui_impl_vulkan.cpp */,
+				061DB19D40034ECFA36E16A5 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui/imgui.cpp */,
+				BD2B905F6D874553A1D7504C /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui/imgui_demo.cpp */,
+				0B0EB36A956D401F8B9E86BD /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui/imgui_draw.cpp */,
+				71FBABDD7B3B45C5A5CCCD01 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui/imgui_tables.cpp */,
+				06551C78DEA54436B4250A30 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui/imgui_widgets.cpp */,
+				BF3F2786A7704DA68FB8A0DB /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/allocator.cpp */,
+				12EF63D607FF4B06B0EA78C5 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/clusterizer.cpp */,
+				9F7340FB9A62477DB9CF7FCC /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/indexcodec.cpp */,
+				6CF76BF39CDC4C74BBC31E65 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/indexgenerator.cpp */,
+				84A0A251C3E14C53AC652893 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/overdrawanalyzer.cpp */,
+				A9A59671C3274312A525A39C /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/overdrawoptimizer.cpp */,
+				5876ECCA7F654348B1BE2FF5 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/quantization.cpp */,
+				B22D4E8E090E4026B6671E19 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/simplifier.cpp */,
+				FD4DCCC65FBC4257AAF86C3F /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/spatialorder.cpp */,
+				EEEDE47F01494095BE2AD49B /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/stripifier.cpp */,
+				BFA0E690151D426FB40A6848 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/vcacheanalyzer.cpp */,
+				172E633367BA47579DA52592 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/vcacheoptimizer.cpp */,
+				C434ED02F786465896173EBF /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/vertexcodec.cpp */,
+				F405274A80A8479A95C4E569 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/vertexfilter.cpp */,
+				CE6FCD55E7CD4B5B843AE2A4 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/vfetchanalyzer.cpp */,
+				052B9BB66DCC41A7BC0125C6 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/vfetchoptimizer.cpp */,
+				93BA234C078C4A4AA3416E40 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/mikktspace.c */,
+				652AF1A0EAA949DEA2376D37 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/weldmesh.c */,
+				C01880CFEA4248AD9AFC91C6 /* /Users/josephsilverman/Developer/Vulkan-Study-Renderer/vkbootstrap/VkBootstrap.cpp */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		306DA93C23B447CFAEA29682 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = DB819F5F27FEF4E98FCB0B33 /* ZERO_CHECK */;
+			targetProxy = 20F0D3D003814500B5027D2D /* PBXContainerItemProxy */;
+		};
+		398B5C757D6A4BB3AC101583 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = ABF330B21CAFE9819E36BB20 /* VulkanRenderer */;
+			targetProxy = 8BA1EB4A8CAA425EAA606367 /* PBXContainerItemProxy */;
+		};
+		F9DFF65B46D946D1A81E8296 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = DB819F5F27FEF4E98FCB0B33 /* ZERO_CHECK */;
+			targetProxy = EA09D9BD3C03493B844F41D8 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		15E39CBC25C24F34A9E90CBC /* RelWithDebInfo */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = arm64;
+				COMBINE_HIDPI_IMAGES = YES;
+				CONFIGURATION_BUILD_DIR = "/Users/josephsilverman/Developer/Vulkan-Study-Renderer/build/RelWithDebInfo";
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_INLINES_ARE_PRIVATE_EXTERN = NO;
+				GCC_OPTIMIZATION_LEVEL = 2;
+				GCC_PREPROCESSOR_DEFINITIONS = ("'CMAKE_INTDIR=\"$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)\"'","$(inherited)");
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = ("/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/General","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/PipelineManager/Internal","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/PipelineManager","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/VulkanRendererInternals","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MeshCreation","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/Shaders","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/TextureCreation/Internal","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/TextureCreation","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/VulkanBuffers","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/VulkanIncludes","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/gltf","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Scene","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/vkbootstrap","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/tinygltf","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/DXC/Include/dxc","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/stb-master/stb_image.h","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui/backends/imgui_impl_sdl2.h","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui/backends/imgui_impl_vulkan.h","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui/misc/cpp/imgui_stdlib.h","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/JolyPhysics","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/fmt/include","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/meshoptimizer.h","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/Superluminal","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/KTX-software/include","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/vulkansdk-1.3.239.0/Include","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/vulkansdk-1.3.239.0/Include/vma","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/VulkanRenderer",/opt/homebrew/Cellar/sdl2/2.32.8/include,/opt/homebrew/Cellar/sdl2/2.32.8/include/SDL2,"$(inherited)");
+				INSTALL_PATH = "";
+				ONLY_ACTIVE_ARCH = NO;
+				OTHER_CFLAGS = ("       -DNDEBUG ","$(inherited)");
+				OTHER_CPLUSPLUSFLAGS = "       -DNDEBUG '-std=gnu++20' ";
+				OTHER_LDFLAGS = (" -Wl,-search_paths_first -Wl,-headerpad_max_install_names","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/KTX-Software/lib/ktx.lib","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/vulkansdk-1.3.239.0/lib/dxcompiler.lib","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/vulkansdk-1.3.239.0/lib/vulkan-1.lib","$(inherited)");
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = VulkanRenderer;
+				SECTORDER_FLAGS = "";
+				TARGET_TEMP_DIR = "/Users/josephsilverman/Developer/Vulkan-Study-Renderer/build/build/VulkanRenderer.build/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)";
+				USE_HEADERMAP = NO;
+				WARNING_CFLAGS = ("$(inherited)");
+			};
+			name = RelWithDebInfo;
+		};
+		16655DA63ACF4197B309CD1E /* MinSizeRel */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = arm64;
+				COMBINE_HIDPI_IMAGES = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_INLINES_ARE_PRIVATE_EXTERN = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = ("'CMAKE_INTDIR=\"$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)\"'","$(inherited)");
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				INSTALL_PATH = "";
+				ONLY_ACTIVE_ARCH = NO;
+				OTHER_LDFLAGS = ("","$(inherited)");
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = ALL_BUILD;
+				SECTORDER_FLAGS = "";
+				USE_HEADERMAP = NO;
+				WARNING_CFLAGS = ("$(inherited)");
+			};
+			name = MinSizeRel;
+		};
+		19CBC6AE1B8F4224857BC4F4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = arm64;
+				COMBINE_HIDPI_IMAGES = YES;
+				CONFIGURATION_BUILD_DIR = "/Users/josephsilverman/Developer/Vulkan-Study-Renderer/build/CMAKE_x64/Debug";
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_INLINES_ARE_PRIVATE_EXTERN = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = ("'CMAKE_INTDIR=\"$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)\"'","$(inherited)");
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = ("/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/General","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/PipelineManager/Internal","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/PipelineManager","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/VulkanRendererInternals","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MeshCreation","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/Shaders","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/TextureCreation/Internal","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/TextureCreation","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/VulkanBuffers","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/VulkanIncludes","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/gltf","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Scene","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/vkbootstrap","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/tinygltf","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/DXC/Include/dxc","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/stb-master/stb_image.h","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui/backends/imgui_impl_sdl2.h","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui/backends/imgui_impl_vulkan.h","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui/misc/cpp/imgui_stdlib.h","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/JolyPhysics","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/fmt/include","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/meshoptimizer.h","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/Superluminal","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/KTX-software/include","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/vulkansdk-1.3.239.0/Include","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/vulkansdk-1.3.239.0/Include/vma","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/VulkanRenderer",/opt/homebrew/Cellar/sdl2/2.32.8/include,/opt/homebrew/Cellar/sdl2/2.32.8/include/SDL2,"$(inherited)");
+				INSTALL_PATH = "";
+				ONLY_ACTIVE_ARCH = NO;
+				OTHER_CFLAGS = ("   ","$(inherited)");
+				OTHER_CPLUSPLUSFLAGS = "   '-std=gnu++20' ";
+				OTHER_LDFLAGS = (" -Wl,-search_paths_first -Wl,-headerpad_max_install_names","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/KTX-Software/lib/ktx.lib","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/vulkansdk-1.3.239.0/lib/dxcompiler.lib","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/vulkansdk-1.3.239.0/lib/vulkan-1.lib","$(inherited)");
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = VulkanRenderer;
+				SECTORDER_FLAGS = "";
+				TARGET_TEMP_DIR = "/Users/josephsilverman/Developer/Vulkan-Study-Renderer/build/build/VulkanRenderer.build/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)";
+				USE_HEADERMAP = NO;
+				WARNING_CFLAGS = ("$(inherited)");
+			};
+			name = Debug;
+		};
+		1DC0D5D2B8084D4A93BD2DB2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = arm64;
+				COMBINE_HIDPI_IMAGES = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_INLINES_ARE_PRIVATE_EXTERN = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = ("'CMAKE_INTDIR=\"$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)\"'","$(inherited)");
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				INSTALL_PATH = "";
+				ONLY_ACTIVE_ARCH = NO;
+				OTHER_LDFLAGS = ("","$(inherited)");
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = ALL_BUILD;
+				SECTORDER_FLAGS = "";
+				USE_HEADERMAP = NO;
+				WARNING_CFLAGS = ("$(inherited)");
+			};
+			name = Release;
+		};
+		3E09B460D5484668AC25D6D5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = arm64;
+				SDKROOT = "";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SYMROOT = "/Users/josephsilverman/Developer/Vulkan-Study-Renderer/build/build";
+			};
+			name = Release;
+		};
+		40AA71CB88AB42C09E20115E /* MinSizeRel */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = arm64;
+				COMBINE_HIDPI_IMAGES = YES;
+				CONFIGURATION_BUILD_DIR = "/Users/josephsilverman/Developer/Vulkan-Study-Renderer/build/MinSizeRel";
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_INLINES_ARE_PRIVATE_EXTERN = NO;
+				GCC_OPTIMIZATION_LEVEL = s;
+				GCC_PREPROCESSOR_DEFINITIONS = ("'CMAKE_INTDIR=\"$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)\"'","$(inherited)");
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = ("/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/General","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/PipelineManager/Internal","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/PipelineManager","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/VulkanRendererInternals","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MeshCreation","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/Shaders","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/TextureCreation/Internal","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/TextureCreation","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/VulkanBuffers","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/VulkanIncludes","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/gltf","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Scene","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/vkbootstrap","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/tinygltf","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/DXC/Include/dxc","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/stb-master/stb_image.h","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui/backends/imgui_impl_sdl2.h","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui/backends/imgui_impl_vulkan.h","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui/misc/cpp/imgui_stdlib.h","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/JolyPhysics","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/fmt/include","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/meshoptimizer.h","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/Superluminal","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/KTX-software/include","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/vulkansdk-1.3.239.0/Include","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/vulkansdk-1.3.239.0/Include/vma","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/VulkanRenderer",/opt/homebrew/Cellar/sdl2/2.32.8/include,/opt/homebrew/Cellar/sdl2/2.32.8/include/SDL2,"$(inherited)");
+				INSTALL_PATH = "";
+				ONLY_ACTIVE_ARCH = NO;
+				OTHER_CFLAGS = ("    -DNDEBUG ","$(inherited)");
+				OTHER_CPLUSPLUSFLAGS = "    -DNDEBUG '-std=gnu++20' ";
+				OTHER_LDFLAGS = (" -Wl,-search_paths_first -Wl,-headerpad_max_install_names","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/KTX-Software/lib/ktx.lib","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/vulkansdk-1.3.239.0/lib/dxcompiler.lib","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/vulkansdk-1.3.239.0/lib/vulkan-1.lib","$(inherited)");
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = VulkanRenderer;
+				SECTORDER_FLAGS = "";
+				TARGET_TEMP_DIR = "/Users/josephsilverman/Developer/Vulkan-Study-Renderer/build/build/VulkanRenderer.build/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)";
+				USE_HEADERMAP = NO;
+				WARNING_CFLAGS = ("$(inherited)");
+			};
+			name = MinSizeRel;
+		};
+		556A1549CF804D1A93BC3524 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = arm64;
+				SDKROOT = "";
+				SYMROOT = "/Users/josephsilverman/Developer/Vulkan-Study-Renderer/build/build";
+			};
+			name = Debug;
+		};
+		58E370C428B44A978CF6BB2A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = arm64;
+				COMBINE_HIDPI_IMAGES = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_INLINES_ARE_PRIVATE_EXTERN = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = ("'CMAKE_INTDIR=\"$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)\"'","$(inherited)");
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				INSTALL_PATH = "";
+				ONLY_ACTIVE_ARCH = NO;
+				OTHER_LDFLAGS = ("","$(inherited)");
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = ZERO_CHECK;
+				SECTORDER_FLAGS = "";
+				USE_HEADERMAP = NO;
+				WARNING_CFLAGS = ("$(inherited)");
+			};
+			name = Debug;
+		};
+		655CAB88EC084D42985A6E78 /* RelWithDebInfo */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = arm64;
+				COMBINE_HIDPI_IMAGES = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_INLINES_ARE_PRIVATE_EXTERN = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = ("'CMAKE_INTDIR=\"$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)\"'","$(inherited)");
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				INSTALL_PATH = "";
+				ONLY_ACTIVE_ARCH = NO;
+				OTHER_LDFLAGS = ("","$(inherited)");
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = ZERO_CHECK;
+				SECTORDER_FLAGS = "";
+				USE_HEADERMAP = NO;
+				WARNING_CFLAGS = ("$(inherited)");
+			};
+			name = RelWithDebInfo;
+		};
+		7EFECC1063B54A1794463837 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = arm64;
+				COMBINE_HIDPI_IMAGES = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_INLINES_ARE_PRIVATE_EXTERN = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = ("'CMAKE_INTDIR=\"$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)\"'","$(inherited)");
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				INSTALL_PATH = "";
+				ONLY_ACTIVE_ARCH = NO;
+				OTHER_LDFLAGS = ("","$(inherited)");
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = ZERO_CHECK;
+				SECTORDER_FLAGS = "";
+				USE_HEADERMAP = NO;
+				WARNING_CFLAGS = ("$(inherited)");
+			};
+			name = Release;
+		};
+		8E46D829A93149498969B804 /* MinSizeRel */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = arm64;
+				COMBINE_HIDPI_IMAGES = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_INLINES_ARE_PRIVATE_EXTERN = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = ("'CMAKE_INTDIR=\"$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)\"'","$(inherited)");
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				INSTALL_PATH = "";
+				ONLY_ACTIVE_ARCH = NO;
+				OTHER_LDFLAGS = ("","$(inherited)");
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = ZERO_CHECK;
+				SECTORDER_FLAGS = "";
+				USE_HEADERMAP = NO;
+				WARNING_CFLAGS = ("$(inherited)");
+			};
+			name = MinSizeRel;
+		};
+		91645B9A40C34F7CA8F42F82 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = arm64;
+				COMBINE_HIDPI_IMAGES = YES;
+				CONFIGURATION_BUILD_DIR = "/Users/josephsilverman/Developer/Vulkan-Study-Renderer/build/CMAKE_x64/Release";
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_INLINES_ARE_PRIVATE_EXTERN = NO;
+				GCC_OPTIMIZATION_LEVEL = 3;
+				GCC_PREPROCESSOR_DEFINITIONS = ("'CMAKE_INTDIR=\"$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)\"'","$(inherited)");
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = ("/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/General","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/PipelineManager/Internal","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/PipelineManager","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MainRenderer/VulkanRendererInternals","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/MeshCreation","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/Shaders","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/TextureCreation/Internal","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/TextureCreation","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/VulkanBuffers","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/VulkanIncludes","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Renderer/gltf","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code/Scene","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/Code","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/vkbootstrap","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/tinygltf","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/DXC/Include/dxc","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/stb-master/stb_image.h","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui/backends/imgui_impl_sdl2.h","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui/backends/imgui_impl_vulkan.h","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/imgui/misc/cpp/imgui_stdlib.h","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/JolyPhysics","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/fmt/include","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/meshoptimizer/src/meshoptimizer.h","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/Superluminal","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/KTX-software/include","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/vulkansdk-1.3.239.0/Include","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/vulkansdk-1.3.239.0/Include/vma","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/VulkanRenderer",/opt/homebrew/Cellar/sdl2/2.32.8/include,/opt/homebrew/Cellar/sdl2/2.32.8/include/SDL2,"$(inherited)");
+				INSTALL_PATH = "";
+				ONLY_ACTIVE_ARCH = NO;
+				OTHER_CFLAGS = ("    -DNDEBUG ","$(inherited)");
+				OTHER_CPLUSPLUSFLAGS = "    -DNDEBUG '-std=gnu++20' ";
+				OTHER_LDFLAGS = (" -Wl,-search_paths_first -Wl,-headerpad_max_install_names","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/KTX-Software/lib/ktx.lib","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/vulkansdk-1.3.239.0/lib/dxcompiler.lib","/Users/josephsilverman/Developer/Vulkan-Study-Renderer/External/vulkansdk-1.3.239.0/lib/vulkan-1.lib","$(inherited)");
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = VulkanRenderer;
+				SECTORDER_FLAGS = "";
+				TARGET_TEMP_DIR = "/Users/josephsilverman/Developer/Vulkan-Study-Renderer/build/build/VulkanRenderer.build/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)";
+				USE_HEADERMAP = NO;
+				WARNING_CFLAGS = ("$(inherited)");
+			};
+			name = Release;
+		};
+		98160F8ADF544B3A858A5B94 /* MinSizeRel */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = arm64;
+				SDKROOT = "";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SYMROOT = "/Users/josephsilverman/Developer/Vulkan-Study-Renderer/build/build";
+			};
+			name = MinSizeRel;
+		};
+		BA262582128E4BFCB2216087 /* RelWithDebInfo */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = arm64;
+				SDKROOT = "";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SYMROOT = "/Users/josephsilverman/Developer/Vulkan-Study-Renderer/build/build";
+			};
+			name = RelWithDebInfo;
+		};
+		C89083F8112C44B69DD9C686 /* RelWithDebInfo */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = arm64;
+				COMBINE_HIDPI_IMAGES = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_INLINES_ARE_PRIVATE_EXTERN = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = ("'CMAKE_INTDIR=\"$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)\"'","$(inherited)");
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				INSTALL_PATH = "";
+				ONLY_ACTIVE_ARCH = NO;
+				OTHER_LDFLAGS = ("","$(inherited)");
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = ALL_BUILD;
+				SECTORDER_FLAGS = "";
+				USE_HEADERMAP = NO;
+				WARNING_CFLAGS = ("$(inherited)");
+			};
+			name = RelWithDebInfo;
+		};
+		C8E2C14AE540431C8DDD5EC6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = arm64;
+				COMBINE_HIDPI_IMAGES = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_INLINES_ARE_PRIVATE_EXTERN = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = ("'CMAKE_INTDIR=\"$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)\"'","$(inherited)");
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				INSTALL_PATH = "";
+				ONLY_ACTIVE_ARCH = NO;
+				OTHER_LDFLAGS = ("","$(inherited)");
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = ALL_BUILD;
+				SECTORDER_FLAGS = "";
+				USE_HEADERMAP = NO;
+				WARNING_CFLAGS = ("$(inherited)");
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		6E416CD3D23B4B768E4DA3C1 /* Build configuration list for PBXNativeTarget "VulkanRenderer" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				19CBC6AE1B8F4224857BC4F4 /* Debug */,
+				91645B9A40C34F7CA8F42F82 /* Release */,
+				40AA71CB88AB42C09E20115E /* MinSizeRel */,
+				15E39CBC25C24F34A9E90CBC /* RelWithDebInfo */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		7DD5C4B1B7184F6B97473D53 /* Build configuration list for PBXAggregateTarget "ZERO_CHECK" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				58E370C428B44A978CF6BB2A /* Debug */,
+				7EFECC1063B54A1794463837 /* Release */,
+				8E46D829A93149498969B804 /* MinSizeRel */,
+				655CAB88EC084D42985A6E78 /* RelWithDebInfo */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		91A18C8D8B4E48CB926F9C0F /* Build configuration list for PBXProject "VulkanRenderer" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				556A1549CF804D1A93BC3524 /* Debug */,
+				3E09B460D5484668AC25D6D5 /* Release */,
+				98160F8ADF544B3A858A5B94 /* MinSizeRel */,
+				BA262582128E4BFCB2216087 /* RelWithDebInfo */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		D616E084C9F445258EA923B3 /* Build configuration list for PBXAggregateTarget "ALL_BUILD" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C8E2C14AE540431C8DDD5EC6 /* Debug */,
+				1DC0D5D2B8084D4A93BD2DB2 /* Release */,
+				16655DA63ACF4197B309CD1E /* MinSizeRel */,
+				C89083F8112C44B69DD9C686 /* RelWithDebInfo */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 4BBDEEB2CE9345CAB3C20B0B /* Project object */;
+}

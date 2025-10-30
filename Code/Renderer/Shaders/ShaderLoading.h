@@ -2,6 +2,7 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include <FileCaching.h>
 
 
 #pragma region forward declarations
@@ -16,7 +17,7 @@ struct ShaderLoader
 
     std::unordered_map<std::string_view, std::vector<VkPipelineShaderStageCreateInfo>> compiledShaders;
 
-    void AddShader(const char* name, std::wstring shaderPath, bool compute = false);
+    void AddShader(const char* name, platform_string shaderPath, bool compute = false);
 
 private:
     enum shaderType
@@ -26,7 +27,7 @@ private:
         comp
     };
 
-    void shaderCompile(std::wstring shaderFilename, shaderType stagetype);
-    VkShaderModule shaderLoad(std::wstring shaderFilename, shaderType stagetype);
+    void shaderCompile(platform_string shaderFilename, shaderType stagetype);
+    VkShaderModule shaderLoad(platform_string shaderFilename, shaderType stagetype);
     VkDevice device_;
 };

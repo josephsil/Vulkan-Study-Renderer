@@ -12,7 +12,12 @@
 	using utimebuf = _utimbuf;
 	#define STAT(A,B)  _wstat(A,B)
 	#define UTIME(A,B)  _wutime(A,B)
-	
+typedef  std::wstring_view platform_stringview;
+typedef std::wstring platform_string;
+typedef  wchar_t platform_char;
+#else 
+
+#define __APPLE__
 
 #endif
 
@@ -24,8 +29,14 @@
 	//#define utimebuf utimebuf;
 	#define STAT(A,B)  stat(A,B)
 	#define UTIME(A,B)  utime(A,B)
+typedef std::string_view platform_stringview;
+typedef std::string platform_string;
+typedef  char platform_char;
 
 #endif 
+
+
+
 
 //Used by asset importers, checks for cached versions of files and
 //Handles tracking when cached files are out of date
@@ -37,14 +48,14 @@ namespace FileCaching
 	uint32_t GetCacheImageSuffixLen();
 	std::span<char> GetImagePathWithCacheSuffix(char* sourcePath, std::span<char> target);
     bool TryGetKTXCachedPath(ArenaAllocator arena, const char* path, std::span<char>& ktxPath);
-    void SaveAssetChangedTime(std::string_view assetPath);
+    void SaveAssetChangedTime_Narrow(std::string assetPath);
     bool FileExists(std::string_view assetPath);
-    bool IsAssetOutOfDate(std::string_view assetPath);
+    bool IsAssetOutOfDate_Narrow(std::string_view assetPath);
 
-    void SaveAssetChangedTime(std::wstring_view assetPath);
-    bool FileExists(std::wstring_view assetPath);
-    bool IsAssetOutOfDate(std::wstring_view assetPath);
-    bool CompareAssetAge(std::wstring_view assetNewer, std::wstring_view assetOlder);
+    void SaveAssetChangedTime(platform_stringview assetPath);
+    bool FileExists(platform_string assetPath);
+    bool IsAssetOutOfDate(platform_stringview assetPath);
+    bool CompareAssetAge(platform_stringview assetNewer, platform_stringview assetOlder);
 
-    void UpdateModified(std::wstring_view path);
+    void UpdateModified(platform_stringview path);
 };
