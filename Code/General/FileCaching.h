@@ -31,10 +31,17 @@ typedef  wchar_t platform_char;
 	#define UTIME(A,B)  utime(A,B)
 typedef std::string_view platform_stringview;
 typedef std::string platform_string;
-typedef  char platform_char;
+typedef char platform_char;
 
 #endif 
 
+#ifdef UNICODE
+    typedef std::wstring TString;
+    #define LITSTRING(x) L##x  // Macro to add L prefix
+#else
+    typedef std::string TString;
+    #define LITSTRING(x) x     // No prefix
+#endif
 
 
 

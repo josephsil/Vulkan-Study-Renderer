@@ -22,9 +22,9 @@
 #include <Renderer/rendererGlobals.h>
 
 #ifndef _WIN32 // apple
+#define _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS
 #include <codecvt>
 #endif
-
 
 struct shaderPaths
 {
@@ -75,10 +75,13 @@ const struct Platform
 #else
     
     static std::string convert_platform_str(std::wstring path) {
-        std::wstring_convert<std::codecvt_utf8<platform_char>,platform_char> convert;
 
-        std::string s = convert.to_bytes(path.c_str());
-        return s;
+        // setup converter
+        using convert_type = std::codecvt_utf8<wchar_t>;
+        std::wstring_convert<convert_type, wchar_t> converter;
+
+        // use converter
+        return converter.to_bytes(path);
     }
     
     static void OPENFN(FILE** f, platform_char* path)
@@ -301,11 +304,11 @@ bool ShaderNeedsReciompiled(shaderPaths shaderPath)
     return false;
 }
 
-bool SaveBlobToDisk(std::wstring shaderPath, SIZE_T size, uint32_t* buffer)
+bool SaveBlobToDisk(platform_string shaderPath, SIZE_T size, uint32_t* buffer)
 {
     
 
-    auto compiledShaderPath = Platform::convert_platform_str(shaderPath)  + Platform::suffix;
+    auto compiledShaderPath = (shaderPath)  + Platform::suffix;
 
 
     std::ofstream myFile(compiledShaderPath,
@@ -330,9 +333,9 @@ struct loadedBlob
     }
 };
 
-loadedBlob LoadBlobFromDisk(std::wstring shaderPath)
+loadedBlob LoadBlobFromDisk(platform_string shaderPath)
 {
-    auto compiledShaderPath = Platform::convert_platform_str(shaderPath) + Platform::suffix;
+    auto compiledShaderPath = (shaderPath) + Platform::suffix;
 
     struct stat result;
     if (STAT(compiledShaderPath.c_str(), &result) != 0)
@@ -414,6 +417,10 @@ void ShaderLoader::AddShader(const char* name, platform_string shaderPath, bool 
     }
 }
 
+std::wstring WidenString(std::string s)
+{
+    return std::wstring(CA2W(std::string(s).c_str()));
+}
 
 void ShaderLoader::shaderCompile(platform_string shaderFilename, shaderType stagetype)
 {
@@ -446,63 +453,75 @@ void ShaderLoader::shaderCompile(platform_string shaderFilename, shaderType stag
     // Load the HLSL text shader from disk
     uint32_t codePage = DXC_CP_ACP;
     CComPtr<IDxcBlobEncoding> sourceBlob;
-    hres = utils->LoadFile(filename.c_str(), &codePage, &sourceBlob);
+    hres = utils->LoadFile(WidenString(filename).c_str(), &codePage, &sourceBlob);
     if (FAILED(hres))
     {
         throw std::runtime_error("Could not load shader file");
     }
-    std::wstring extension;
+    platform_string extension;
     // Select target profile based on shader file extension
-    LPCWSTR targetProfile{};
-    LPCWSTR entryPoint{};
-    LPCWSTR suffix{};
+    const platform_char* targetProfile{};
+    const platform_char* entryPoint{};
+    const platform_char* suffix{};
     size_t idx = filename.rfind('.');
     if (idx != std::string::npos)
     {
         extension = filename.substr(idx + 1);
         if (stagetype == frag)
         {
-            targetProfile = L"ps_6_5";
-            entryPoint = L"Frag";
-            suffix = L".frag";
+            targetProfile = LITSTRING("ps_6_5");
+            entryPoint = LITSTRING("Frag");
+            suffix = LITSTRING(".frag");
         }
         if (stagetype == vert)
         {
-            targetProfile = L"vs_6_5";
-            entryPoint = L"Vert";
-            suffix = L".vert";
+            targetProfile = LITSTRING("vs_6_5");
+            entryPoint = LITSTRING("Vert");
+            suffix = LITSTRING(".vert");
         }
         if (stagetype == comp)
         {
-            targetProfile = L"cs_6_5";
-            entryPoint = L"Main";
-            suffix = L".comp";
+            targetProfile = LITSTRING("cs_6_5");
+            entryPoint = LITSTRING("Main");
+            suffix = LITSTRING(".comp");
         }
         // Mapping for other file types go here (cs_x_y, lib_x_y, etc.)
     }
+
 
     // Configure the compiler arguments for compiling the HLSL shader to SPIR-V
     std::vector arguments = {
         // (Optional) name of the shader file to be displayed e.g. in an error mes`ge
         filename.c_str(),
         // Shader main entry point
-        L"-E", entryPoint,
+        LITSTRING("-E"), entryPoint,
         // Shader target profile
-        L"-T", targetProfile,
-        L"-I", L"./Shaders/Includes",
+        LITSTRING("-T"), targetProfile,
+        LITSTRING("-I"), LITSTRING("./Shaders/Includes"),
         // Compile to SPIRV
-        L"-spirv",
+        LITSTRING("-spirv"),
 #if _DEBUG
-        L"-D",
-        L"_DEBUG", //todo js: make sure to recompile shaders when this changes 
-#endif 
-        L"-fvk-support-nonzero-base-instance",
-        L"-Zi",
-        L"-fspv-debug=vulkan-with-source"
+         LITSTRING("-D"),
+         LITSTRING("_DEBUG"), //todo js: make sure to recompile shaders when this changes
+#endif
+     LITSTRING("-fvk-support-nonzero-base-instance"),
+     LITSTRING("-Zi"),
+     LITSTRING("-fspv-debug=vulkan-with-source"),
     };
 
-    // Compile shader
 
+#ifndef _WIN32
+    std::vector<std::wstring> convertedArgs = {};
+    std::vector<const wchar_t*> convertedArgsData = {};
+for(int i = 0; i < arguments.size(); i++)
+{
+    convertedArgs.push_back(WidenString(arguments[i]));
+    const wchar_t* cstr = convertedArgsData[i];
+    convertedArgsData.push_back(cstr);
+}
+
+#endif //!_WIN32
+    // Compile shader
     DxcBuffer buffer;
     buffer.Encoding = DXC_CP_ACP;
     buffer.Ptr = sourceBlob->GetBufferPointer();
@@ -512,7 +531,11 @@ void ShaderLoader::shaderCompile(platform_string shaderFilename, shaderType stag
     CComPtr<IDxcResult> result{nullptr};
     hres = compiler->Compile(
         &buffer,
+#ifndef _WIN32
+        convertedArgsData.data(),
+#else  //!_WIN32
         arguments.data(),
+#endif //_WIN32
         static_cast<uint32_t>(arguments.size()),
         includeHandler,
         IID_PPV_ARGS(&result));
@@ -544,20 +567,36 @@ void ShaderLoader::shaderCompile(platform_string shaderFilename, shaderType stag
                    static_cast<uint32_t*>(code->GetBufferPointer()));
 }
 
-VkShaderModule ShaderLoader::shaderLoad(std::wstring shaderFilename, shaderType stagetype)
+VkShaderModule ShaderLoader::shaderLoad(platform_string shaderFilename, shaderType stagetype)
 {
+#if _WIN32
     LPCWSTR suffix{};
+#else
+    const char* suffix;
+#endif
     if (stagetype == frag)
     {
+#if _WIN32
         suffix = L".frag";
+#else
+        suffix = ".frag";
+#endif
     }
     if (stagetype == vert)
     {
+#if _WIN32
         suffix = L".vert";
+#else
+        suffix = ".vert";
+#endif
     }
     if (stagetype == comp)
     {
+#if _WIN32
         suffix = L".comp";
+#else
+        suffix = ".comp";
+#endif
     }
 
     loadedBlob blob = LoadBlobFromDisk(shaderFilename + (suffix));

@@ -31,3 +31,4 @@ private:
     VkShaderModule shaderLoad(platform_string shaderFilename, shaderType stagetype);
     VkDevice device_;
 };
+

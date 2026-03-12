@@ -153,15 +153,15 @@ GlobalRendererResources static_initializeResources(rendererObjects initializedre
 
     //Load shaders
     auto shaderLoader = std::make_unique<ShaderLoader>(initializedrenderer.vkbdevice.device);
-    shaderLoader->AddShader("triangle", L"./Shaders/Shader1_copy.hlsl");
-    shaderLoader->AddShader("triangle_alt", L"./Shaders/shader1.hlsl");
-    shaderLoader->AddShader("shadow", L"./Shaders/bindlessShadow.hlsl");
-    shaderLoader->AddShader("lines", L"./Shaders/lines.hlsl");
-    shaderLoader->AddShader("cull", L"./Shaders/cull_compute.hlsl", true);
-    shaderLoader->AddShader("pre_cull_copy", L"./Shaders/drawindirect_copy_compute.hlsl", true);
-	shaderLoader->AddShader("draw_compact", L"./Shaders/drawindirect_compact_compute.hlsl", true);
-    shaderLoader->AddShader("mipChain", L"./Shaders/mipchain_compute.hlsl", true);
-    shaderLoader->AddShader("debug", L"./Shaders/Shader_Debug_Raymarch.hlsl", false);
+    shaderLoader->AddShader("triangle", LITSTRING("./Shaders/Shader1_copy.hlsl"));
+    shaderLoader->AddShader("triangle_alt", LITSTRING("./Shaders/shader1.hlsl"));
+    shaderLoader->AddShader("shadow", LITSTRING("./Shaders/bindlessShadow.hlsl"));
+    shaderLoader->AddShader("lines", LITSTRING("./Shaders/lines.hlsl"));
+    shaderLoader->AddShader("cull", LITSTRING("./Shaders/cull_compute.hlsl"), true);
+    shaderLoader->AddShader("pre_cull_copy", LITSTRING("./Shaders/drawindirect_copy_compute.hlsl"), true);
+	shaderLoader->AddShader("draw_compact", LITSTRING("./Shaders/drawindirect_compact_compute.hlsl"), true);
+    shaderLoader->AddShader("mipChain", LITSTRING("./Shaders/mipchain_compute.hlsl"), true);
+    shaderLoader->AddShader("debug", LITSTRING("./Shaders/Shader_Debug_Raymarch.hlsl"), false);
 
     std::vector<DepthBufferInfo> depthBufferPerFrame;
     std::vector<DepthPyramidInfo> depthPyramidPerFrame;

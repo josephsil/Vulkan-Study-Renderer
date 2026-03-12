@@ -1955,7 +1955,7 @@ VulkanRenderer::objectPassData VulkanRenderer::GetObjectDrawData(ArenaAllocator 
 				.type = RENDER_BATCH,
 				.data =CreateRenderBatch( &objectDrawPassContext, ShadowPassConfigs[i],  
 								  shadowPassesData[i], true, shadowLayoutIDX, 
-								  opaqueObjectShaderSets.shadowShaders.getSpan(), "shadow")
+								  opaqueObjectShaderSets.shadowShaders.getSpan(), LITSTRING("shadow"))
 			});
 	}
 
