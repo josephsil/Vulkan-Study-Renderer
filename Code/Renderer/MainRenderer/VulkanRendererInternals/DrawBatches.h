@@ -6,6 +6,9 @@
 #include "Renderer/MainRenderer/PipelineManager/PipelineLayoutManager.h"
 #include "Renderer/VulkanIncludes/forward-declarations-renderer.h"
 
+//TODO JS: TEMP FOR PLATFORM PORT, NEED TO EXTRACT PALTFORMSTRING
+#include <General/FileCaching.h>
+
 struct ActiveRenderStepData;
 struct PipelineLayoutManager;
 class AssetManager;
@@ -56,7 +59,7 @@ struct CommonObjectPassData
 };
 struct RenderBatchCreationConfig
 {
-    char* name;
+    platform_char* name;
     renderPassAttatchmentInfo attatchmentInfo;
     std::span<FullShaderHandle> shadersSupportedByBatch;
     PipelineLayoutHandle layoutGroup;
@@ -77,7 +80,7 @@ struct RenderBatchQueue
 
 struct RenderBatch
 {
-    const char* debugName;
+    const platform_char* debugName;
     PipelineLayoutHandle pipelineLayoutGroup; 
     std::span<simpleMeshPassInfo> perPipelinePasses;
     VkRenderingAttachmentInfoKHR* depthAttatchment;
@@ -116,4 +119,4 @@ struct RenderBatch2
 RenderBatch CreateRenderBatch( CommonObjectPassData* context,
    RenderPassConfig config, RenderPassDrawData passInfo, bool shadow,
                                     PipelineLayoutHandle pipelineGroup,
-                                   std::span<FullShaderHandle> shaderIDs, const char* name);
+                                   std::span<FullShaderHandle> shaderIDs, const platform_char* name);

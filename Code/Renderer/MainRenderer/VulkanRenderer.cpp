@@ -1950,12 +1950,13 @@ VulkanRenderer::objectPassData VulkanRenderer::GetObjectDrawData(ArenaAllocator 
 	auto ShadowPassConfigs = CreateShadowPassConfigs(allocator, shadowPassesData, shadowResources.shadowMapSingleLayerViews[currentFrame]);
 	for (int i =0; i < ShadowPassConfigs.size(); i++)
 	{
+
 		renderBatches.push_back(
 			{
 				.type = RENDER_BATCH,
-				.data =CreateRenderBatch( &objectDrawPassContext, ShadowPassConfigs[i],  
+				.data = {.batch = CreateRenderBatch( &objectDrawPassContext, ShadowPassConfigs[i],  
 								  shadowPassesData[i], true, shadowLayoutIDX, 
-								  opaqueObjectShaderSets.shadowShaders.getSpan(), LITSTRING("shadow"))
+								  opaqueObjectShaderSets.shadowShaders.getSpan(), LITSTRING("shadow"))}
 			});
 	}
 
@@ -1973,10 +1974,10 @@ VulkanRenderer::objectPassData VulkanRenderer::GetObjectDrawData(ArenaAllocator 
 	renderBatches.push_back(
 		{
 			.type = RENDER_BATCH,
-			.data = CreateRenderBatch(  &objectDrawPassContext, opaqueconfig, 
+			.data = {.batch = CreateRenderBatch(  &objectDrawPassContext, opaqueconfig, 
 											  opaquePassData,false,  
 											  opaqueLayoutIDX, 
-											  opaqueObjectShaderSets.opaqueShaders.getSpan(), "opaque")
+											  opaqueObjectShaderSets.opaqueShaders.getSpan(), "opaque")}
 });
     auto opaqueBatches  = renderBatches.getSpan().subspan(renderBatches.size() -1, 1);
 

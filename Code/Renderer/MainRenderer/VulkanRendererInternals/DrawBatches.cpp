@@ -20,7 +20,7 @@ struct pipelineBucket
 RenderBatch CreateRenderBatch(CommonObjectPassData* context,
     RenderPassConfig config, RenderPassDrawData passInfo, bool shadow,
                                      PipelineLayoutHandle pipelineGroup,
-                                    std::span<FullShaderHandle> shaderIDs, const char* name)
+                                    std::span<FullShaderHandle> shaderIDs, const platform_char* name)
 {
     ////Flatten buckets into simpleMeshPassInfos sorted by pipeline
     ///    //passes are bucketed by pipeline 

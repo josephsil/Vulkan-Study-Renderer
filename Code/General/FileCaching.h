@@ -5,46 +5,6 @@
 
 
 
-#ifdef _WIN32
-    #include <sys/utime.h>
-	#include <atlbase.h>
-	#define stat _stat
-	using utimebuf = _utimbuf;
-	#define STAT(A,B)  _wstat(A,B)
-	#define UTIME(A,B)  _wutime(A,B)
-typedef  std::wstring_view platform_stringview;
-typedef std::wstring platform_string;
-typedef  wchar_t platform_char;
-#else 
-
-#define __APPLE__
-
-#endif
-
-#ifdef __APPLE__ 
-	#include <utime.h>
-	#include <sys/stat.h> 
-	#include <errno.h>    
-	//#define stat stat
-	//#define utimebuf utimebuf;
-	#define STAT(A,B)  stat(A,B)
-	#define UTIME(A,B)  utime(A,B)
-typedef std::string_view platform_stringview;
-typedef std::string platform_string;
-typedef char platform_char;
-
-#endif 
-
-#ifdef UNICODE
-    typedef std::wstring TString;
-    #define LITSTRING(x) L##x  // Macro to add L prefix
-#else
-    typedef std::string TString;
-    #define LITSTRING(x) x     // No prefix
-#endif
-
-
-
 //Used by asset importers, checks for cached versions of files and
 //Handles tracking when cached files are out of date
 //Older code, needs cleanup
