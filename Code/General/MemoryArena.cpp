@@ -1,8 +1,9 @@
 #include "MemoryArena.h"
 #ifdef _WIN32
 #include <windows.h>
-#endif 
-
+#else
+#include <sys/mman.h>
+#endif
 MemoryArena::Allocator::~Allocator()
 {
 	assert(base != nullptr);
@@ -15,7 +16,10 @@ void MemoryArena::Initialize(Allocator* arena, uint32_t size)
 {
 #ifdef _WIN32
     arena->base = VirtualAlloc(nullptr, size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-#endif 
+#else //apple
+    arena->base = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    assert(arena->base != MAP_FAILED);
+#endif
     arena->head = 0;
     arena->size = size;
 }
