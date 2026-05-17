@@ -416,7 +416,20 @@ uint32_t getFormatSize(VkFormat f)
 void readImageData(VkDevice device, VkImage image, void* data, VkExtent3D extent,
                    uint32_t level)
 {
-    vkCopyImageToMemory(device, data, image, extent, level, 0, 1);
+    VkImageToMemoryCopy copy = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_TO_MEMORY_COPY,
+        .pHostPointer = data,
+        .imageOffset = {},
+        .imageExtent = extent
+};
+    VkCopyImageToMemoryInfo copyImageToMemoryInfo = {
+.sType = VK_STRUCTURE_TYPE_COPY_IMAGE_TO_MEMORY_INFO,
+.srcImage = image,
+.regionCount = 1,
+.pRegions = &copy
+};
+   
+    vkCopyImageToMemory(device,&copyImageToMemoryInfo);
 }
 
 

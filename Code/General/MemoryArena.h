@@ -18,10 +18,11 @@ typedef  std::wstring_view platform_stringview;
 typedef std::wstring platform_string;
 typedef  wchar_t platform_char;
 #else 
-
-#define __APPLE__
-
+#ifndef __APPLE__
+#define __APPLE__ 1
+#endif 
 #endif
+
 
 #ifdef __APPLE__ 
 #include <utime.h>

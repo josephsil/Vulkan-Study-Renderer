@@ -4,6 +4,7 @@
 #define GLM_FORCE_LEFT_HANDED
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define GLM_GTC_quaternion
+#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/quaternion.hpp>
 
 glm::quat OrientationFromYawPitch(glm::vec2 yawPitch);

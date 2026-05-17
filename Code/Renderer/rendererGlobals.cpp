@@ -53,12 +53,12 @@ void registerTransitionImagefn(PFN_vkTransitionImageLayoutEXT ptr)
 }
 
 
-void vkTransitionImageLayout(VkDevice device, uint32_t transitionCount,
-    const VkHostImageLayoutTransitionInfoEXT* pTransitions)
-{
-    assert(FP_vkTransitionImageLayoutEXT != VK_NULL_HANDLE);
-    VK_CHECK(FP_vkTransitionImageLayoutEXT(device, transitionCount, pTransitions));
-}
+//void vkTransitionImageLayout(VkDevice device, uint32_t transitionCount,
+//    const VkHostImageLayoutTransitionInfoEXT* pTransitions)
+//{
+//    assert(FP_vkTransitionImageLayoutEXT != VK_NULL_HANDLE);
+//    VK_CHECK(FP_vkTransitionImageLayoutEXT(device, transitionCount, pTransitions));
+//}
 
 
 

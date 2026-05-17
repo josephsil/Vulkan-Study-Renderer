@@ -34,12 +34,12 @@ void registerCopyImageToMemoryFn(PFN_vkCopyImageToMemoryEXT ptr);
 void SetDebugObjectName(VkDevice device, VkObjectType type, char* name, uint64_t handle);
 void SetDebugObjectNameS(VkDevice device, VkObjectType type, std::string name, uint64_t handle);
 const char* GetDebugObjectName(uint64_t handle);
-void vkTransitionImageLayout(
-    VkDevice                                    device,
-    uint32_t                                    transitionCount,
-    const VkHostImageLayoutTransitionInfoEXT*   pTransitions);
-    void vkCopyImageToMemory(VkDevice device, void*targetHostPointer, VkImage sourceImage,
-    VkExtent3D extent, uint32_t mipLevel, uint32_t baseArrayLayer, uint32_t mipCt = 1, uint32_t layerCt = VK_REMAINING_ARRAY_LAYERS);
+//void vkTransitionImageLayout(
+//    VkDevice                                    device,
+//    uint32_t                                    transitionCount,
+//    const VkHostImageLayoutTransitionInfoEXT*   pTransitions);
+//    void vkCopyImageToMemory(VkDevice device, void*targetHostPointer, VkImage sourceImage,
+//    VkExtent3D extent, uint32_t mipLevel, uint32_t baseArrayLayer, uint32_t mipCt = 1, uint32_t layerCt = VK_REMAINING_ARRAY_LAYERS);
 
 void registerSuperluminal();
 
