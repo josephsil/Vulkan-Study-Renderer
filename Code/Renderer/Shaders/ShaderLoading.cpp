@@ -417,7 +417,7 @@ void ShaderLoader::AddShader(const char* name, platform_string shaderPath, bool 
     }
 }
 
-std::wstring WidenString(std::string s)
+std::wstring _WidenString(std::string s)
 {
     return std::wstring(CA2W(std::string(s).c_str()));
 }
@@ -453,7 +453,7 @@ void ShaderLoader::shaderCompile(platform_string shaderFilename, shaderType stag
     // Load the HLSL text shader from disk
     uint32_t codePage = DXC_CP_ACP;
     CComPtr<IDxcBlobEncoding> sourceBlob;
-    hres = utils->LoadFile(WidenString(filename).c_str(), &codePage, &sourceBlob);
+    hres = utils->LoadFile(_WidenString(filename).c_str(), &codePage, &sourceBlob);
     if (FAILED(hres))
     {
         throw std::runtime_error("Could not load shader file");
@@ -515,7 +515,7 @@ void ShaderLoader::shaderCompile(platform_string shaderFilename, shaderType stag
     std::vector<const wchar_t*> convertedArgsData = {};
 for(int i = 0; i < arguments.size(); i++)
 {
-    convertedArgs.push_back(WidenString(arguments[i]));
+    convertedArgs.push_back(_WidenString(arguments[i]));
     const wchar_t* cstr = convertedArgsData[i];
     convertedArgsData.push_back(cstr);
 }

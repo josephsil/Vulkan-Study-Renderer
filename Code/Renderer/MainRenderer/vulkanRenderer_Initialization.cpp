@@ -210,12 +210,12 @@ rendererObjects initializeVulkanObjects(SDL_Window* _window, int WIDTH, int HEIG
     registerDebugUtilsFn(
         (PFN_vkSetDebugUtilsObjectNameEXT)vkGetDeviceProcAddr(vkb_device.device, "vkSetDebugUtilsObjectNameEXT"));
     
-    registerTransitionImagefn(
-    (PFN_vkTransitionImageLayoutEXT)vkGetDeviceProcAddr(vkb_device.device, "vkTransitionImageLayoutEXT"));
-
-    registerCopyImageToMemoryFn(
-    (PFN_vkCopyImageToMemoryEXT)    vkGetDeviceProcAddr(
-        vkb_device.device, "vkCopyImageToMemoryEXT"));
+    //Both fns promoted; todo js
+    //registerTransitionImagefn(
+    //(PFN_vkTransitionImageLayoutEXT)vkGetDeviceProcAddr(vkb_device.device, "vkTransitionImageLayoutEXT"));
+    //registerCopyImageToMemoryFn(
+    //(PFN_vkCopyImageToMemoryEXT)    vkGetDeviceProcAddr(
+     //   vkb_device.device, "vkCopyImageToMemoryEXT"));
 
     //Swapchain
     vkb::SwapchainBuilder swapchain_builder{vkb_device};
